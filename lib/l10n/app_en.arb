@@ -1,0 +1,266 @@
+{
+    "appTitle": "Twogether",
+    "@appTitle": {
+        "description": "The application title"
+    },
+    "loginWelcomeMessage": "Manage your sales with care.",
+    "@loginWelcomeMessage": {
+        "description": "Welcome message in login screen"
+    },
+    "loginUsername": "Username",
+    "@loginUsername": {
+        "description": "Username field label"
+    },
+    "loginPassword": "Password",
+    "@loginPassword": {
+        "description": "Password field label"
+    },
+    "loginButton": "Login",
+    "@loginButton": {
+        "description": "Login button text"
+    },
+    "loginRememberMe": "Remember me",
+    "@loginRememberMe": {
+        "description": "Remember me option text"
+    },
+    "loginUsernameHint": "Enter your username",
+    "@loginUsernameHint": {
+        "description": "Username field hint"
+    },
+    "loginPasswordHint": "Enter your password",
+    "@loginPasswordHint": {
+        "description": "Password field hint"
+    },
+    "loginUsernameError": "Username is required",
+    "@loginUsernameError": {
+        "description": "Username field error message"
+    },
+    "loginPasswordError": "Password is required",
+    "@loginPasswordError": {
+        "description": "Password field error message"
+    },
+    "@navigation": {},
+    "homeNavHome": "Home",
+    "@homeNavHome": {
+        "description": "Home navigation item"
+    },
+    "homeNavServices": "Services",
+    "@homeNavServices": {
+        "description": "Services navigation item"
+    },
+    "homeNavNotifications": "Notifications",
+    "@homeNavNotifications": {
+        "description": "Notifications navigation item"
+    },
+    "homeNavProfile": "Profile",
+    "@homeNavProfile": {
+        "description": "Profile navigation item"
+    },
+    "homeNavClients": "Clients",
+    "@homeNavClients": {
+        "description": "Clients navigation item"
+    },
+    "homeCommissionEarnings": "Commission Earnings",
+    "@homeCommissionEarnings": {
+        "description": "Commission earnings title"
+    },
+    "homeViewDetails": "View Details",
+    "@homeViewDetails": {
+        "description": "View details button text"
+    },
+    "homeServices": "Services",
+    "@homeServices": {
+        "description": "Services button text"
+    },
+    "@notifications": {},
+    "homeNotifications": "Notifications",
+    "@homeNotifications": {
+        "description": "Notifications panel title"
+    },
+    "homeSettingsLightMode": "Light Mode",
+    "@homeSettingsLightMode": {
+        "description": "Light mode option in settings"
+    },
+    "homeSettingsLanguage": "Language",
+    "@homeSettingsLanguage": {
+        "description": "Language option in settings"
+    },
+    "homeNotificationMeeting": "Client meeting scheduled",
+    "@homeNotificationMeeting": {
+        "description": "Meeting notification title"
+    },
+    "homeNotificationMeetingDesc": "Meeting with John Doe at 2:00 PM",
+    "@homeNotificationMeetingDesc": {
+        "description": "Meeting notification description"
+    },
+    "homeNotificationRequest": "New service request",
+    "@homeNotificationRequest": {
+        "description": "Service request notification title"
+    },
+    "homeNotificationRequestDesc": "Website development inquiry from ABC Corp",
+    "@homeNotificationRequestDesc": {
+        "description": "Service request notification description"
+    },
+    "homeNotificationPayment": "Commission payment received",
+    "@homeNotificationPayment": {
+        "description": "Commission payment notification title"
+    },
+    "homeNotificationPaymentDesc": "€ 5,000.00 credited to your account",
+    "@homeNotificationPaymentDesc": {
+        "description": "Commission payment notification description"
+    },
+    "@services": {},
+    "servicesPageTitle": "Select Service",
+    "@servicesPageTitle": {
+        "description": "Services page title"
+    },
+    "servicesTypeQuestion": "What type of service are you looking for?",
+    "@servicesTypeQuestion": {
+        "description": "Service type selection question"
+    },
+    "servicesEnergy": "Energy",
+    "@servicesEnergy": {
+        "description": "Energy service option"
+    },
+    "servicesInsurance": "Insurance",
+    "@servicesInsurance": {
+        "description": "Insurance service option"
+    },
+    "servicesTelco": "Telecommunications",
+    "@servicesTelco": {
+        "description": "Telecommunications service option"
+    },
+    "servicesComingSoon": "Coming Soon",
+    "@servicesComingSoon": {
+        "description": "Coming soon label"
+    },
+    "servicesComingSoonDesc": "This service will be available soon.\nStay tuned for updates!",
+    "@servicesComingSoonDesc": {
+        "description": "Coming soon description"
+    },
+    "servicesEnergyTypeQuestion": "What type of energy service?",
+    "@servicesEnergyTypeQuestion": {
+        "description": "Energy type selection question"
+    },
+    "servicesElectricityGas": "Electricity / Gas",
+    "@servicesElectricityGas": {
+        "description": "Electricity and gas option"
+    },
+    "servicesSolar": "Solar",
+    "@servicesSolar": {
+        "description": "Solar energy option"
+    },
+    "servicesSelectProvider": "Select your provider",
+    "@servicesSelectProvider": {
+        "description": "Provider selection title"
+    },
+    "servicesProviderSubtitle": "Choose based on your customer type",
+    "@servicesProviderSubtitle": {
+        "description": "Provider selection subtitle"
+    },
+    "servicesCommercialCustomers": "Commercial Customers",
+    "@servicesCommercialCustomers": {
+        "description": "Commercial customers label"
+    },
+    "servicesResidentialCustomers": "Residential Customers",
+    "@servicesResidentialCustomers": {
+        "description": "Residential customers label"
+    },
+    "servicesCommercialDesc": "For business and commercial clients",
+    "@servicesCommercialDesc": {
+        "description": "Commercial customers description"
+    },
+    "servicesResidentialDesc": "For individual and family homes",
+    "@servicesResidentialDesc": {
+        "description": "Residential customers description"
+    },
+    "@customerForm": {},
+    "customerFormTitle": "Customer Information",
+    "@customerFormTitle": {
+        "description": "Title for the customer form"
+    },
+    "customerFormName": "Customer Name",
+    "@customerFormName": {
+        "description": "Label for customer name field"
+    },
+    "customerFormBusinessName": "Business Name",
+    "@customerFormBusinessName": {
+        "description": "Label for business name field"
+    },
+    "customerFormNIF": "NIF",
+    "@customerFormNIF": {
+        "description": "Label for NIF field"
+    },
+    "customerFormBusinessResponsible": "Business Responsible",
+    "@customerFormBusinessResponsible": {
+        "description": "Label for business responsible field"
+    },
+    "customerFormEmail": "Email",
+    "@customerFormEmail": {
+        "description": "Label for email field"
+    },
+    "customerFormPhone": "Phone Number",
+    "@customerFormPhone": {
+        "description": "Label for phone number field"
+    },
+    "customerFormInvoice": "Invoice",
+    "@customerFormInvoice": {
+        "description": "Label for invoice file field"
+    },
+    "customerFormUploadInvoice": "Upload Invoice",
+    "@customerFormUploadInvoice": {
+        "description": "Button text for uploading invoice"
+    },
+    "customerFormSubmit": "Submit Request",
+    "@customerFormSubmit": {
+        "description": "Submit button text"
+    },
+    "customerFormRequired": "This field is required",
+    "@customerFormRequired": {
+        "description": "Error message for required fields"
+    },
+    "customerFormInvalidEmail": "Please enter a valid email",
+    "@customerFormInvalidEmail": {
+        "description": "Error message for invalid email"
+    },
+    "customerFormInvalidPhone": "Please enter a valid phone number",
+    "@customerFormInvalidPhone": {
+        "description": "Error message for invalid phone number"
+    },
+    "customerFormInvalidNIF": "Please enter a valid NIF",
+    "@customerFormInvalidNIF": {
+        "description": "Error message for invalid NIF"
+    },
+    "customerFormNoInvoice": "Please upload an invoice",
+    "@customerFormNoInvoice": {
+        "description": "Error message for missing invoice"
+    },
+    "customerFormResponsibleName": "Company Representative Name",
+    "@customerFormResponsibleName": {
+        "description": "Label for the company representative name field"
+    },
+    "customerFormSelectInvoice": "Select Invoice",
+    "@customerFormSelectInvoice": {
+        "description": "Label for the select invoice button"
+    },
+    "customerFormChangeInvoice": "Change Invoice",
+    "@customerFormChangeInvoice": {
+        "description": "Label for the change invoice button"
+    },
+    "customerFormInvoiceRequired": "Please upload an invoice",
+    "@customerFormInvoiceRequired": {
+        "description": "Error message when no invoice is uploaded"
+    },
+    "clientsPageTitle": "Clients",
+    "clientsPageAllServices": "All Services",
+    "servicesSolarEnergy": "Solar Energy",
+    "servicesElectricMobility": "Electric Mobility",
+    "loginEmail": "Email",
+    "@loginEmail": {
+        "description": "Label for email field in login form"
+    },
+    "loginForgotPassword": "Forgot Password?",
+    "@loginForgotPassword": {
+        "description": "Text for forgot password button"
+    }
+} 

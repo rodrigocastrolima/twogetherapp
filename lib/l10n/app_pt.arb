@@ -1,0 +1,200 @@
+{
+    "appTitle": "Twogether",
+    "@appTitle": {
+        "description": "O título da aplicação"
+    },
+    "loginWelcomeMessage": "Gerencie suas vendas com cuidado.",
+    "@loginWelcomeMessage": {
+        "description": "Mensagem de boas-vindas na tela de login"
+    },
+    "loginUsername": "Usuário",
+    "@loginUsername": {
+        "description": "Rótulo do campo de usuário"
+    },
+    "loginPassword": "Senha",
+    "@loginPassword": {
+        "description": "Rótulo do campo de senha"
+    },
+    "loginButton": "Entrar",
+    "@loginButton": {
+        "description": "Texto do botão de login"
+    },
+    "loginRememberMe": "Lembrar-me",
+    "@loginRememberMe": {
+        "description": "Texto da opção lembrar-me"
+    },
+    "loginUsernameHint": "Digite seu nome de usuário",
+    "@loginUsernameHint": {
+        "description": "Dica do campo de usuário"
+    },
+    "loginPasswordHint": "Digite sua senha",
+    "@loginPasswordHint": {
+        "description": "Dica do campo de senha"
+    },
+    "loginUsernameError": "Nome de usuário é obrigatório",
+    "@loginUsernameError": {
+        "description": "Mensagem de erro do campo de usuário"
+    },
+    "loginPasswordError": "Senha é obrigatória",
+    "@loginPasswordError": {
+        "description": "Mensagem de erro do campo de senha"
+    },
+    "homeNavHome": "Início",
+    "@homeNavHome": {
+        "description": "Item de navegação Início"
+    },
+    "homeNavServices": "Serviços",
+    "@homeNavServices": {
+        "description": "Item de navegação Serviços"
+    },
+    "homeNavNotifications": "Notificações",
+    "@homeNavNotifications": {
+        "description": "Item de navegação Notificações"
+    },
+    "homeNavProfile": "Perfil",
+    "@homeNavProfile": {
+        "description": "Item de navegação Perfil"
+    },
+    "homeNavClients": "Clientes",
+    "@homeNavClients": {
+        "description": "Item de navegação Clientes"
+    },
+    "homeCommissionEarnings": "Ganhos em Comissões",
+    "@homeCommissionEarnings": {
+        "description": "Título dos ganhos em comissões"
+    },
+    "homeViewDetails": "Ver Detalhes",
+    "@homeViewDetails": {
+        "description": "Texto do botão ver detalhes"
+    },
+    "homeServices": "Serviços",
+    "@homeServices": {
+        "description": "Texto do botão serviços"
+    },
+    "homeNotifications": "Notificações",
+    "@homeNotifications": {
+        "description": "Título do painel de notificações"
+    },
+    "homeSettingsLightMode": "Modo Claro",
+    "@homeSettingsLightMode": {
+        "description": "Opção de modo claro nas configurações"
+    },
+    "homeSettingsLanguage": "Idioma",
+    "@homeSettingsLanguage": {
+        "description": "Opção de idioma nas configurações"
+    },
+    "@navigation": {},
+    "@notifications": {},
+    "homeNotificationMeeting": "Reunião com cliente agendada",
+    "@homeNotificationMeeting": {
+        "description": "Título da notificação de reunião"
+    },
+    "homeNotificationMeetingDesc": "Reunião com João Silva às 14:00",
+    "@homeNotificationMeetingDesc": {
+        "description": "Descrição da notificação de reunião"
+    },
+    "homeNotificationRequest": "Nova solicitação de serviço",
+    "@homeNotificationRequest": {
+        "description": "Título da notificação de solicitação"
+    },
+    "homeNotificationRequestDesc": "Consulta de desenvolvimento de site da ABC Corp",
+    "@homeNotificationRequestDesc": {
+        "description": "Descrição da notificação de solicitação"
+    },
+    "homeNotificationPayment": "Pagamento de comissão recebido",
+    "@homeNotificationPayment": {
+        "description": "Título da notificação de pagamento"
+    },
+    "homeNotificationPaymentDesc": "€ 5.000,00 creditados em sua conta",
+    "@homeNotificationPaymentDesc": {
+        "description": "Descrição da notificação de pagamento"
+    },
+    "@services": {},
+    "servicesPageTitle": "Selecionar Serviço",
+    "servicesTypeQuestion": "Que tipo de serviço você procura?",
+    "servicesEnergy": "Energia",
+    "servicesInsurance": "Seguro",
+    "servicesTelco": "Telecomunicações",
+    "servicesComingSoon": "Em Breve",
+    "servicesComingSoonDesc": "Este serviço estará disponível em breve.\nFique atento às atualizações!",
+    "servicesEnergyTypeQuestion": "Qual tipo de serviço de energia?",
+    "servicesElectricityGas": "Eletricidade / Gás",
+    "servicesSolar": "Solar",
+    "servicesSelectProvider": "Selecione seu fornecedor",
+    "servicesProviderSubtitle": "Escolha com base no tipo de cliente",
+    "servicesCommercialCustomers": "Clientes Comerciais",
+    "servicesResidentialCustomers": "Clientes Residenciais",
+    "servicesCommercialDesc": "Para empresas e clientes comerciais",
+    "servicesResidentialDesc": "Para residências e famílias",
+    "@customerForm": {},
+    "customerFormTitle": "Informações do Cliente",
+    "@customerFormTitle": {
+        "description": "Título do formulário do cliente"
+    },
+    "customerFormName": "Nome do Cliente",
+    "@customerFormName": {
+        "description": "Rótulo para o campo nome do cliente"
+    },
+    "customerFormBusinessName": "Nome da Empresa",
+    "@customerFormBusinessName": {
+        "description": "Rótulo para o campo nome da empresa"
+    },
+    "customerFormNIF": "NIF",
+    "@customerFormNIF": {
+        "description": "Rótulo para o campo NIF"
+    },
+    "customerFormBusinessResponsible": "Nome do Responsável",
+    "@customerFormBusinessResponsible": {
+        "description": "Rótulo para o campo responsável da empresa"
+    },
+    "customerFormEmail": "Email",
+    "@customerFormEmail": {
+        "description": "Rótulo para o campo email"
+    },
+    "customerFormPhone": "Número de Telefone",
+    "@customerFormPhone": {
+        "description": "Rótulo para o campo número de telefone"
+    },
+    "customerFormInvoice": "Fatura",
+    "@customerFormInvoice": {
+        "description": "Rótulo para o campo de fatura"
+    },
+    "customerFormUploadInvoice": "Carregar Fatura",
+    "@customerFormUploadInvoice": {
+        "description": "Texto do botão para carregar fatura"
+    },
+    "customerFormSubmit": "Enviar Solicitação",
+    "@customerFormSubmit": {
+        "description": "Texto do botão enviar"
+    },
+    "customerFormRequired": "Este campo é obrigatório",
+    "@customerFormRequired": {
+        "description": "Mensagem de erro para campos obrigatórios"
+    },
+    "customerFormInvalidEmail": "Por favor, insira um email válido",
+    "@customerFormInvalidEmail": {
+        "description": "Mensagem de erro para email inválido"
+    },
+    "customerFormInvalidPhone": "Por favor, insira um número de telefone válido",
+    "@customerFormInvalidPhone": {
+        "description": "Mensagem de erro para telefone inválido"
+    },
+    "customerFormInvalidNIF": "Por favor, insira um NIF válido",
+    "@customerFormInvalidNIF": {
+        "description": "Mensagem de erro para NIF inválido"
+    },
+    "customerFormNoInvoice": "Por favor, carregue uma fatura",
+    "@customerFormNoInvoice": {
+        "description": "Mensagem de erro para fatura não carregada"
+    },
+    "customerFormResponsibleName": "Nome do Responsável da Empresa",
+    "customerFormSelectInvoice": "Selecionar Fatura",
+    "customerFormChangeInvoice": "Alterar Fatura",
+    "customerFormInvoiceRequired": "Por favor, carregue uma fatura",
+    "clientsPageTitle": "Clientes",
+    "clientsPageAllServices": "Todos os Serviços",
+    "servicesSolarEnergy": "Energia Solar",
+    "servicesElectricMobility": "Mobilidade Elétrica",
+    "loginEmail": "Email",
+    "loginForgotPassword": "Esqueceu a senha?"
+} 
