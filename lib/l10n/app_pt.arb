@@ -196,5 +196,84 @@
     "servicesSolarEnergy": "Energia Solar",
     "servicesElectricMobility": "Mobilidade Elétrica",
     "loginEmail": "Email",
-    "loginForgotPassword": "Esqueceu a senha?"
+    "loginForgotPassword": "Esqueceu a senha?",
+    "@@locale": "pt",
+    "profileTotalClients": "Total de Clientes",
+    "@profileTotalClients": {
+        "description": "Label for total number of clients in profile"
+    },
+    "profileActiveClients": "Clientes Ativos",
+    "@profileActiveClients": {
+        "description": "Label for number of active clients in profile"
+    },
+    "profileSince": "Desde",
+    "@profileSince": {
+        "description": "Label for registration date in profile"
+    },
+    "profileRevenueDashboard": "Painel de Receitas",
+    "@profileRevenueDashboard": {
+        "description": "Title for the revenue dashboard section"
+    },
+    "profileCycle": "Ciclo",
+    "@profileCycle": {
+        "description": "Label for revenue cycle selector"
+    },
+    "profileCustomerType": "Tipo de Cliente",
+    "@profileCustomerType": {
+        "description": "Label for customer type filter"
+    },
+    "profileFilterByCep": "Filtrar por CEP",
+    "@profileFilterByCep": {
+        "description": "Label for CEP filter input"
+    },
+    "profileTotalRevenue": "Receita Total",
+    "@profileTotalRevenue": {
+        "description": "Label for total revenue display"
+    },
+    "profileLogout": "Sair",
+    "@profileLogout": {
+        "description": "Label for logout button"
+    },
+    "profileAll": "Todos",
+    "@profileAll": {
+        "description": "Label for 'All' option in filters"
+    },
+    "@_ADMIN_SECTION": {},
+    "adminTasks": "Tarefas",
+    "adminDashboard": "Painel",
+    "adminUsers": "Usuários",
+    "adminReports": "Relatórios",
+    "adminSettings": "Configurações",
+    
+    "@_ADMIN_TASKS_PAGE": {},
+    "adminTasksTitle": "Tarefas",
+    "adminTasksEnergyTab": "Energia",
+    "adminTasksInsuranceTab": "Seguros",
+    "adminTasksTelcoTab": "Telco",
+    "adminTasksProposalPending": "Propostas Pendentes",
+    "adminTasksDocumentsPending": "Documentos Pendentes",
+    "adminTasksNoTasks": "Sem tarefas pendentes",
+    "adminTasksViewProposal": "Ver Proposta",
+    "adminTasksViewDocuments": "Ver Documentos",
+    "adminTasksClientInfo": "Info do Cliente",
+    "adminTasksReseller": "Revendedor",
+    "adminTasksStatus": "Status",
+    "adminTasksLastUpdate": "Última Atualização",
+    "adminTasksActions": "Ações",
+    "adminResellers": "Revendedores",
+    "@adminResellers": {
+        "description": "Resellers navigation item in admin panel"
+    },
+    "adminClients": "Clientes",
+    "@adminClients": {
+        "description": "Clients navigation item in admin panel"
+    },
+    "adminProposals": "Propostas",
+    "@adminProposals": {
+        "description": "Proposals navigation item in admin panel"
+    },
+    "adminSubmissions": "Submissões",
+    "@adminSubmissions": {
+        "description": "Submissions navigation item in admin panel"
+    }
 } 

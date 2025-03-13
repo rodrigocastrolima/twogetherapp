@@ -262,5 +262,84 @@
     "loginForgotPassword": "Forgot Password?",
     "@loginForgotPassword": {
         "description": "Text for forgot password button"
+    },
+    "@@locale": "en",
+    "profileTotalClients": "Total Clients",
+    "@profileTotalClients": {
+        "description": "Label for total number of clients in profile"
+    },
+    "profileActiveClients": "Active Clients",
+    "@profileActiveClients": {
+        "description": "Label for number of active clients in profile"
+    },
+    "profileSince": "Since",
+    "@profileSince": {
+        "description": "Label for registration date in profile"
+    },
+    "profileRevenueDashboard": "Revenue Dashboard",
+    "@profileRevenueDashboard": {
+        "description": "Title for the revenue dashboard section"
+    },
+    "profileCycle": "Cycle",
+    "@profileCycle": {
+        "description": "Label for revenue cycle selector"
+    },
+    "profileCustomerType": "Customer Type",
+    "@profileCustomerType": {
+        "description": "Label for customer type filter"
+    },
+    "profileFilterByCep": "Filter by CEP",
+    "@profileFilterByCep": {
+        "description": "Label for CEP filter input"
+    },
+    "profileTotalRevenue": "Total Revenue",
+    "@profileTotalRevenue": {
+        "description": "Label for total revenue display"
+    },
+    "profileLogout": "Logout",
+    "@profileLogout": {
+        "description": "Label for logout button"
+    },
+    "profileAll": "All",
+    "@profileAll": {
+        "description": "Label for 'All' option in filters"
+    },
+    "@_ADMIN_SECTION": {},
+    "adminTasks": "Tasks",
+    "adminDashboard": "Dashboard",
+    "adminUsers": "Users",
+    "adminReports": "Reports",
+    "adminSettings": "Settings",
+    
+    "@_ADMIN_TASKS_PAGE": {},
+    "adminTasksTitle": "Tasks",
+    "adminTasksEnergyTab": "Energy",
+    "adminTasksInsuranceTab": "Insurance",
+    "adminTasksTelcoTab": "Telco",
+    "adminTasksProposalPending": "Proposals Pending",
+    "adminTasksDocumentsPending": "Documents Pending",
+    "adminTasksNoTasks": "No pending tasks",
+    "adminTasksViewProposal": "View Proposal",
+    "adminTasksViewDocuments": "View Documents",
+    "adminTasksClientInfo": "Client Info",
+    "adminTasksReseller": "Reseller",
+    "adminTasksStatus": "Status",
+    "adminTasksLastUpdate": "Last Update",
+    "adminTasksActions": "Actions",
+    "adminResellers": "Resellers",
+    "@adminResellers": {
+        "description": "Resellers navigation item in admin panel"
+    },
+    "adminClients": "Clients",
+    "@adminClients": {
+        "description": "Clients navigation item in admin panel"
+    },
+    "adminProposals": "Proposals",
+    "@adminProposals": {
+        "description": "Proposals navigation item in admin panel"
+    },
+    "adminSubmissions": "Submissions",
+    "@adminSubmissions": {
+        "description": "Submissions navigation item in admin panel"
     }
 } 
