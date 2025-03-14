@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/colors.dart';
+import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
 
@@ -13,15 +13,19 @@ class MessagesPage extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Mensagens',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.foreground,
+              ),
             ),
             Text(
               'Twogether Retail',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: AppTheme.mutedForeground,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -49,8 +53,8 @@ class MessagesPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.grey[200],
-            child: const Icon(Icons.support_agent, color: Colors.black),
+            backgroundColor: AppTheme.secondary,
+            child: Icon(Icons.support_agent, color: AppTheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -59,12 +63,19 @@ class MessagesPage extends StatelessWidget {
               children: [
                 Text(
                   'Bem-vindo! Como podemos ajudar?',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.foreground,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '1d atrás',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.mutedForeground,
+                  ),
                 ),
               ],
             ),
@@ -78,10 +89,10 @@ class MessagesPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.background,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: AppTheme.foreground.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -93,38 +104,44 @@ class MessagesPage extends StatelessWidget {
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Escreva uma mensagem...',
-                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                hintStyle: TextStyle(
+                  color: AppTheme.mutedForeground,
+                  fontSize: 14,
+                ),
+                filled: true,
+                fillColor: AppTheme.background,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: AppTheme.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: AppTheme.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: const BorderSide(color: Colors.black),
+                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
                 ),
               ),
+              style: TextStyle(color: AppTheme.foreground),
             ),
           ),
           const SizedBox(width: 8),
           Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(
-              color: Colors.black,
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_forward,
-                color: Colors.white,
+                color: AppTheme.primaryForeground,
                 size: 20,
               ),
               onPressed: () {

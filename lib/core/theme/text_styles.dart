@@ -27,7 +27,7 @@ class AppTextStyles {
   static final h3 = _baseTextStyle.copyWith(
     fontSize: 20,
     fontWeight: FontWeight.w600,
-    color: AppTheme.charcoal,
+    color: AppTheme.foreground,
   );
 
   // Body styles

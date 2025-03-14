@@ -61,14 +61,12 @@ class _ClientsPageState extends State<ClientsPage> {
       onSelected: (_) => onTap(),
       showCheckmark: false,
       labelStyle: TextStyle(
-        color: selected ? Colors.white : AppTheme.charcoal,
+        color: selected ? AppTheme.primaryForeground : AppTheme.foreground,
         fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
       ),
       backgroundColor: Colors.transparent,
-      selectedColor: AppTheme.charcoal,
-      side: BorderSide(
-        color: selected ? AppTheme.charcoal : AppTheme.silver.withAlpha(128),
-      ),
+      selectedColor: AppTheme.primary,
+      side: BorderSide(color: selected ? AppTheme.primary : AppTheme.border),
       padding: const EdgeInsets.symmetric(horizontal: 8),
     );
   }
@@ -79,7 +77,7 @@ class _ClientsPageState extends State<ClientsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.clientsPageTitle ?? 'Clientes'),
+        title: Text(l10n.clientsPageTitle),
         scrolledUnderElevation: 0,
       ),
       body: Column(
@@ -150,7 +148,7 @@ class _ClientsPageState extends State<ClientsPage> {
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade200),
+                    side: BorderSide(color: AppTheme.border),
                   ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -189,9 +187,7 @@ class _ClientsPageState extends State<ClientsPage> {
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1),
+                              color: AppTheme.secondary,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -199,7 +195,7 @@ class _ClientsPageState extends State<ClientsPage> {
                                   ? Icons.person_outline
                                   : Icons.business_outlined,
                               size: 28,
-                              color: Theme.of(context).colorScheme.primary,
+                              color: AppTheme.primary,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -209,16 +205,17 @@ class _ClientsPageState extends State<ClientsPage> {
                               children: [
                                 Text(
                                   client['name'],
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w500,
                                     fontSize: 16,
+                                    color: AppTheme.foreground,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   client['service'],
                                   style: TextStyle(
-                                    color: Colors.grey[600],
+                                    color: AppTheme.mutedForeground,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -231,8 +228,8 @@ class _ClientsPageState extends State<ClientsPage> {
                                   decoration: BoxDecoration(
                                     color:
                                         client['status'] == 'Em Processo'
-                                            ? Colors.blue.shade50
-                                            : Colors.green.shade50,
+                                            ? AppTheme.primary.withAlpha(26)
+                                            : AppTheme.accent,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -241,15 +238,18 @@ class _ClientsPageState extends State<ClientsPage> {
                                       fontSize: 12,
                                       color:
                                           client['status'] == 'Em Processo'
-                                              ? Colors.blue.shade700
-                                              : Colors.green.shade700,
+                                              ? AppTheme.primary
+                                              : AppTheme.accentForeground,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: Colors.grey[400]),
+                          Icon(
+                            Icons.chevron_right,
+                            color: AppTheme.mutedForeground,
+                          ),
                         ],
                       ),
                     ),

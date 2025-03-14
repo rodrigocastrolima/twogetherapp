@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/theme/text_styles.dart';
-import '../../core/theme/colors.dart';
+import '../../core/theme/theme.dart';
+import '../../shared/widgets/base_layout.dart';
 import '../screens/home/reseller_home_page.dart';
 import '../screens/services/services_page.dart';
 import '../screens/clients/clients_page.dart';
 import '../screens/messages/messages_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -21,157 +23,184 @@ class _MainLayoutState extends State<MainLayout> {
     const ResellerHomePage(),
     const ClientsPage(),
     const MessagesPage(),
-    const Center(child: Text('Perfil')), // Placeholder for Profile page
+    const ProfilePage(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600;
 
     return Scaffold(
-      body: Row(
-        children: [
-          if (!isSmallScreen)
-            NavigationRail(
-              extended: width >= 800,
-              backgroundColor: theme.colorScheme.surface,
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Image.asset(
-                  'assets/images/twogether_logo_light_br.png',
-                  height: 48,
-                ),
-              ),
-              destinations: [
-                NavigationRailDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home),
-                  label: Text('Início'),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.people_outline),
-                  selectedIcon: const Icon(Icons.people),
-                  label: Text('Clientes'),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.message_outlined),
-                  selectedIcon: const Icon(Icons.message),
-                  label: Text('Mensagens'),
-                ),
-                NavigationRailDestination(
-                  icon: const Icon(Icons.person_outline),
-                  selectedIcon: const Icon(Icons.person),
-                  label: Text('Perfil'),
-                ),
-              ],
-            ),
-          Expanded(
-            child: Column(
-              children: [
-                if (isSmallScreen)
-                  AppBar(
-                    title: Image.asset(
-                      'assets/images/twogether_logo_light_br.png',
-                      height: 32,
-                    ),
-                    centerTitle: true,
-                    actions: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          // TODO: Implement notifications
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                    ],
+      body: BaseLayout(
+        child: Row(
+          children: [
+            if (!isSmallScreen)
+              NavigationRail(
+                extended: width >= 800,
+                backgroundColor: AppTheme.background.withOpacity(0.8),
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                leading: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Image.asset(
+                    'assets/images/twogether_logo_light_br.png',
+                    height: 48,
                   ),
-                Expanded(child: _pages[_selectedIndex]),
-              ],
+                ),
+                destinations: [
+                  _buildRailDestination(
+                    icon: Icons.home_outlined,
+                    selectedIcon: Icons.home,
+                    label: 'Início',
+                    isSelected: _selectedIndex == 0,
+                  ),
+                  _buildRailDestination(
+                    icon: Icons.people_outline,
+                    selectedIcon: Icons.people,
+                    label: 'Clientes',
+                    isSelected: _selectedIndex == 1,
+                  ),
+                  _buildRailDestination(
+                    icon: Icons.message_outlined,
+                    selectedIcon: Icons.message,
+                    label: 'Mensagens',
+                    isSelected: _selectedIndex == 2,
+                  ),
+                  _buildRailDestination(
+                    icon: Icons.person_outline,
+                    selectedIcon: Icons.person,
+                    label: 'Perfil',
+                    isSelected: _selectedIndex == 3,
+                  ),
+                ],
+              ),
+            Expanded(
+              child: Column(
+                children: [
+                  if (isSmallScreen)
+                    AppBar(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      title: Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Image.asset(
+                          'assets/images/twogether_logo_light_br.png',
+                          height: 32,
+                        ),
+                      ),
+                      centerTitle: true,
+                      actions: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16, right: 8),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.notifications_outlined,
+                              color: AppTheme.foreground,
+                            ),
+                            onPressed: () {
+                              // TODO: Implement notifications
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  Expanded(
+                    child: Container(
+                      color: Colors.transparent,
+                      child: _pages[_selectedIndex],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar:
           isSmallScreen
               ? Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, -2),
+                  color: AppTheme.background.withOpacity(0.8),
+                  border: Border(
+                    top: BorderSide(color: AppTheme.border, width: 1),
+                  ),
+                ),
+                child: NavigationBar(
+                  height: 64,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  },
+                  destinations: [
+                    _buildNavDestination(
+                      icon: Icons.home_outlined,
+                      selectedIcon: Icons.home,
+                      label: 'Início',
+                      isSelected: _selectedIndex == 0,
+                    ),
+                    _buildNavDestination(
+                      icon: Icons.people_outline,
+                      selectedIcon: Icons.people,
+                      label: 'Clientes',
+                      isSelected: _selectedIndex == 1,
+                    ),
+                    _buildNavDestination(
+                      icon: Icons.message_outlined,
+                      selectedIcon: Icons.message,
+                      label: 'Mensagens',
+                      isSelected: _selectedIndex == 2,
+                    ),
+                    _buildNavDestination(
+                      icon: Icons.person_outline,
+                      selectedIcon: Icons.person,
+                      label: 'Perfil',
+                      isSelected: _selectedIndex == 3,
                     ),
                   ],
                 ),
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    navigationBarTheme: NavigationBarThemeData(
-                      indicatorColor: Colors.transparent,
-                      labelTextStyle: MaterialStateProperty.resolveWith((
-                        states,
-                      ) {
-                        return TextStyle(
-                          color:
-                              states.contains(MaterialState.selected)
-                                  ? Colors.black
-                                  : Colors.grey[600],
-                          fontSize: 12,
-                        );
-                      }),
-                    ),
-                  ),
-                  child: NavigationBar(
-                    height: 64,
-                    backgroundColor: Colors.white,
-                    elevation: 0,
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: (index) {
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                    },
-                    destinations: [
-                      _buildNavDestination(
-                        icon: Icons.home_outlined,
-                        selectedIcon: Icons.home,
-                        label: 'Início',
-                        isSelected: _selectedIndex == 0,
-                      ),
-                      _buildNavDestination(
-                        icon: Icons.people_outline,
-                        selectedIcon: Icons.people,
-                        label: 'Clientes',
-                        isSelected: _selectedIndex == 1,
-                      ),
-                      _buildNavDestination(
-                        icon: Icons.message_outlined,
-                        selectedIcon: Icons.message,
-                        label: 'Mensagens',
-                        isSelected: _selectedIndex == 2,
-                      ),
-                      _buildNavDestination(
-                        icon: Icons.person_outline,
-                        selectedIcon: Icons.person,
-                        label: 'Perfil',
-                        isSelected: _selectedIndex == 3,
-                      ),
-                    ],
-                  ),
-                ),
               )
               : null,
+    );
+  }
+
+  NavigationRailDestination _buildRailDestination({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+  }) {
+    return NavigationRailDestination(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      icon: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.secondary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          isSelected ? selectedIcon : icon,
+          color: isSelected ? AppTheme.primary : AppTheme.mutedForeground,
+          size: 24,
+        ),
+      ),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? AppTheme.primary : AppTheme.mutedForeground,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 
@@ -183,14 +212,14 @@ class _MainLayoutState extends State<MainLayout> {
   }) {
     return NavigationDestination(
       icon: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : Colors.transparent,
-          borderRadius: BorderRadius.circular(50),
+          color: isSelected ? AppTheme.secondary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           isSelected ? selectedIcon : icon,
-          color: isSelected ? Colors.white : Colors.grey[600],
+          color: isSelected ? AppTheme.primary : AppTheme.mutedForeground,
           size: 24,
         ),
       ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/models/service_types.dart';
-import '../../../core/theme/colors.dart';
+import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
 
@@ -175,13 +175,16 @@ class _ServicesPageState extends State<ServicesPage> {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isActive ? AppColors.primary : Colors.grey[300],
+        color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(50),
       ),
       child: Center(
         child: Text(
           step.toString(),
           style: TextStyle(
-            color: Colors.white,
+            color:
+                isActive
+                    ? AppTheme.primaryForeground
+                    : AppTheme.mutedForeground,
             fontWeight: FontWeight.w500,
             fontSize: 12,
           ),
@@ -193,7 +196,7 @@ class _ServicesPageState extends State<ServicesPage> {
   Widget _buildStepLine(bool isActive) {
     return Container(
       height: 1,
-      color: isActive ? AppColors.primary : Colors.grey[300],
+      color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(50),
     );
   }
 
@@ -267,7 +270,9 @@ class _ServicesPageState extends State<ServicesPage> {
             Text('Selecione seu fornecedor', style: AppTextStyles.h2),
             Text(
               'Escolha com base no tipo de cliente',
-              style: AppTextStyles.body2.copyWith(color: AppColors.silver),
+              style: AppTextStyles.body2.copyWith(
+                color: AppTheme.mutedForeground,
+              ),
             ),
             const SizedBox(height: AppConstants.spacing24),
             _buildClientCard(
@@ -290,7 +295,9 @@ class _ServicesPageState extends State<ServicesPage> {
           Text('Selecione seu fornecedor', style: AppTextStyles.h2),
           Text(
             'Escolha com base no tipo de cliente',
-            style: AppTextStyles.body2.copyWith(color: AppColors.silver),
+            style: AppTextStyles.body2.copyWith(
+              color: AppTheme.mutedForeground,
+            ),
           ),
           const SizedBox(height: AppConstants.spacing24),
           _buildClientCard(
@@ -334,14 +341,14 @@ class _ServicesPageState extends State<ServicesPage> {
                       title,
                       style: AppTextStyles.body1.copyWith(
                         fontWeight: FontWeight.w500,
-                        color: AppColors.charcoal,
+                        color: AppTheme.foreground,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: AppTextStyles.body2.copyWith(
-                        color: AppColors.silver,
+                        color: AppTheme.mutedForeground,
                       ),
                     ),
                   ],
@@ -352,7 +359,7 @@ class _ServicesPageState extends State<ServicesPage> {
                 width: 80,
                 child: Image.asset(imagePath, fit: BoxFit.contain),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.charcoal),
+              const Icon(Icons.chevron_right, color: AppTheme.mutedForeground),
             ],
           ),
         ),
@@ -366,37 +373,50 @@ class _ServicesPageState extends State<ServicesPage> {
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppConstants.spacing12),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          onTap: isDisabled ? null : onTap,
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius12),
-          child: Padding(
-            padding: const EdgeInsets.all(AppConstants.spacing16),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 24,
-                  color: isDisabled ? AppColors.silver : AppColors.charcoal,
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppConstants.spacing16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: AppTheme.border),
+      ),
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.spacing16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: AppConstants.spacing16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: AppTextStyles.body1.copyWith(
-                      color: isDisabled ? AppColors.silver : AppColors.charcoal,
-                    ),
+                child: Icon(
+                  icon,
+                  color:
+                      isDisabled ? AppTheme.mutedForeground : AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppConstants.spacing16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isDisabled
+                            ? AppTheme.mutedForeground
+                            : AppTheme.foreground,
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: isDisabled ? AppColors.silver : AppColors.charcoal,
-                ),
-              ],
-            ),
+              ),
+              if (!isDisabled)
+                Icon(Icons.chevron_right, color: AppTheme.mutedForeground),
+            ],
           ),
         ),
       ),
@@ -407,104 +427,138 @@ class _ServicesPageState extends State<ServicesPage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppConstants.spacing16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_selectedClientType == ClientType.commercial)
-            TextField(
+          Text('Dados do Cliente', style: AppTextStyles.h2),
+          const SizedBox(height: AppConstants.spacing24),
+          if (_selectedClientType == ClientType.commercial) ...[
+            _buildTextField(
               controller: _companyNameController,
-              decoration: const InputDecoration(labelText: 'Nome da Empresa'),
-              textInputAction: TextInputAction.next,
-              onChanged: (_) => setState(() {}),
+              label: 'Nome da Empresa',
+              hint: 'Digite o nome da empresa',
             ),
-          const SizedBox(height: AppConstants.spacing16),
-          TextField(
+            const SizedBox(height: AppConstants.spacing16),
+          ],
+          _buildTextField(
             controller: _responsibleNameController,
-            decoration: const InputDecoration(labelText: 'Nome do Responsável'),
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
+            label: 'Nome do Responsável',
+            hint: 'Digite o nome do responsável',
           ),
           const SizedBox(height: AppConstants.spacing16),
-          TextField(
+          _buildTextField(
             controller: _nifController,
-            decoration: const InputDecoration(labelText: 'NIF'),
+            label: 'NIF',
+            hint: 'Digite o NIF',
             keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppConstants.spacing16),
-          TextField(
+          _buildTextField(
             controller: _emailController,
-            decoration: const InputDecoration(labelText: 'Email'),
+            label: 'Email',
+            hint: 'Digite o email',
             keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppConstants.spacing16),
-          TextField(
+          _buildTextField(
             controller: _phoneController,
-            decoration: const InputDecoration(labelText: 'Número de Telefone'),
+            label: 'Telefone',
+            hint: 'Digite o telefone',
             keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.done,
-            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppConstants.spacing24),
-          Card(
-            child: InkWell(
-              onTap: () {
-                // Handle file upload
-                setState(() {
-                  _invoiceFile = 'example.pdf'; // Simulate file selection
-                });
-              },
-              borderRadius: BorderRadius.circular(AppConstants.borderRadius12),
-              child: Container(
-                padding: const EdgeInsets.all(AppConstants.spacing24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Fatura',
-                      style: AppTextStyles.body1.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: AppConstants.spacing16),
-                    const Icon(
-                      Icons.cloud_upload_outlined,
-                      size: 48,
-                      color: AppColors.silver,
-                    ),
-                    const SizedBox(height: AppConstants.spacing8),
-                    Text(
-                      _invoiceFile ?? 'Por favor, carregue uma fatura',
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppColors.silver,
-                      ),
-                    ),
-                    Text(
-                      'Click or drag files here',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.silver,
-                      ),
-                    ),
-                  ],
+          _buildFileUpload(),
+          const SizedBox(height: AppConstants.spacing24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isFormValid() ? _handleSubmit : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: AppTheme.primaryForeground,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppConstants.spacing16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
+              child: const Text('Enviar'),
             ),
           ),
-          const SizedBox(height: AppConstants.spacing24),
-          FilledButton(
-            onPressed: _isFormValid() ? _handleSubmit : null,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                vertical: AppConstants.spacing16,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  AppConstants.borderRadius12,
-                ),
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.foreground,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppTheme.mutedForeground),
+            filled: true,
+            fillColor: AppTheme.background,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppTheme.border),
             ),
-            child: const Text('Enviar Solicitação'),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppTheme.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppTheme.primary, width: 2),
+            ),
+          ),
+          style: TextStyle(color: AppTheme.foreground),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileUpload() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppConstants.spacing16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.cloud_upload_outlined,
+            size: 48,
+            color: AppTheme.mutedForeground,
+          ),
+          const SizedBox(height: AppConstants.spacing8),
+          Text(
+            _invoiceFile ?? 'Por favor, carregue uma fatura',
+            style: TextStyle(fontSize: 14, color: AppTheme.mutedForeground),
+          ),
+          Text(
+            'Click or drag files here',
+            style: TextStyle(fontSize: 12, color: AppTheme.mutedForeground),
           ),
         ],
       ),

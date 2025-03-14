@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/constants.dart';
 import '../services/services_page.dart';
 
 class ResellerHomePage extends StatefulWidget {
@@ -45,7 +43,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                 Center(
                   child: CircleAvatar(
                     radius: 40,
-                    backgroundColor: Color(0xFFF5F5F5),
+                    backgroundColor: AppTheme.secondary,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -55,12 +53,12 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Color(0xFFE0E0E0),
+                              color: AppTheme.border,
                               width: 2,
                             ),
                           ),
                         ),
-                        Icon(Icons.person, size: 40, color: Color(0xFF757575)),
+                        Icon(Icons.person, size: 40, color: AppTheme.mutedForeground),
                       ],
                     ),
                   ),
@@ -70,14 +68,14 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                   'Bernardo Ribeiro',
                   style: AppTextStyles.h2.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2C2C2C),
+                    color: AppTheme.foreground,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 Text(
                   'bernardoribeiro55@gmail.com',
                   style: AppTextStyles.body2.copyWith(
-                    color: Color(0xFF757575),
+                    color: AppTheme.mutedForeground,
                     fontSize: 14,
                   ),
                   textAlign: TextAlign.center,
@@ -90,7 +88,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: Color(0xFFF5F5F5),
+                  backgroundColor: AppTheme.secondary,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -100,12 +98,12 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Color(0xFFE0E0E0),
+                            color: AppTheme.border,
                             width: 1.5,
                           ),
                         ),
                       ),
-                      Icon(Icons.person, size: 24, color: Color(0xFF757575)),
+                      Icon(Icons.person, size: 24, color: AppTheme.mutedForeground),
                     ],
                   ),
                 ),
@@ -117,13 +115,13 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                       'Bernardo Ribeiro',
                       style: AppTextStyles.h2.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF2C2C2C),
+                        color: AppTheme.foreground,
                       ),
                     ),
                     Text(
                       'bernardoribeiro55@gmail.com',
                       style: AppTextStyles.body2.copyWith(
-                        color: Color(0xFF757575),
+                        color: AppTheme.mutedForeground,
                         fontSize: 14,
                       ),
                     ),
@@ -138,7 +136,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
+              side: BorderSide(color: AppTheme.border),
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -156,7 +154,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                         style: AppTextStyles.h3.copyWith(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF2C2C2C),
+                          color: AppTheme.foreground,
                         ),
                       ),
                       IconButton(
@@ -165,7 +163,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                               ? Icons.visibility
                               : Icons.visibility_off,
                           size: 20,
-                          color: Color(0xFF757575),
+                          color: AppTheme.mutedForeground,
                         ),
                         onPressed: () {
                           setState(() {
@@ -193,13 +191,13 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                                 style: AppTextStyles.h1.copyWith(
                                   fontSize: 32,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2C2C2C),
+                                  color: AppTheme.foreground,
                                 ),
                               )
                               : ClipRect(
                                 child: ImageFiltered(
                                   imageFilter: ColorFilter.mode(
-                                    Colors.grey.shade200,
+                                    AppTheme.muted,
                                     BlendMode.srcOut,
                                   ),
                                   child: Text(
@@ -210,7 +208,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                                       color: Colors.transparent,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.grey.shade300,
+                                          color: AppTheme.muted,
                                           blurRadius: 16,
                                         ),
                                       ],
@@ -222,7 +220,59 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Navigate to detailed dashboard
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder:
+                            (context) => DraggableScrollableSheet(
+                              initialChildSize: 0.9,
+                              minChildSize: 0.5,
+                              maxChildSize: 0.9,
+                              builder:
+                                  (_, controller) => Container(
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).scaffoldBackgroundColor,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Text(
+                                            l10n.homeCommissionEarnings,
+                                            style: AppTextStyles.h2,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: ListView(
+                                            controller: controller,
+                                            padding: const EdgeInsets.all(16.0),
+                                            children: [
+                                              // Add your detailed earnings content here
+                                              Card(
+                                                child: ListTile(
+                                                  title: Text(
+                                                    l10n.homeCommissionEarnings,
+                                                  ),
+                                                  subtitle: const Text(
+                                                    '€ 5.500,00',
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            ),
+                      );
                     },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
@@ -254,8 +304,8 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                 );
               },
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.charcoal,
-                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primary,
+                foregroundColor: AppTheme.primaryForeground,
                 padding: const EdgeInsets.symmetric(
                   vertical: 20,
                   horizontal: 24,
@@ -282,7 +332,7 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
+              side: BorderSide(color: AppTheme.border),
             ),
             child: Column(
               children: [
@@ -297,12 +347,12 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                       style: AppTextStyles.h3.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF2C2C2C),
+                        color: AppTheme.foreground,
                       ),
                     ),
                   ),
                 ),
-                Divider(height: 1, color: Colors.grey.shade200),
+                Divider(height: 1, color: AppTheme.border),
                 _buildNotificationItem(
                   l10n.homeNotificationMeeting,
                   l10n.homeNotificationMeetingDesc,
@@ -328,21 +378,33 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
 
   Widget _buildNotificationItem(String title, String subtitle, IconData icon) {
     return ListTile(
-      leading: Icon(icon, color: Color(0xFF757575), size: 22),
+      leading: Icon(icon, color: AppTheme.mutedForeground, size: 22),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w500,
-          color: Color(0xFF2C2C2C),
+          color: AppTheme.foreground,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(fontSize: 13, color: Color(0xFF757575)),
+        style: TextStyle(fontSize: 13, color: AppTheme.mutedForeground),
       ),
       onTap: () {
-        // TODO: Handle notification tap
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(subtitle),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(MaterialLocalizations.of(context).okButtonLabel),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
