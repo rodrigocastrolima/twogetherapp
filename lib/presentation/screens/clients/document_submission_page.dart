@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/text_styles.dart';
-import '../../../core/utils/constants.dart';
 
 class DocumentSubmissionPage extends StatefulWidget {
   const DocumentSubmissionPage({super.key});

@@ -23,8 +23,8 @@ class AppTheme {
   static ThemeData light() {
     return ThemeData(
       colorScheme: const ColorScheme.light(
-        background: background,
-        onBackground: foreground,
+        surface: background,
+        onSurface: foreground,
         primary: primary,
         onPrimary: primaryForeground,
         secondary: secondary,
@@ -87,7 +87,6 @@ class AppTheme {
         primary: primary,
         secondary: secondary,
         surface: foreground,
-        background: const Color(0xFF121212),
         error: destructive,
       ),
       scaffoldBackgroundColor: const Color(0xFF121212),

@@ -3,6 +3,7 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/theme/theme.dart';
 import '../services/services_page.dart';
+import 'dart:ui';
 
 class ResellerHomePage extends StatefulWidget {
   const ResellerHomePage({super.key});
@@ -41,25 +42,22 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Center(
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppTheme.secondary,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppTheme.border,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.person, size: 40, color: AppTheme.mutedForeground),
-                      ],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 2,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      child: Icon(
+                        Icons.person,
+                        size: 40,
+                        color: AppTheme.foreground,
+                      ),
                     ),
                   ),
                 ),
@@ -69,343 +67,272 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                   style: AppTextStyles.h2.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.foreground,
+                    fontSize: 28,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 Text(
                   'bernardoribeiro55@gmail.com',
                   style: AppTextStyles.body2.copyWith(
-                    color: AppTheme.mutedForeground,
-                    fontSize: 14,
+                    color: AppTheme.foreground.withOpacity(0.7),
+                    fontSize: 15,
                   ),
                   textAlign: TextAlign.center,
-                ),
-              ],
-            )
-          else
-            // Desktop layout - horizontal with icon on left
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: AppTheme.secondary,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppTheme.border,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                      Icon(Icons.person, size: 24, color: AppTheme.mutedForeground),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bernardo Ribeiro',
-                      style: AppTextStyles.h2.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.foreground,
-                      ),
-                    ),
-                    Text(
-                      'bernardoribeiro55@gmail.com',
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppTheme.mutedForeground,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
           const SizedBox(height: 32),
 
           // Earnings Card
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: AppTheme.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 16.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        l10n.homeCommissionEarnings,
-                        style: AppTextStyles.h3.copyWith(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.foreground,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Ganhos em Comissões',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.foreground,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isEarningsVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          size: 20,
-                          color: AppTheme.mutedForeground,
+                        IconButton(
+                          icon: Icon(
+                            _isEarningsVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 20,
+                            color: AppTheme.foreground.withOpacity(0.5),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isEarningsVisible = !_isEarningsVisible;
+                            });
+                          },
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _isEarningsVisible = !_isEarningsVisible;
-                          });
-                        },
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _isEarningsVisible = !_isEarningsVisible;
-                      });
-                    },
-                    child: SizedBox(
-                      height: 48,
-                      child:
-                          _isEarningsVisible
-                              ? Text(
-                                '€ 5.500,00',
-                                style: AppTextStyles.h1.copyWith(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.foreground,
-                                ),
-                              )
-                              : ClipRect(
-                                child: ImageFiltered(
-                                  imageFilter: ColorFilter.mode(
-                                    AppTheme.muted,
-                                    BlendMode.srcOut,
-                                  ),
-                                  child: Text(
-                                    '€ 5.500,00',
-                                    style: AppTextStyles.h1.copyWith(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.transparent,
-                                      shadows: [
-                                        Shadow(
-                                          color: AppTheme.muted,
-                                          blurRadius: 16,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
+                      ],
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder:
-                            (context) => DraggableScrollableSheet(
-                              initialChildSize: 0.9,
-                              minChildSize: 0.5,
-                              maxChildSize: 0.9,
-                              builder:
-                                  (_, controller) => Container(
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).scaffoldBackgroundColor,
-                                      borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(20),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isEarningsVisible = !_isEarningsVisible;
+                        });
+                      },
+                      child: SizedBox(
+                        height: 48,
+                        child:
+                            _isEarningsVisible
+                                ? Text(
+                                  '€ 5.500,00',
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.foreground,
+                                  ),
+                                )
+                                : ClipRect(
+                                  child: ImageFiltered(
+                                    imageFilter: ColorFilter.mode(
+                                      AppTheme.foreground.withOpacity(0.5),
+                                      BlendMode.srcOut,
+                                    ),
+                                    child: Text(
+                                      '€ 5.500,00',
+                                      style: TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.transparent,
+                                        shadows: [
+                                          Shadow(
+                                            color: AppTheme.foreground
+                                                .withOpacity(0.5),
+                                            blurRadius: 16,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    child: Column(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Text(
-                                            l10n.homeCommissionEarnings,
-                                            style: AppTextStyles.h2,
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: ListView(
-                                            controller: controller,
-                                            padding: const EdgeInsets.all(16.0),
-                                            children: [
-                                              // Add your detailed earnings content here
-                                              Card(
-                                                child: ListTile(
-                                                  title: Text(
-                                                    l10n.homeCommissionEarnings,
-                                                  ),
-                                                  subtitle: const Text(
-                                                    '€ 5.500,00',
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
+                                ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed:
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ServicesPage(),
                             ),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    child: Text(
-                      l10n.homeViewDetails,
-                      style: AppTextStyles.body2.copyWith(
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                          ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        foregroundColor: AppTheme.foreground.withOpacity(0.7),
                       ),
+                      child: Text('Ver Detalhes'),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Services Button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ServicesPage()),
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.primaryForeground,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20,
-                  horizontal: 24,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.add_circle_outline, size: 24),
-              label: Text(
-                l10n.homeServices,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+                  ],
                 ),
               ),
             ),
           ),
           const SizedBox(height: 24),
 
-          // Notifications Panel
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: AppTheme.border),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12.0,
-                    horizontal: 20.0,
-                  ),
-                  child: Center(
-                    child: Text(
-                      l10n.homeNotifications,
-                      style: AppTextStyles.h3.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.foreground,
+          // Add New Service Button
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ServicesPage()),
                       ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          color: AppTheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Adicionar Novo Serviço',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Divider(height: 1, color: AppTheme.border),
-                _buildNotificationItem(
-                  l10n.homeNotificationMeeting,
-                  l10n.homeNotificationMeetingDesc,
-                  Icons.calendar_today,
-                ),
-                _buildNotificationItem(
-                  l10n.homeNotificationRequest,
-                  l10n.homeNotificationRequestDesc,
-                  Icons.business_center,
-                ),
-                _buildNotificationItem(
-                  l10n.homeNotificationPayment,
-                  l10n.homeNotificationPaymentDesc,
-                  Icons.payments,
-                ),
-              ],
+              ),
             ),
           ),
+          const SizedBox(height: 32),
+
+          // Notifications Section
+          Text(
+            'Notificações',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ..._buildNotificationItems(),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationItem(String title, String subtitle, IconData icon) {
-    return ListTile(
-      leading: Icon(icon, color: AppTheme.mutedForeground, size: 22),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.foreground,
+  List<Widget> _buildNotificationItems() {
+    return [
+      _buildNotificationItem(
+        icon: Icons.calendar_today,
+        title: 'Reunião Agendada',
+        description: 'Você tem uma reunião agendada para hoje às 14h',
+      ),
+      _buildNotificationItem(
+        icon: Icons.assignment,
+        title: 'Nova Solicitação de Serviço',
+        description: 'Uma nova solicitação de serviço requer sua atenção',
+      ),
+      _buildNotificationItem(
+        icon: Icons.payment,
+        title: 'Pagamento Recebido',
+        description: 'O pagamento da comissão foi processado',
+      ),
+    ];
+  }
+
+  Widget _buildNotificationItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: AppTheme.primary, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.foreground.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 13, color: AppTheme.mutedForeground),
-      ),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(subtitle),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(MaterialLocalizations.of(context).okButtonLabel),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

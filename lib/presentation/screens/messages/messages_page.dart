@@ -1,48 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/theme/text_styles.dart';
-import '../../../core/utils/constants.dart';
 
 class MessagesPage extends StatelessWidget {
   const MessagesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Mensagens',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.foreground,
-              ),
-            ),
-            Text(
-              'Twogether Retail',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.mutedForeground,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [_buildWelcomeMessage()],
-            ),
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [_buildWelcomeMessage()],
           ),
-          _buildMessageInput(),
-        ],
-      ),
+        ),
+        _buildMessageInput(),
+      ],
     );
   }
 
@@ -89,7 +62,7 @@ class MessagesPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.background,
+        color: Colors.transparent,
         boxShadow: [
           BoxShadow(
             color: AppTheme.foreground.withOpacity(0.05),
@@ -109,7 +82,7 @@ class MessagesPage extends StatelessWidget {
                   fontSize: 14,
                 ),
                 filled: true,
-                fillColor: AppTheme.background,
+                fillColor: Colors.transparent,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide(color: AppTheme.border),

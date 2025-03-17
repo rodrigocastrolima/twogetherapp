@@ -1,7 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/text_styles.dart';
-import '../../../core/utils/constants.dart';
+import '../../../core/theme/theme.dart';
+import '../../../presentation/layout/main_layout.dart';
 import 'proposal_details_page.dart';
 import 'document_submission_page.dart';
 
@@ -16,8 +16,6 @@ class ClientDetailsPage extends StatefulWidget {
 
 class _ClientDetailsPageState extends State<ClientDetailsPage> {
   String? selectedCPE;
-
-  // Temporary data structure - replace with your actual data model
   late final Map<String, Map<String, dynamic>> cpeData;
 
   @override
@@ -75,61 +73,54 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Detalhes do Cliente')),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildClientInfoCard(),
-            const SizedBox(height: AppConstants.spacing16),
-            if (widget.clientData['service'] == 'Energy') ...[
-              _buildCPESelector(),
-              const SizedBox(height: AppConstants.spacing16),
-              if (selectedCPE != null) _buildProcessTimeline(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClientInfoCard() {
-    return Card(
-      margin: const EdgeInsets.all(AppConstants.spacing16),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return MainLayout(
+      showNavigation: false,
+      child: Column(
+        children: [
+          // Client Info Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: Colors.black,
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.15),
+                      width: 0.5,
+                    ),
+                  ),
                   child: Icon(
                     widget.clientData['type'] == 'residential'
                         ? Icons.person_outline
                         : Icons.business_outlined,
-                    color: Colors.white,
+                    size: 20,
+                    color: AppTheme.foreground.withOpacity(0.7),
                   ),
                 ),
-                const SizedBox(width: AppConstants.spacing16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.clientData['name'], style: AppTextStyles.h3),
+                      Text(
+                        widget.clientData['name'],
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       Text(
                         widget.clientData['type'] == 'residential'
                             ? 'Cliente Residencial'
                             : 'Cliente Comercial',
-                        style: AppTextStyles.body2.copyWith(
-                          color: Colors.grey[600],
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.foreground.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -137,47 +128,103 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spacing12,
-                    vertical: AppConstants.spacing4,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        widget.clientData['status'] == 'Em Processo'
-                            ? Colors.blue[50]
-                            : Colors.green[50],
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.borderRadius12,
+                    color: _getStatusColor(
+                      widget.clientData['status'],
+                    ).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _getStatusColor(
+                        widget.clientData['status'],
+                      ).withOpacity(0.3),
+                      width: 0.5,
                     ),
                   ),
                   child: Text(
                     widget.clientData['status'],
-                    style: AppTextStyles.caption.copyWith(
-                      color:
-                          widget.clientData['status'] == 'Em Processo'
-                              ? Colors.blue
-                              : Colors.green,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _getStatusColor(widget.clientData['status']),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppConstants.spacing24),
-            _buildInfoRow(
-              'Email',
-              widget.clientData['email'] ?? 'client@example.com',
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildClientInfoCard(),
+                  const SizedBox(height: 16),
+                  if (widget.clientData['service'] == 'Energy') ...[
+                    _buildCPESelector(),
+                    const SizedBox(height: 16),
+                    if (selectedCPE != null) _buildProcessTimeline(),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+              ),
             ),
-            _buildInfoRow(
-              'Telefone',
-              widget.clientData['phone'] ?? '+351 123 456 789',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientInfoCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.15),
+                width: 0.5,
+              ),
             ),
-            _buildInfoRow('NIF', widget.clientData['nif'] ?? '123456789'),
-            _buildInfoRow(
-              'Morada',
-              widget.clientData['address'] ??
-                  'Rua Principal 123, 4000-123 Porto',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Informações do Cliente',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildInfoRow(
+                  'Email',
+                  widget.clientData['email'] ?? 'client@example.com',
+                ),
+                _buildInfoRow(
+                  'Telefone',
+                  widget.clientData['phone'] ?? '+351 123 456 789',
+                ),
+                _buildInfoRow('NIF', widget.clientData['nif'] ?? '123456789'),
+                _buildInfoRow(
+                  'Morada',
+                  widget.clientData['address'] ??
+                      'Rua Principal 123, 4000-123 Porto',
+                ),
+              ],
             ),
-            _buildInfoRow('Serviço', widget.clientData['service']),
-          ],
+          ),
         ),
       ),
     );
@@ -185,95 +232,96 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppConstants.spacing8),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: AppTextStyles.caption.copyWith(color: Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.foreground.withOpacity(0.5),
+            ),
           ),
-          const SizedBox(height: 2),
-          Text(value, style: AppTextStyles.body2),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.foreground.withOpacity(0.9),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildCPESelector() {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: AppConstants.spacing16),
-      child: InkWell(
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        onTap: _showCPESelector,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'CPE',
-                      style: AppTextStyles.caption.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      selectedCPE ?? 'Selecione um CPE',
-                      style: AppTextStyles.body1,
-                    ),
-                  ],
-                ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.15),
+                width: 0.5,
               ),
-              Icon(Icons.expand_more, color: Colors.grey[600]),
-            ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selectedCPE ?? 'Selecione um CPE',
+                    style: TextStyle(
+                      color:
+                          selectedCPE != null
+                              ? AppTheme.foreground.withOpacity(0.9)
+                              : AppTheme.foreground.withOpacity(0.5),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.expand_more,
+                    color: AppTheme.foreground.withOpacity(0.7),
+                  ),
+                  color: Colors.white,
+                  elevation: 8,
+                  position: PopupMenuPosition.under,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  itemBuilder:
+                      (context) => [
+                        for (final cpe in cpeData.keys)
+                          PopupMenuItem(
+                            value: cpe,
+                            child: Text(
+                              cpe,
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                      ],
+                  onSelected: (value) {
+                    setState(() => selectedCPE = value);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
-  void _showCPESelector() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('Selecionar CPE', style: AppTextStyles.h3),
-            ),
-            const Divider(height: 1),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const ClampingScrollPhysics(),
-              itemCount: cpeData.length,
-              itemBuilder: (context, index) {
-                final cpe = cpeData.keys.elementAt(index);
-                return RadioListTile(
-                  value: cpe,
-                  groupValue: selectedCPE,
-                  title: Text(cpe),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedCPE = value as String;
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -281,70 +329,91 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
     final currentCPE = cpeData[selectedCPE];
     if (currentCPE == null) return const SizedBox.shrink();
 
-    return Card(
-      margin: const EdgeInsets.all(AppConstants.spacing16),
-      child: Padding(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Processo', style: AppTextStyles.h3),
-            const SizedBox(height: AppConstants.spacing24),
-            _buildTimelineStep(
-              step: 1,
-              title: 'Fatura',
-              isCompleted: currentCPE['steps']['invoice']['completed'],
-              message: currentCPE['steps']['invoice']['message'],
-              showButton: false,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.15),
+                width: 0.5,
+              ),
             ),
-            _buildTimelineStep(
-              step: 2,
-              title: 'Proposta e Contrato',
-              isCompleted: currentCPE['steps']['contract']['completed'],
-              message: currentCPE['steps']['contract']['message'],
-              showButton: currentCPE['steps']['contract']['completed'],
-              buttonLabel: 'Ver Detalhes',
-              onButtonPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) => ProposalDetailsPage(
-                          proposalData: {
-                            'commission': '2.500,00',
-                            'expiryDate': '15/04/2024',
-                            'status': 'pending',
-                          },
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Processo',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground.withOpacity(0.9),
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 24),
+                _buildTimelineStep(
+                  step: 1,
+                  title: 'Fatura',
+                  isCompleted: currentCPE['steps']['invoice']['completed'],
+                  message: currentCPE['steps']['invoice']['message'],
+                  showButton: false,
+                ),
+                _buildTimelineStep(
+                  step: 2,
+                  title: 'Proposta e Contrato',
+                  isCompleted: currentCPE['steps']['contract']['completed'],
+                  message: currentCPE['steps']['contract']['message'],
+                  showButton: currentCPE['steps']['contract']['completed'],
+                  buttonLabel: 'Ver Detalhes',
+                  onButtonPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => ProposalDetailsPage(
+                              proposalData: {
+                                'commission': '2.500,00',
+                                'expiryDate': '15/04/2024',
+                                'status': 'pending',
+                              },
+                            ),
+                      ),
+                    );
+                  },
+                ),
+                _buildTimelineStep(
+                  step: 3,
+                  title: 'Documentação',
+                  isCompleted: currentCPE['steps']['documents']['completed'],
+                  message: currentCPE['steps']['documents']['message'],
+                  showButton: !currentCPE['steps']['documents']['completed'],
+                  buttonLabel: 'Submeter Documentos',
+                  onButtonPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DocumentSubmissionPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildTimelineStep(
+                  step: 4,
+                  title: 'Aprovação Final',
+                  isCompleted: currentCPE['steps']['approval']['completed'],
+                  message: currentCPE['steps']['approval']['message'],
+                  showButton: false,
+                  isLast: true,
+                ),
+              ],
             ),
-            _buildTimelineStep(
-              step: 3,
-              title: 'Documentação',
-              isCompleted: currentCPE['steps']['documents']['completed'],
-              message: currentCPE['steps']['documents']['message'],
-              showButton: !currentCPE['steps']['documents']['completed'],
-              buttonLabel: 'Submeter Documentos',
-              onButtonPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DocumentSubmissionPage(),
-                  ),
-                );
-              },
-            ),
-            _buildTimelineStep(
-              step: 4,
-              title: 'Aprovação Final',
-              isCompleted: currentCPE['steps']['approval']['completed'],
-              message: currentCPE['steps']['approval']['message'],
-              showButton: false,
-              isLast: true,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -372,7 +441,17 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   height: 24,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isCompleted ? Colors.green : Colors.grey[300],
+                    color:
+                        isCompleted
+                            ? const Color(0xFF40C057)
+                            : Colors.white.withOpacity(0.08),
+                    border: Border.all(
+                      color:
+                          isCompleted
+                              ? const Color(0xFF40C057).withOpacity(0.3)
+                              : Colors.white.withOpacity(0.15),
+                      width: 0.5,
+                    ),
                   ),
                   child: Center(
                     child:
@@ -385,7 +464,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                             : Text(
                               step.toString(),
                               style: TextStyle(
-                                color: Colors.grey[600],
+                                color: AppTheme.foreground.withOpacity(0.7),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -393,43 +472,86 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   ),
                 ),
                 if (!isLast)
-                  Expanded(child: Container(width: 2, color: Colors.grey[300])),
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color:
+                          isCompleted
+                              ? const Color(0xFF40C057).withOpacity(0.3)
+                              : Colors.white.withOpacity(0.15),
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(width: AppConstants.spacing16),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: AppTextStyles.body1.copyWith(
+                  style: TextStyle(
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: AppTheme.foreground.withOpacity(0.9),
                   ),
                 ),
-                const SizedBox(height: AppConstants.spacing4),
+                const SizedBox(height: 4),
                 Text(
                   message,
-                  style: AppTextStyles.body2.copyWith(color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.foreground.withOpacity(0.7),
+                  ),
                 ),
                 if (showButton && buttonLabel != null) ...[
-                  const SizedBox(height: AppConstants.spacing8),
-                  TextButton(
-                    onPressed: onButtonPressed,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      alignment: Alignment.centerLeft,
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: onButtonPressed,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: AppTheme.primary.withOpacity(0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        buttonLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.primary,
+                        ),
+                      ),
                     ),
-                    child: Text(buttonLabel),
                   ),
                 ],
-                if (!isLast) const SizedBox(height: AppConstants.spacing24),
+                if (!isLast) const SizedBox(height: 24),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Ação Necessária':
+        return const Color(0xFFFF6B6B);
+      case 'Pendente':
+        return const Color(0xFFFFBE0B);
+      case 'Concluído':
+        return const Color(0xFF40C057);
+      default:
+        return AppTheme.foreground;
+    }
   }
 }

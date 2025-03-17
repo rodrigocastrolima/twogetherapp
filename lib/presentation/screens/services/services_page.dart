@@ -4,6 +4,8 @@ import '../../../core/models/service_types.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
+import 'package:flutter/rendering.dart';
+import 'dart:ui';
 
 class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
@@ -124,22 +126,50 @@ class _ServicesPageState extends State<ServicesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed:
-              _currentStep == 0
-                  ? () => Navigator.of(context).pop()
-                  : _handleBackPress,
+      backgroundColor: Colors.transparent,
+      body: SizedBox(
+        width: double.infinity,
+        height: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background image
+            Image.asset('assets/images/bg.jpg', fit: BoxFit.cover),
+            Container(color: AppTheme.background.withOpacity(0.65)),
+            // Content
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with back arrow and logo
+                Padding(
+                  padding: const EdgeInsets.all(AppConstants.spacing16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.foreground,
+                        ),
+                        onPressed:
+                            _currentStep == 0
+                                ? () => Navigator.of(context).pop()
+                                : _handleBackPress,
+                      ),
+                      const Spacer(),
+                      Image.asset(
+                        'assets/images/twogether_logo_light_br.png',
+                        height: 32,
+                      ),
+                      const SizedBox(width: AppConstants.spacing16),
+                    ],
+                  ),
+                ),
+                if (_currentStep > 0) _buildStepIndicator(),
+                Expanded(child: _buildCurrentStep()),
+              ],
+            ),
+          ],
         ),
-        title: const Text('Selecionar Serviço'),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_currentStep > 0) _buildStepIndicator(),
-          Expanded(child: _buildCurrentStep()),
-        ],
       ),
     );
   }
@@ -224,8 +254,16 @@ class _ServicesPageState extends State<ServicesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Qual tipo de serviço?', style: AppTextStyles.h2),
           const SizedBox(height: AppConstants.spacing24),
+          Text(
+            'Qual tipo de serviço?',
+            style: AppTextStyles.h2.copyWith(
+              color: AppTheme.foreground,
+              fontSize: 28,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppConstants.spacing32),
           ...ServiceCategory.values.map(
             (category) => _buildSelectionTile(
               title: category.displayName,
@@ -324,43 +362,58 @@ class _ServicesPageState extends State<ServicesPage> {
     required String imagePath,
     required VoidCallback onTap,
   }) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppConstants.borderRadius12),
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTextStyles.body1.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: AppTextStyles.body2.copyWith(
-                        color: AppTheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(AppConstants.spacing16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
-              const SizedBox(width: AppConstants.spacing16),
-              SizedBox(
-                width: 80,
-                child: Image.asset(imagePath, fit: BoxFit.contain),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTextStyles.body1.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppTheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.spacing16),
+                  SizedBox(
+                    width: 80,
+                    child: Image.asset(imagePath, fit: BoxFit.contain),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.foreground.withOpacity(0.5),
+                    size: 20,
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: AppTheme.mutedForeground),
-            ],
+            ),
           ),
         ),
       ),
@@ -373,50 +426,68 @@ class _ServicesPageState extends State<ServicesPage> {
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppConstants.spacing16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: AppTheme.border),
-      ),
-      child: InkWell(
-        onTap: isDisabled ? null : onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppConstants.spacing16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isDisabled ? null : onTap,
+              child: Container(
+                padding: const EdgeInsets.all(AppConstants.spacing16),
                 decoration: BoxDecoration(
-                  color: AppTheme.secondary,
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
                 ),
-                child: Icon(
-                  icon,
-                  color:
-                      isDisabled ? AppTheme.mutedForeground : AppTheme.primary,
-                  size: 24,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color:
+                            isDisabled
+                                ? Colors.white.withOpacity(0.05)
+                                : AppTheme.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        icon,
+                        color:
+                            isDisabled
+                                ? AppTheme.mutedForeground
+                                : AppTheme.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppConstants.spacing16),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              isDisabled
+                                  ? AppTheme.mutedForeground
+                                  : AppTheme.foreground,
+                        ),
+                      ),
+                    ),
+                    if (!isDisabled)
+                      Icon(
+                        Icons.chevron_right,
+                        color: AppTheme.foreground.withOpacity(0.5),
+                        size: 20,
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(width: AppConstants.spacing16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color:
-                        isDisabled
-                            ? AppTheme.mutedForeground
-                            : AppTheme.foreground,
-                  ),
-                ),
-              ),
-              if (!isDisabled)
-                Icon(Icons.chevron_right, color: AppTheme.mutedForeground),
-            ],
+            ),
           ),
         ),
       ),
@@ -508,59 +579,78 @@ class _ServicesPageState extends State<ServicesPage> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: AppTheme.mutedForeground),
-            filled: true,
-            fillColor: AppTheme.background,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppTheme.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppTheme.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppTheme.primary, width: 2),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(color: AppTheme.mutedForeground),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.1),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
+                ),
+              ),
+              style: TextStyle(color: AppTheme.foreground),
             ),
           ),
-          style: TextStyle(color: AppTheme.foreground),
         ),
       ],
     );
   }
 
   Widget _buildFileUpload() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.cloud_upload_outlined,
-            size: 48,
-            color: AppTheme.mutedForeground,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppConstants.spacing16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          const SizedBox(height: AppConstants.spacing8),
-          Text(
-            _invoiceFile ?? 'Por favor, carregue uma fatura',
-            style: TextStyle(fontSize: 14, color: AppTheme.mutedForeground),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.cloud_upload_outlined,
+                size: 48,
+                color: AppTheme.foreground.withOpacity(0.7),
+              ),
+              const SizedBox(height: AppConstants.spacing8),
+              Text(
+                _invoiceFile ?? 'Por favor, carregue uma fatura',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.foreground.withOpacity(0.7),
+                ),
+              ),
+              Text(
+                'Click or drag files here',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.foreground.withOpacity(0.5),
+                ),
+              ),
+            ],
           ),
-          Text(
-            'Click or drag files here',
-            style: TextStyle(fontSize: 12, color: AppTheme.mutedForeground),
-          ),
-        ],
+        ),
       ),
     );
   }

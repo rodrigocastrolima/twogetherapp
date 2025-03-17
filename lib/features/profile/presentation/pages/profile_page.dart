@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../shared/widgets/base_layout.dart';
+import '../../../../presentation/layout/main_layout.dart';
 import '../controllers/profile_controller.dart';
 import '../../domain/entities/profile.dart';
 
@@ -12,32 +12,38 @@ class ProfilePage extends ConsumerWidget {
     final profileState = ref.watch(profileControllerProvider);
     final revenueState = ref.watch(revenueControllerProvider);
 
-    return BaseLayout(
+    return MainLayout(
+      showNavigation: true,
       child: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Profile', style: Theme.of(context).textTheme.headlineLarge),
-            const SizedBox(height: 32),
-            profileState.when(
-              data: (profile) => _buildProfileCard(context, profile),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (error, stackTrace) =>
-                      Center(child: Text('Error: ${error.toString()}')),
-            ),
-            const SizedBox(height: 32),
-            Text('Revenue', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            revenueState.when(
-              data: (revenues) => _buildRevenueList(context, revenues),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (error, stackTrace) =>
-                      Center(child: Text('Error: ${error.toString()}')),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Profile', style: Theme.of(context).textTheme.headlineLarge),
+              const SizedBox(height: 32),
+              profileState.when(
+                data: (profile) => _buildProfileCard(context, profile),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (error, stackTrace) =>
+                        Center(child: Text('Error: ${error.toString()}')),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Revenue',
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 16),
+              revenueState.when(
+                data: (revenues) => _buildRevenueList(context, revenues),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (error, stackTrace) =>
+                        Center(child: Text('Error: ${error.toString()}')),
+              ),
+            ],
+          ),
         ),
       ),
     );
