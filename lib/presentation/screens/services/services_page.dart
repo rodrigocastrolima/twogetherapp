@@ -8,7 +8,9 @@ import 'package:flutter/rendering.dart';
 import 'dart:ui';
 
 class ServicesPage extends StatefulWidget {
-  const ServicesPage({super.key});
+  final Map<String, dynamic>? preFilledData;
+
+  const ServicesPage({super.key, this.preFilledData});
 
   @override
   State<ServicesPage> createState() => _ServicesPageState();
@@ -21,12 +23,36 @@ class _ServicesPageState extends State<ServicesPage> {
   ClientType? _selectedClientType;
 
   // Form controllers
-  final _companyNameController = TextEditingController();
-  final _responsibleNameController = TextEditingController();
-  final _nifController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
+  late final TextEditingController _companyNameController;
+  late final TextEditingController _responsibleNameController;
+  late final TextEditingController _nifController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
   String? _invoiceFile;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controllers with pre-filled data if available
+    _companyNameController = TextEditingController(
+      text: widget.preFilledData?['companyName'],
+    );
+    _responsibleNameController = TextEditingController(
+      text: widget.preFilledData?['responsibleName'],
+    );
+    _nifController = TextEditingController(text: widget.preFilledData?['nif']);
+    _emailController = TextEditingController(
+      text: widget.preFilledData?['email'],
+    );
+    _phoneController = TextEditingController(
+      text: widget.preFilledData?['phone'],
+    );
+
+    // If we have pre-filled data, set the client type but don't skip steps
+    if (widget.preFilledData != null) {
+      _selectedClientType = widget.preFilledData!['clientType'] as ClientType;
+    }
+  }
 
   @override
   void dispose() {
@@ -127,47 +153,45 @@ class _ServicesPageState extends State<ServicesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SizedBox(
+      body: Container(
         width: double.infinity,
         height: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: const Alignment(-1.0, -1.0),
+            end: const Alignment(1.0, 1.0),
+            colors: [const Color(0xFF93A5CF), const Color(0xFFE4EFE9)],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Background image
-            Image.asset('assets/images/bg.jpg', fit: BoxFit.cover),
-            Container(color: AppTheme.background.withOpacity(0.65)),
-            // Content
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with back arrow and logo
-                Padding(
-                  padding: const EdgeInsets.all(AppConstants.spacing16),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: AppTheme.foreground,
-                        ),
-                        onPressed:
-                            _currentStep == 0
-                                ? () => Navigator.of(context).pop()
-                                : _handleBackPress,
-                      ),
-                      const Spacer(),
-                      Image.asset(
-                        'assets/images/twogether_logo_light_br.png',
-                        height: 32,
-                      ),
-                      const SizedBox(width: AppConstants.spacing16),
-                    ],
+            // Header with back arrow and logo
+            Padding(
+              padding: const EdgeInsets.all(AppConstants.spacing16),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppTheme.foreground,
+                    ),
+                    onPressed:
+                        _currentStep == 0
+                            ? () => Navigator.of(context).pop()
+                            : _handleBackPress,
                   ),
-                ),
-                if (_currentStep > 0) _buildStepIndicator(),
-                Expanded(child: _buildCurrentStep()),
-              ],
+                  const Spacer(),
+                  Image.asset(
+                    'assets/images/twogether_logo_light_br.png',
+                    height: 32,
+                  ),
+                  const SizedBox(width: AppConstants.spacing16),
+                ],
+              ),
             ),
+            if (_currentStep > 0) _buildStepIndicator(),
+            Expanded(child: _buildCurrentStep()),
           ],
         ),
       ),
@@ -205,16 +229,13 @@ class _ServicesPageState extends State<ServicesPage> {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(50),
+        color: isActive ? AppTheme.primary : AppTheme.muted.withOpacity(0.5),
       ),
       child: Center(
         child: Text(
           step.toString(),
           style: TextStyle(
-            color:
-                isActive
-                    ? AppTheme.primaryForeground
-                    : AppTheme.mutedForeground,
+            color: isActive ? Colors.white : AppTheme.mutedForeground,
             fontWeight: FontWeight.w500,
             fontSize: 12,
           ),
@@ -226,7 +247,7 @@ class _ServicesPageState extends State<ServicesPage> {
   Widget _buildStepLine(bool isActive) {
     return Container(
       height: 1,
-      color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(50),
+      color: isActive ? AppTheme.primary : AppTheme.muted.withOpacity(0.5),
     );
   }
 
@@ -408,7 +429,7 @@ class _ServicesPageState extends State<ServicesPage> {
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: AppTheme.foreground.withOpacity(0.5),
+                    color: AppTheme.foreground.withValues(alpha: 128),
                     size: 20,
                   ),
                 ],
@@ -481,7 +502,7 @@ class _ServicesPageState extends State<ServicesPage> {
                     if (!isDisabled)
                       Icon(
                         Icons.chevron_right,
-                        color: AppTheme.foreground.withOpacity(0.5),
+                        color: AppTheme.foreground.withValues(alpha: 128),
                         size: 20,
                       ),
                   ],
@@ -545,7 +566,7 @@ class _ServicesPageState extends State<ServicesPage> {
               onPressed: _isFormValid() ? _handleSubmit : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.primaryForeground,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   vertical: AppConstants.spacing16,
                 ),
@@ -583,28 +604,29 @@ class _ServicesPageState extends State<ServicesPage> {
           borderRadius: BorderRadius.circular(12),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(color: AppTheme.mutedForeground),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.1),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
-              style: TextStyle(color: AppTheme.foreground),
+              child: TextField(
+                controller: controller,
+                keyboardType: keyboardType,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: TextStyle(color: AppTheme.mutedForeground),
+                  filled: false,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                ),
+                style: TextStyle(color: AppTheme.foreground),
+              ),
             ),
           ),
         ),
@@ -631,22 +653,19 @@ class _ServicesPageState extends State<ServicesPage> {
               Icon(
                 Icons.cloud_upload_outlined,
                 size: 48,
-                color: AppTheme.foreground.withOpacity(0.7),
+                color: AppTheme.foreground.withValues(alpha: 179),
               ),
               const SizedBox(height: AppConstants.spacing8),
               Text(
                 _invoiceFile ?? 'Por favor, carregue uma fatura',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.foreground.withOpacity(0.7),
+                  color: AppTheme.foreground.withValues(alpha: 179),
                 ),
               ),
               Text(
                 'Click or drag files here',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.foreground.withOpacity(0.5),
-                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.mutedForeground),
               ),
             ],
           ),

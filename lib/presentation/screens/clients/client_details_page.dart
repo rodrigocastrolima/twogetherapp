@@ -1,9 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/models/service_types.dart';
 import '../../../presentation/layout/main_layout.dart';
 import 'proposal_details_page.dart';
 import 'document_submission_page.dart';
+import '../services/services_page.dart';
 
 class ClientDetailsPage extends StatefulWidget {
   final Map<String, dynamic> clientData;
@@ -69,6 +72,29 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
     if (cpeData.isNotEmpty) {
       selectedCPE = cpeData.keys.first;
     }
+  }
+
+  void _handleNewService() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => ServicesPage(
+              preFilledData: {
+                'companyName': widget.clientData['name'],
+                'responsibleName': widget.clientData['responsibleName'] ?? '',
+                'nif': widget.clientData['nif'],
+                'email': widget.clientData['email'],
+                'phone': widget.clientData['phone'],
+                'address': widget.clientData['address'],
+                'clientType':
+                    widget.clientData['type'] == 'residential'
+                        ? ClientType.residential
+                        : ClientType.commercial,
+              },
+            ),
+      ),
+    );
   }
 
   @override
@@ -153,6 +179,61 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // New Service Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _handleNewService,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.15),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              CupertinoIcons.plus_circle,
+                              color: AppTheme.primary,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Novo Serviço',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
