@@ -1,4 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import '../../../core/theme/theme.dart';
+import '../../../presentation/layout/main_layout.dart';
 
 class DocumentSubmissionPage extends StatefulWidget {
   const DocumentSubmissionPage({super.key});
@@ -18,17 +22,14 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
 
   bool get canSubmit {
     if (isDigitallySigned) {
-      // If digitally signed, we don't need the "Contrato Assinado"
       return documents.entries
           .where((e) => e.key != 'Contrato Assinado')
           .every((e) => e.value != null);
     }
-    // If not digitally signed, we need all documents
     return documents.values.every((v) => v != null);
   }
 
   Future<void> _selectDocument(String documentType) async {
-    // Simulate file selection
     await Future.delayed(const Duration(milliseconds: 500));
     setState(() {
       documents[documentType] = 'selected_file.pdf';
@@ -37,151 +38,302 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Submeter Ficheiros')),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDigitalSignatureSection(),
-                  const Divider(height: 32),
-                  ..._buildDocumentsList(),
-                ],
-              ),
-            ),
-          ),
-          _buildSubmitButton(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDigitalSignatureSection() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Contrato Assinado Digitalmente',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              Switch(
-                value: isDigitallySigned,
-                onChanged: (value) {
-                  setState(() {
-                    isDigitallySigned = value;
-                  });
-                },
-                activeColor: Colors.black,
-              ),
-            ],
-          ),
-          if (isDigitallySigned)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Se o contrato foi assinado digitalmente, não é necessário fazer upload',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildDocumentsList() {
-    return documents.entries.map((entry) {
-      // Skip "Contrato Assinado" if digitally signed
-      if (isDigitallySigned && entry.key == 'Contrato Assinado') {
-        return const SizedBox.shrink();
-      }
-
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return MainLayout(
+      showNavigation: false,
+      child: SafeArea(
+        child: Column(
           children: [
-            Text(
-              entry.key,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
-            ),
-            TextButton(
-              onPressed: () => _selectDocument(entry.key),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: BorderSide(color: Colors.grey[300]!),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.upload_file_outlined,
-                    size: 20,
-                    color: Colors.grey[700],
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHeader()),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: _buildDigitalSignatureCard(),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    entry.value == null ? 'Selecionar' : 'Selecionado',
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w500,
+
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final entry = documents.entries.elementAt(index);
+                        if (isDigitallySigned &&
+                            entry.key == 'Contrato Assinado') {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildDocumentItem(entry.key, entry.value),
+                        );
+                      }, childCount: documents.length),
                     ),
                   ),
                 ],
               ),
             ),
+
+            _buildSubmitButton(),
           ],
         ),
-      );
-    }).toList();
+      ),
+    );
   }
 
-  Widget _buildSubmitButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Submeter Ficheiros',
+            style: TextStyle(
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'João Silva', // Dummy data
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF404040),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'PT0002000123456789', // Dummy CPE
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF737373),
+            ),
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed:
-              canSubmit
-                  ? () {
-                    // Handle submission
-                  }
-                  : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+    );
+  }
+
+  Widget _buildDigitalSignatureCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.15),
+              width: 0.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: const Text(
-            'Submeter Documentos',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    CupertinoIcons.signature,
+                    size: 18,
+                    color: Color(0xFF2C2C2E),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Contrato Assinado Digitalmente',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ),
+                  CupertinoSwitch(
+                    value: isDigitallySigned,
+                    onChanged: (value) {
+                      setState(() {
+                        isDigitallySigned = value;
+                      });
+                    },
+                    activeColor: const Color(0xFF2C2C2E),
+                  ),
+                ],
+              ),
+              if (isDigitallySigned) ...[
+                const SizedBox(height: 8),
+                const Padding(
+                  padding: EdgeInsets.only(left: 28),
+                  child: Text(
+                    'Se o contrato foi assinado digitalmente, não é necessário fazer upload',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF737373),
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentItem(String title, String? value) {
+    final isSelected = value != null;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.15),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? CupertinoIcons.doc_checkmark : CupertinoIcons.doc,
+                size: 22,
+                color:
+                    isSelected
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFF8E8E93),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    if (isSelected) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        value!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF8E8E93),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minSize: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        isSelected
+                            ? const Color(0xFFE9F7EC)
+                            : Colors.black.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected
+                            ? CupertinoIcons.checkmark_circle_fill
+                            : CupertinoIcons.add,
+                        size: 14,
+                        color:
+                            isSelected
+                                ? const Color(0xFF34C759)
+                                : const Color(0xFF2C2C2E),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isSelected ? 'Adicionado' : 'Adicionar',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              isSelected
+                                  ? const Color(0xFF34C759)
+                                  : const Color(0xFF2C2C2E),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                onPressed: () => _selectDocument(title),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: SafeArea(
+        top: false,
+        child: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: canSubmit ? () {} : null,
+          child: Container(
+            width: double.infinity,
+            height: 50,
+            decoration: BoxDecoration(
+              color:
+                  canSubmit
+                      ? const Color(0xFF2C2C2E)
+                      : const Color(0xFF2C2C2E).withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: const Text(
+              'Submeter Documentos',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
