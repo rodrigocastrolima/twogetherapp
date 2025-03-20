@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/theme/theme.dart';
 
 class ResellerProfilePage extends StatefulWidget {
   const ResellerProfilePage({super.key});
@@ -18,12 +20,10 @@ class _ResellerProfilePageState extends State<ResellerProfilePage> {
 
   // Temporary data - Replace with actual data from backend
   final Map<String, dynamic> _resellerData = {
-    'name': 'John Doe',
-    'email': 'john.doe@example.com',
-    'phone': '+55 11 99999-9999',
-    'registrationDate': '01/01/2024',
-    'totalClients': 15,
-    'activeClients': 12,
+    'name': 'Bernardo Ribeiro',
+    'email': 'bernardo.ribeiro@mail.com',
+    'phone': '+351 912 345 678', // Using a Portuguese phone format
+    'registrationDate': 'Janeiro 2023',
   };
 
   final List<Map<String, dynamic>> _revenueCycles = [
@@ -38,14 +38,14 @@ class _ResellerProfilePageState extends State<ResellerProfilePage> {
       'type': 'B2B',
       'cep': '12345-678',
       'amount': 5000.0,
-      'clientName': 'Company A',
+      'clientName': 'Empresa A',
     },
     {
       'cycle': 'Cycle 1',
       'type': 'B2C',
       'cep': '98765-432',
       'amount': 1500.0,
-      'clientName': 'John Smith',
+      'clientName': 'João Silva',
     },
     // Add more sample data as needed
   ];
@@ -116,79 +116,71 @@ class _ResellerProfilePageState extends State<ResellerProfilePage> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: AppColors.primary.withAlpha(26),
-                child: Text(
-                  _resellerData['name'].substring(0, 1),
-                  style: TextStyle(
-                    fontSize: 32,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _resellerData['name'],
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _resellerData['email'],
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const CircleAvatar(
+            radius: 40,
+            backgroundColor: Colors.white,
+            child: Icon(Icons.person, size: 48, color: AppColors.primary),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _resellerData['name'],
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _resellerData['email'],
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _resellerData['phone'],
+            style: TextStyle(color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
-          _buildProfileStats(),
+          _buildMembershipCard(),
         ],
       ),
     );
   }
 
-  Widget _buildProfileStats() {
-    final l10n = AppLocalizations.of(context)!;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatItem(
-          l10n.profileTotalClients,
-          _resellerData['totalClients'].toString(),
+  Widget _buildMembershipCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Membro desde',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.foreground.withAlpha(178),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _resellerData['registrationDate'],
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground.withAlpha(230),
+                ),
+              ),
+            ],
+          ),
         ),
-        _buildStatItem(
-          l10n.profileActiveClients,
-          _resellerData['activeClients'].toString(),
-        ),
-        _buildStatItem(l10n.profileSince, _resellerData['registrationDate']),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-      ],
+      ),
     );
   }
 

@@ -24,18 +24,69 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize CPE data based on client type
+    // Initialize CPE data based on client type and client
     if (widget.clientData['service'] == 'Energy') {
-      cpeData = {
-        'CPE001 - ${widget.clientData['address'] ?? 'Rua Principal 123, Porto'}':
-            {
-              'status': widget.clientData['status'],
+      if (widget.clientData['name'] == 'Green Energy Corp') {
+        // For Green Energy Corp - proposal accepted, documents needed
+        cpeData = {
+          'CPE001 - ${widget.clientData['address'] ?? 'Av. da Liberdade 45, Lisboa'}':
+              {
+                'status': widget.clientData['status'],
+                'steps': {
+                  'invoice': {
+                    'completed': true,
+                    'message': 'Fatura submetida com sucesso',
+                  },
+                  'contract': {
+                    'completed': true,
+                    'message': 'Proposta aceita em 12/03/2024',
+                  },
+                  'documents': {
+                    'completed': false,
+                    'needsAction': true,
+                    'message': 'Documentação pendente. Ação necessária.',
+                  },
+                  'approval': {
+                    'completed': false,
+                    'message': 'Aguardando aprovação final',
+                  },
+                },
+              },
+        };
+      } else {
+        // For João Silva - waiting for proposal approval (unchanged)
+        cpeData = {
+          'CPE001 - ${widget.clientData['address'] ?? 'Rua Principal 123, Porto'}':
+              {
+                'status': widget.clientData['status'],
+                'steps': {
+                  'invoice': {
+                    'completed': true,
+                    'message': 'Fatura submetida com sucesso',
+                  },
+                  'contract': {
+                    'completed': false,
+                    'needsAction': true,
+                    'message': 'Proposta recebida. Aguardando aprovação',
+                  },
+                  'documents': {
+                    'completed': false,
+                    'message': 'Indisponível até aprovação da proposta',
+                  },
+                  'approval': {
+                    'completed': false,
+                    'message': 'Aguardando aprovação final',
+                  },
+                },
+              },
+            'CPE002 - Av. da Liberdade 45, Lisboa': {
+              'status': 'Em Processo',
               'steps': {
                 'invoice': {
                   'completed': true,
                   'message': 'Fatura submetida com sucesso',
                 },
-                'contract': {'completed': true, 'message': 'Contrato recebido'},
+                'contract': {'completed': false, 'message': 'Aguardando contrato'},
                 'documents': {
                   'completed': false,
                   'message': 'Aguardando submissão de documentos',
@@ -46,25 +97,8 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                 },
               },
             },
-        'CPE002 - Av. da Liberdade 45, Lisboa': {
-          'status': 'Em Processo',
-          'steps': {
-            'invoice': {
-              'completed': true,
-              'message': 'Fatura submetida com sucesso',
-            },
-            'contract': {'completed': false, 'message': 'Aguardando contrato'},
-            'documents': {
-              'completed': false,
-              'message': 'Aguardando submissão de documentos',
-            },
-            'approval': {
-              'completed': false,
-              'message': 'Aguardando aprovação final',
-            },
-          },
-        },
-      };
+          };
+      }
     } else {
       cpeData = {};
     }
@@ -112,10 +146,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withAlpha(20),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withAlpha(38),
                       width: 0.5,
                     ),
                   ),
@@ -124,7 +158,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                         ? Icons.person_outline
                         : Icons.business_outlined,
                     size: 20,
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -146,7 +180,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                             : 'Cliente Comercial',
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppTheme.foreground.withOpacity(0.7),
+                          color: AppTheme.foreground.withAlpha(178),
                         ),
                       ),
                     ],
@@ -160,12 +194,12 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   decoration: BoxDecoration(
                     color: _getStatusColor(
                       widget.clientData['status'],
-                    ).withOpacity(0.15),
+                    ).withAlpha(15),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: _getStatusColor(
                         widget.clientData['status'],
-                      ).withOpacity(0.3),
+                      ).withAlpha(30),
                       width: 0.5,
                     ),
                   ),
@@ -197,10 +231,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withAlpha(20),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withAlpha(38),
                           width: 0.5,
                         ),
                       ),
@@ -210,7 +244,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: AppTheme.primary.withOpacity(0.15),
+                              color: AppTheme.primary.withAlpha(15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -270,10 +304,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withAlpha(20),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(38),
                 width: 0.5,
               ),
             ),
@@ -285,7 +319,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.foreground.withOpacity(0.9),
+                    color: AppTheme.foreground.withAlpha(230),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -321,7 +355,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: AppTheme.foreground.withOpacity(0.5),
+              color: AppTheme.foreground.withAlpha(178),
             ),
           ),
           const SizedBox(height: 4),
@@ -329,7 +363,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
             value,
             style: TextStyle(
               fontSize: 14,
-              color: AppTheme.foreground.withOpacity(0.9),
+              color: AppTheme.foreground.withAlpha(230),
             ),
           ),
         ],
@@ -348,10 +382,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withAlpha(20),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(38),
                 width: 0.5,
               ),
             ),
@@ -363,8 +397,8 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                     style: TextStyle(
                       color:
                           selectedCPE != null
-                              ? AppTheme.foreground.withOpacity(0.9)
-                              : AppTheme.foreground.withOpacity(0.5),
+                              ? AppTheme.foreground.withAlpha(230)
+                              : AppTheme.foreground.withAlpha(89),
                       fontSize: 14,
                     ),
                   ),
@@ -372,7 +406,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                 PopupMenuButton<String>(
                   icon: Icon(
                     Icons.expand_more,
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                   ),
                   color: Colors.white,
                   elevation: 8,
@@ -409,6 +443,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
   Widget _buildProcessTimeline() {
     final currentCPE = cpeData[selectedCPE];
     if (currentCPE == null) return const SizedBox.shrink();
+    
+    final contractCompleted = currentCPE['steps']['contract']['completed'];
+    final contractNeedsAction = currentCPE['steps']['contract']['needsAction'] ?? false;
+    final documentsNeedsAction = currentCPE['steps']['documents']['needsAction'] ?? false;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -419,10 +457,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withAlpha(20),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color: Colors.white.withAlpha(38),
                 width: 0.5,
               ),
             ),
@@ -434,7 +472,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.foreground.withOpacity(0.9),
+                    color: AppTheme.foreground.withAlpha(230),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -448,22 +486,22 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                 _buildTimelineStep(
                   step: 2,
                   title: 'Proposta e Contrato',
-                  isCompleted: currentCPE['steps']['contract']['completed'],
+                  isCompleted: contractCompleted,
+                  needsAction: contractNeedsAction,
                   message: currentCPE['steps']['contract']['message'],
-                  showButton: currentCPE['steps']['contract']['completed'],
+                  showButton: true,
                   buttonLabel: 'Ver Detalhes',
                   onButtonPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (context) => ProposalDetailsPage(
-                              proposalData: {
-                                'commission': '2.500,00',
-                                'expiryDate': '15/04/2024',
-                                'status': 'pending',
-                              },
-                            ),
+                        builder: (context) => ProposalDetailsPage(
+                          proposalData: {
+                            'commission': '2.500,00',
+                            'expiryDate': '15/04/2024',
+                            'status': 'pending',
+                          },
+                        ),
                       ),
                     );
                   },
@@ -472,17 +510,18 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   step: 3,
                   title: 'Documentação',
                   isCompleted: currentCPE['steps']['documents']['completed'],
+                  needsAction: documentsNeedsAction,
                   message: currentCPE['steps']['documents']['message'],
-                  showButton: !currentCPE['steps']['documents']['completed'],
+                  showButton: contractCompleted,
                   buttonLabel: 'Submeter Documentos',
-                  onButtonPressed: () {
+                  onButtonPressed: contractCompleted ? () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const DocumentSubmissionPage(),
                       ),
                     );
-                  },
+                  } : null,
                 ),
                 _buildTimelineStep(
                   step: 4,
@@ -509,6 +548,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
     String? buttonLabel,
     VoidCallback? onButtonPressed,
     bool isLast = false,
+    bool needsAction = false,
   }) {
     return IntrinsicHeight(
       child: Row(
@@ -522,34 +562,41 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   height: 24,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color:
-                        isCompleted
-                            ? const Color(0xFF40C057)
-                            : Colors.white.withOpacity(0.08),
+                    color: isCompleted
+                        ? const Color(0xFF40C057).withAlpha(77)
+                        : needsAction 
+                            ? const Color(0xFF0A84FF).withAlpha(77)
+                            : Colors.white.withAlpha(20),
                     border: Border.all(
-                      color:
-                          isCompleted
-                              ? const Color(0xFF40C057).withOpacity(0.3)
-                              : Colors.white.withOpacity(0.15),
+                      color: isCompleted
+                          ? const Color(0xFF40C057).withAlpha(77)
+                          : needsAction
+                              ? const Color(0xFF0A84FF).withAlpha(77)
+                              : Colors.white.withAlpha(38),
                       width: 0.5,
                     ),
                   ),
                   child: Center(
-                    child:
-                        isCompleted
+                    child: isCompleted
+                        ? const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 16,
+                          )
+                        : needsAction
                             ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 16,
-                            )
+                                Icons.priority_high,
+                                color: Colors.white,
+                                size: 16,
+                              )
                             : Text(
-                              step.toString(),
-                              style: TextStyle(
-                                color: AppTheme.foreground.withOpacity(0.7),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
+                                step.toString(),
+                                style: TextStyle(
+                                  color: AppTheme.foreground.withAlpha(179),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
                   ),
                 ),
                 if (!isLast)
@@ -558,8 +605,8 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                       width: 2,
                       color:
                           isCompleted
-                              ? const Color(0xFF40C057).withOpacity(0.3)
-                              : Colors.white.withOpacity(0.15),
+                              ? const Color(0xFF40C057).withAlpha(77)
+                              : Colors.white.withAlpha(38),
                     ),
                   ),
               ],
@@ -575,7 +622,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: AppTheme.foreground.withOpacity(0.9),
+                    color: AppTheme.foreground.withAlpha(230),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -583,7 +630,7 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                   message,
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                   ),
                 ),
                 if (showButton && buttonLabel != null) ...[
@@ -596,10 +643,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.15),
+                        color: AppTheme.primary.withAlpha(15),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: AppTheme.primary.withOpacity(0.3),
+                          color: AppTheme.primary.withAlpha(30),
                           width: 0.5,
                         ),
                       ),

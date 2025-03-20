@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/theme/theme.dart';
 import '../../core/utils/constants.dart';
@@ -7,12 +8,14 @@ import '../screens/home/reseller_home_page.dart';
 import '../screens/clients/clients_page.dart';
 import '../screens/messages/messages_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../screens/notifications/rejection_details_page.dart';
 
 class MainLayout extends StatefulWidget {
   final Widget? child;
   final VoidCallback? onBackPressed;
   final bool showBackButton;
   final bool showNavigation;
+  final String pageTitle;
 
   const MainLayout({
     super.key,
@@ -20,6 +23,7 @@ class MainLayout extends StatefulWidget {
     this.onBackPressed,
     this.showBackButton = true,
     this.showNavigation = false,
+    this.pageTitle = '',
   });
 
   @override
@@ -27,7 +31,8 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int _selectedIndex = 1;
+  int _selectedIndex = 0;
+  bool _hasNotifications = false;
 
   final List<Widget> _pages = [
     const ResellerHomePage(),
@@ -35,6 +40,21 @@ class _MainLayoutState extends State<MainLayout> {
     const MessagesPage(),
     const ProfilePage(),
   ];
+
+  void _handleNotificationTap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => RejectionDetailsPage(
+              submissionId: 'SUB12345',
+              rejectionReason: 'Missing document information',
+              rejectionDate: DateTime.now(),
+              isPermanentRejection: false,
+            ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +77,8 @@ class _MainLayoutState extends State<MainLayout> {
           children: [
             Scaffold(
               backgroundColor: Colors.transparent,
+              extendBody: true,
+              extendBodyBehindAppBar: true,
               appBar:
                   !widget.showNavigation
                       ? null
@@ -64,6 +86,7 @@ class _MainLayoutState extends State<MainLayout> {
                           ? AppBar(
                             backgroundColor: Colors.transparent,
                             elevation: 0,
+                            toolbarHeight: 70,
                             title: Padding(
                               padding: const EdgeInsets.only(top: 16),
                               child: Image.asset(
@@ -76,16 +99,12 @@ class _MainLayoutState extends State<MainLayout> {
                               Padding(
                                 padding: const EdgeInsets.only(
                                   top: 16,
-                                  right: 8,
+                                  right: 16,
                                 ),
-                                child: IconButton(
-                                  icon: Icon(
-                                    Icons.notifications_outlined,
-                                    color: AppTheme.foreground,
-                                  ),
-                                  onPressed: () {
-                                    // TODO: Implement notifications
-                                  },
+                                child: Icon(
+                                  CupertinoIcons.bell,
+                                  color: AppTheme.foreground,
+                                  size: 24,
                                 ),
                               ),
                             ],
@@ -99,14 +118,27 @@ class _MainLayoutState extends State<MainLayout> {
                       child: Row(
                         children: [
                           if (widget.showBackButton)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: AppTheme.foreground,
-                              ),
-                              onPressed:
+                            GestureDetector(
+                              onTap:
                                   widget.onBackPressed ??
                                   () => Navigator.of(context).pop(),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.1),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: Icon(
+                                  CupertinoIcons.chevron_left,
+                                  color: AppTheme.foreground,
+                                  size: 20,
+                                ),
+                              ),
                             ),
                           const Spacer(),
                           Image.asset(
@@ -124,147 +156,174 @@ class _MainLayoutState extends State<MainLayout> {
                           Container(
                             width: 280,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 20),
+                              color: Colors.white.withOpacity(0.08),
                               border: Border(
                                 right: BorderSide(
-                                  color: Colors.white.withValues(alpha: 38),
+                                  color: Colors.white.withOpacity(0.1),
                                   width: 0.5,
                                 ),
                               ),
                             ),
-                            child: NavigationRail(
-                              extended: true,
-                              backgroundColor: Colors.transparent,
-                              selectedIndex: _selectedIndex,
-                              onDestinationSelected: (index) {
-                                setState(() => _selectedIndex = index);
-                                _handleNavigation(index);
-                              },
-                              leading: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Image.asset(
-                                  'assets/images/logo.png',
-                                  height: 40,
+                            child: ClipRRect(
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 10,
+                                  sigmaY: 10,
+                                ),
+                                child: NavigationRail(
+                                  extended: true,
+                                  backgroundColor: Colors.transparent,
+                                  selectedIndex: _selectedIndex,
+                                  onDestinationSelected: (index) {
+                                    setState(() => _selectedIndex = index);
+                                    _handleNavigation(index);
+                                  },
+                                  leading: Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: IconButton(
+                                      icon: Icon(
+                                        Icons.menu,
+                                        color: AppTheme.foreground,
+                                      ),
+                                      onPressed: () {
+                                        // Handle menu
+                                      },
+                                    ),
+                                  ),
+                                  destinations: [
+                                    NavigationRailDestination(
+                                      icon: Icon(
+                                        CupertinoIcons.home,
+                                        color:
+                                            _selectedIndex == 0
+                                                ? AppTheme.primary
+                                                : AppTheme.foreground
+                                                    .withOpacity(0.5),
+                                      ),
+                                      label: Text(
+                                        'Início',
+                                        style: TextStyle(
+                                          color:
+                                              _selectedIndex == 0
+                                                  ? AppTheme.primary
+                                                  : AppTheme.foreground
+                                                      .withOpacity(0.5),
+                                          fontWeight:
+                                              _selectedIndex == 0
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                    NavigationRailDestination(
+                                      icon: Icon(
+                                        CupertinoIcons.person_2,
+                                        color:
+                                            _selectedIndex == 1
+                                                ? AppTheme.primary
+                                                : AppTheme.foreground
+                                                    .withOpacity(0.5),
+                                      ),
+                                      label: Text(
+                                        'Clientes',
+                                        style: TextStyle(
+                                          color:
+                                              _selectedIndex == 1
+                                                  ? AppTheme.primary
+                                                  : AppTheme.foreground
+                                                      .withOpacity(0.5),
+                                          fontWeight:
+                                              _selectedIndex == 1
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                    NavigationRailDestination(
+                                      icon: Icon(
+                                        CupertinoIcons.plus_circle,
+                                        color:
+                                            _selectedIndex == 2
+                                                ? AppTheme.primary
+                                                : AppTheme.foreground
+                                                    .withOpacity(0.5),
+                                      ),
+                                      label: Text(
+                                        'Novo Cliente',
+                                        style: TextStyle(
+                                          color:
+                                              _selectedIndex == 2
+                                                  ? AppTheme.primary
+                                                  : AppTheme.foreground
+                                                      .withOpacity(0.5),
+                                          fontWeight:
+                                              _selectedIndex == 2
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                    NavigationRailDestination(
+                                      icon: Icon(
+                                        CupertinoIcons.settings,
+                                        color:
+                                            _selectedIndex == 3
+                                                ? AppTheme.primary
+                                                : AppTheme.foreground
+                                                    .withOpacity(0.5),
+                                      ),
+                                      label: Text(
+                                        'Configurações',
+                                        style: TextStyle(
+                                          color:
+                                              _selectedIndex == 3
+                                                  ? AppTheme.primary
+                                                  : AppTheme.foreground
+                                                      .withOpacity(0.5),
+                                          fontWeight:
+                                              _selectedIndex == 3
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              destinations: [
-                                NavigationRailDestination(
-                                  icon: Icon(
-                                    Icons.home_outlined,
-                                    color:
-                                        _selectedIndex == 0
-                                            ? AppTheme.primary
-                                            : AppTheme.foreground.withValues(
-                                              alpha: 179,
-                                            ),
-                                  ),
-                                  selectedIcon: const Icon(
-                                    Icons.home,
-                                    color: AppTheme.primary,
-                                  ),
-                                  label: Text(
-                                    'Início',
-                                    style: TextStyle(
-                                      color:
-                                          _selectedIndex == 0
-                                              ? AppTheme.primary
-                                              : AppTheme.foreground.withValues(
-                                                alpha: 179,
-                                              ),
-                                    ),
-                                  ),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(
-                                    Icons.people_outline,
-                                    color:
-                                        _selectedIndex == 1
-                                            ? AppTheme.primary
-                                            : AppTheme.foreground.withValues(
-                                              alpha: 179,
-                                            ),
-                                  ),
-                                  selectedIcon: const Icon(
-                                    Icons.people,
-                                    color: AppTheme.primary,
-                                  ),
-                                  label: Text(
-                                    'Clientes',
-                                    style: TextStyle(
-                                      color:
-                                          _selectedIndex == 1
-                                              ? AppTheme.primary
-                                              : AppTheme.foreground.withValues(
-                                                alpha: 179,
-                                              ),
-                                    ),
-                                  ),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(
-                                    Icons.message_outlined,
-                                    color:
-                                        _selectedIndex == 2
-                                            ? AppTheme.primary
-                                            : AppTheme.foreground.withValues(
-                                              alpha: 179,
-                                            ),
-                                  ),
-                                  selectedIcon: const Icon(
-                                    Icons.message,
-                                    color: AppTheme.primary,
-                                  ),
-                                  label: Text(
-                                    'Mensagens',
-                                    style: TextStyle(
-                                      color:
-                                          _selectedIndex == 2
-                                              ? AppTheme.primary
-                                              : AppTheme.foreground.withValues(
-                                                alpha: 179,
-                                              ),
-                                    ),
-                                  ),
-                                ),
-                                NavigationRailDestination(
-                                  icon: Icon(
-                                    Icons.person_outline,
-                                    color:
-                                        _selectedIndex == 3
-                                            ? AppTheme.primary
-                                            : AppTheme.foreground.withValues(
-                                              alpha: 179,
-                                            ),
-                                  ),
-                                  selectedIcon: const Icon(
-                                    Icons.person,
-                                    color: AppTheme.primary,
-                                  ),
-                                  label: Text(
-                                    'Perfil',
-                                    style: TextStyle(
-                                      color:
-                                          _selectedIndex == 3
-                                              ? AppTheme.primary
-                                              : AppTheme.foreground.withValues(
-                                                alpha: 179,
-                                              ),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.all(24),
+                              padding: EdgeInsets.only(
+                                left: 24,
+                                right: 24,
+                                top:
+                                    widget.showNavigation && isSmallScreen
+                                        ? kToolbarHeight + 16
+                                        : 24,
+                                bottom:
+                                    widget.showNavigation && isSmallScreen
+                                        ? 84
+                                        : 24,
+                              ),
                               child: widget.child ?? _pages[_selectedIndex],
                             ),
                           ),
                         ] else ...[
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.all(24),
+                              padding: EdgeInsets.only(
+                                left: 24,
+                                right: 24,
+                                top:
+                                    widget.showNavigation && isSmallScreen
+                                        ? kToolbarHeight + 16
+                                        : 24,
+                                bottom:
+                                    widget.showNavigation && isSmallScreen
+                                        ? 84
+                                        : 24,
+                              ),
                               child: widget.child ?? _pages[_selectedIndex],
                             ),
                           ),
@@ -282,97 +341,101 @@ class _MainLayoutState extends State<MainLayout> {
                 bottom: 0,
                 child: ClipRRect(
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                     child: Container(
                       height: 84,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 20),
+                        color: Colors.white.withOpacity(0.08),
                         border: Border(
                           top: BorderSide(
-                            color: Colors.white.withValues(alpha: 38),
+                            color: Colors.white.withOpacity(0.1),
                             width: 0.5,
                           ),
                         ),
                       ),
-                      child: NavigationBar(
-                        backgroundColor: Colors.transparent,
-                        surfaceTintColor: Colors.transparent,
-                        selectedIndex: _selectedIndex,
-                        onDestinationSelected: (index) {
-                          setState(() => _selectedIndex = index);
-                          _handleNavigation(index);
-                        },
-                        destinations: [
-                          NavigationDestination(
-                            icon: Icon(
-                              Icons.home_outlined,
-                              color:
-                                  _selectedIndex == 0
-                                      ? AppTheme.primary
-                                      : AppTheme.foreground.withValues(
-                                        alpha: 179,
-                                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildTabItem(
+                              icon: CupertinoIcons.house,
+                              selectedIcon: CupertinoIcons.house_fill,
+                              label: 'Início',
+                              index: 0,
                             ),
-                            selectedIcon: const Icon(
-                              Icons.home,
-                              color: AppTheme.primary,
+                            _buildTabItem(
+                              icon: CupertinoIcons.person_2,
+                              selectedIcon: CupertinoIcons.person_2_fill,
+                              label: 'Clientes',
+                              index: 1,
                             ),
-                            label: 'Início',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(
-                              Icons.people_outline,
-                              color:
-                                  _selectedIndex == 1
-                                      ? AppTheme.primary
-                                      : AppTheme.foreground.withValues(
-                                        alpha: 179,
-                                      ),
+                            _buildTabItem(
+                              icon: CupertinoIcons.chat_bubble,
+                              selectedIcon: CupertinoIcons.chat_bubble_fill,
+                              label: 'Mensagens',
+                              index: 2,
                             ),
-                            selectedIcon: const Icon(
-                              Icons.people,
-                              color: AppTheme.primary,
+                            _buildTabItem(
+                              icon: CupertinoIcons.person,
+                              selectedIcon: CupertinoIcons.person_fill,
+                              label: 'Perfil',
+                              index: 3,
                             ),
-                            label: 'Clientes',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(
-                              Icons.message_outlined,
-                              color:
-                                  _selectedIndex == 2
-                                      ? AppTheme.primary
-                                      : AppTheme.foreground.withValues(
-                                        alpha: 179,
-                                      ),
-                            ),
-                            selectedIcon: const Icon(
-                              Icons.message,
-                              color: AppTheme.primary,
-                            ),
-                            label: 'Mensagens',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(
-                              Icons.person_outline,
-                              color:
-                                  _selectedIndex == 3
-                                      ? AppTheme.primary
-                                      : AppTheme.foreground.withValues(
-                                        alpha: 179,
-                                      ),
-                            ),
-                            selectedIcon: const Icon(
-                              Icons.person,
-                              color: AppTheme.primary,
-                            ),
-                            label: 'Perfil',
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabItem({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedIndex = index);
+        _handleNavigation(index);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : icon,
+              color:
+                  isSelected
+                      ? AppTheme.primary
+                      : AppTheme.foreground.withOpacity(0.6),
+              size: 26,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: '.SF Pro Text',
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color:
+                    isSelected
+                        ? AppTheme.primary
+                        : AppTheme.foreground.withOpacity(0.6),
+                letterSpacing: -0.2,
+              ),
+            ),
           ],
         ),
       ),

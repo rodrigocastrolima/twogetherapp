@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/theme/theme.dart';
 import '../services/services_page.dart';
+import '../../screens/notifications/rejection_details_page.dart';
+import '../dashboard/dashboard_page.dart';
 import 'dart:ui';
 
 class ResellerHomePage extends StatefulWidget {
@@ -26,12 +29,8 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
   Widget _buildMainContent(bool isSmallScreen) {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24.0,
-        24.0,
-        isSmallScreen ? 24.0 : 16.0,
-        24.0,
-      ),
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(24.0, 32.0, 24.0, 32.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -46,54 +45,88 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 2,
+                        color: Colors.white.withAlpha(25),
+                        width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(13),
+                          blurRadius: 10,
+                          spreadRadius: 0,
+                        ),
+                      ],
                     ),
                     child: CircleAvatar(
                       radius: 40,
-                      backgroundColor: Colors.white.withOpacity(0.1),
+                      backgroundColor: Colors.white.withAlpha(38),
                       child: Icon(
-                        Icons.person,
-                        size: 40,
-                        color: AppTheme.foreground,
+                        CupertinoIcons.person_fill,
+                        size: 36,
+                        color: AppTheme.foreground.withAlpha(204),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 Text(
                   'Bernardo Ribeiro',
-                  style: AppTextStyles.h2.copyWith(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.foreground,
                     fontSize: 28,
+                    letterSpacing: -0.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'bernardoribeiro55@gmail.com',
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppTheme.foreground.withOpacity(0.7),
-                    fontSize: 15,
+                  'bernardo.ribeiro@mail.com',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.foreground.withAlpha(178),
                   ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
+
+          // Section Title - Earnings
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Resumo Financeiro',
+              style: TextStyle(
+                fontFamily: '.SF Pro Display',
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.foreground,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
 
           // Earnings Card
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.1),
+                    width: 0.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,31 +137,31 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                         Text(
                           'Ganhos em Comissões',
                           style: TextStyle(
+                            fontFamily: '.SF Pro Display',
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.foreground,
+                            color: AppTheme.foreground.withOpacity(0.9),
+                            letterSpacing: -0.2,
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            _isEarningsVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            size: 20,
-                            color: AppTheme.foreground.withOpacity(0.5),
-                          ),
-                          onPressed: () {
+                        GestureDetector(
+                          onTap: () {
                             setState(() {
                               _isEarningsVisible = !_isEarningsVisible;
                             });
                           },
-                          padding: EdgeInsets.zero,
-                          visualDensity: VisualDensity.compact,
+                          child: Icon(
+                            _isEarningsVisible
+                                ? CupertinoIcons.eye_fill
+                                : CupertinoIcons.eye_slash_fill,
+                            size: 20,
+                            color: AppTheme.foreground.withOpacity(0.5),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    InkWell(
+                    const SizedBox(height: 16),
+                    GestureDetector(
                       onTap: () {
                         setState(() {
                           _isEarningsVisible = !_isEarningsVisible;
@@ -141,9 +174,11 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                                 ? Text(
                                   '€ 5.500,00',
                                   style: TextStyle(
-                                    fontSize: 32,
+                                    fontFamily: '.SF Pro Display',
+                                    fontSize: 34,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.foreground,
+                                    letterSpacing: -0.5,
                                   ),
                                 )
                                 : ClipRect(
@@ -155,9 +190,11 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                                     child: Text(
                                       '€ 5.500,00',
                                       style: TextStyle(
-                                        fontSize: 32,
+                                        fontFamily: '.SF Pro Display',
+                                        fontSize: 34,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.transparent,
+                                        letterSpacing: -0.5,
                                         shadows: [
                                           Shadow(
                                             color: AppTheme.foreground
@@ -171,164 +208,357 @@ class _ResellerHomePageState extends State<ResellerHomePage> {
                                 ),
                       ),
                     ),
-                    TextButton(
-                      onPressed:
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap:
                           () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => const ServicesPage(),
+                              builder: (_) => const DashboardPage(),
                             ),
                           ),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        foregroundColor: AppTheme.foreground.withOpacity(0.7),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Ver Detalhes',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primary,
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 14,
+                            color: AppTheme.primary,
+                          ),
+                        ],
                       ),
-                      child: Text('Ver Detalhes'),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
 
-          // Add New Service Button
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ServicesPage()),
-                      ),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.primary.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.add_circle_outline,
-                          color: AppTheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Adicionar Novo Serviço',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          // Section Title - Actions
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Ações Rápidas',
+              style: TextStyle(
+                fontFamily: '.SF Pro Display',
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.foreground,
+                letterSpacing: -0.5,
               ),
             ),
           ),
-          const SizedBox(height: 32),
 
-          // Notifications Section
-          Text(
-            'Notificações',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.foreground,
+          // Quick Actions
+          _buildQuickActions(),
+
+          const SizedBox(height: 40),
+
+          // Section Title - Notifications
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                Text(
+                  'Notificações',
+                  style: TextStyle(
+                    fontFamily: '.SF Pro Display',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.foreground,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: AppTheme.destructive,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '4',
+                      style: TextStyle(
+                        fontFamily: '.SF Pro Text',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+
           ..._buildNotificationItems(),
         ],
       ),
     );
   }
 
+  Widget _buildQuickActions() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Center(
+        child: _buildActionButton(
+          'Novo Serviço',
+          CupertinoIcons.add,
+          onTap:
+              () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ServicesPage())),
+          color: AppTheme.primary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    String label,
+    IconData icon, {
+    Color? color,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: 100,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(20),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: (color ?? AppTheme.primary).withAlpha(38),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color ?? AppTheme.primary, size: 20),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.foreground.withAlpha(178),
+                    letterSpacing: -0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildNotificationItems() {
-    return [
-      _buildNotificationItem(
-        icon: Icons.calendar_today,
-        title: 'Reunião Agendada',
-        description: 'Você tem uma reunião agendada para hoje às 14h',
-      ),
-      _buildNotificationItem(
-        icon: Icons.assignment,
-        title: 'Nova Solicitação de Serviço',
-        description: 'Uma nova solicitação de serviço requer sua atenção',
-      ),
-      _buildNotificationItem(
-        icon: Icons.payment,
-        title: 'Pagamento Recebido',
-        description: 'O pagamento da comissão foi processado',
-      ),
+    final notifications = [
+      {
+        'title': 'Submission Rejected',
+        'description':
+            'Your solar commercial submission TR003_0001 was rejected',
+        'type': 'rejection',
+        'data': {
+          'submissionId': 'TR003_0001',
+          'rejectionReason':
+              'The invoice image is not clear enough. Please provide a higher quality image where all text and numbers are clearly legible.',
+          'rejectionDate': DateTime.now(),
+          'isPermanentRejection': false,
+        },
+      },
+      {
+        'title': 'Permanent Rejection',
+        'description': 'Your submission SUB67890 has been permanently rejected',
+        'type': 'rejection',
+        'data': {
+          'submissionId': 'SUB67890',
+          'rejectionReason':
+              'Invalid business registration number. This submission has been permanently rejected and cannot be resubmitted.',
+          'rejectionDate': DateTime.now(),
+          'isPermanentRejection': true,
+        },
+      },
+      {
+        'title': 'Reunião Agendada',
+        'description': 'Você tem uma reunião agendada para hoje às 14h',
+        'type': 'calendar',
+      },
+      {
+        'title': 'Nova Solicitação de Serviço',
+        'description': 'Uma nova solicitação de serviço requer sua atenção',
+        'type': 'service',
+      },
+      {
+        'title': 'Pagamento Recebido',
+        'description': 'O pagamento da comissão foi processado',
+        'type': 'payment',
+      },
+      {
+        'title': 'Nova Proposta',
+        'description':
+            'A proposta para João Silva foi enviada e aguarda aprovação.',
+        'type': 'proposal',
+      },
     ];
+
+    return notifications.map((notification) {
+      IconData icon;
+      Color iconColor;
+
+      switch (notification['type']) {
+        case 'rejection':
+          icon = CupertinoIcons.exclamationmark_triangle_fill;
+          iconColor = AppTheme.destructive;
+          break;
+        case 'calendar':
+          icon = CupertinoIcons.calendar;
+          iconColor = const Color(0xFF0A84FF);
+          break;
+        case 'service':
+          icon = CupertinoIcons.doc_text_fill;
+          iconColor = const Color(0xFF5856D6);
+          break;
+        case 'payment':
+          icon = CupertinoIcons.money_dollar_circle_fill;
+          iconColor = const Color(0xFF34C759);
+          break;
+        case 'proposal':
+          icon = Icons.description_outlined;
+          iconColor = Colors.blue;
+          break;
+        default:
+          icon = CupertinoIcons.info;
+          iconColor = Colors.orange;
+      }
+
+      return _buildNotificationItem(
+        icon: icon,
+        title: notification['title'] as String,
+        description: notification['description'] as String,
+        iconColor: iconColor,
+        onTap:
+            notification['type'] == 'rejection'
+                ? () {
+                  final data = notification['data'] as Map<String, dynamic>;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => RejectionDetailsPage(
+                            submissionId: data['submissionId'],
+                            rejectionReason: data['rejectionReason'],
+                            rejectionDate: data['rejectionDate'],
+                            isPermanentRejection: data['isPermanentRejection'],
+                          ),
+                    ),
+                  );
+                }
+                : null,
+      );
+    }).toList();
   }
 
   Widget _buildNotificationItem({
     required IconData icon,
     required String title,
     required String description,
+    VoidCallback? onTap,
+    Color? iconColor,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: AppTheme.primary, size: 20),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 0.5,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.foreground,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.foreground.withOpacity(0.7),
-                        ),
-                      ),
-                    ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: (iconColor ?? AppTheme.primary).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: iconColor ?? AppTheme.primary,
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: '.SF Pro Text',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.foreground,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            fontFamily: '.SF Pro Text',
+                            fontSize: 14,
+                            color: AppTheme.foreground.withOpacity(0.7),
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    size: 16,
+                    color: AppTheme.foreground.withOpacity(0.4),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

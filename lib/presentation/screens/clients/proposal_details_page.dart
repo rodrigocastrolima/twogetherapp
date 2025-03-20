@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
 
@@ -14,217 +15,21 @@ class ProposalDetailsPage extends StatelessWidget {
       showNavigation: false,
       child: Column(
         children: [
+          // Action buttons at the top
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: _buildActionButtons(context),
+          ),
+
           Expanded(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'João Silva', // Replace with actual client name
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: AppTheme.primary.withOpacity(0.3),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.euro,
-                                    size: 16,
-                                    color: AppTheme.primary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    proposalData['commission'] ?? '2.500,00',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.15),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 16,
-                                    color: AppTheme.foreground.withOpacity(0.7),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Expira ${proposalData['expiryDate'] ?? '15/04/2024'}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppTheme.foreground.withOpacity(
-                                        0.7,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.all(16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.15),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Detalhes da Proposta',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.foreground.withOpacity(0.9),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              // Add proposal details here
-                              _buildDetailRow('Tipo de Serviço', 'Energia'),
-                              _buildDetailRow('Consumo Anual', '3.500 kWh'),
-                              _buildDetailRow('Potência Contratada', '6.9 kVA'),
-                              _buildDetailRow('Tarifa', 'Bi-horária'),
-                              _buildDetailRow(
-                                'Duração do Contrato',
-                                '12 meses',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              border: Border(
-                top: BorderSide(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 0.5,
-                ),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: () {
-                        // TODO: Implement share
-                      },
-                      icon: Icon(
-                        Icons.share_outlined,
-                        color: AppTheme.foreground.withOpacity(0.7),
-                      ),
-                      label: Text(
-                        'Partilhar',
-                        style: TextStyle(
-                          color: AppTheme.foreground.withOpacity(0.7),
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: Colors.white.withOpacity(0.08),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: Colors.white.withOpacity(0.15),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: () {
-                        // TODO: Implement download
-                      },
-                      icon: const Icon(
-                        Icons.download_outlined,
-                        color: AppTheme.primary,
-                      ),
-                      label: const Text(
-                        'Download',
-                        style: TextStyle(color: AppTheme.primary),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: AppTheme.primary.withOpacity(0.15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: AppTheme.primary.withOpacity(0.3),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildProposalInfoCard(),
+                  const SizedBox(height: 16),
+                  _buildContractCard(),
                 ],
               ),
             ),
@@ -234,25 +39,349 @@ class ProposalDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            context: context,
+            label: 'Recusar',
+            icon: CupertinoIcons.xmark,
+            color: const Color(0xFFFF3B30), // Red
+            onTap: () {
+              _showRejectDialog(context);
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildActionButton(
+            context: context,
+            label: 'Aceitar',
+            icon: CupertinoIcons.checkmark,
+            color: const Color(0xFF34C759), // Green
+            onTap: () {
+              _showAcceptDialog(context);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(20), // Match app theme background
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withAlpha(25), // Match app theme border
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(38), // Match app theme styling
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAcceptDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white.withAlpha(230),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Aceitar Proposta'),
+            content: const Text(
+              'Ao aceitar esta proposta, você confirma os termos e condições estabelecidos. Deseja prosseguir?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancelar',
+                  style: TextStyle(color: AppTheme.foreground.withAlpha(178)),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF34C759),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context, {
+                    'action': 'accept',
+                  }); // Return to client details with result
+                },
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showRejectDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white.withAlpha(230),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Recusar Proposta'),
+            content: const Text(
+              'Ao recusar esta proposta, o processo será interrompido. Tem certeza que deseja recusar?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'Cancelar',
+                  style: TextStyle(color: AppTheme.foreground.withAlpha(178)),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF3B30),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context, {
+                    'action': 'reject',
+                  }); // Return to client details with result
+                },
+                child: const Text('Recusar'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Widget _buildProposalInfoCard() {
+    // Current proposal info display
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(20),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Proposta',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground.withAlpha(230),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildInfoRow('Process ID', 'PR352'),
+              _buildInfoRow('Comissão', '€ ${proposalData['commission']}'),
+              _buildInfoRow('Data de Validade', proposalData['expiryDate']),
+              _buildInfoRow('Fornecedor', 'EDP Comercial'),
+              const SizedBox(height: 16),
+
+              // Add PDF viewer for proposal document
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  color: Colors.white.withAlpha(38),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          CupertinoIcons.doc_chart,
+                          size: 36,
+                          color: AppTheme.foreground.withAlpha(130),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Proposta_EDP_Comercial.pdf',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.foreground.withAlpha(178),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary.withAlpha(38),
+                            foregroundColor: AppTheme.primary,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {},
+                          icon: const Icon(CupertinoIcons.eye, size: 16),
+                          label: const Text('Visualizar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContractCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(20),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Contrato',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.foreground.withAlpha(230),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 200,
+                  width: double.infinity,
+                  color: Colors.white.withAlpha(38),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          CupertinoIcons.doc_text,
+                          size: 36,
+                          color: AppTheme.foreground.withAlpha(130),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Contrato_Cliente_EDP.pdf',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.foreground.withAlpha(178),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary.withAlpha(38),
+                            foregroundColor: AppTheme.primary,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () {},
+                          icon: const Icon(CupertinoIcons.eye, size: 16),
+                          label: const Text('Visualizar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.foreground.withOpacity(0.7),
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.foreground.withAlpha(178),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.foreground.withOpacity(0.9),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.foreground.withAlpha(230),
+              ),
             ),
           ),
         ],
