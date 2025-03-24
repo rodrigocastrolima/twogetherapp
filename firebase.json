@@ -1,0 +1,42 @@
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "twogetherapp-65678",
+          "configurations": {
+            "android": "1:415751455004:android:4dded0f1071a64ed8dfad9"
+          }
+        }
+      },
+      "android": {
+        "default": {
+          "projectId": "twogetherapp-65678",
+          "appId": "1:415751455004:android:4dded0f1071a64ed8dfad9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "region": "us-central1",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ]
+}
