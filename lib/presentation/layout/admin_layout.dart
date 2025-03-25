@@ -1,15 +1,13 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/theme/theme.dart';
-import '../../core/utils/constants.dart';
 import '../screens/admin/admin_home_page.dart';
 import '../screens/admin/admin_users_page.dart';
 import '../screens/admin/admin_reports_page.dart';
 import '../screens/admin/admin_settings_page.dart';
+import '../screens/messages/messages_page.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class AdminLayout extends StatefulWidget {
   final Widget? child;
@@ -33,16 +31,23 @@ class AdminLayout extends StatefulWidget {
 
 class _AdminLayoutState extends State<AdminLayout> {
   int _selectedIndex = 0;
-  int _notificationCount = 3;
+  final int _notificationCount = 3;
 
   final List<Widget> _pages = [
     const AdminHomePage(),
     const AdminUsersPage(),
+    const MessagesPage(),
     const AdminReportsPage(),
     const AdminSettingsPage(),
   ];
 
-  final List<String> _titles = ['Dashboard', 'Users', 'Reports', 'Settings'];
+  final List<String> _titles = [
+    'Dashboard',
+    'Users',
+    'Messages',
+    'Reports',
+    'Settings',
+  ];
 
   @override
   void initState() {
@@ -60,10 +65,12 @@ class _AdminLayoutState extends State<AdminLayout> {
       setState(() => _selectedIndex = 0);
     } else if (location == '/admin/users') {
       setState(() => _selectedIndex = 1);
-    } else if (location == '/admin/reports') {
+    } else if (location == '/admin/messages') {
       setState(() => _selectedIndex = 2);
-    } else if (location == '/admin/settings') {
+    } else if (location == '/admin/reports') {
       setState(() => _selectedIndex = 3);
+    } else if (location == '/admin/settings') {
+      setState(() => _selectedIndex = 4);
     }
   }
 
@@ -78,9 +85,9 @@ class _AdminLayoutState extends State<AdminLayout> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppTheme.background.withBlue(AppTheme.background.blue + 10),
+            AppTheme.background.withBlue((AppTheme.background.b + 10).toInt()),
             AppTheme.background,
-            AppTheme.background.withRed(AppTheme.background.red + 10),
+            AppTheme.background.withRed((AppTheme.background.r + 10).toInt()),
           ],
         ),
       ),
@@ -180,15 +187,12 @@ class _AdminLayoutState extends State<AdminLayout> {
         child: Container(
           width: 100,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withAlpha(20),
             borderRadius: const BorderRadius.only(
               topRight: Radius.circular(16),
               bottomRight: Radius.circular(16),
             ),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
           ),
           child: NavigationRail(
             selectedIndex: _selectedIndex,
@@ -205,11 +209,15 @@ class _AdminLayoutState extends State<AdminLayout> {
               fontWeight: FontWeight.bold,
             ),
             unselectedLabelTextStyle: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withAlpha(179),
             ),
             destinations: [
               _buildNavigationRailDestination(CupertinoIcons.home, 'Dashboard'),
               _buildNavigationRailDestination(CupertinoIcons.person_2, 'Users'),
+              _buildNavigationRailDestination(
+                CupertinoIcons.chat_bubble_2,
+                'Messages',
+              ),
               _buildNavigationRailDestination(
                 CupertinoIcons.chart_bar,
                 'Reports',
@@ -230,7 +238,7 @@ class _AdminLayoutState extends State<AdminLayout> {
     String label,
   ) {
     return NavigationRailDestination(
-      icon: Icon(iconData, color: Colors.white.withOpacity(0.7)),
+      icon: Icon(iconData, color: Colors.white.withAlpha(179)),
       selectedIcon: Icon(iconData, color: Colors.amber),
       label: Text(label),
     );
@@ -253,9 +261,9 @@ class _AdminLayoutState extends State<AdminLayout> {
             _handleNavigation(index);
           },
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white.withOpacity(0.08),
+          backgroundColor: Colors.white.withAlpha(20),
           selectedItemColor: Colors.amber,
-          unselectedItemColor: Colors.white.withOpacity(0.7),
+          unselectedItemColor: Colors.white.withAlpha(179),
           items: const [
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.home),
@@ -264,6 +272,10 @@ class _AdminLayoutState extends State<AdminLayout> {
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.person_2),
               label: 'Users',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(CupertinoIcons.chat_bubble_2),
+              label: 'Messages',
             ),
             BottomNavigationBarItem(
               icon: Icon(CupertinoIcons.chart_bar),
@@ -288,9 +300,12 @@ class _AdminLayoutState extends State<AdminLayout> {
         context.go('/admin/users');
         break;
       case 2:
-        context.go('/admin/reports');
+        context.go('/admin/messages');
         break;
       case 3:
+        context.go('/admin/reports');
+        break;
+      case 4:
         context.go('/admin/settings');
         break;
     }

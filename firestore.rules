@@ -2,42 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Allow access to own user document - simplified approach
-    match /users/{userId} {
-      // Allow reading your own user document
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      
-      // Admin can read any user document
-      allow read: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      
-      // Only admins can write/create user documents
-      allow write: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      
-      // Users can update certain fields of their own document
-      allow update: if isAuthenticated() && request.auth.uid == userId && 
-        (!request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'isEnabled', 'createdAt', 'createdBy']));
-    }
-    
-    // For admin to list all users (with any role)
-    match /users/{userId} {
-      allow list: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Default rule - deny everything else
+    // Very simple rules for initial testing - allow all authenticated users access to all collections
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
 } 
