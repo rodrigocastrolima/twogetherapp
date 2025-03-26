@@ -43,6 +43,14 @@
     "clientsPageNoClients": "Nenhum cliente encontrado",
     "clientsPageAddClient": "Adicionar Cliente",
     "clientsPageSearch": "Buscar clientes...",
+    "clientsFilterAction": "Ação",
+    "clientsFilterPending": "Pendente",
+    "clientsFilterCompleted": "Concluídos",
+    "clientsStatusActionRequired": "Ação Necessária",
+    "clientsStatusPending": "Pendente",
+    "clientsStatusActive": "Ativo",
+    "clientsEmptyStateTitle": "Nenhum cliente encontrado",
+    "clientsEmptyStateMessage": "Tente modificar sua pesquisa",
     
     "@_MESSAGES": {},
     "messagesPageTitle": "Mensagens",
@@ -59,6 +67,7 @@
     "profileB2B": "B2B",
     "profileB2C": "B2C",
     "profileLogout": "Sair",
+    "profileLogoutConfirm": "Tem certeza que deseja sair?",
     "profileTotalClients": "Total de Clientes",
     "profileActiveClients": "Clientes Ativos",
     "profileSince": "Membro Desde",
@@ -67,6 +76,20 @@
     "profileCustomerType": "Tipo de Cliente",
     "profileFilterByCep": "Filtrar por CEP",
     "profileTotalRevenue": "Receita Total",
+    "profileSettings": "Configurações",
+    "profileChangePassword": "Alterar Senha",
+    "profileUpdatePassword": "Atualizar senha",
+    "profileTheme": "Tema",
+    "profileThemeLight": "Claro",
+    "profileThemeDark": "Escuro",
+    "profileSalesforceConnect": "Conectar com Salesforce",
+    "profileEndSession": "Encerrar sessão",
+    
+    "@_NAVIGATION": {},
+    "navHome": "Início",
+    "navClients": "Clientes",
+    "navMessages": "Mensagens",
+    "navProfile": "Perfil",
     
     "@_COMMON": {},
     "commonSave": "Salvar",
@@ -82,5 +105,6 @@
     "commonFilter": "Filtrar",
     "commonClear": "Limpar",
     "commonApply": "Aplicar",
-    "commonLoading": "Carregando..."
+    "commonLoading": "Carregando...",
+    "commonLanguage": "Idioma"
 } 

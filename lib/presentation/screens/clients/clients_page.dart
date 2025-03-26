@@ -1,8 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
-import 'client_details_page.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ClientsPage extends StatefulWidget {
   const ClientsPage({super.key});
@@ -12,9 +12,14 @@ class ClientsPage extends StatefulWidget {
 }
 
 class _ClientsPageState extends State<ClientsPage> {
+  final _searchController = TextEditingController();
   String _selectedView = 'action';
-  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // Status constants
+  static const String STATUS_ACTION_REQUIRED = 'Ação Necessária';
+  static const String STATUS_PENDING = 'Pendente';
+  static const String STATUS_ACTIVE = 'Ativo';
 
   @override
   void initState() {
@@ -32,53 +37,69 @@ class _ClientsPageState extends State<ClientsPage> {
     super.dispose();
   }
 
-  // Temporary data for demonstration
+  // Temporary client data
   final List<Map<String, dynamic>> _clients = [
     {
-      'name': 'João Silva',
+      'id': '1',
+      'name': 'Ana Silva',
       'type': 'residential',
-      'service': 'Energy',
-      'status': 'Ação Necessária',
+      'service': 'Energia',
+      'status': STATUS_ACTION_REQUIRED,
       'stage': 'Contrato',
     },
     {
-      'name': 'Tech Solutions Lda',
-      'type': 'commercial',
-      'service': 'Insurance',
-      'status': 'Pendente',
-      'stage': 'Documentação',
+      'id': '2',
+      'name': 'Marcos Oliveira',
+      'type': 'residential',
+      'service': 'Telecomunicações',
+      'status': STATUS_PENDING,
+      'stage': 'Proposta',
     },
     {
+      'id': '3',
+      'name': 'Tech Solutions LTDA',
+      'type': 'commercial',
+      'service': 'Energia',
+      'status': STATUS_ACTIVE,
+      'stage': 'Ativo',
+    },
+    {
+      'id': '4',
       'name': 'Maria Santos',
       'type': 'residential',
-      'service': 'Telecommunications',
-      'status': 'Ativo',
-      'stage': 'Instalação',
+      'service': 'Seguros',
+      'status': STATUS_PENDING,
+      'stage': 'Documento',
     },
     {
-      'name': 'Green Energy Corp',
+      'id': '5',
+      'name': 'JS Consultoria',
       'type': 'commercial',
-      'service': 'Energy',
-      'status': 'Ação Necessária',
-      'stage': 'Validação',
+      'service': 'Telecomunicações',
+      'status': STATUS_ACTION_REQUIRED,
+      'stage': 'Contrato',
     },
   ];
 
+  // Filtered list based on search and selected view
   List<Map<String, dynamic>> get filteredClients {
     return _clients.where((client) {
-      // Filter by search query
+      // Filter by search
       if (_searchQuery.isNotEmpty &&
-          !client['name'].toLowerCase().contains(_searchQuery)) {
+          !client['name'].toString().toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          )) {
         return false;
       }
 
-      // Filter by view
-      if (_selectedView == 'action' && client['status'] != 'Ação Necessária')
-        return false;
-      if (_selectedView == 'pending' && client['status'] != 'Pendente')
-        return false;
-      if (_selectedView == 'active' && client['status'] != 'Ativo')
-        return false;
+      // Filter by selected view
+      if (_selectedView == 'action') {
+        return client['status'] == STATUS_ACTION_REQUIRED;
+      } else if (_selectedView == 'pending') {
+        return client['status'] == STATUS_PENDING;
+      } else if (_selectedView == 'active') {
+        return client['status'] == STATUS_ACTIVE;
+      }
 
       return true;
     }).toList();
@@ -108,42 +129,48 @@ class _ClientsPageState extends State<ClientsPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildSearchBar(),
-                  ),
+                  Expanded(child: _buildSearchBar()),
                 ],
               ),
             ),
-            
+
             // Tab selector - full width, themed
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _buildSegmentedControl(),
             ),
-            
+
             // Add a bit more space
             const SizedBox(height: 12),
-            
+
             // Divider
             Container(
               height: 0.5,
-              color: CupertinoColors.systemGrey4.withOpacity(0.5),
+              color: CupertinoColors.systemGrey4.withAlpha(128),
             ),
-            
+
             // Client list
             Expanded(
-              child: filteredClients.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.separated(
-                      padding: const EdgeInsets.only(top: 6),
-                      itemCount: filteredClients.length,
-                      separatorBuilder: (context, index) => Container(
-                        margin: const EdgeInsets.only(left: 72),
-                        height: 0.5,
-                        color: CupertinoColors.systemGrey5.withOpacity(0.5),
+              child:
+                  filteredClients.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.separated(
+                        padding: const EdgeInsets.only(top: 6),
+                        itemCount: filteredClients.length,
+                        separatorBuilder:
+                            (context, index) => Container(
+                              margin: const EdgeInsets.only(left: 72),
+                              height: 0.5,
+                              color: CupertinoColors.systemGrey5.withAlpha(128),
+                            ),
+                        itemBuilder: (context, index) {
+                          final client = filteredClients[index];
+                          return _buildClientCard(
+                            client,
+                            key: ValueKey(client['name']),
+                          );
+                        },
                       ),
-                      itemBuilder: (context, index) => _buildClientCard(filteredClients[index]),
-                    ),
             ),
           ],
         ),
@@ -151,24 +178,11 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  String _getViewTitle() {
-    switch (_selectedView) {
-      case 'action':
-        return 'Ação Necessária';
-      case 'pending':
-        return 'Em Análise';
-      case 'active':
-        return 'Concluídos';
-      default:
-        return 'Clientes';
-    }
-  }
-
   Widget _buildSearchBar() {
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6.withOpacity(0.8),
+        color: CupertinoColors.systemGrey6.withAlpha(204),
         borderRadius: BorderRadius.circular(10),
       ),
       child: CupertinoTextField(
@@ -186,88 +200,89 @@ class _ClientsPageState extends State<ClientsPage> {
             size: 16,
           ),
         ),
-        suffix: _searchQuery.isNotEmpty
-            ? GestureDetector(
-                onTap: () => _searchController.clear(),
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: Icon(
-                    CupertinoIcons.clear_circled_solid,
-                    color: CupertinoColors.systemGrey,
-                    size: 16,
+        suffix:
+            _searchQuery.isNotEmpty
+                ? GestureDetector(
+                  onTap: () => _searchController.clear(),
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(
+                      CupertinoIcons.clear_circled_solid,
+                      color: CupertinoColors.systemGrey,
+                      size: 16,
+                    ),
                   ),
-                ),
-              )
-            : null,
+                )
+                : null,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        style: const TextStyle(
-          fontSize: 14,
-        ),
+        style: const TextStyle(fontSize: 14),
       ),
     );
   }
 
   Widget _buildSegmentedControl() {
+    final l10n = AppLocalizations.of(context)!;
+
     return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(20),
+        borderRadius: BorderRadius.circular(8),
       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                          child: Container(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
           height: 44,
           child: Row(
             children: [
               Expanded(
                 child: _buildCustomSegment(
                   'action',
-                  'Ação',
+                  l10n.clientsFilterAction,
                   _getActionCount(),
                 ),
               ),
               Container(
                 width: 1,
                 height: 44,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
               ),
               Expanded(
                 child: _buildCustomSegment(
                   'pending',
-                  'Pendente',
+                  l10n.clientsFilterPending,
                   _getPendingCount(),
                 ),
               ),
               Container(
                 width: 1,
                 height: 44,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
               ),
               Expanded(
                 child: _buildCustomSegment(
                   'active',
-                  'Concluídos',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ),
+                  l10n.clientsFilterCompleted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildCustomSegment(String value, String label, [int? count]) {
     final isSelected = _selectedView == value;
-    
+
     return GestureDetector(
       onTap: () => setState(() => _selectedView = value),
       child: Container(
         alignment: Alignment.center,
-        color: isSelected ? AppTheme.primary.withOpacity(0.2) : Colors.transparent,
+        color: isSelected ? AppTheme.primary.withAlpha(51) : Colors.transparent,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -276,7 +291,8 @@ class _ClientsPageState extends State<ClientsPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? AppTheme.primary : Colors.white.withOpacity(0.8),
+                color:
+                    isSelected ? AppTheme.primary : Colors.white.withAlpha(204),
               ),
             ),
             if (count != null && count > 0) ...[
@@ -284,9 +300,10 @@ class _ClientsPageState extends State<ClientsPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                    ? AppTheme.primary 
-                    : Colors.white.withOpacity(0.1),
+                  color:
+                      isSelected
+                          ? AppTheme.primary
+                          : Colors.white.withAlpha(26),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -294,20 +311,21 @@ class _ClientsPageState extends State<ClientsPage> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isSelected 
-                      ? Colors.white 
-                      : Colors.white.withOpacity(0.8),
+                    color:
+                        isSelected ? Colors.white : Colors.white.withAlpha(204),
                   ),
                 ),
               ),
             ],
-                          ],
-                        ),
-                      ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -318,18 +336,18 @@ class _ClientsPageState extends State<ClientsPage> {
             color: CupertinoColors.systemGrey,
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Nenhum cliente encontrado',
-            style: TextStyle(
+          Text(
+            l10n.clientsEmptyStateTitle,
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
               color: CupertinoColors.systemGrey,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Tente modificar sua pesquisa',
-            style: TextStyle(
+          Text(
+            l10n.clientsEmptyStateMessage,
+            style: const TextStyle(
               fontSize: 15,
               color: CupertinoColors.systemGrey,
             ),
@@ -339,76 +357,79 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildClientCard(Map<String, dynamic> client) {
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: () => Navigator.push(
-        context,
-        CupertinoPageRoute(
-          builder: (context) => ClientDetailsPage(clientData: client),
-        ),
-      ),
+  Widget _buildClientCard(Map<String, dynamic> client, {Key? key}) {
+    return GestureDetector(
+      key: key,
+      onTap: () => context.push('/client-details', extra: client),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          child: Row(
-                            children: [
+        child: Row(
+          children: [
             _buildClientIcon(client),
             const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                                    Text(
-                                      client['name'],
-                                      style: const TextStyle(
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    client['name'],
+                    style: const TextStyle(
                       fontSize: 16,
-                                        fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w500,
                       color: CupertinoColors.label,
-                                      ),
+                    ),
                     overflow: TextOverflow.ellipsis,
-                                    ),
+                  ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                                    Text(
-                                      client['service'],
+                      Text(
+                        client['service'],
                         style: const TextStyle(
-                                        fontSize: 13,
+                          fontSize: 13,
                           color: CupertinoColors.systemGrey,
-                                        ),
-                                      ),
+                        ),
+                      ),
                       const SizedBox(width: 6),
                       _buildStatusIndicator(client['status']),
                     ],
-                                    ),
-                                  ],
-                                ),
-                              ),
+                  ),
+                ],
+              ),
+            ),
             const Icon(
               CupertinoIcons.chevron_right,
               size: 14,
               color: CupertinoColors.systemGrey3,
-                              ),
-                            ],
-                          ),
-                        ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildStatusIndicator(String status) {
+    final l10n = AppLocalizations.of(context)!;
+
     Color color;
+    String localizedStatus;
+
     switch (status) {
-      case 'Ação Necessária':
+      case STATUS_ACTION_REQUIRED:
         color = CupertinoColors.systemRed;
+        localizedStatus = l10n.clientsStatusActionRequired;
         break;
-      case 'Pendente':
+      case STATUS_PENDING:
         color = CupertinoColors.systemOrange;
+        localizedStatus = l10n.clientsStatusPending;
         break;
-      case 'Ativo':
+      case STATUS_ACTIVE:
         color = CupertinoColors.systemGreen;
+        localizedStatus = l10n.clientsStatusActive;
         break;
       default:
         color = CupertinoColors.systemGrey;
+        localizedStatus = status;
     }
 
     return Row(
@@ -416,34 +437,32 @@ class _ClientsPageState extends State<ClientsPage> {
         Container(
           width: 6,
           height: 6,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
         Text(
-          status,
+          localizedStatus,
           style: TextStyle(
             fontSize: 13,
             color: color,
             fontWeight: FontWeight.w500,
-            ),
           ),
-        ],
+        ),
+      ],
     );
   }
 
   Widget _buildClientIcon(Map<String, dynamic> client) {
     final bool isResidential = client['type'] == 'residential';
-    
+
     return Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: isResidential 
-            ? CupertinoColors.systemGreen.withOpacity(0.1)
-            : CupertinoColors.systemIndigo.withOpacity(0.1),
+        color:
+            isResidential
+                ? CupertinoColors.systemGreen.withAlpha(26)
+                : CupertinoColors.systemIndigo.withAlpha(26),
         shape: BoxShape.circle,
       ),
       child: Center(
@@ -452,19 +471,20 @@ class _ClientsPageState extends State<ClientsPage> {
               ? CupertinoIcons.person_fill
               : CupertinoIcons.building_2_fill,
           size: 20,
-          color: isResidential
-              ? CupertinoColors.systemGreen
-              : CupertinoColors.systemIndigo,
+          color:
+              isResidential
+                  ? CupertinoColors.systemGreen
+                  : CupertinoColors.systemIndigo,
         ),
       ),
     );
   }
 
   int _getActionCount() {
-    return _clients.where((c) => c['status'] == 'Ação Necessária').length;
+    return _clients.where((c) => c['status'] == STATUS_ACTION_REQUIRED).length;
   }
 
   int _getPendingCount() {
-    return _clients.where((c) => c['status'] == 'Pendente').length;
+    return _clients.where((c) => c['status'] == STATUS_PENDING).length;
   }
 }
