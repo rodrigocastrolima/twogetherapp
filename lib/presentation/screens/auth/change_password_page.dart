@@ -1,7 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
@@ -85,14 +83,12 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
     final double padding = size.width < 400 ? 16.0 : 24.0;
 
     return MainLayout(
-      showBackButton: false,
-      showNavigation: false,
+      currentIndex: -1,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -145,7 +141,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
-                        color: AppTheme.foreground.withOpacity(0.7),
+                        color: AppTheme.foreground.withAlpha(179),
                       ),
                     ),
                     SizedBox(height: isSmallScreen ? 24 : 32),

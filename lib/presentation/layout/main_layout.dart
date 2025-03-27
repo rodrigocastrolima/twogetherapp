@@ -2,394 +2,320 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
 import '../../core/utils/constants.dart';
 import '../screens/home/reseller_home_page.dart';
 import '../screens/clients/clients_page.dart';
 import '../screens/messages/messages_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
-import '../screens/notifications/rejection_details_page.dart';
+import '../../features/chat/presentation/providers/chat_provider.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/theme/ui_styles.dart';
+import '../widgets/logo.dart';
+import '../../features/auth/domain/models/app_user.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
-class MainLayout extends StatefulWidget {
-  final Widget? child;
-  final VoidCallback? onBackPressed;
-  final bool showBackButton;
-  final bool showNavigation;
-  final String pageTitle;
+class MainLayout extends ConsumerStatefulWidget {
+  final Widget child;
+  final int currentIndex;
 
-  const MainLayout({
-    super.key,
-    this.child,
-    this.onBackPressed,
-    this.showBackButton = true,
-    this.showNavigation = false,
-    this.pageTitle = '',
-  });
+  const MainLayout({Key? key, required this.child, required this.currentIndex})
+    : super(key: key);
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends ConsumerState<MainLayout> {
   int _selectedIndex = 0;
-  bool _hasNotifications = false;
 
-  final List<Widget> _pages = [
-    const ResellerHomePage(),
-    const ClientsPage(),
-    const MessagesPage(),
-    const ProfilePage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.currentIndex;
+  }
 
-  void _handleNotificationTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => RejectionDetailsPage(
-              submissionId: 'SUB12345',
-              rejectionReason: 'Missing document information',
-              rejectionDate: DateTime.now(),
-              isPermanentRejection: false,
-            ),
-      ),
-    );
+  @override
+  void didUpdateWidget(MainLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _selectedIndex = widget.currentIndex;
+    }
+  }
+
+  void _handleNavigation(int index) {
+    if (_selectedIndex != index) {
+      setState(() {
+        _selectedIndex = index;
+      });
+
+      // Navigate to the appropriate route
+      switch (index) {
+        case 0:
+          context.go('/');
+          break;
+        case 1:
+          context.go('/clients');
+          break;
+        case 2:
+          context.go('/messages');
+          break;
+        case 3:
+          context.go('/profile');
+          break;
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final width = MediaQuery.of(context).size.width;
-    final isSmallScreen = width < 600;
-    final isDesktop = width >= 1024;
+    final userAsync = ref.watch(currentUserProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: const Alignment(-1.0, -1.0),
-          end: const Alignment(1.0, 1.0),
-          colors: [const Color(0xFF93A5CF), const Color(0xFFE4EFE9)],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+
+        return Scaffold(
+          body: Stack(
+            children: [
+              // Background gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: AppStyles.mainGradient(context),
+                ),
+              ),
+
+              // Main content
+              _buildMainContent(isMobile),
+
+              // Bottom Navigation for Mobile
+              if (isMobile) _buildMobileNavBar(context),
+
+              // Side Navigation for Desktop
+              if (!isMobile) _buildSidebar(context, textColor, isDark),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMainContent(bool isMobile) {
+    return Positioned(
+      top: 0,
+      left: isMobile ? 0 : AppStyles.sidebarWidth,
+      right: 0,
+      bottom: isMobile ? AppStyles.navBarHeight : 0,
+      child: ScrollConfiguration(
+        behavior: const NoScrollbarBehavior(),
+        child: widget.child,
+      ),
+    );
+  }
+
+  Widget _buildSidebar(BuildContext context, Color textColor, bool isDark) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      bottom: 0,
+      width: AppStyles.sidebarWidth,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: AppStyles.standardBlur,
+          child: Container(
+            decoration: AppStyles.sidebarDecoration(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                // Logo
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: LogoWidget(height: 40, darkMode: isDark),
+                ),
+                const SizedBox(height: 24),
+                // Navigation Items
+                _buildNavigationItems(context, textColor),
+              ],
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildNavigationItems(BuildContext context, Color textColor) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Column(
+      children: [
+        _buildNavItem(
+          context: context,
+          icon: CupertinoIcons.house,
+          label: l10n.navHome,
+          isSelected: _selectedIndex == 0,
+          onTap: () => _handleNavigation(0),
+          textColor: textColor,
+        ),
+        _buildNavItem(
+          context: context,
+          icon: CupertinoIcons.person_2,
+          label: l10n.navClients,
+          isSelected: _selectedIndex == 1,
+          onTap: () => _handleNavigation(1),
+          textColor: textColor,
+        ),
+        _buildNavItem(
+          context: context,
+          icon: CupertinoIcons.bubble_left,
+          label: l10n.navMessages,
+          isSelected: _selectedIndex == 2,
+          onTap: () => _handleNavigation(2),
+          textColor: textColor,
+          badgeCount: 2,
+        ),
+        _buildNavItem(
+          context: context,
+          icon: CupertinoIcons.person,
+          label: l10n.navProfile,
+          isSelected: _selectedIndex == 3,
+          onTap: () => _handleNavigation(3),
+          textColor: textColor,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color textColor,
+    int badgeCount = 0,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      decoration: isSelected ? AppStyles.activeItemHighlight(context) : null,
       child: Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          children: [
-            Scaffold(
-              backgroundColor: Colors.transparent,
-              extendBody: true,
-              extendBodyBehindAppBar: true,
-              appBar:
-                  !widget.showNavigation
-                      ? null
-                      : (isSmallScreen
-                          ? AppBar(
-                            backgroundColor: Colors.transparent,
-                            elevation: 0,
-                            toolbarHeight: 70,
-                            title: Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Image.asset(
-                                'assets/images/twogether_logo_light_br.png',
-                                height: 32,
-                              ),
-                            ),
-                            centerTitle: true,
-                            actions: [
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 16,
-                                  right: 16,
-                                ),
-                                child: Icon(
-                                  CupertinoIcons.bell,
-                                  color: AppTheme.foreground,
-                                  size: 24,
-                                ),
-                              ),
-                            ],
-                          )
-                          : null),
-              body: Column(
-                children: [
-                  if (!widget.showNavigation)
-                    Padding(
-                      padding: const EdgeInsets.all(AppConstants.spacing16),
-                      child: Row(
-                        children: [
-                          if (widget.showBackButton)
-                            GestureDetector(
-                              onTap:
-                                  widget.onBackPressed ??
-                                  () => Navigator.of(context).pop(),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.1),
-                                    width: 0.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  CupertinoIcons.chevron_left,
-                                  color: AppTheme.foreground,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          const Spacer(),
-                          Image.asset(
-                            'assets/images/twogether_logo_light_br.png',
-                            height: 32,
-                          ),
-                          const SizedBox(width: AppConstants.spacing16),
-                        ],
-                      ),
-                    ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (isDesktop) ...[
-                          Container(
-                            width: 280,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
-                              border: Border(
-                                right: BorderSide(
-                                  color: Colors.white.withOpacity(0.1),
-                                  width: 0.5,
-                                ),
-                              ),
-                            ),
-                            child: ClipRRect(
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(
-                                  sigmaX: 10,
-                                  sigmaY: 10,
-                                ),
-                                child: NavigationRail(
-                                  extended: true,
-                                  backgroundColor: Colors.transparent,
-                                  selectedIndex: _selectedIndex,
-                                  onDestinationSelected: (index) {
-                                    setState(() => _selectedIndex = index);
-                                    _handleNavigation(index);
-                                  },
-                                  leading: Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: IconButton(
-                                      icon: Icon(
-                                        Icons.menu,
-                                        color: AppTheme.foreground,
-                                      ),
-                                      onPressed: () {
-                                        // Handle menu
-                                      },
-                                    ),
-                                  ),
-                                  destinations: [
-                                    NavigationRailDestination(
-                                      icon: Icon(
-                                        CupertinoIcons.home,
-                                        color:
-                                            _selectedIndex == 0
-                                                ? AppTheme.primary
-                                                : AppTheme.foreground
-                                                    .withOpacity(0.5),
-                                      ),
-                                      label: Text(
-                                        'Início',
-                                        style: TextStyle(
-                                          color:
-                                              _selectedIndex == 0
-                                                  ? AppTheme.primary
-                                                  : AppTheme.foreground
-                                                      .withOpacity(0.5),
-                                          fontWeight:
-                                              _selectedIndex == 0
-                                                  ? FontWeight.w600
-                                                  : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                    NavigationRailDestination(
-                                      icon: Icon(
-                                        CupertinoIcons.person_2,
-                                        color:
-                                            _selectedIndex == 1
-                                                ? AppTheme.primary
-                                                : AppTheme.foreground
-                                                    .withOpacity(0.5),
-                                      ),
-                                      label: Text(
-                                        'Clientes',
-                                        style: TextStyle(
-                                          color:
-                                              _selectedIndex == 1
-                                                  ? AppTheme.primary
-                                                  : AppTheme.foreground
-                                                      .withOpacity(0.5),
-                                          fontWeight:
-                                              _selectedIndex == 1
-                                                  ? FontWeight.w600
-                                                  : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                    NavigationRailDestination(
-                                      icon: Icon(
-                                        CupertinoIcons.plus_circle,
-                                        color:
-                                            _selectedIndex == 2
-                                                ? AppTheme.primary
-                                                : AppTheme.foreground
-                                                    .withOpacity(0.5),
-                                      ),
-                                      label: Text(
-                                        'Novo Cliente',
-                                        style: TextStyle(
-                                          color:
-                                              _selectedIndex == 2
-                                                  ? AppTheme.primary
-                                                  : AppTheme.foreground
-                                                      .withOpacity(0.5),
-                                          fontWeight:
-                                              _selectedIndex == 2
-                                                  ? FontWeight.w600
-                                                  : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                    NavigationRailDestination(
-                                      icon: Icon(
-                                        CupertinoIcons.settings,
-                                        color:
-                                            _selectedIndex == 3
-                                                ? AppTheme.primary
-                                                : AppTheme.foreground
-                                                    .withOpacity(0.5),
-                                      ),
-                                      label: Text(
-                                        'Configurações',
-                                        style: TextStyle(
-                                          color:
-                                              _selectedIndex == 3
-                                                  ? AppTheme.primary
-                                                  : AppTheme.foreground
-                                                      .withOpacity(0.5),
-                                          fontWeight:
-                                              _selectedIndex == 3
-                                                  ? FontWeight.w600
-                                                  : FontWeight.normal,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                left: 24,
-                                right: 24,
-                                top:
-                                    widget.showNavigation && isSmallScreen
-                                        ? kToolbarHeight + 16
-                                        : 24,
-                                bottom:
-                                    widget.showNavigation && isSmallScreen
-                                        ? 84
-                                        : 24,
-                              ),
-                              child: widget.child ?? _pages[_selectedIndex],
-                            ),
-                          ),
-                        ] else ...[
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                left: 24,
-                                right: 24,
-                                top:
-                                    widget.showNavigation && isSmallScreen
-                                        ? kToolbarHeight + 16
-                                        : 24,
-                                bottom:
-                                    widget.showNavigation && isSmallScreen
-                                        ? 84
-                                        : 24,
-                              ),
-                              child: widget.child ?? _pages[_selectedIndex],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (widget.showNavigation && isSmallScreen)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ClipRRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        border: Border(
-                          top: BorderSide(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildTabItem(
-                              icon: CupertinoIcons.house,
-                              selectedIcon: CupertinoIcons.house_fill,
-                              label: 'Início',
-                              index: 0,
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.person_2,
-                              selectedIcon: CupertinoIcons.person_2_fill,
-                              label: 'Clientes',
-                              index: 1,
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.chat_bubble,
-                              selectedIcon: CupertinoIcons.chat_bubble_fill,
-                              label: 'Mensagens',
-                              index: 2,
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.person,
-                              selectedIcon: CupertinoIcons.person_fill,
-                              label: 'Perfil',
-                              index: 3,
-                            ),
-                          ],
-                        ),
-                      ),
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color:
+                      isSelected
+                          ? Theme.of(context).primaryColor
+                          : textColor.withOpacity(0.7),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color:
+                          isSelected
+                              ? Theme.of(context).primaryColor
+                              : textColor.withOpacity(0.7),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),
+                if (badgeCount > 0) ...[
+                  Container(
+                    width: AppStyles.badgeSize,
+                    height: AppStyles.badgeSize,
+                    decoration: AppStyles.notificationBadge,
+                    alignment: Alignment.center,
+                    child: Text(
+                      badgeCount.toString(),
+                      style: AppStyles.badgeTextStyle(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileNavBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: AppStyles.standardBlur,
+          child: Container(
+            height: AppStyles.navBarHeight,
+            decoration: BoxDecoration(
+              color:
+                  isDark
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.white.withOpacity(0.3),
+              border: Border(
+                top: BorderSide(
+                  color:
+                      isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.black.withOpacity(0.05),
+                  width: 0.5,
+                ),
               ),
-          ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildTabItem(
+                  icon: CupertinoIcons.house,
+                  selectedIcon: CupertinoIcons.house_fill,
+                  label: l10n.navHome,
+                  isSelected: _selectedIndex == 0,
+                  onTap: () => _handleNavigation(0),
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.person_2,
+                  selectedIcon: CupertinoIcons.person_2_fill,
+                  label: l10n.navClients,
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => _handleNavigation(1),
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.bubble_left,
+                  selectedIcon: CupertinoIcons.bubble_left_fill,
+                  label: l10n.navMessages,
+                  isSelected: _selectedIndex == 2,
+                  onTap: () => _handleNavigation(2),
+                  badgeCount: 2,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.person,
+                  selectedIcon: CupertinoIcons.person_fill,
+                  label: l10n.navProfile,
+                  isSelected: _selectedIndex == 3,
+                  onTap: () => _handleNavigation(3),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -399,50 +325,64 @@ class _MainLayoutState extends State<MainLayout> {
     required IconData icon,
     required IconData selectedIcon,
     required String label,
-    required int index,
+    required bool isSelected,
+    required VoidCallback onTap,
+    int badgeCount = 0,
   }) {
-    final isSelected = _selectedIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
 
     return GestureDetector(
-      onTap: () {
-        setState(() => _selectedIndex = index);
-        _handleNavigation(index);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      onTap: onTap,
+      behavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        width: 76,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isSelected ? selectedIcon : icon,
-              color:
-                  isSelected
-                      ? AppTheme.primary
-                      : AppTheme.foreground.withOpacity(0.6),
-              size: 26,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  isSelected ? selectedIcon : icon,
+                  color:
+                      isSelected
+                          ? Theme.of(context).primaryColor
+                          : textColor.withOpacity(0.7),
+                  size: 24,
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -5,
+                    right: -8,
+                    child: Container(
+                      width: AppStyles.badgeSize,
+                      height: AppStyles.badgeSize,
+                      decoration: AppStyles.notificationBadge,
+                      alignment: Alignment.center,
+                      child: Text(
+                        badgeCount.toString(),
+                        style: AppStyles.badgeTextStyle(context),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontFamily: '.SF Pro Text',
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color:
                     isSelected
-                        ? AppTheme.primary
-                        : AppTheme.foreground.withOpacity(0.6),
-                letterSpacing: -0.2,
+                        ? Theme.of(context).primaryColor
+                        : textColor.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  void _handleNavigation(int index) {
-    // Implement the logic for handling navigation
   }
 }
