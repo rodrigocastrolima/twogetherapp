@@ -1,8 +1,10 @@
-import 'dart:io';
+import 'dart:io' as io;
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
 
@@ -14,6 +16,9 @@ class ChatRepository {
   // Collection names
   static const String _conversationsCollection = 'conversations';
   static const String _messagesCollection = 'messages';
+
+  // Message expiration duration - messages older than this will be deleted
+  static int messageExpirationDays = 7;
 
   // Safety constraints
   static const int _maxMessageLength = 1000; // Maximum characters per message
@@ -34,6 +39,16 @@ class ChatRepository {
 
   // Get current user ID
   String? get currentUserId => _auth.currentUser?.uid;
+
+  // Configure the message expiration period
+  static void setMessageExpirationDays(int days) {
+    if (days > 0) {
+      messageExpirationDays = days;
+    }
+  }
+
+  // Note: Message cleanup is now handled by a Firebase Cloud Function
+  // that runs on a daily schedule
 
   // Check if user is admin
   Future<bool> isCurrentUserAdmin() async {
@@ -77,48 +92,61 @@ class ChatRepository {
     }
   }
 
-  // Get or create a conversation for a reseller
+  /// Get or create a conversation for the current reseller
   Future<String> getOrCreateConversation() async {
-    if (currentUserId == null) {
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
       throw Exception('User not authenticated');
     }
 
     try {
-      // Check if this user already has a conversation
-      print('Checking for existing conversation for user: $currentUserId');
-      final querySnapshot =
+      // First check if a conversation already exists for this reseller
+      final QuerySnapshot querySnapshot =
           await _firestore
-              .collection(_conversationsCollection)
-              .where('resellerId', isEqualTo: currentUserId)
+              .collection('conversations')
+              .where('resellerId', isEqualTo: currentUser.uid)
               .limit(1)
               .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        print('Found existing conversation: ${querySnapshot.docs.first.id}');
+        // Conversation exists, return its ID
         return querySnapshot.docs.first.id;
+      } else {
+        // Get the reseller name from the users collection
+        final userDoc =
+            await _firestore.collection('users').doc(currentUser.uid).get();
+
+        final String displayName =
+            userDoc.data()?['displayName'] ??
+            currentUser.email ??
+            'Unknown User';
+
+        // Create a new conversation
+        final conversationData = {
+          'resellerId': currentUser.uid,
+          'resellerName': displayName,
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          // Old fields for backward compatibility
+          'unreadByAdmin': false,
+          'unreadByReseller': false,
+          'unreadCount': 0,
+          // New field - empty map of unreadCounts
+          'unreadCounts': {},
+          'participants': ['admin', currentUser.uid],
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+
+        final docRef = await _firestore
+            .collection('conversations')
+            .add(conversationData);
+
+        return docRef.id;
       }
-
-      // Create a new conversation
-      print('Creating new conversation for user: $currentUserId');
-      final userName = await getCurrentUserName();
-
-      final newConversationData = {
-        'resellerId': currentUserId!,
-        'resellerName': userName,
-        'lastMessageTime': FieldValue.serverTimestamp(),
-        'hasUnreadMessages': false,
-        'unreadCount': 0,
-      };
-
-      final docRef = await _firestore
-          .collection(_conversationsCollection)
-          .add(newConversationData);
-
-      print('Created new conversation with ID: ${docRef.id}');
-      return docRef.id;
     } catch (e) {
-      print('Error in getOrCreateConversation: $e');
-      rethrow;
+      if (kDebugMode) {
+        print('Error getting or creating conversation: $e');
+      }
+      throw Exception('Failed to get or create conversation: $e');
     }
   }
 
@@ -150,6 +178,129 @@ class ChatRepository {
                   .map((doc) => ChatMessage.fromFirestore(doc))
                   .toList(),
         );
+  }
+
+  // Mark messages as read for the current user
+  Future<void> markConversationAsRead(String conversationId) async {
+    if (currentUserId == null) return;
+
+    try {
+      // Check if user is admin
+      final cachedIsAdmin = await isCurrentUserAdmin();
+
+      // The userId to mark as read is 'admin' for admins, or the user's ID for resellers
+      final userIdToMarkAsRead = cachedIsAdmin ? 'admin' : currentUserId!;
+
+      // Create the update data for the unreadCounts map
+      final updateData = {'unreadCounts.$userIdToMarkAsRead': 0};
+
+      // For backward compatibility, update the boolean flag fields separately
+      final Map<String, dynamic> legacyUpdate = {};
+      if (cachedIsAdmin) {
+        legacyUpdate['unreadByAdmin'] = false;
+      } else {
+        legacyUpdate['unreadByReseller'] = false;
+      }
+
+      // First, update the unreadCounts map
+      await _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .update(updateData);
+
+      // Then, update the legacy fields separately
+      await _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .update(legacyUpdate);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error marking conversation as read: $e');
+      }
+      // Don't throw the error to prevent UI disruption
+    }
+  }
+
+  // Track when a conversation is opened (but don't mark as read yet)
+  Future<void> trackConversationOpened(String conversationId) async {
+    // This method doesn't change any read status
+    // It can be used to track when a conversation is opened
+    // For analytics or future features
+  }
+
+  // Get unread messages count for admin
+  Stream<int> getAdminUnreadMessagesCount() {
+    if (currentUserId == null) {
+      return Stream.value(0);
+    }
+
+    // Query for all conversations
+    return _firestore.collection(_conversationsCollection).snapshots().map((
+      snapshot,
+    ) {
+      int totalUnread = 0;
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+
+        // Check for the new unreadCounts field first
+        if (data['unreadCounts'] != null) {
+          final unreadCounts = data['unreadCounts'] as Map<String, dynamic>;
+          totalUnread += (unreadCounts['admin'] as int? ?? 0);
+        }
+        // Fall back to the old field for backward compatibility
+        else if (data['unreadByAdmin'] == true) {
+          totalUnread += (data['unreadCount'] as int? ?? 0);
+        }
+      }
+
+      return totalUnread;
+    });
+  }
+
+  // Get unread messages count for reseller
+  Stream<int> getResellerUnreadMessagesCount() {
+    if (currentUserId == null) {
+      return Stream.value(0);
+    }
+
+    // Get unread count from the conversation for this reseller
+    return _firestore
+        .collection(_conversationsCollection)
+        .where('resellerId', isEqualTo: currentUserId)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) return 0;
+
+          int totalUnread = 0;
+
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+
+            // Check for the new unreadCounts field first
+            if (data['unreadCounts'] != null) {
+              final unreadCounts = data['unreadCounts'] as Map<String, dynamic>;
+              totalUnread += (unreadCounts[currentUserId] as int? ?? 0);
+            }
+            // Fall back to the old field for backward compatibility
+            else if (data['unreadByReseller'] == true) {
+              totalUnread += (data['unreadCount'] as int? ?? 0);
+            }
+          }
+
+          return totalUnread;
+        });
+  }
+
+  // Get unread messages count for the current user (admin or reseller)
+  Stream<int> getUnreadMessagesCount() async* {
+    final isAdmin = await isCurrentUserAdmin();
+
+    if (isAdmin) {
+      yield* getAdminUnreadMessagesCount();
+    } else {
+      yield* getResellerUnreadMessagesCount();
+    }
   }
 
   // Send a text message
@@ -188,36 +339,88 @@ class ChatRepository {
     // Record this message send time for rate limiting
     _recordMessageSend(currentUserId!);
 
-    // Add to messages subcollection
-    await _firestore
-        .collection(_conversationsCollection)
-        .doc(conversationId)
-        .collection(_messagesCollection)
-        .add(message.toMap());
+    try {
+      // Get the conversation first to check if the receiver is active in it
+      final conversationDoc =
+          await _firestore
+              .collection(_conversationsCollection)
+              .doc(conversationId)
+              .get();
 
-    // Update conversation with last message info
-    await _firestore
-        .collection(_conversationsCollection)
-        .doc(conversationId)
-        .update({
-          'lastMessageContent': content,
-          'lastMessageTime': FieldValue.serverTimestamp(),
-          'hasUnreadMessages':
-              !isAdmin, // Mark as unread for admin if sent by reseller
-          'unreadCount': FieldValue.increment(isAdmin ? 0 : 1),
-        });
+      if (!conversationDoc.exists) {
+        throw Exception("Conversation not found");
+      }
+
+      final conversationData = conversationDoc.data()!;
+      final List<dynamic> participants =
+          conversationData['participants'] ??
+          ['admin', conversationData['resellerId']];
+
+      // Create a batch for better performance
+      final batch = _firestore.batch();
+
+      // Add message to the collection
+      final messageRef =
+          _firestore
+              .collection(_conversationsCollection)
+              .doc(conversationId)
+              .collection(_messagesCollection)
+              .doc(); // Generate a new document ID
+
+      batch.set(messageRef, message.toMap());
+
+      // Update conversation with last message info
+      final conversationRef = _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId);
+
+      final updateData = <String, dynamic>{
+        'lastMessageContent': content,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageIsFromAdmin': isAdmin,
+      };
+
+      // Determine recipient(s) to mark as having unread messages
+      final String senderId = isAdmin ? 'admin' : currentUserId!;
+
+      // Update unread counts for all participants except the sender
+      for (final participantId in participants) {
+        // Only increment unread count for participants who are not the sender
+        if (participantId != senderId) {
+          // Add to the unreadCounts map
+          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
+
+          // Also update old fields for backward compatibility
+          if (participantId == 'admin') {
+            updateData['unreadByAdmin'] = true;
+          } else {
+            updateData['unreadByReseller'] = true;
+          }
+        }
+      }
+
+      // Update the total unread count for backward compatibility
+      updateData['unreadCount'] = FieldValue.increment(1);
+
+      batch.update(conversationRef, updateData);
+
+      // Commit all the changes at once
+      await batch.commit();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending text message: $e');
+      }
+      throw Exception('Failed to send message: $e');
+    }
   }
 
   // Send an image message
-  Future<void> sendImageMessage(String conversationId, File imageFile) async {
+  Future<void> sendImageMessage(
+    String conversationId,
+    dynamic imageFile,
+  ) async {
     if (currentUserId == null) {
       throw Exception('User not authenticated');
-    }
-
-    // Check file size (1MB = 1024*1024 bytes)
-    final fileSize = await imageFile.length();
-    if (fileSize > _maxImageSizeMB * 1024 * 1024) {
-      throw Exception('Image size exceeds maximum of $_maxImageSizeMB MB');
     }
 
     // Apply rate limiting
@@ -228,17 +431,120 @@ class ChatRepository {
     }
 
     try {
-      // Upload image to Firebase Storage
+      if (kDebugMode) {
+        print('Starting image upload process');
+        print('Image file type: ${imageFile.runtimeType}');
+        print('Running on web: $kIsWeb');
+      }
+
+      // Generate a unique filename for the image
       final fileName =
           '${DateTime.now().millisecondsSinceEpoch}_${currentUserId!}';
       final storageRef = _storage.ref().child('chat_images/$fileName');
 
-      // Upload the file
-      final uploadTask = storageRef.putFile(imageFile);
-      final snapshot = await uploadTask;
+      String imageUrl;
 
-      // Get download URL
-      final imageUrl = await snapshot.ref.getDownloadURL();
+      // Handle different platform implementations for uploading images
+      if (kIsWeb) {
+        if (kDebugMode) {
+          print('Processing image upload for web');
+        }
+
+        // For web, use a web-specific approach
+        if (imageFile is XFile) {
+          if (kDebugMode) {
+            print('Image is XFile. Reading bytes...');
+          }
+          // If it's coming from image_picker as XFile, read bytes directly
+          try {
+            final bytes = await imageFile.readAsBytes();
+            if (kDebugMode) {
+              print('Successfully read ${bytes.length} bytes from XFile');
+            }
+            imageUrl = await _uploadBytesToStorage(bytes, storageRef);
+          } catch (e, stackTrace) {
+            print('Error reading XFile bytes on web: $e');
+            print(stackTrace);
+            throw Exception('Failed to read image from XFile on web: $e');
+          }
+        } else if (imageFile is io.File) {
+          if (kDebugMode) {
+            print('Image is io.File, attempting to read bytes');
+          }
+          try {
+            // Try to read as bytes from File for web compatibility
+            final bytes = await imageFile.readAsBytes();
+            imageUrl = await _uploadBytesToStorage(bytes, storageRef);
+          } catch (e, stackTrace) {
+            print('Error reading File bytes on web: $e');
+            print(stackTrace);
+            throw Exception('Unable to read image file on web: $e');
+          }
+        } else if (imageFile is Uint8List) {
+          if (kDebugMode) {
+            print('Image is already Uint8List with ${imageFile.length} bytes');
+          }
+          // If bytes are already provided
+          imageUrl = await _uploadBytesToStorage(imageFile, storageRef);
+        } else {
+          print('Unsupported image type: ${imageFile.runtimeType}');
+          throw Exception(
+            'Unsupported image file format for web: ${imageFile.runtimeType}',
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print('Processing image upload for mobile');
+        }
+
+        // For mobile platforms
+        if (imageFile is XFile) {
+          if (kDebugMode) {
+            print('Image is XFile, path: ${imageFile.path}');
+          }
+          // Convert XFile to io.File for mobile
+          try {
+            final file = io.File(imageFile.path);
+            if (await file.exists()) {
+              if (kDebugMode) {
+                print('File exists at path: ${file.path}');
+              }
+              imageUrl = await _uploadFileToStorage(file, storageRef);
+            } else {
+              print('File does not exist at path: ${file.path}');
+              throw Exception(
+                'Image file does not exist at path: ${imageFile.path}',
+              );
+            }
+          } catch (e, stackTrace) {
+            print('Error converting XFile to File: $e');
+            print(stackTrace);
+            throw Exception('Failed to process XFile on mobile: $e');
+          }
+        } else if (imageFile is io.File) {
+          if (kDebugMode) {
+            print('Image is io.File, path: ${imageFile.path}');
+          }
+          if (await imageFile.exists()) {
+            // Upload a native File directly
+            imageUrl = await _uploadFileToStorage(imageFile, storageRef);
+          } else {
+            print('File does not exist at path: ${imageFile.path}');
+            throw Exception(
+              'Image file does not exist at path: ${imageFile.path}',
+            );
+          }
+        } else {
+          print('Unsupported image type: ${imageFile.runtimeType}');
+          throw Exception(
+            'Unsupported image file format for mobile: ${imageFile.runtimeType}',
+          );
+        }
+      }
+
+      if (kDebugMode) {
+        print('Successfully uploaded image. URL: $imageUrl');
+      }
 
       final isAdmin = await isCurrentUserAdmin();
       final userName = await getCurrentUserName();
@@ -257,29 +563,271 @@ class ChatRepository {
       // Record this message send time for rate limiting
       _recordMessageSend(currentUserId!);
 
-      // Add to messages subcollection
-      await _firestore
-          .collection(_conversationsCollection)
-          .doc(conversationId)
-          .collection(_messagesCollection)
-          .add(message.toMap());
+      // Get the conversation first to check if the receiver is active in it
+      final conversationDoc =
+          await _firestore
+              .collection(_conversationsCollection)
+              .doc(conversationId)
+              .get();
+
+      if (!conversationDoc.exists) {
+        throw Exception("Conversation not found");
+      }
+
+      final conversationData = conversationDoc.data()!;
+      final List<dynamic> participants =
+          conversationData['participants'] ??
+          ['admin', conversationData['resellerId']];
+
+      // Create a batch for better performance
+      final batch = _firestore.batch();
+
+      // Add message to the collection
+      final messageRef =
+          _firestore
+              .collection(_conversationsCollection)
+              .doc(conversationId)
+              .collection(_messagesCollection)
+              .doc(); // Generate a new document ID
+
+      batch.set(messageRef, message.toMap());
 
       // Update conversation with last message info
-      await _firestore
+      final conversationRef = _firestore
           .collection(_conversationsCollection)
-          .doc(conversationId)
-          .update({
-            'lastMessageContent': 'Image',
-            'lastMessageTime': FieldValue.serverTimestamp(),
-            'hasUnreadMessages':
-                !isAdmin, // Mark as unread for admin if sent by reseller
-            'unreadCount': FieldValue.increment(isAdmin ? 0 : 1),
-          });
-    } catch (e) {
+          .doc(conversationId);
+
+      final updateData = <String, dynamic>{
+        'lastMessageContent': 'Image',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageIsFromAdmin': isAdmin,
+      };
+
+      // Determine recipient(s) to mark as having unread messages
+      final String senderId = isAdmin ? 'admin' : currentUserId!;
+
+      // Update unread counts for all participants except the sender
+      for (final participantId in participants) {
+        // Only increment unread count for participants who are not the sender
+        if (participantId != senderId) {
+          // Add to the unreadCounts map
+          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
+
+          // Also update old fields for backward compatibility
+          if (participantId == 'admin') {
+            updateData['unreadByAdmin'] = true;
+          } else {
+            updateData['unreadByReseller'] = true;
+          }
+        }
+      }
+
+      // Update the total unread count for backward compatibility
+      updateData['unreadCount'] = FieldValue.increment(1);
+
+      batch.update(conversationRef, updateData);
+
+      if (kDebugMode) {
+        print('Committing batch with message and conversation updates');
+      }
+
+      // Commit all the changes at once
+      await batch.commit();
+
+      if (kDebugMode) {
+        print('Successfully sent image message');
+      }
+    } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Error sending image message: $e');
+        print(stackTrace);
       }
       throw Exception('Failed to send image: $e');
+    }
+  }
+
+  // Helper method for web to upload bytes
+  Future<String> _uploadBytesToStorage(
+    Uint8List bytes,
+    Reference storageRef,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('Starting _uploadBytesToStorage with ${bytes.length} bytes');
+      }
+
+      // Check file size
+      if (bytes.length > _maxImageSizeMB * 1024 * 1024) {
+        throw Exception('Image size exceeds maximum of $_maxImageSizeMB MB');
+      }
+
+      if (kDebugMode) {
+        print('Creating upload task with Firebase Storage...');
+      }
+
+      // Create metadata with proper content type and fix for CORS
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'uploaded-from': 'web-app'},
+      );
+
+      // Upload bytes
+      final uploadTask = storageRef.putData(bytes, metadata);
+
+      if (kDebugMode) {
+        print('Upload task created, waiting for completion...');
+      }
+
+      // Set up error handling and timeouts
+      bool isComplete = false;
+      Exception? timeoutException;
+
+      // Add timeout handling
+      Future.delayed(const Duration(seconds: 30), () {
+        if (!isComplete) {
+          timeoutException = Exception('Upload timed out after 30 seconds');
+          if (kDebugMode) {
+            print('Upload timeout occurred');
+          }
+        }
+      });
+
+      // Monitor progress for debugging
+      uploadTask.snapshotEvents.listen(
+        (TaskSnapshot snapshot) {
+          if (kDebugMode) {
+            print(
+              'Upload progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes} bytes',
+            );
+            print('Upload state: ${snapshot.state}');
+          }
+        },
+        onError: (e) {
+          if (kDebugMode) {
+            print('Error during upload stream: $e');
+          }
+        },
+      );
+
+      // Wait for completion with timeout check
+      TaskSnapshot? snapshot;
+      try {
+        snapshot = await uploadTask;
+        isComplete = true;
+
+        // Check if a timeout occurred during the wait
+        if (timeoutException != null) {
+          throw timeoutException!;
+        }
+
+        if (kDebugMode) {
+          print('Upload complete, getting download URL...');
+        }
+      } catch (e) {
+        isComplete = true;
+        if (kDebugMode) {
+          print('Error during await uploadTask: $e');
+        }
+        rethrow;
+      }
+
+      // Try to get download URL with retry logic
+      String? downloadUrl;
+      int retries = 3;
+      while (retries > 0 && downloadUrl == null) {
+        try {
+          downloadUrl = await snapshot.ref.getDownloadURL();
+          if (kDebugMode) {
+            print('Successfully got download URL: $downloadUrl');
+          }
+        } catch (e) {
+          retries--;
+          if (kDebugMode) {
+            print('Failed to get download URL, retries left: $retries');
+            print('Error: $e');
+          }
+          if (retries > 0) {
+            // Wait before retry
+            await Future.delayed(const Duration(seconds: 1));
+          } else {
+            rethrow;
+          }
+        }
+      }
+
+      return downloadUrl!;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Web image upload error: $e');
+        print(stackTrace);
+        print(
+          'Checking Firebase Storage permissions and CORS configuration...',
+        );
+
+        // Check authentication state
+        final user = _auth.currentUser;
+        print(
+          'User is ${user != null ? "authenticated" : "not authenticated"}',
+        );
+        if (user != null) {
+          print('User ID: ${user.uid}');
+        }
+      }
+      throw Exception('Failed to upload image bytes: $e');
+    }
+  }
+
+  // Helper method for mobile to upload file
+  Future<String> _uploadFileToStorage(
+    io.File file,
+    Reference storageRef,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print('Starting _uploadFileToStorage with file path: ${file.path}');
+      }
+
+      // Check file size
+      final fileSize = await file.length();
+      if (kDebugMode) {
+        print('File size: $fileSize bytes');
+      }
+
+      if (fileSize > _maxImageSizeMB * 1024 * 1024) {
+        throw Exception('Image size exceeds maximum of $_maxImageSizeMB MB');
+      }
+
+      if (kDebugMode) {
+        print('Creating upload task with Firebase Storage...');
+      }
+
+      // Upload file
+      final uploadTask = storageRef.putFile(file);
+
+      if (kDebugMode) {
+        print('Upload task created, waiting for completion...');
+      }
+
+      final snapshot = await uploadTask;
+
+      if (kDebugMode) {
+        print('Upload complete, getting download URL...');
+      }
+
+      // Return download URL
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      if (kDebugMode) {
+        print('Successfully got download URL: $downloadUrl');
+      }
+
+      return downloadUrl;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Native image upload error: $e');
+        print(stackTrace);
+      }
+      throw Exception('Failed to upload image file: $e');
     }
   }
 
@@ -311,16 +859,42 @@ class ChatRepository {
     _messageSendTimes[userId]!.add(DateTime.now());
   }
 
-  // Mark messages as read
-  Future<void> markConversationAsRead(String conversationId) async {
-    final isAdmin = await isCurrentUserAdmin();
+  // Set user as active or inactive in a conversation
+  Future<void> setUserActiveInConversation(
+    String conversationId,
+    bool isActive,
+  ) async {
+    if (currentUserId == null) return;
 
-    // Only admins mark conversations as read
-    if (isAdmin) {
-      await _firestore
+    try {
+      // Check if user is admin
+      final cachedIsAdmin = await isCurrentUserAdmin();
+
+      // The userId to mark as active is 'admin' for admins, or the user's ID for resellers
+      final userIdForStatus = cachedIsAdmin ? 'admin' : currentUserId!;
+
+      // Get a reference to the conversation document
+      final conversationRef = _firestore
           .collection(_conversationsCollection)
-          .doc(conversationId)
-          .update({'hasUnreadMessages': false, 'unreadCount': 0});
+          .doc(conversationId);
+
+      // Update the activeUsers field to track who is viewing the conversation
+      if (isActive) {
+        // Add user to active users
+        await conversationRef.update({
+          'activeUsers': FieldValue.arrayUnion([userIdForStatus]),
+        });
+      } else {
+        // Remove user from active users
+        await conversationRef.update({
+          'activeUsers': FieldValue.arrayRemove([userIdForStatus]),
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating user active status: $e');
+      }
+      // Don't throw the error to prevent UI disruption
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
@@ -37,6 +38,12 @@ final messagesProvider = StreamProvider.family<List<ChatMessage>, String>((
   return repository.getMessages(conversationId);
 });
 
+// Provider for total unread messages count
+final unreadMessagesCountProvider = StreamProvider<int>((ref) {
+  final repository = ref.watch(chatRepositoryProvider);
+  return repository.getUnreadMessagesCount();
+});
+
 // NotifierProvider for chat functionality
 class ChatNotifier extends StateNotifier<AsyncValue<void>> {
   final ChatRepository _repository;
@@ -58,7 +65,10 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> sendImageMessage(String conversationId, File imageFile) async {
+  Future<void> sendImageMessage(
+    String conversationId,
+    dynamic imageFile,
+  ) async {
     try {
       state = const AsyncValue.loading();
       await _repository.sendImageMessage(conversationId, imageFile);
@@ -77,6 +87,19 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
     } catch (e) {
       if (kDebugMode) {
         print('Error marking as read: $e');
+      }
+    }
+  }
+
+  Future<void> setUserActiveInConversation(
+    String conversationId,
+    bool isActive,
+  ) async {
+    try {
+      await _repository.setUserActiveInConversation(conversationId, isActive);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error setting user active status: $e');
       }
     }
   }

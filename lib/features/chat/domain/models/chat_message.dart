@@ -26,12 +26,25 @@ class ChatMessage {
   // Create from Firestore document
   factory ChatMessage.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Safely handle the timestamp conversion
+    DateTime timestamp;
+    try {
+      timestamp =
+          data['timestamp'] is Timestamp
+              ? (data['timestamp'] as Timestamp).toDate()
+              : DateTime.now();
+    } catch (e) {
+      // Default to current time if there's any issue with the timestamp
+      timestamp = DateTime.now();
+    }
+
     return ChatMessage(
       id: doc.id,
       senderId: data['senderId'] ?? '',
       senderName: data['senderName'] ?? '',
       content: data['content'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: timestamp,
       isAdmin: data['isAdmin'] ?? false,
       isRead: data['isRead'] ?? false,
       type: data['type'] == 'image' ? MessageType.image : MessageType.text,
