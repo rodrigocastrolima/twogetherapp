@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/theme/text_styles.dart';
 import '../../../presentation/layout/main_layout.dart';
+import '../../../app/router/app_router.dart';
+import '../../../core/theme/ui_styles.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,15 +18,41 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
-  final bool _isLoading = false;
+  bool _isLoading = false;
 
-  void _handleLogin() {
-    // For now, just navigate to main layout without validation
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const MainLayout(showNavigation: true),
-      ),
-    );
+  void _handleLogin() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Validate the login credentials
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      // Simple validation
+      if (email.isEmpty || password.isEmpty) {
+        throw Exception('Please enter email and password');
+      }
+
+      // Use Firebase Authentication
+      await AppRouter.authNotifier.signInWithEmailAndPassword(
+        email,
+        password,
+        rememberMe: _rememberMe,
+      );
+
+      // No need to navigate manually - the router redirect will handle it
+    } catch (e) {
+      // Handle login error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -39,238 +67,281 @@ class _LoginPageState extends State<LoginPage> {
     final l10n = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
-    final double padding = size.width < 400 ? 16.0 : 24.0;
+    final double padding = size.width < 400 ? 12.0 : 16.0;
 
-    return MainLayout(
-      showBackButton: false,
-      showNavigation: false,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: padding,
-                vertical: padding,
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Background Image
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/banner.jpg'),
+                fit: BoxFit.cover,
               ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isSmallScreen ? size.width * 0.9 : 400,
-                  minHeight: isSmallScreen ? 0.0 : 520,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Logo
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: isSmallScreen ? size.width * 0.8 : 360,
-                        ),
-                        child: AspectRatio(
-                          aspectRatio: 2.0,
-                          child: Image.asset(
-                            'assets/images/twogether_logo_light_br.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
+            ),
+          ),
+          // Overlay to darken the image and improve text readability
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.black.withOpacity(0.4),
+          ),
+          // Login content
+          SafeArea(
+            child: Center(
+              child: NoScrollbarBehavior.noScrollbars(
+                context,
+                SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: padding,
+                    vertical: padding,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isSmallScreen ? size.width * 0.8 : 400,
+                      minHeight: isSmallScreen ? 0.0 : 520,
                     ),
-                    SizedBox(height: isSmallScreen ? 48 : 64),
-
-                    // Form Container
-                    Container(
-                      constraints: BoxConstraints(
-                        maxWidth: isSmallScreen ? size.width * 0.8 : 320,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Email field
-                          ClipRRect(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Form Container
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                              child: TextField(
-                                controller: _emailController,
-                                decoration: InputDecoration(
-                                  labelText: l10n.loginUsername,
-                                  labelStyle: TextStyle(
-                                    color: AppTheme.foreground,
-                                    fontSize: 15,
-                                  ),
-                                  prefixIcon: Icon(
-                                    Icons.email_outlined,
-                                    color: AppTheme.foreground,
-                                    size: 20,
-                                  ),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.1),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: AppTheme.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                style: TextStyle(
-                                  color: AppTheme.foreground,
-                                  fontSize: 15,
-                                ),
-                                keyboardType: TextInputType.emailAddress,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 15,
+                                offset: const Offset(0, 8),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-
-                          // Password field
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                              child: TextField(
-                                controller: _passwordController,
-                                decoration: InputDecoration(
-                                  labelText: l10n.loginPassword,
-                                  labelStyle: TextStyle(
-                                    color: AppTheme.foreground,
-                                    fontSize: 15,
-                                  ),
-                                  prefixIcon: Icon(
-                                    Icons.lock_outline,
-                                    color: AppTheme.foreground,
-                                    size: 20,
-                                  ),
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.1),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: AppTheme.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                    horizontal: 16,
-                                  ),
-                                ),
-                                style: TextStyle(
-                                  color: AppTheme.foreground,
-                                  fontSize: 15,
-                                ),
-                                obscureText: true,
-                              ),
-                            ),
+                          constraints: BoxConstraints(
+                            maxWidth: isSmallScreen ? size.width * 0.7 : 340,
                           ),
-                          const SizedBox(height: 16),
-
-                          // Remember me checkbox
-                          Transform.translate(
-                            offset: const Offset(-8, 0),
-                            child: Row(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 18 : 24,
+                              vertical: isSmallScreen ? 16 : 24,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Transform.scale(
-                                  scale: 0.9,
-                                  child: Checkbox(
-                                    value: _rememberMe,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _rememberMe = value ?? false;
-                                      });
-                                    },
-                                    activeColor: AppTheme.primary,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                                // Logo inside the form
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        isSmallScreen ? size.width * 0.38 : 180,
+                                  ),
+                                  child: AspectRatio(
+                                    aspectRatio: 2.0,
+                                    child: Image.asset(
+                                      'assets/images/twogether_logo_dark_br.png',
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                                 ),
-                                Text(
-                                  l10n.loginRememberMe,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.foreground,
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+
+                                // Email field
+                                Theme(
+                                  data: Theme.of(context).copyWith(
+                                    inputDecorationTheme: InputDecorationTheme(
+                                      filled: true,
+                                      fillColor: const Color(0xFFF7F7F7),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: AppTheme.primary,
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    controller: _emailController,
+                                    decoration: InputDecoration(
+                                      hintText: l10n.loginUsername,
+                                      hintStyle: TextStyle(
+                                        color: Colors.black45,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.email_outlined,
+                                        color: Colors.black45,
+                                        size: 17,
+                                      ),
+                                      isDense: true,
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 13,
+                                    ),
+                                    keyboardType: TextInputType.emailAddress,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Password field
+                                Theme(
+                                  data: Theme.of(context).copyWith(
+                                    inputDecorationTheme: InputDecorationTheme(
+                                      filled: true,
+                                      fillColor: const Color(0xFFF7F7F7),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: AppTheme.primary,
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: TextField(
+                                    controller: _passwordController,
+                                    decoration: InputDecoration(
+                                      hintText: l10n.loginPassword,
+                                      hintStyle: TextStyle(
+                                        color: Colors.black45,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.lock_outline,
+                                        color: Colors.black45,
+                                        size: 17,
+                                      ),
+                                      isDense: true,
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 13,
+                                    ),
+                                    obscureText: true,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => _handleLogin(),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+
+                                // Remember me checkbox
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    children: [
+                                      Transform.scale(
+                                        scale: 0.75,
+                                        child: Checkbox(
+                                          value: _rememberMe,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _rememberMe = value ?? false;
+                                            });
+                                          },
+                                          activeColor: AppTheme.primary,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
+                                          ),
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      ),
+                                      Text(
+                                        l10n.loginRememberMe,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+
+                                // Login button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 38,
+                                  child: FilledButton(
+                                    onPressed: _isLoading ? null : _handleLogin,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppTheme.primary,
+                                      foregroundColor:
+                                          AppTheme.primaryForeground,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child:
+                                        _isLoading
+                                            ? SizedBox(
+                                              height: 16,
+                                              width: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(Colors.white),
+                                              ),
+                                            )
+                                            : Text(
+                                              l10n.loginButton,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 32),
-
-                          // Login button
-                          FilledButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: AppTheme.primaryForeground,
-                              minimumSize: const Size(double.infinity, 48),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child:
-                                _isLoading
-                                    ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
-                                      ),
-                                    )
-                                    : Text(
-                                      l10n.loginButton,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

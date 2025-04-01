@@ -1,15 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
+import '../../core/theme/colors.dart';
+import '../../core/theme/ui_styles.dart';
+import '../../core/theme/responsive.dart';
 import '../screens/admin/admin_home_page.dart';
-import '../screens/admin/admin_users_page.dart';
 import '../screens/admin/admin_reports_page.dart';
 import '../screens/admin/admin_settings_page.dart';
 import '../screens/messages/messages_page.dart';
+import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
 
-class AdminLayout extends StatefulWidget {
+class AdminLayout extends ConsumerStatefulWidget {
   final Widget? child;
   final bool showBackButton;
   final bool showNavigation;
@@ -26,28 +30,20 @@ class AdminLayout extends StatefulWidget {
   });
 
   @override
-  State<AdminLayout> createState() => _AdminLayoutState();
+  ConsumerState<AdminLayout> createState() => _AdminLayoutState();
 }
 
-class _AdminLayoutState extends State<AdminLayout> {
+class _AdminLayoutState extends ConsumerState<AdminLayout> {
   int _selectedIndex = 0;
-  final int _notificationCount = 3;
 
   final List<Widget> _pages = [
     const AdminHomePage(),
-    const AdminUsersPage(),
     const MessagesPage(),
     const AdminReportsPage(),
     const AdminSettingsPage(),
   ];
 
-  final List<String> _titles = [
-    'Dashboard',
-    'Users',
-    'Messages',
-    'Reports',
-    'Settings',
-  ];
+  final List<String> _titles = ['Dashboard', 'Messages', 'Reports', 'Settings'];
 
   @override
   void initState() {
@@ -63,168 +59,291 @@ class _AdminLayoutState extends State<AdminLayout> {
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/admin') {
       setState(() => _selectedIndex = 0);
-    } else if (location == '/admin/users') {
-      setState(() => _selectedIndex = 1);
     } else if (location == '/admin/messages') {
-      setState(() => _selectedIndex = 2);
+      setState(() => _selectedIndex = 1);
     } else if (location == '/admin/reports') {
-      setState(() => _selectedIndex = 3);
+      setState(() => _selectedIndex = 2);
     } else if (location == '/admin/settings') {
+      setState(() => _selectedIndex = 3);
+    } else if (location == '/admin/resellers') {
+      // Now set selected index for Resellers page with a proper index
       setState(() => _selectedIndex = 4);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Size screenSize = MediaQuery.of(context).size;
-    final bool isSmallScreen = screenSize.width < 600;
+    final width = MediaQuery.of(context).size.width;
+    final isSmallScreen = width < 600;
+    final isDesktop = width >= 1024;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.background.withBlue((AppTheme.background.b + 10).toInt()),
-            AppTheme.background,
-            AppTheme.background.withRed((AppTheme.background.r + 10).toInt()),
-          ],
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar:
-            widget.showBackButton || !widget.showNavigation
-                ? _buildAppBar(context)
-                : null,
-        body: Row(
+      decoration: BoxDecoration(gradient: AppStyles.mainGradient(context)),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
           children: [
-            if (!isSmallScreen && widget.showNavigation) _buildNavigationRail(),
-            Expanded(child: widget.child ?? _pages[_selectedIndex]),
-          ],
-        ),
-        bottomNavigationBar:
-            isSmallScreen && widget.showNavigation
-                ? _buildBottomNavigationBar()
-                : null,
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      leading:
-          widget.showBackButton
-              ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                onPressed:
-                    widget.onBackButtonPressed ??
-                    () => Navigator.of(context).pop(),
-              )
-              : null,
-      title: Text(
-        widget.pageTitle.isNotEmpty
-            ? widget.pageTitle
-            : _titles[_selectedIndex],
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-      actions: [
-        if (widget.showNavigation)
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(CupertinoIcons.bell_fill, color: Colors.white),
-                onPressed: () {
-                  // Handle notifications
-                },
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              extendBody: true,
+              extendBodyBehindAppBar: true,
+              appBar:
+                  widget.showBackButton
+                      ? AppBar(
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        scrolledUnderElevation: 0,
+                        surfaceTintColor: Colors.transparent,
+                        toolbarHeight: 80,
+                        leading: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: IconButton(
+                            icon: Icon(
+                              CupertinoIcons.chevron_left,
+                              color: AppTheme.foreground,
+                              size: 20,
+                            ),
+                            onPressed:
+                                widget.onBackButtonPressed ??
+                                () {
+                                  if (Navigator.canPop(context)) {
+                                    context.pop();
+                                  } else {
+                                    // Fallback to going to admin home if can't pop
+                                    context.go('/admin');
+                                  }
+                                },
+                          ),
+                        ),
+                        title: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Image.asset(
+                            'assets/images/twogether_logo_light_br.png',
+                            height: 70,
+                          ),
+                        ),
+                        centerTitle: true,
+                        actions: [],
+                      )
+                      : (!widget.showNavigation
+                          ? null
+                          : (isSmallScreen
+                              ? AppBar(
+                                backgroundColor: Colors.transparent,
+                                elevation: 0,
+                                scrolledUnderElevation: 0,
+                                surfaceTintColor: Colors.transparent,
+                                toolbarHeight: 80,
+                                leading: null,
+                                title: Center(
+                                  child: Image.asset(
+                                    'assets/images/twogether_logo_light_br.png',
+                                    height: 70,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                                centerTitle: true,
+                                actions: [],
+                              )
+                              : null)),
+              body: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (isDesktop && widget.showNavigation)
+                          _buildCollapsibleSidebar(),
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: 24,
+                              right: 24,
+                              top: 24,
+                              bottom:
+                                  isSmallScreen && widget.showNavigation
+                                      ? 84
+                                      : 24,
+                            ),
+                            child: widget.child ?? _pages[_selectedIndex],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              if (_notificationCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.amber,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      _notificationCount.toString(),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+            ),
+            if (widget.showNavigation && isSmallScreen)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                    child: Container(
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(20),
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withAlpha(26),
+                            width: 0.5,
+                          ),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildTabItem(
+                              icon: CupertinoIcons.home,
+                              selectedIcon: CupertinoIcons.house_fill,
+                              label: 'Dashboard',
+                              index: 0,
+                            ),
+                            _buildTabItem(
+                              icon: CupertinoIcons.doc_text_search,
+                              selectedIcon: CupertinoIcons.doc_text_search,
+                              label: 'Resellers',
+                              index: 4, // Use a real index instead of -1
+                              onTap: () => context.go('/admin/resellers'),
+                            ),
+                            _buildTabItem(
+                              icon: CupertinoIcons.chat_bubble,
+                              selectedIcon: CupertinoIcons.chat_bubble_fill,
+                              label: 'Messages',
+                              index: 1,
+                              badge: unreadCount,
+                            ),
+                            _buildTabItem(
+                              icon: CupertinoIcons.settings,
+                              selectedIcon: CupertinoIcons.settings_solid,
+                              label: 'Settings',
+                              index: 3,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-            ],
-          ),
-        const SizedBox(width: 16),
-      ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildNavigationRail() {
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topRight: Radius.circular(16),
-        bottomRight: Radius.circular(16),
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          width: 100,
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(20),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-            border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
+  Widget _buildCollapsibleSidebar() {
+    // Get the current location to highlight the correct item
+    final location = GoRouterState.of(context).matchedLocation;
+    int currentIndex = _selectedIndex;
+
+    // Update current index based on route
+    if (location == '/admin') {
+      currentIndex = 0;
+    } else if (location == '/admin/messages') {
+      currentIndex = 1;
+    } else if (location == '/admin/reports') {
+      currentIndex = 2;
+    } else if (location == '/admin/settings') {
+      currentIndex = 3;
+    } else if (location == '/admin/resellers') {
+      currentIndex = 4;
+    }
+
+    // Fixed width sidebar
+    const sidebarWidth = 200.0;
+
+    return Container(
+      width: sidebarWidth,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.3),
+        border: Border(
+          right: BorderSide(color: Colors.black.withOpacity(0.1), width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 0),
           ),
-          child: NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (int index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-              _handleNavigation(index);
-            },
-            labelType: NavigationRailLabelType.all,
-            backgroundColor: Colors.transparent,
-            selectedLabelTextStyle: const TextStyle(
-              color: Colors.amber,
-              fontWeight: FontWeight.bold,
-            ),
-            unselectedLabelTextStyle: TextStyle(
-              color: Colors.white.withAlpha(179),
-            ),
-            destinations: [
-              _buildNavigationRailDestination(CupertinoIcons.home, 'Dashboard'),
-              _buildNavigationRailDestination(CupertinoIcons.person_2, 'Users'),
-              _buildNavigationRailDestination(
-                CupertinoIcons.chat_bubble_2,
-                'Messages',
+        ],
+      ),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Column(
+            children: [
+              // Logo section
+              SizedBox(
+                height: 130,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Image.asset(
+                      'assets/images/twogether_logo_light_br.png',
+                      height: 130,
+                      width: 200,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
               ),
-              _buildNavigationRailDestination(
-                CupertinoIcons.chart_bar,
-                'Reports',
-              ),
-              _buildNavigationRailDestination(
-                CupertinoIcons.settings,
-                'Settings',
+
+              // Navigation items
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 12,
+                  ),
+                  children: [
+                    _buildNavItem(
+                      icon: CupertinoIcons.home,
+                      title: 'Dashboard',
+                      isSelected: currentIndex == 0,
+                      onTap: () => _handleNavigation(0),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNavItem(
+                      icon: CupertinoIcons.doc_text_search,
+                      title: 'Resellers',
+                      isSelected: currentIndex == 4,
+                      onTap: () => _handleNavigation(4),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNavItem(
+                      icon: CupertinoIcons.chat_bubble,
+                      title: 'Messages',
+                      isSelected: currentIndex == 1,
+                      onTap: () => _handleNavigation(1),
+                      badge: ref
+                          .watch(unreadMessagesCountProvider)
+                          .maybeWhen(data: (count) => count, orElse: () => 0),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNavItem(
+                      icon: CupertinoIcons.chart_bar,
+                      title: 'Reports',
+                      isSelected: currentIndex == 2,
+                      onTap: () => _handleNavigation(2),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNavItem(
+                      icon: CupertinoIcons.settings,
+                      title: 'Settings',
+                      isSelected: currentIndex == 3,
+                      onTap: () => _handleNavigation(3),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -233,57 +352,174 @@ class _AdminLayoutState extends State<AdminLayout> {
     );
   }
 
-  NavigationRailDestination _buildNavigationRailDestination(
-    IconData iconData,
-    String label,
-  ) {
-    return NavigationRailDestination(
-      icon: Icon(iconData, color: Colors.white.withAlpha(179)),
-      selectedIcon: Icon(iconData, color: Colors.amber),
-      label: Text(label),
+  Widget _buildNavItem({
+    required IconData icon,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+    int badge = 0,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        hoverColor: Colors.black.withOpacity(0.05),
+        splashColor: Colors.black.withOpacity(0.1),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          decoration: BoxDecoration(
+            color:
+                isSelected
+                    ? Colors.black.withOpacity(0.05)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  Icon(
+                    icon,
+                    size: 18,
+                    color:
+                        isSelected
+                            ? AppTheme.primary
+                            : Colors.black.withOpacity(0.7),
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      right: -8,
+                      top: -8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          badge.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color:
+                        isSelected
+                            ? AppTheme.primary
+                            : Colors.black.withOpacity(0.7),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(20),
-        topRight: Radius.circular(20),
-      ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (int index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-            _handleNavigation(index);
+  Widget _buildTabItem({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required int index,
+    int badge = 0,
+    VoidCallback? onTap,
+  }) {
+    final bool isSelected =
+        _selectedIndex == index ||
+        (index == 4 &&
+            GoRouterState.of(context).matchedLocation == '/admin/resellers');
+
+    return GestureDetector(
+      onTap:
+          onTap ??
+          () {
+            // Update the selected index immediately for visual feedback
+            if (!isSelected) {
+              setState(() => _selectedIndex = index);
+              // Then handle actual navigation
+              _handleNavigation(index);
+            }
           },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white.withAlpha(20),
-          selectedItemColor: Colors.amber,
-          unselectedItemColor: Colors.white.withAlpha(179),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.home),
-              label: 'Dashboard',
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  isSelected ? selectedIcon : icon,
+                  color:
+                      isSelected
+                          ? AppTheme.primary
+                          : AppTheme.foreground.withAlpha(153),
+                  size: 26,
+                ),
+                if (badge > 0)
+                  Positioned(
+                    right: -10,
+                    top: -10,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        badge.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person_2),
-              label: 'Users',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chat_bubble_2),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.chart_bar),
-              label: 'Reports',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.settings),
-              label: 'Settings',
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: '.SF Pro Text',
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color:
+                    isSelected
+                        ? AppTheme.primary
+                        : AppTheme.foreground.withAlpha(153),
+                letterSpacing: -0.2,
+              ),
             ),
           ],
         ),
@@ -297,16 +533,16 @@ class _AdminLayoutState extends State<AdminLayout> {
         context.go('/admin');
         break;
       case 1:
-        context.go('/admin/users');
-        break;
-      case 2:
         context.go('/admin/messages');
         break;
-      case 3:
+      case 2:
         context.go('/admin/reports');
         break;
-      case 4:
+      case 3:
         context.go('/admin/settings');
+        break;
+      case 4:
+        context.go('/admin/resellers');
         break;
     }
   }

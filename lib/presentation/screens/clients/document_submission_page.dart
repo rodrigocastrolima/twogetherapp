@@ -1,8 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../../../core/theme/theme.dart';
-import '../../../presentation/layout/main_layout.dart';
 
 class DocumentSubmissionPage extends StatefulWidget {
   const DocumentSubmissionPage({super.key});
@@ -38,46 +36,43 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      showNavigation: false,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(child: _buildHeader()),
+    return SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeader()),
 
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: _buildDigitalSignatureCard(),
-                    ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: _buildDigitalSignatureCard(),
                   ),
+                ),
 
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final entry = documents.entries.elementAt(index);
-                        if (isDigitallySigned &&
-                            entry.key == 'Contrato Assinado') {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDocumentItem(entry.key, entry.value),
-                        );
-                      }, childCount: documents.length),
-                    ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final entry = documents.entries.elementAt(index);
+                      if (isDigitallySigned &&
+                          entry.key == 'Contrato Assinado') {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildDocumentItem(entry.key, entry.value),
+                      );
+                    }, childCount: documents.length),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            _buildSubmitButton(),
-          ],
-        ),
+          _buildSubmitButton(),
+        ],
       ),
     );
   }
@@ -128,15 +123,12 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13),
                 blurRadius: 15,
                 offset: const Offset(0, 2),
               ),
@@ -170,7 +162,7 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
                         isDigitallySigned = value;
                       });
                     },
-                    activeColor: const Color(0xFF2C2C2E),
+                    activeTrackColor: const Color(0xFF2C2C2E),
                   ),
                 ],
               ),
@@ -205,15 +197,12 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13),
                 blurRadius: 15,
                 offset: const Offset(0, 2),
               ),
@@ -245,7 +234,7 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
                     if (isSelected) ...[
                       const SizedBox(height: 2),
                       Text(
-                        value!,
+                        value,
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF8E8E93),
@@ -267,7 +256,7 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
                     color:
                         isSelected
                             ? const Color(0xFFE9F7EC)
-                            : Colors.black.withOpacity(0.08),
+                            : Colors.black.withAlpha(20),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -322,7 +311,7 @@ class _DocumentSubmissionPageState extends State<DocumentSubmissionPage> {
               color:
                   canSubmit
                       ? const Color(0xFF2C2C2E)
-                      : const Color(0xFF2C2C2E).withOpacity(0.5),
+                      : const Color(0xFF2C2C2E).withAlpha(128),
               borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.center,

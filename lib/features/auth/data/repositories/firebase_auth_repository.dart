@@ -50,9 +50,9 @@ class FirebaseAuthRepository implements AuthRepository {
         } else {
           // If the user exists in Authentication but not in Firestore,
           // create their entry in Firestore
-          debugPrint(
-            'User exists in Auth but not in Firestore, creating record',
-          );
+          if (kDebugMode) {
+            print('User exists in Auth but not in Firestore, creating record');
+          }
           final newUserData = {
             'uid': user.uid,
             'email': user.email,
@@ -72,7 +72,9 @@ class FirebaseAuthRepository implements AuthRepository {
           ).copyWith(isFirstLogin: true, additionalData: newUserData);
         }
       } catch (e) {
-        debugPrint('Error fetching user data: $e');
+        if (kDebugMode) {
+          print('Error fetching user data: $e');
+        }
         return AppUser.fromFirebaseUser(user);
       }
     });
@@ -171,14 +173,18 @@ class FirebaseAuthRepository implements AuthRepository {
       try {
         functionsAvailable = await _functionsService.checkAvailability();
         if (functionsAvailable) {
-          debugPrint('Using Cloud Functions for user creation');
+          if (kDebugMode) {
+            print('Using Cloud Functions for user creation');
+          }
         } else {
           throw Exception(
             'Cloud Functions are required for user creation but are not available. Please try again later.',
           );
         }
       } catch (e) {
-        debugPrint('Error checking Cloud Functions availability: $e');
+        if (kDebugMode) {
+          print('Error checking Cloud Functions availability: $e');
+        }
         throw Exception(
           'Cloud Functions are required for user creation but could not be accessed. Error: $e',
         );
@@ -196,12 +202,16 @@ class FirebaseAuthRepository implements AuthRepository {
 
       // Get admin token that will be used to verify admin status on the server
       final adminToken = await _getAdminToken();
-      debugPrint(
-        'Admin token obtained for secure Cloud Function call: ${adminToken.substring(0, 20)}...',
-      );
+      if (kDebugMode) {
+        print(
+          'Admin token obtained for secure Cloud Function call: ${adminToken.substring(0, 20)}...',
+        );
+      }
 
       // Call the Cloud Function to create the user
-      debugPrint('Creating user with Cloud Functions: $email');
+      if (kDebugMode) {
+        print('Creating user with Cloud Functions: $email');
+      }
       final newUser = await _functionsService.createUser(
         email: email,
         password: password,
@@ -209,16 +219,20 @@ class FirebaseAuthRepository implements AuthRepository {
         displayName: displayName,
       );
 
-      debugPrint(
-        'User created successfully via Cloud Functions: ${newUser.uid}',
-      );
+      if (kDebugMode) {
+        print('User created successfully via Cloud Functions: ${newUser.uid}');
+      }
       return newUser;
     } catch (e) {
-      debugPrint('Cloud Functions error: $e');
+      if (kDebugMode) {
+        print('Cloud Functions error: $e');
+      }
       if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error message: ${e.message}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+        if (kDebugMode) {
+          print('Firebase Functions error code: ${e.code}');
+          print('Firebase Functions error message: ${e.message}');
+          print('Firebase Functions error details: ${e.details}');
+        }
       }
 
       // Propagate the error - no fallback to client-side implementation
@@ -258,7 +272,9 @@ class FirebaseAuthRepository implements AuthRepository {
       try {
         available = await _functionsService.checkAvailability();
       } catch (e) {
-        debugPrint('Error checking Cloud Functions availability: $e');
+        if (kDebugMode) {
+          print('Error checking Cloud Functions availability: $e');
+        }
         throw Exception(
           'Cloud Functions are required for resetting passwords but could not be accessed. Error: $e',
         );
@@ -272,17 +288,25 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     try {
-      debugPrint('Using Cloud Functions to reset password for $email');
+      if (kDebugMode) {
+        print('Using Cloud Functions to reset password for $email');
+      }
       final resetLink = await _functionsService.resetUserPassword(email);
 
       // In a real app, you might want to send this link via your own email system
-      debugPrint('Password reset link: $resetLink');
+      if (kDebugMode) {
+        print('Password reset link: $resetLink');
+      }
     } catch (e) {
-      debugPrint('Cloud Functions error: $e');
+      if (kDebugMode) {
+        print('Cloud Functions error: $e');
+      }
       if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error message: ${e.message}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+        if (kDebugMode) {
+          print('Firebase Functions error code: ${e.code}');
+          print('Firebase Functions error message: ${e.message}');
+          print('Firebase Functions error details: ${e.details}');
+        }
       }
       throw Exception('Failed to reset password: $e');
     }
@@ -313,7 +337,9 @@ class FirebaseAuthRepository implements AuthRepository {
       'firstLoginCompletedAt': FieldValue.serverTimestamp(),
     });
 
-    debugPrint('First login completed for user: ${user.uid}');
+    if (kDebugMode) {
+      print('First login completed for user: ${user.uid}');
+    }
   }
 
   @override
@@ -341,7 +367,9 @@ class FirebaseAuthRepository implements AuthRepository {
         additionalData: data,
       );
     } catch (e) {
-      debugPrint('Error getting user by ID: $e');
+      if (kDebugMode) {
+        print('Error getting user by ID: $e');
+      }
       return null;
     }
   }
@@ -371,7 +399,9 @@ class FirebaseAuthRepository implements AuthRepository {
         );
       }).toList();
     } catch (e) {
-      debugPrint('Error getting all resellers: $e');
+      if (kDebugMode) {
+        print('Error getting all resellers: $e');
+      }
       return [];
     }
   }
@@ -391,7 +421,9 @@ class FirebaseAuthRepository implements AuthRepository {
       try {
         available = await _functionsService.checkAvailability();
       } catch (e) {
-        debugPrint('Error checking Cloud Functions availability: $e');
+        if (kDebugMode) {
+          print('Error checking Cloud Functions availability: $e');
+        }
         throw Exception(
           'Cloud Functions are required for enabling/disabling users but could not be accessed. Error: $e',
         );
@@ -405,19 +437,58 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     try {
-      debugPrint(
-        'Using Cloud Functions to update user status: $uid to ${enabled ? "enabled" : "disabled"}',
-      );
       await _functionsService.setUserEnabled(uid, enabled);
-      debugPrint('User status updated successfully via Cloud Functions');
     } catch (e) {
-      debugPrint('Cloud Functions error: $e');
+      if (kDebugMode) {
+        print('Cloud Functions error: $e');
+      }
       if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error message: ${e.message}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+        throw Exception('Failed to update user status: $e');
       }
       throw Exception('Failed to update user status: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteUser(String uid) async {
+    // Check if Cloud Functions are available
+    if (!_useCloudFunctions) {
+      throw Exception(
+        'Cloud Functions are required for deleting users but are disabled in this environment.',
+      );
+    }
+
+    // Verify Cloud Functions availability
+    if (!_functionsService.functionsAvailable) {
+      bool available = false;
+      try {
+        available = await _functionsService.checkAvailability();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error checking Cloud Functions availability: $e');
+        }
+        throw Exception(
+          'Cloud Functions are required for deleting users but could not be accessed. Error: $e',
+        );
+      }
+
+      if (!available) {
+        throw Exception(
+          'Cloud Functions are required for deleting users but are not available. Please try again later.',
+        );
+      }
+    }
+
+    try {
+      await _functionsService.deleteUser(uid);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Cloud Functions error: $e');
+      }
+      if (e is FirebaseFunctionsException) {
+        throw Exception('Failed to delete user: $e');
+      }
+      throw Exception('Failed to delete user: $e');
     }
   }
 
@@ -433,26 +504,30 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
-  Exception _handleFirebaseAuthException(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'user-not-found':
-        return Exception('No user found with this email');
-      case 'wrong-password':
-        return Exception('Incorrect password');
-      case 'email-already-in-use':
-        return Exception('Email is already in use');
-      case 'weak-password':
-        return Exception('Password is too weak');
-      case 'invalid-email':
-        return Exception('Invalid email address');
-      case 'user-disabled':
-        return Exception('This account has been disabled');
-      case 'requires-recent-login':
-        return Exception(
-          'Please log out and log back in to change your password',
-        );
-      default:
-        return Exception('Authentication error: ${e.message}');
+  Exception _handleFirebaseAuthException(dynamic e) {
+    if (e is FirebaseAuthException) {
+      switch (e.code) {
+        case 'user-not-found':
+          return Exception('No user found with this email');
+        case 'wrong-password':
+          return Exception('Incorrect password');
+        case 'email-already-in-use':
+          return Exception('Email is already in use');
+        case 'weak-password':
+          return Exception('Password is too weak');
+        case 'invalid-email':
+          return Exception('Invalid email address');
+        case 'user-disabled':
+          return Exception('This account has been disabled');
+        case 'requires-recent-login':
+          return Exception(
+            'Please log out and log back in to change your password',
+          );
+        default:
+          return Exception('Authentication error: ${e.message}');
+      }
+    } else {
+      return Exception('Unknown error: $e');
     }
   }
 

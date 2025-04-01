@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'app.dart';
 import 'app/router/app_router.dart';
 import 'features/auth/presentation/providers/cloud_functions_provider.dart';
 import 'features/auth/data/services/firebase_functions_service.dart';
+import 'core/providers/locale_provider.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -17,41 +19,41 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Set persistence to LOCAL to maintain session across app restarts
-  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  // Set default persistence to SESSION so users are not remembered by default
+  // Remember Me will explicitly change this to LOCAL when checked
+  await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+
+  // Initialize SharedPreferences
+  final sharedPreferences = await SharedPreferences.getInstance();
 
   // Configure Firebase Functions
-  // We'll skip emulator in debug mode since we've deployed the functions
   bool cloudFunctionsAvailable = false;
 
   try {
-    debugPrint('🔍 Checking Cloud Functions availability...');
-
     // Initialize the Firebase Functions service
     final functionsService = FirebaseFunctionsService();
-    debugPrint('FirebaseFunctionsService initialized for region: us-central1');
 
-    // Use the service's method to check availability
+    // Check if Cloud Functions are available
     cloudFunctionsAvailable = await functionsService.checkAvailability();
 
-    if (cloudFunctionsAvailable) {
-      debugPrint('✅ Cloud Functions are available!');
-    } else {
-      debugPrint(
-        '❌ Cloud Functions are not available - check deployment in us-central1 region',
+    if (kDebugMode) {
+      print(
+        cloudFunctionsAvailable
+            ? '✅ Cloud Functions are available!'
+            : '❌ Cloud Functions are not available - check deployment in us-central1 region',
       );
     }
   } catch (e) {
-    debugPrint('❌ Error checking Cloud Functions availability: $e');
-    // Print stack trace for deeper debugging
-    debugPrint('Stack trace: ${StackTrace.current}');
+    if (kDebugMode) {
+      print('❌ Error checking Cloud Functions availability: $e');
+    }
   }
 
   // Reset authentication on app restart only in debug mode
   // In production, we'll let Firebase persistence handle sessions
   if (kDebugMode && false) {
     // Disabled for now to prevent login issues
-    debugPrint('Debug mode: Resetting authentication state');
+    print('Debug mode: Resetting authentication state');
     await AppRouter.authNotifier.setAuthenticated(false);
   }
 
@@ -63,6 +65,8 @@ void main() async {
         cloudFunctionsAvailableProvider.overrideWithValue(
           cloudFunctionsAvailable,
         ),
+        // Override the shared preferences provider with the instance
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
       ],
       child: const App(),
     ),

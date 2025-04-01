@@ -21,11 +21,13 @@ import '../../presentation/screens/services/services_page.dart';
 import '../../presentation/screens/services/resubmission_form_page.dart';
 import '../../presentation/screens/dashboard/dashboard_page.dart';
 import '../../presentation/screens/admin/admin_home_page.dart';
-import '../../presentation/screens/admin/admin_users_page.dart';
 import '../../presentation/screens/admin/admin_reports_page.dart';
 import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
+import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
+import '../../features/admin/presentation/pages/admin_submissions_page.dart';
+import '../../presentation/screens/admin/admin_retail_users_page.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -367,11 +369,7 @@ class AppRouter {
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return MainLayout(
-            showNavigation: true,
-            showBackButton: false,
-            child: child,
-          );
+          return MainLayout(child: child, currentIndex: 0);
         },
         routes: [
           GoRoute(
@@ -409,10 +407,6 @@ class AppRouter {
             builder: (context, state) => const AdminHomePage(),
           ),
           GoRoute(
-            path: '/admin/users',
-            builder: (context, state) => const AdminUsersPage(),
-          ),
-          GoRoute(
             path: '/admin/messages',
             builder: (context, state) => const MessagesPage(),
           ),
@@ -428,6 +422,19 @@ class AppRouter {
             path: '/admin/user-management',
             builder: (context, state) => const UserManagementPage(),
           ),
+          GoRoute(
+            path: '/admin/salesforce-setup',
+            builder: (context, state) => const SalesforceSetupPage(),
+          ),
+          GoRoute(
+            path: '/admin/resellers',
+            builder: (context, state) => const AdminSubmissionsPage(),
+          ),
+          GoRoute(
+            path: '/admin-retail-users',
+            name: 'adminRetailUsers',
+            builder: (context, state) => const AdminRetailUsersPage(),
+          ),
         ],
       ),
 
@@ -438,16 +445,8 @@ class AppRouter {
         builder: (context, state) {
           final clientData = state.extra as Map<String, dynamic>;
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
             child: ClientDetailsPage(clientData: clientData),
+            currentIndex: 0,
           );
         },
       ),
@@ -458,24 +457,11 @@ class AppRouter {
           final servicesPageKey = GlobalKey<ServicesPageState>();
 
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              final servicesState = servicesPageKey.currentState;
-              if (servicesState != null && servicesState.currentStep > 0) {
-                servicesState.handleBackPress();
-              } else {
-                if (Navigator.canPop(context)) {
-                  context.pop();
-                } else {
-                  context.go('/');
-                }
-              }
-            },
             child: ServicesPage(
               key: servicesPageKey,
               preFilledData: preFilledData,
             ),
+            currentIndex: 1,
           );
         },
       ),
@@ -485,16 +471,8 @@ class AppRouter {
         builder: (context, state) {
           final proposalData = state.extra as Map<String, dynamic>;
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
             child: ProposalDetailsPage(proposalData: proposalData),
+            currentIndex: 0,
           );
         },
       ),
@@ -503,16 +481,8 @@ class AppRouter {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
             child: const DocumentSubmissionPage(),
+            currentIndex: 2,
           );
         },
       ),
@@ -522,21 +492,13 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
             child: RejectionDetailsPage(
               submissionId: id,
               rejectionReason: 'Missing document information',
               rejectionDate: DateTime.now(),
               isPermanentRejection: false,
             ),
+            currentIndex: 0,
           );
         },
       ),
@@ -546,16 +508,8 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
             child: ResubmissionFormPage(submissionId: id),
+            currentIndex: 1,
           );
         },
       ),
@@ -563,17 +517,16 @@ class AppRouter {
         path: '/dashboard',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
+          return MainLayout(child: const DashboardPage(), currentIndex: 3);
+        },
+      ),
+      GoRoute(
+        path: '/salesforce-setup',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
           return MainLayout(
-            showNavigation: true,
-            showBackButton: true,
-            onBackPressed: () {
-              if (Navigator.canPop(context)) {
-                context.pop();
-              } else {
-                context.go('/');
-              }
-            },
-            child: const DashboardPage(),
+            child: const SalesforceSetupPage(),
+            currentIndex: 3,
           );
         },
       ),

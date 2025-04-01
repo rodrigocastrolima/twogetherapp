@@ -30,6 +30,12 @@ class AppTextStyles {
     color: AppTheme.foreground,
   );
 
+  static final h4 = _baseTextStyle.copyWith(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppTheme.foreground,
+  );
+
   // Body styles
   static final body1 = _baseTextStyle.copyWith(
     fontSize: 16,

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/constants.dart';
-import 'package:go_router/go_router.dart';
+import '../../../core/theme/text_styles.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -22,11 +21,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         children: [
           Text(
             'Admin Dashboard',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.foreground,
-            ),
+            style: AppTextStyles.h1.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 24),
           _buildOverviewCards(),
@@ -81,12 +76,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -96,7 +88,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withAlpha(51),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 30),
@@ -104,18 +96,13 @@ class _AdminHomePageState extends State<AdminHomePage> {
               const SizedBox(height: 16),
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.foreground,
-                ),
+                style: AppTextStyles.h2.copyWith(color: Colors.white),
               ),
               const SizedBox(height: 4),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppTheme.foreground.withOpacity(0.6),
+                style: AppTextStyles.body1.copyWith(
+                  color: Colors.white.withAlpha(153),
                 ),
               ),
             ],
@@ -131,11 +118,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       children: [
         Text(
           'Recent Activities',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.foreground,
-          ),
+          style: AppTextStyles.h3.copyWith(color: Colors.white),
         ),
         const SizedBox(height: 16),
         ClipRRect(
@@ -145,10 +128,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withAlpha(20),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withAlpha(26),
                   width: 0.5,
                 ),
               ),
@@ -161,7 +144,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     CupertinoIcons.person_badge_plus,
                     Colors.green,
                   ),
-                  Divider(color: Colors.white.withOpacity(0.1)),
+                  Divider(color: Colors.white.withAlpha(26)),
                   _buildActivityItem(
                     'Submission Approved',
                     'João Santos - Solar Commercial Proposal',
@@ -169,7 +152,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     CupertinoIcons.checkmark_circle,
                     Colors.blue,
                   ),
-                  Divider(color: Colors.white.withOpacity(0.1)),
+                  Divider(color: Colors.white.withAlpha(26)),
                   _buildActivityItem(
                     'Submission Rejected',
                     'Maria Oliveira - Wind Residential Proposal',
@@ -177,7 +160,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                     CupertinoIcons.xmark_circle,
                     Colors.red,
                   ),
-                  Divider(color: Colors.white.withOpacity(0.1)),
+                  Divider(color: Colors.white.withAlpha(26)),
                   _buildActivityItem(
                     'Payment Processed',
                     'Commission payment to Carlos Lima',
@@ -208,7 +191,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withAlpha(51),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -220,17 +203,15 @@ class _AdminHomePageState extends State<AdminHomePage> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: AppTextStyles.body1.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.foreground,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
                   description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.foreground.withOpacity(0.6),
+                  style: AppTextStyles.body2.copyWith(
+                    color: Colors.white.withAlpha(179),
                   ),
                 ),
               ],
@@ -238,9 +219,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
           ),
           Text(
             timeAgo,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.foreground.withOpacity(0.4),
+            style: AppTextStyles.caption.copyWith(
+              color: Colors.white.withAlpha(153),
             ),
           ),
         ],
@@ -254,11 +234,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       children: [
         Text(
           'System Status',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.foreground,
-          ),
+          style: AppTextStyles.h3.copyWith(color: Colors.white),
         ),
         const SizedBox(height: 16),
         ClipRRect(
@@ -268,27 +244,21 @@ class _AdminHomePageState extends State<AdminHomePage> {
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withAlpha(20),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withAlpha(26),
                   width: 0.5,
                 ),
               ),
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _buildStatusItem('API Services', 'Operational', Colors.green),
-                  const SizedBox(height: 12),
-                  _buildStatusItem('Database', 'Operational', Colors.green),
-                  const SizedBox(height: 12),
-                  _buildStatusItem('Email Services', 'Degraded', Colors.orange),
-                  const SizedBox(height: 12),
-                  _buildStatusItem(
-                    'Storage Services',
-                    'Operational',
-                    Colors.green,
-                  ),
+                  _buildStatusItem('API Availability', 0.98, Colors.green),
+                  const SizedBox(height: 16),
+                  _buildStatusItem('Database Performance', 0.87, Colors.amber),
+                  const SizedBox(height: 16),
+                  _buildStatusItem('Storage Usage', 0.45, Colors.blue),
                 ],
               ),
             ),
@@ -298,28 +268,35 @@ class _AdminHomePageState extends State<AdminHomePage> {
     );
   }
 
-  Widget _buildStatusItem(String name, String status, Color color) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildStatusItem(String title, double percentage, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(name, style: TextStyle(fontSize: 16, color: AppTheme.foreground)),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
             Text(
-              status,
-              style: TextStyle(
-                fontSize: 16,
-                color: color,
+              title,
+              style: AppTextStyles.body1.copyWith(color: Colors.white),
+            ),
+            Text(
+              '${(percentage * 100).toInt()}%',
+              style: AppTextStyles.body1.copyWith(
                 fontWeight: FontWeight.bold,
+                color: color,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: percentage,
+            minHeight: 10,
+            backgroundColor: color.withAlpha(51),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
         ),
       ],
     );

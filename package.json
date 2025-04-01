@@ -1,0 +1,13 @@
+{
+  "name": "flutter-tools-mcp",
+  "version": "1.0.0",
+  "description": "Flutter Tools MCP Server",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.7.0"
+  }
+} 

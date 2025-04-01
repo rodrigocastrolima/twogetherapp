@@ -7,12 +7,14 @@ class UserListItem extends StatelessWidget {
   final AppUser user;
   final Function(String, bool) onToggleEnabled;
   final Function(String) onResetPassword;
+  final Function(String) onDelete;
 
   const UserListItem({
     super.key,
     required this.user,
     required this.onToggleEnabled,
     required this.onResetPassword,
+    required this.onDelete,
   });
 
   Color _getRoleColor() {
@@ -119,6 +121,33 @@ class UserListItem extends StatelessWidget {
                   backgroundColor: _isEnabled ? Colors.red : Colors.green,
                 ),
                 child: Text(_isEnabled ? 'DISABLE' : 'ENABLE'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showDeleteUserConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Delete User'),
+            content: Text(
+              'Are you sure you want to permanently delete ${user.displayName ?? user.email}? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('CANCEL'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onDelete(user.uid);
+                },
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('DELETE'),
               ),
             ],
           ),
@@ -265,6 +294,14 @@ class UserListItem extends StatelessWidget {
                       color: _isEnabled ? Colors.red : Colors.green,
                       onPressed: () => _showToggleUserConfirmation(context),
                     ),
+                    // Don't show delete option for admin users
+                    if (user.role != UserRole.admin)
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        tooltip: 'Delete User',
+                        color: Colors.red,
+                        onPressed: () => _showDeleteUserConfirmation(context),
+                      ),
                   ],
                 ),
               ],

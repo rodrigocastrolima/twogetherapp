@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/constants.dart';
 import '../../../../app/router/app_router.dart';
+import '../../../features/user_management/presentation/pages/user_management_page.dart';
 
 class AdminSettingsPage extends StatefulWidget {
   const AdminSettingsPage({super.key});
@@ -84,11 +85,32 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
               },
             ),
             _buildActionSetting(
+              'User Management',
+              'Create and manage user accounts',
+              CupertinoIcons.person_2_fill,
+              () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UserManagementPage(),
+                  ),
+                );
+              },
+            ),
+            _buildActionSetting(
               'System Configuration',
               'Advanced system settings',
               CupertinoIcons.gear_alt_fill,
               () {
                 // Navigate to system configuration
+              },
+            ),
+            _buildActionSetting(
+              'Salesforce Integration',
+              'Connect and configure Salesforce',
+              CupertinoIcons.cloud,
+              () {
+                context.go('/admin/salesforce-setup');
               },
             ),
             _buildActionSetting(
@@ -152,10 +174,10 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withAlpha(20),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withAlpha(26),
                   width: 0.5,
                 ),
               ),
@@ -181,7 +203,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withAlpha(26),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: AppTheme.foreground, size: 24),
@@ -201,7 +223,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                     fontSize: 14,
                   ),
                 ),
@@ -229,7 +251,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withAlpha(26),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: AppTheme.foreground, size: 24),
@@ -249,7 +271,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                     fontSize: 14,
                   ),
                 ),
@@ -261,7 +283,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
@@ -305,7 +327,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color ?? AppTheme.foreground, size: 24),
@@ -325,7 +347,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: (color ?? AppTheme.foreground).withOpacity(0.7),
+                      color: (color ?? AppTheme.foreground).withAlpha(179),
                       fontSize: 14,
                     ),
                   ),
@@ -334,7 +356,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             ),
             Icon(
               CupertinoIcons.chevron_right,
-              color: (color ?? AppTheme.foreground).withOpacity(0.7),
+              color: (color ?? AppTheme.foreground).withAlpha(179),
               size: 20,
             ),
           ],

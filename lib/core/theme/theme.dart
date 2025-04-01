@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  // Light theme colors
   static const background = Color(0xFFFFFFFF);
   static const foreground = Color(0xFF0A0E17);
   static const primary = Color(0xFF1A2337);
@@ -18,10 +19,37 @@ class AppTheme {
   static const input = Color(0xFFE5EAF0);
   static const ring = Color(0xFF0A0E17);
 
+  // Dark theme colors
+  static const darkBackground = Color(0xFF121212);
+  static const darkForeground = Color(0xFFF5F5F6);
+  static const darkPrimary = Color(0xFF3B82F6); // Brighter blue for dark mode
+  static const darkPrimaryForeground = Color(0xFFF8FAFC);
+  static const darkSecondary = Color(0xFF232530);
+  static const darkSecondaryForeground = Color(0xFFF8FAFC);
+  static const darkMuted = Color(0xFF2A2B37);
+  static const darkMutedForeground = Color(0xFF9CA3AF);
+  static const darkAccent = Color(0xFF3B82F6);
+  static const darkAccentForeground = Color(0xFFF8FAFC);
+  static const darkBorder = Color(0xFF383A4E);
+  static const darkInput = Color(0xFF1F2029);
+
+  // Gradient colors
+  static const lightGradientStart = Color(0xFF7CBAE3); // Light blue at top
+  static const lightGradientEnd = Color(
+    0xFFE1F4FD,
+  ); // Very light blue at bottom
+
+  // Dark gradient - darker versions of the light gradient
+  static const darkGradientStart = Color(0xFF2A4E72); // Dark blue at top
+  static const darkGradientEnd = Color(
+    0xFF3A6491,
+  ); // Medium-dark blue at bottom
+
   static const double radius = 8.0;
 
   static ThemeData light() {
     return ThemeData(
+      brightness: Brightness.light,
       colorScheme: const ColorScheme.light(
         surface: background,
         onSurface: foreground,
@@ -31,6 +59,8 @@ class AppTheme {
         onSecondary: secondaryForeground,
         error: destructive,
         onError: destructiveForeground,
+        background: background,
+        onBackground: foreground,
       ),
       textTheme: GoogleFonts.interTextTheme(),
       scaffoldBackgroundColor: background,
@@ -82,41 +112,51 @@ class AppTheme {
 
   static ThemeData dark() {
     return ThemeData(
+      brightness: Brightness.dark,
       useMaterial3: true,
-      colorScheme: ColorScheme.dark(
-        primary: primary,
-        secondary: secondary,
-        surface: foreground,
+      colorScheme: const ColorScheme.dark(
+        surface: darkInput,
+        onSurface: darkForeground,
+        primary: darkPrimary,
+        onPrimary: darkPrimaryForeground,
+        secondary: darkSecondary,
+        onSecondary: darkSecondaryForeground,
         error: destructive,
+        onError: darkForeground,
+        background: darkBackground,
+        onBackground: darkForeground,
       ),
-      scaffoldBackgroundColor: const Color(0xFF121212),
-      appBarTheme: AppBarTheme(
-        backgroundColor: foreground,
-        foregroundColor: background,
+      scaffoldBackgroundColor: darkBackground,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkBackground,
+        foregroundColor: darkForeground,
         elevation: 0,
       ),
       cardTheme: CardTheme(
-        color: foreground,
+        color: darkSecondary,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: const BorderSide(color: darkBorder),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: foreground,
+        fillColor: darkInput,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: border),
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: const BorderSide(color: darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: border.withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: BorderSide(color: darkBorder.withAlpha(128)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primary),
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: const BorderSide(color: darkPrimary),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(radius),
           borderSide: const BorderSide(color: destructive),
         ),
         contentPadding: const EdgeInsets.symmetric(
@@ -124,8 +164,26 @@ class AppTheme {
           vertical: 16,
         ),
       ),
-      buttonTheme: ButtonThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+      iconTheme: const IconThemeData(color: darkMutedForeground),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: darkPrimary,
+          foregroundColor: darkPrimaryForeground,
+          minimumSize: const Size(0, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: darkPrimary,
+          minimumSize: const Size(0, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
       ),
     );
   }

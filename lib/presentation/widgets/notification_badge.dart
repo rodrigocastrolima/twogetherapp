@@ -16,7 +16,8 @@ class NotificationBadge extends StatelessWidget {
     return Stack(
       children: [
         IconButton(
-          icon: Icon(Icons.notifications_outlined, color: AppTheme.foreground),
+          icon: const Icon(Icons.notifications_outlined),
+          color: AppTheme.foreground,
           onPressed: onTap,
         ),
         if (hasNotifications)

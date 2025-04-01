@@ -45,4 +45,8 @@ abstract class AuthRepository {
 
   /// Enable or disable a user account - for admin use
   Future<void> setUserEnabled(String uid, bool enabled);
+
+  /// Delete a user account completely - for admin use
+  /// Removes the user from both Auth and Firestore
+  Future<void> deleteUser(String uid);
 }

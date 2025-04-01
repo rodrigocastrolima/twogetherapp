@@ -637,6 +637,10 @@ export const getSalesforceAccessToken = onCall(
 
       if (response.status === 200 && response.data.access_token) {
         logger.info("Salesforce access token obtained successfully.");
+        // !!! TEMPORARY DEBUG LOGGING - REMOVE BEFORE PRODUCTION !!!
+        logger.info(`DEBUG: Salesforce Access Token: ${response.data.access_token}`);
+        // !!! END TEMPORARY DEBUG LOGGING !!!
+        
         // Return only necessary info to the client
         return {
           access_token: response.data.access_token,

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import '../../../core/theme/theme.dart';
-import '../../layout/main_layout.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../../../core/theme/ui_styles.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -17,51 +17,51 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      pageTitle: 'Dashboard',
-      child: Column(
-        children: [
-          // Period Selector - More compact and higher up
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(20),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
+    return Column(
+      children: [
+        // Period Selector - More compact and higher up
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(20),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withAlpha(25),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildPeriodOption('Ciclo', 'month'),
+                        Container(
+                          width: 1,
+                          height: 32,
                           color: Colors.white.withAlpha(25),
-                          width: 0.5,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildPeriodOption('Ciclo', 'month'),
-                          Container(
-                            width: 1,
-                            height: 32,
-                            color: Colors.white.withAlpha(25),
-                          ),
-                          _buildPeriodOption('Total', 'all'),
-                        ],
-                      ),
+                        _buildPeriodOption('Total', 'all'),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // Main Content
-          Expanded(
-            child: SingleChildScrollView(
+        ),
+        // Main Content
+        Expanded(
+          child: NoScrollbarBehavior.noScrollbars(
+            context,
+            SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,14 +79,14 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildPeriodOption(String label, String value) {
     final isSelected = _selectedPeriod == value;
-    
+
     return GestureDetector(
       onTap: () => setState(() => _selectedPeriod = value),
       child: Container(
@@ -108,7 +108,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildEarningsCard() {
     final bool isCurrentCycle = _selectedPeriod == 'month';
-    
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -156,10 +156,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     const SizedBox(width: 4),
                     Text(
                       '+22% em relação ao ciclo anterior',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.primary,
-                      ),
+                      style: TextStyle(fontSize: 13, color: AppTheme.primary),
                     ),
                   ],
                 ),
@@ -182,10 +179,7 @@ class _DashboardPageState extends State<DashboardPage> {
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withAlpha(25),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,23 +201,24 @@ class _DashboardPageState extends State<DashboardPage> {
                     borderData: FlBorderData(show: false),
                     lineBarsData: [
                       LineChartBarData(
-                        spots: _selectedPeriod == 'month' 
-                          ? [
-                              const FlSpot(0, 1500),
-                              const FlSpot(1, 2300),
-                              const FlSpot(2, 1800),
-                              const FlSpot(3, 3200),
-                              const FlSpot(4, 2800),
-                              const FlSpot(5, 5280),
-                            ]
-                          : [
-                              const FlSpot(0, 15000),
-                              const FlSpot(1, 23000),
-                              const FlSpot(2, 18000),
-                              const FlSpot(3, 32000),
-                              const FlSpot(4, 28000),
-                              const FlSpot(5, 42150),
-                            ],
+                        spots:
+                            _selectedPeriod == 'month'
+                                ? [
+                                  const FlSpot(0, 1500),
+                                  const FlSpot(1, 2300),
+                                  const FlSpot(2, 1800),
+                                  const FlSpot(3, 3200),
+                                  const FlSpot(4, 2800),
+                                  const FlSpot(5, 5280),
+                                ]
+                                : [
+                                  const FlSpot(0, 15000),
+                                  const FlSpot(1, 23000),
+                                  const FlSpot(2, 18000),
+                                  const FlSpot(3, 32000),
+                                  const FlSpot(4, 28000),
+                                  const FlSpot(5, 42150),
+                                ],
                         isCurved: true,
                         color: AppTheme.primary,
                         barWidth: 2,
@@ -372,10 +367,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: color.withAlpha(38),
             borderRadius: BorderRadius.circular(8),
@@ -395,7 +387,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildStatsGrid() {
     final bool isCurrentCycle = _selectedPeriod == 'month';
-    
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -435,10 +427,7 @@ class _DashboardPageState extends State<DashboardPage> {
           decoration: BoxDecoration(
             color: Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withAlpha(25),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
           ),
           child: Row(
             children: [
@@ -483,4 +472,4 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
-} 
+}

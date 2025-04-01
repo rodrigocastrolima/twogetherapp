@@ -75,41 +75,74 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 768;
+    // Get unread message count
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
 
-        return Scaffold(
-          body: Stack(
-            children: [
-              // Background gradient
-              Container(
-                decoration: BoxDecoration(
-                  gradient: AppStyles.mainGradient(context),
+    final width = MediaQuery.of(context).size.width;
+    final isSmallScreen = width < 600;
+    final isDesktop = width >= 1024;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar:
+          isSmallScreen &&
+                  _selectedIndex !=
+                      0 // Don't show app bar on home page
+              ? PreferredSize(
+                preferredSize: const Size.fromHeight(80),
+                child: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: AppBar(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      scrolledUnderElevation: 0,
+                      surfaceTintColor: Colors.transparent,
+                      toolbarHeight: 80,
+                      leading: null,
+                      title: Container(
+                        height: 80,
+                        alignment: Alignment.center,
+                        child: LogoWidget(height: 80, darkMode: isDark),
+                      ),
+                      centerTitle: true,
+                      actions: [
+                        // No actions needed now
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              )
+              : null,
+      body: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA), // Daisy white color
+        ),
+        child: Stack(
+          children: [
+            // Main content
+            _buildMainContent(isSmallScreen),
 
-              // Main content
-              _buildMainContent(isMobile),
+            // Bottom Navigation for Mobile
+            if (isSmallScreen) _buildMobileNavBar(context),
 
-              // Bottom Navigation for Mobile
-              if (isMobile) _buildMobileNavBar(context),
-
-              // Side Navigation for Desktop
-              if (!isMobile) _buildSidebar(context, textColor, isDark),
-            ],
-          ),
-        );
-      },
+            // Side Navigation for Desktop
+            if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildMainContent(bool isMobile) {
+  Widget _buildMainContent(bool isSmallScreen) {
     return Positioned(
-      top: 0,
-      left: isMobile ? 0 : AppStyles.sidebarWidth,
+      top: isSmallScreen ? (_selectedIndex == 0 ? 0 : 80) : 0,
+      left: isSmallScreen ? 0 : AppStyles.sidebarWidth,
       right: 0,
-      bottom: isMobile ? AppStyles.navBarHeight : 0,
+      bottom: isSmallScreen ? AppStyles.navBarHeight : 0,
       child: ScrollConfiguration(
         behavior: const NoScrollbarBehavior(),
         child: widget.child,
@@ -135,7 +168,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 // Logo
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: LogoWidget(height: 40, darkMode: isDark),
+                  child: LogoWidget(height: 50, darkMode: isDark),
                 ),
                 const SizedBox(height: 24),
                 // Navigation Items
@@ -150,6 +183,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   Widget _buildNavigationItems(BuildContext context, Color textColor) {
     final l10n = AppLocalizations.of(context)!;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Column(
       children: [
@@ -176,7 +212,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           isSelected: _selectedIndex == 2,
           onTap: () => _handleNavigation(2),
           textColor: textColor,
-          badgeCount: 2,
+          badgeCount: unreadCount,
         ),
         _buildNavItem(
           context: context,
@@ -256,6 +292,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   Widget _buildMobileNavBar(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Positioned(
       bottom: 0,
@@ -269,8 +308,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             decoration: BoxDecoration(
               color:
                   isDark
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.white.withOpacity(0.3),
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.white.withOpacity(0.2),
               border: Border(
                 top: BorderSide(
                   color:
@@ -304,7 +343,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   label: l10n.navMessages,
                   isSelected: _selectedIndex == 2,
                   onTap: () => _handleNavigation(2),
-                  badgeCount: 2,
+                  badgeCount: unreadCount,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person,

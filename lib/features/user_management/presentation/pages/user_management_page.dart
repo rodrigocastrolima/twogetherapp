@@ -33,7 +33,6 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   void _checkCloudFunctions() {
     // Read from the Cloud Functions provider we set in main.dart
     _usingCloudFunctions = ref.read(cloudFunctionsAvailableProvider);
-    debugPrint('Cloud Functions available: $_usingCloudFunctions');
   }
 
   Future<void> _loadUsers() async {
@@ -99,7 +98,6 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     });
 
     try {
-      debugPrint('Creating user: $email, displayName: $displayName');
       final authRepository = ref.read(authRepositoryProvider);
 
       // Create the user
@@ -109,8 +107,6 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         role: UserRole.reseller,
         displayName: displayName,
       );
-
-      debugPrint('User created successfully: ${newUser.uid}');
 
       // Show success message and close the dialog
       if (mounted) {
@@ -252,6 +248,50 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     }
   }
 
+  Future<void> _deleteUser(String uid) async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.deleteUser(uid);
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Refresh the user list
+      if (mounted) {
+        await _loadUsers();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to delete user: ${e.toString()}';
+          _isLoading = false;
+        });
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Update cloud functions status whenever the widget rebuilds
@@ -309,6 +349,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                     user: user,
                     onToggleEnabled: _setUserEnabled,
                     onResetPassword: _resetPassword,
+                    onDelete: _deleteUser,
                   );
                 },
               ),

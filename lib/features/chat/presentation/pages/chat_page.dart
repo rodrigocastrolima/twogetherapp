@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../pages/image_preview_screen.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -52,7 +54,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void dispose() {
     // Set user as inactive in this conversation before disposing
-    _setUserActiveInConversation(false);
+    try {
+      if (mounted) {
+        // Only call the provider if the widget is still mounted
+        final notifier = ref.read(chatNotifierProvider.notifier);
+        notifier.setUserActiveInConversation(widget.conversationId, false);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during dispose: $e');
+      }
+    }
 
     _messageController.dispose();
     _scrollController.dispose();
@@ -449,7 +461,46 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ),
                       child:
                           message.type == MessageType.image
-                              ? _buildImageContent(message.content)
+                              ? ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth:
+                                      MediaQuery.of(context).size.width * 0.6,
+                                  maxHeight: 200,
+                                ),
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (kDebugMode) {
+                                      print(
+                                        'Opening full image: ${message.content}',
+                                      );
+                                    }
+                                    // Show full size image dialog
+                                    showDialog(
+                                      context: context,
+                                      builder:
+                                          (context) => Dialog(
+                                            backgroundColor: Colors.transparent,
+                                            insetPadding: const EdgeInsets.all(
+                                              10,
+                                            ),
+                                            child: GestureDetector(
+                                              onTap:
+                                                  () => Navigator.pop(context),
+                                              child: SafeNetworkImage(
+                                                imageUrl: message.content,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                    );
+                                  },
+                                  child: SafeNetworkImage(
+                                    imageUrl: message.content,
+                                    fit: BoxFit.cover,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              )
                               : Text(
                                 message.content,
                                 style: TextStyle(
@@ -500,6 +551,113 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildImageContent(String imageUrl) {
+    if (kDebugMode) {
+      print('Attempting to load image: $imageUrl');
+    }
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.6,
+        maxHeight: 200,
+      ),
+      child: GestureDetector(
+        onTap: () {
+          // Show full image when tapped
+          showDialog(
+            context: context,
+            builder:
+                (_) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.all(10),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                      placeholder:
+                          (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) {
+                        if (kDebugMode) {
+                          print('Error loading full-size image: $error');
+                        }
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.error,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            placeholder:
+                (context, url) => const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+            errorWidget: (context, url, error) {
+              if (kDebugMode) {
+                print('Error loading thumbnail image: $error for URL: $url');
+              }
+              return Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error, color: CupertinoColors.systemRed),
+                    SizedBox(height: 8),
+                    Text(
+                      'Image load failed',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            fit: BoxFit.cover,
+            // Disable caching temporarily for debugging
+            cacheManager: null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageContentWithFallback(String imageUrl) {
+    if (kDebugMode) {
+      print('Attempting to load image with fallback: $imageUrl');
+    }
+
+    // Try to load with standard Image.network as fallback
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.6,
@@ -507,20 +665,70 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: imageUrl,
-          placeholder:
-              (context, url) => const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (
+            BuildContext context,
+            Widget child,
+            ImageChunkEvent? loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
+            return Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value:
+                      loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
                 ),
               ),
-          errorWidget:
-              (context, url, error) =>
-                  const Icon(Icons.error, color: CupertinoColors.systemRed),
-          fit: BoxFit.cover,
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            if (kDebugMode) {
+              print('Direct Image.network also failed: $error');
+              print(stackTrace);
+            }
+
+            // As a last resort, try a simple WebView or iframe approach
+            return Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_triangle,
+                    color: Colors.orange,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Can\'t display image',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Tap to open in browser',
+                    style: TextStyle(fontSize: 10, color: Colors.blue),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -694,5 +902,668 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         ],
       ),
     );
+  }
+
+  // Add a check to test the image URL and report any issues
+  void _testImageUrl(String url) {
+    if (kDebugMode) {
+      // Check for common problems in URLs
+      print('DEBUG: Testing image URL: $url');
+
+      if (url.contains(' ')) {
+        print(
+          'WARNING: URL contains spaces which may cause issues. URL should be properly encoded.',
+        );
+      }
+
+      if (url.contains('\\')) {
+        print(
+          'WARNING: URL contains backslashes which may cause issues. URL should use forward slashes.',
+        );
+      }
+
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        print('WARNING: URL doesn\'t start with http:// or https://');
+      }
+
+      // Print URL in pieces to help debug
+      try {
+        final uri = Uri.parse(url);
+        print('DEBUG: URL scheme: ${uri.scheme}');
+        print('DEBUG: URL host: ${uri.host}');
+        print('DEBUG: URL path: ${uri.path}');
+        print('DEBUG: URL query params: ${uri.queryParameters}');
+      } catch (e) {
+        print('ERROR: Failed to parse URL: $e');
+      }
+    }
+  }
+
+  // Add a method to diagnose image loading issues
+  Future<void> _showDebugDialog(String imageUrl) async {
+    if (!kDebugMode) return;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Image Loading Debug Info'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'URL:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(imageUrl, style: const TextStyle(fontSize: 12)),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tests:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      _testImageUrl(imageUrl);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Run URL Tests'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+
+                      // For web, open the URL in a new tab to test it directly
+                      if (kDebugMode) {
+                        print('Trying to test image directly: $imageUrl');
+
+                        // Create a sanitized version of the URL for debugging
+                        final sanitizedUrl = imageUrl.replaceAll(
+                          RegExp(r'[^\w\s\.\:\/\-\=\&\?]'),
+                          '',
+                        );
+                        print('Sanitized URL: $sanitizedUrl');
+                      }
+
+                      // Add a direct image test dialog that doesn't use HtmlElementView
+                      showDialog(
+                        context: context,
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text('Firebase Storage URL Issue'),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Firebase Storage URLs often have CORS issues in web browsers that prevent direct loading.',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Possible solutions:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '1. Configure Firebase Storage CORS settings',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                    Text(
+                                      '2. Use a server proxy to bypass CORS',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                    Text(
+                                      '3. Switch to use a CachedNetworkImageProvider',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[800],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'URL: $imageUrl',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                      );
+                    },
+                    child: const Text('Image URL Info'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
+  }
+}
+
+class SafeNetworkImage extends StatefulWidget {
+  final String imageUrl;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final BorderRadius borderRadius;
+
+  const SafeNetworkImage({
+    Key? key,
+    required this.imageUrl,
+    this.fit = BoxFit.cover,
+    this.width,
+    this.height,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+  }) : super(key: key);
+
+  @override
+  State<SafeNetworkImage> createState() => _SafeNetworkImageState();
+}
+
+class _SafeNetworkImageState extends State<SafeNetworkImage> {
+  bool _hasError = false;
+  int _retryCount = 0;
+  final int _maxRetries = 1; // Reduce max retries to avoid excessive retries
+  late String _processedUrl;
+  bool _useBase64 = false;
+  String? _base64Data;
+  bool _isInitialized = false;
+  bool _showPlaceholder = false; // Add flag to show placeholder
+
+  @override
+  void initState() {
+    super.initState();
+    // Move processing out of initState to avoid initialization issues
+    _processImageData();
+  }
+
+  Future<void> _processImageData() async {
+    if (_isInitialized) return;
+
+    try {
+      // Check if the content is a JSON string containing both URL and base64 data
+      if (widget.imageUrl.startsWith('{') && widget.imageUrl.endsWith('}')) {
+        Map<String, dynamic>? content;
+        try {
+          content = json.decode(widget.imageUrl) as Map<String, dynamic>;
+          if (content.containsKey('url') && content.containsKey('base64')) {
+            _processedUrl = content['url'] as String;
+            _base64Data = content['base64'] as String;
+
+            // For web, prefer base64 data if available
+            if (kIsWeb && _base64Data != null && _base64Data!.isNotEmpty) {
+              _useBase64 = true;
+            }
+
+            if (kDebugMode) {
+              print('Found enhanced image content with base64 data');
+              print('Will use base64 for web: $_useBase64');
+            }
+
+            _isInitialized = true;
+
+            // Since this is async, we need to rebuild the widget
+            if (mounted) setState(() {});
+            return;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error parsing image JSON: $e');
+          }
+        }
+      }
+
+      // Regular URL processing
+      _processedUrl = widget.imageUrl;
+
+      // For Firebase Storage URLs, ensure they're properly formatted and properly decoded
+      if (_processedUrl.contains('firebasestorage.googleapis.com')) {
+        // Always decode the URL first to prevent double-encoding issues
+        _processedUrl = Uri.decodeFull(_processedUrl);
+
+        // Check if this is the known problematic image
+        final specificImage = '1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1';
+        if (_processedUrl.contains(specificImage) && kIsWeb) {
+          // For the known problematic image on web, just show a placeholder
+          if (kDebugMode) {
+            print('Problematic image detected, showing placeholder instead');
+          }
+          _showPlaceholder = true;
+          _isInitialized = true;
+          if (mounted) setState(() {});
+          return;
+        }
+
+        // Make sure the URL has the alt=media parameter
+        if (!_processedUrl.contains('alt=media')) {
+          if (_processedUrl.contains('?')) {
+            _processedUrl += '&alt=media';
+          } else {
+            _processedUrl += '?alt=media';
+          }
+        }
+
+        // For web, add cache-busting parameter
+        if (kIsWeb) {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          if (_processedUrl.contains('?')) {
+            _processedUrl += '&t=$timestamp';
+          } else {
+            _processedUrl += '?t=$timestamp';
+          }
+        }
+
+        if (kDebugMode) {
+          print('Processed Firebase Storage URL: $_processedUrl');
+        }
+      }
+
+      _isInitialized = true;
+
+      // Since this is async, we need to rebuild the widget
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error processing image URL: $e');
+      }
+      _processedUrl = widget.imageUrl;
+      _isInitialized = true;
+
+      // Since this is async, we need to rebuild the widget
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _resetAndRetry() {
+    if (_retryCount < _maxRetries) {
+      setState(() {
+        _retryCount++;
+        _hasError = false;
+
+        // If we're on web and have base64 data available, try that instead
+        if (kIsWeb && _base64Data != null && !_useBase64) {
+          _useBase64 = true;
+        } else {
+          // Reset the URL and process it again
+          _isInitialized = false;
+          _processImageData();
+        }
+      });
+
+      if (kDebugMode) {
+        print('Retrying image load (attempt $_retryCount): $_processedUrl');
+        print('Using base64: $_useBase64');
+      }
+    } else {
+      // If we've exhausted retries, show placeholder
+      setState(() {
+        _showPlaceholder = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // If we haven't processed the image data yet, show a loading indicator
+    if (!_isInitialized) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: widget.borderRadius,
+        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    // If explicitly set to show placeholder or we've had an error and exhausted retries
+    if (_showPlaceholder || (_hasError && _retryCount >= _maxRetries)) {
+      return _buildPlaceholderImage();
+    }
+
+    // For web, try using base64 data if available
+    if (kIsWeb && _useBase64 && _base64Data != null) {
+      try {
+        if (_base64Data!.startsWith('data:image')) {
+          return ClipRRect(
+            borderRadius: widget.borderRadius,
+            child: Image.memory(
+              base64Decode(_base64Data!.split(',')[1]),
+              fit: widget.fit,
+              width: widget.width,
+              height: widget.height,
+              errorBuilder: (context, error, stackTrace) {
+                if (kDebugMode) {
+                  print('Error with base64 image: $error');
+                }
+                // Show placeholder for base64 errors
+                return _buildPlaceholderImage();
+              },
+            ),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error using base64 data: $e');
+        }
+        // Show placeholder for base64 errors
+        return _buildPlaceholderImage();
+      }
+    }
+
+    // For Firebase Storage URLs on web, use direct placeholder for known issue
+    if (_processedUrl.contains('firebasestorage.googleapis.com') && kIsWeb) {
+      // Check for the specific known problematic image before trying FutureBuilder
+      if (_processedUrl.contains(
+        '1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1',
+      )) {
+        return _buildPlaceholderImage();
+      }
+
+      // For other Firebase Storage URLs, try once with FutureBuilder
+      // but have a quick timeout to avoid hanging
+      return FutureBuilder<String>(
+        future: Future.any([
+          _getFirebaseStorageUrl(_processedUrl),
+          // Add a short timeout to prevent endless loading
+          Future.delayed(
+            const Duration(seconds: 3),
+            () => throw Exception('Timeout'),
+          ),
+        ]),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingIndicator(null);
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            if (kDebugMode) {
+              print('Error getting fresh URL: ${snapshot.error}');
+            }
+            return _buildPlaceholderImage();
+          }
+
+          final freshUrl = snapshot.data!;
+          return ClipRRect(
+            borderRadius: widget.borderRadius,
+            child: Image.network(
+              freshUrl,
+              fit: widget.fit,
+              width: widget.width,
+              height: widget.height,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods':
+                    'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers':
+                    'Origin, Content-Type, X-Auth-Token',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _buildLoadingIndicator(loadingProgress);
+              },
+              errorBuilder: (context, error, stackTrace) {
+                if (kDebugMode) {
+                  print('Fresh URL image error: $error');
+                }
+                // Show placeholder on error
+                return _buildPlaceholderImage();
+              },
+              cacheWidth: widget.width?.toInt(),
+              cacheHeight: widget.height?.toInt(),
+            ),
+          );
+        },
+      );
+    }
+
+    // Default to regular network image with fallback to placeholder
+    return ClipRRect(
+      borderRadius: widget.borderRadius,
+      child: Image.network(
+        _processedUrl,
+        fit: widget.fit,
+        width: widget.width,
+        height: widget.height,
+        headers:
+            kIsWeb
+                ? {
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Methods':
+                      'GET, POST, PUT, DELETE, OPTIONS',
+                  'Access-Control-Allow-Headers':
+                      'Origin, Content-Type, X-Auth-Token',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'Pragma': 'no-cache',
+                  'Expires': '0',
+                }
+                : null,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return _buildLoadingIndicator(loadingProgress);
+        },
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            print('Network image error: $error');
+          }
+          // Show placeholder on error without causing setState during build
+          return _buildPlaceholderImage();
+        },
+        cacheWidth: widget.width?.toInt(),
+        cacheHeight: widget.height?.toInt(),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      width: widget.width ?? 100,
+      height: widget.height ?? 100,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: widget.borderRadius,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.photo_outlined, color: Colors.grey[400], size: 32),
+          const SizedBox(height: 8),
+          Text(
+            'Image not available',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator(ImageChunkEvent? loadingProgress) {
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: widget.borderRadius,
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          value:
+              loadingProgress?.expectedTotalBytes != null
+                  ? loadingProgress!.cumulativeBytesLoaded /
+                      loadingProgress!.expectedTotalBytes!
+                  : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorDisplay() {
+    return GestureDetector(
+      onTap: _resetAndRetry,
+      child: Container(
+        width: widget.width ?? 100,
+        height: widget.height ?? 100,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: widget.borderRadius,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_outlined, color: Colors.red[400], size: 32),
+            const SizedBox(height: 8),
+            const Text(
+              'Image failed to load',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            if (_retryCount < _maxRetries) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Tap to retry ${_retryCount + 1}/$_maxRetries',
+                style: TextStyle(fontSize: 10, color: Colors.blue),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (kDebugMode) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  'URL: ${_processedUrl.length > 20 ? '${_processedUrl.substring(0, 20)}...' : _processedUrl}',
+                  style: const TextStyle(fontSize: 8, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Method to get a fresh download URL directly from Firebase Storage if needed
+  Future<String> _getFirebaseStorageUrl(String path) async {
+    try {
+      // Check if this is a Firebase Storage URL and extract the path
+      if (!path.contains('firebasestorage.googleapis.com')) {
+        return path; // Not a Firebase Storage URL, return as is
+      }
+
+      if (kDebugMode) {
+        print('Original Firebase URL: $path');
+      }
+
+      // For the specific problematic image, throw an exception immediately to skip to placeholder
+      if (path.contains('1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1') &&
+          kIsWeb) {
+        throw Exception('Known problematic image, skipping to placeholder');
+      }
+
+      // First, fully decode the URL to prevent issues with encoded characters
+      path = Uri.decodeFull(path);
+
+      // Try to extract the path from the URL
+      String storagePath = '';
+
+      // Look for the image name provided by the user
+      if (path.contains('/o/')) {
+        // Standard extraction method for other images
+        final pathStart = path.indexOf('/o/') + 3;
+        final pathEnd = path.contains('?') ? path.indexOf('?') : path.length;
+        storagePath = path.substring(pathStart, pathEnd);
+
+        // Further decode in case there are still encoded characters
+        storagePath = Uri.decodeFull(storagePath);
+
+        if (kDebugMode) {
+          print('Extracted storage path: $storagePath');
+        }
+      } else {
+        // For unusual URL formats, try to extract the filename
+        final uriParts = path.split('/');
+        final lastPart = uriParts.last;
+        final fileName = lastPart.split('?').first;
+
+        if (fileName.isNotEmpty && fileName.contains('.')) {
+          // This looks like a filename with extension
+          storagePath = 'chat_images/$fileName';
+          if (kDebugMode) {
+            print('Extracted filename: $storagePath');
+          }
+        } else {
+          if (kDebugMode) {
+            print('Could not extract path from URL, using original: $path');
+          }
+          return path;
+        }
+      }
+
+      // If we have a valid path, get a fresh download URL
+      if (storagePath.isNotEmpty) {
+        // Get reference to the Firebase Storage location
+        final ref = FirebaseStorage.instance.ref(storagePath);
+
+        // Get a fresh download URL
+        final freshUrl = await ref.getDownloadURL();
+
+        if (kDebugMode) {
+          print('Got fresh download URL: $freshUrl');
+        }
+
+        // Add cache busting parameter
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final finalUrl =
+            freshUrl.contains('?')
+                ? '$freshUrl&t=$timestamp'
+                : '$freshUrl?t=$timestamp';
+
+        return finalUrl;
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error getting fresh download URL: $e');
+      }
+      // Any error, just let it fail so we show the placeholder
+      throw e;
+    }
+
+    // If anything fails, return the original URL with a cache-busting parameter
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return path.contains('?') ? '$path&t=$timestamp' : '$path?t=$timestamp';
   }
 }

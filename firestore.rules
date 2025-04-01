@@ -2,9 +2,61 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Very simple rules for initial testing - allow all authenticated users access to all collections
+    // Check if the user is an admin
+    function isAdmin() {
+      return request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Check if the user is the reseller associated with a conversation
+    function isResellerOfConversation(conversationId) {
+      let conversation = get(/databases/$(database)/documents/conversations/$(conversationId));
+      return request.auth != null && 
+        conversation.data.resellerId == request.auth.uid;
+    }
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Users can read and update their own documents
+      // Admins can read and update any user document
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+    
+    // Conversations collection
+    match /conversations/{conversationId} {
+      // Admins can read and write any conversation
+      // Resellers can read and write only their own conversations
+      allow read, write: if isAuthenticated() && 
+        (isAdmin() || resource.data.resellerId == request.auth.uid);
+      
+      // Messages in conversations
+      match /messages/{messageId} {
+        // Allow read/write to messages if the user can access the parent conversation
+        allow read, write: if isAuthenticated() && 
+          (isAdmin() || isResellerOfConversation(conversationId));
+      }
+    }
+    
+    // Service submissions collection
+    match /service_submissions/{submissionId} {
+      // Allow authenticated users to create service submissions
+      // Allow users to read and write their own submissions
+      // Allow admins to read all submissions
+      allow create: if isAuthenticated();
+      allow read, update: if isAuthenticated() && 
+        (resource.data.resellerId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // Default rule - deny access to everything else
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAdmin();
     }
   }
 } 

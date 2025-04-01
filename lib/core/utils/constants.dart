@@ -24,4 +24,7 @@ class AppConstants {
   static const Duration shortAnimation = Duration(milliseconds: 200);
   static const Duration mediumAnimation = Duration(milliseconds: 350);
   static const Duration longAnimation = Duration(milliseconds: 500);
+
+  // App preferences keys
+  static const String localePreferenceKey = 'app_locale';
 }

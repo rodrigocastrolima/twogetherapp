@@ -41,74 +41,42 @@ class _ResellerChatView extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: true,
-        top: false, // Connect to status bar
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Support Chat',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-
-            // Divider
-            Container(
-              height: 0.5,
-              color: CupertinoColors.systemGrey4.withAlpha(128),
-            ),
-
-            // Chat content
-            Expanded(
-              child: conversationAsync.when(
-                data: (conversationId) {
-                  return ChatPage(conversationId: conversationId);
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error:
-                    (error, _) => Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Failed to load chat',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: AppTheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            error.toString(),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.foreground.withOpacity(0.7),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              ref.refresh(resellerConversationProvider);
-                            },
-                            child: const Text('Try Again'),
-                          ),
-                        ],
+        top: false,
+        child: conversationAsync.when(
+          data: (conversationId) {
+            return ChatPage(conversationId: conversationId, showAppBar: false);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error:
+              (error, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Failed to load chat',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: AppTheme.foreground,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.foreground.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.refresh(resellerConversationProvider);
+                      },
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
         ),
       ),
     );

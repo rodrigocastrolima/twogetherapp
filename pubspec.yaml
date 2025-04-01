@@ -35,33 +35,42 @@ dependencies:
   intl: ^0.19.0
   file_picker: ^6.1.1
   syncfusion_flutter_pdfviewer: ^24.2.8
+  dart_jsonwebtoken: ^2.12.0 # Or latest version
 
   # UI and Design
   cupertino_icons: ^1.0.2
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.10+1
+  fl_chart: ^0.65.0
+  cached_network_image: ^3.3.1
 
   # State Management
-  flutter_bloc: ^8.1.4
-  provider: ^6.1.2
+  flutter_riverpod: ^2.5.1
   equatable: ^2.0.5
-
+  
   # Navigation
   go_router: ^13.2.0
 
   # Network and Storage
   dio: ^5.4.1
   shared_preferences: ^2.2.2
-  flutter_secure_storage: ^9.0.0
+  image_picker: ^1.0.7
+
+  # Firebase
+  firebase_core: ^2.27.0
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.8
+  firebase_storage: ^11.6.9
+  cloud_functions: ^4.6.9
 
   # Utilities
   logger: ^2.0.2+1
+  http: ^1.2.0
+  flutter_secure_storage: ^9.0.0
 
-  # New dependencies
-  flutter_riverpod: ^2.5.1
+  # Data modeling and serialization
   freezed_annotation: ^2.4.1
   json_annotation: ^4.8.1
-  fl_chart: ^0.65.0
 
 dev_dependencies:
   flutter_test:
@@ -95,6 +104,9 @@ flutter:
     - assets/images/edp_logo_br.png
     - assets/images/repsol_logo_br.png
     - assets/images/bg.jpg
+    - assets/images/banner_bg.jpg
+    - assets/images/banner.jpg
+    - assets/images/backgrounds/homepage.png
     - assets/documents/proposta_exemplo.pdf
     - assets/documents/contrato_exemplo.pdf
 

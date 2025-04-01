@@ -1,5 +1,7 @@
 import 'dart:io' as io;
 import 'dart:typed_data';
+import 'dart:convert';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -443,6 +445,7 @@ class ChatRepository {
       final storageRef = _storage.ref().child('chat_images/$fileName');
 
       String imageUrl;
+      String? base64Data; // For web fallback
 
       // Handle different platform implementations for uploading images
       if (kIsWeb) {
@@ -451,17 +454,18 @@ class ChatRepository {
         }
 
         // For web, use a web-specific approach
+        Uint8List? bytes;
+
         if (imageFile is XFile) {
           if (kDebugMode) {
             print('Image is XFile. Reading bytes...');
           }
           // If it's coming from image_picker as XFile, read bytes directly
           try {
-            final bytes = await imageFile.readAsBytes();
+            bytes = await imageFile.readAsBytes();
             if (kDebugMode) {
               print('Successfully read ${bytes.length} bytes from XFile');
             }
-            imageUrl = await _uploadBytesToStorage(bytes, storageRef);
           } catch (e, stackTrace) {
             print('Error reading XFile bytes on web: $e');
             print(stackTrace);
@@ -473,8 +477,7 @@ class ChatRepository {
           }
           try {
             // Try to read as bytes from File for web compatibility
-            final bytes = await imageFile.readAsBytes();
-            imageUrl = await _uploadBytesToStorage(bytes, storageRef);
+            bytes = await imageFile.readAsBytes();
           } catch (e, stackTrace) {
             print('Error reading File bytes on web: $e');
             print(stackTrace);
@@ -485,18 +488,45 @@ class ChatRepository {
             print('Image is already Uint8List with ${imageFile.length} bytes');
           }
           // If bytes are already provided
-          imageUrl = await _uploadBytesToStorage(imageFile, storageRef);
+          bytes = imageFile;
         } else {
           print('Unsupported image type: ${imageFile.runtimeType}');
           throw Exception(
             'Unsupported image file format for web: ${imageFile.runtimeType}',
           );
         }
-      } else {
-        if (kDebugMode) {
-          print('Processing image upload for mobile');
+
+        // Ensure we have valid bytes before proceeding
+        if (bytes == null || bytes.isEmpty) {
+          throw Exception('Failed to read image data: Empty or null bytes');
         }
 
+        // Create a base64 version for web fallback
+        // Format with data URI prefix for direct usage
+        final base64String = base64Encode(bytes);
+        base64Data = 'data:image/jpeg;base64,$base64String';
+
+        // Limit the length of base64 data to avoid hitting Firestore document size limits
+        // Keep the first 100KB of base64 data which is enough for a small preview
+        if (base64Data.length > 100000) {
+          base64Data = base64Data.substring(0, 100000);
+          if (kDebugMode) {
+            print('Base64 data truncated to 100KB');
+          }
+        }
+
+        // Attempt Firebase Storage upload
+        imageUrl = await _uploadBytesToStorage(bytes, storageRef);
+
+        // Create JSON with both URL and base64 data for web
+        final contentJson = {'url': imageUrl, 'base64': base64Data};
+
+        // Use the JSON as the message content
+        final messageContent = json.encode(contentJson);
+
+        // Send the message with the JSON content
+        await _sendImageMessageToFirestore(conversationId, messageContent);
+      } else {
         // For mobile platforms
         if (imageFile is XFile) {
           if (kDebugMode) {
@@ -510,6 +540,8 @@ class ChatRepository {
                 print('File exists at path: ${file.path}');
               }
               imageUrl = await _uploadFileToStorage(file, storageRef);
+              // Send the message with URL only
+              await _sendImageMessageToFirestore(conversationId, imageUrl);
             } else {
               print('File does not exist at path: ${file.path}');
               throw Exception(
@@ -528,6 +560,8 @@ class ChatRepository {
           if (await imageFile.exists()) {
             // Upload a native File directly
             imageUrl = await _uploadFileToStorage(imageFile, storageRef);
+            // Send the message with URL only
+            await _sendImageMessageToFirestore(conversationId, imageUrl);
           } else {
             print('File does not exist at path: ${imageFile.path}');
             throw Exception(
@@ -537,33 +571,43 @@ class ChatRepository {
         } else {
           print('Unsupported image type: ${imageFile.runtimeType}');
           throw Exception(
-            'Unsupported image file format for mobile: ${imageFile.runtimeType}',
+            'Unsupported image file format: ${imageFile.runtimeType}',
           );
         }
       }
-
+    } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('Successfully uploaded image. URL: $imageUrl');
+        print('Error in sendImageMessage: $e');
+        print(stackTrace);
       }
+      throw Exception('Failed to send image message: $e');
+    }
+  }
 
-      final isAdmin = await isCurrentUserAdmin();
-      final userName = await getCurrentUserName();
+  // Helper method to send the image message to Firestore
+  Future<void> _sendImageMessageToFirestore(
+    String conversationId,
+    String content,
+  ) async {
+    final isAdmin = await isCurrentUserAdmin();
+    final userName = await getCurrentUserName();
 
-      // Create the message
-      final message = ChatMessage(
-        id: '', // Will be set by Firestore
-        senderId: currentUserId!,
-        senderName: userName,
-        content: imageUrl,
-        timestamp: DateTime.now(), // Will be overwritten by server timestamp
-        isAdmin: isAdmin,
-        type: MessageType.image,
-      );
+    // Create the message
+    final message = ChatMessage(
+      id: '', // Will be set by Firestore
+      senderId: currentUserId!,
+      senderName: userName,
+      content: content,
+      type: MessageType.image,
+      timestamp: DateTime.now(), // Will be overwritten by server timestamp
+      isAdmin: isAdmin,
+    );
 
-      // Record this message send time for rate limiting
-      _recordMessageSend(currentUserId!);
+    // Record this message send time for rate limiting
+    _recordMessageSend(currentUserId!);
 
-      // Get the conversation first to check if the receiver is active in it
+    try {
+      // Get conversation info
       final conversationDoc =
           await _firestore
               .collection(_conversationsCollection)
@@ -598,7 +642,8 @@ class ChatRepository {
           .doc(conversationId);
 
       final updateData = <String, dynamic>{
-        'lastMessageContent': 'Image',
+        'lastMessageContent':
+            '[Image]', // Just show [Image] in the conversation list
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastMessageIsFromAdmin': isAdmin,
       };
@@ -627,22 +672,13 @@ class ChatRepository {
 
       batch.update(conversationRef, updateData);
 
-      if (kDebugMode) {
-        print('Committing batch with message and conversation updates');
-      }
-
       // Commit all the changes at once
       await batch.commit();
-
+    } catch (e) {
       if (kDebugMode) {
-        print('Successfully sent image message');
+        print('Error sending image message to Firestore: $e');
       }
-    } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('Error sending image message: $e');
-        print(stackTrace);
-      }
-      throw Exception('Failed to send image: $e');
+      throw Exception('Failed to save image message: $e');
     }
   }
 

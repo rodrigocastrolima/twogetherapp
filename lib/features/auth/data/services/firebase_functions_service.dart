@@ -48,17 +48,11 @@ class FirebaseFunctionsService {
         throw Exception('Only admins can create users');
       }
 
-      debugPrint('Current user UID: ${user.uid}');
-
       // Force token refresh to ensure the admin has a fresh token
       final token = await user.getIdToken(true);
-      debugPrint('Token refreshed, length: ${token?.length ?? 'null token'}');
-
-      debugPrint('Calling createUser Cloud Function with region: us-central1');
 
       // Simplify the data we're sending
       final simplifiedRole = _getRoleString(role);
-      debugPrint('Creating user with role: $simplifiedRole');
 
       // Call the createUser Cloud Function
       final callable = _functions.httpsCallable('createUser');
@@ -69,7 +63,6 @@ class FirebaseFunctionsService {
         'displayName': displayName,
       });
 
-      debugPrint('Cloud function responded with data: ${result.data}');
       final userData = result.data as Map<String, dynamic>;
 
       // Create an AppUser from the Cloud Function response
@@ -81,12 +74,11 @@ class FirebaseFunctionsService {
         additionalData: userData,
       );
     } catch (e) {
-      debugPrint('Error calling createUser Cloud Function: $e');
-      if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error message: ${e.message}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+      if (kDebugMode) {
+        print('Error calling createUser Cloud Function: $e');
+      }
 
+      if (e is FirebaseFunctionsException) {
         // Check for usage limits error
         if (e.code == 'resource-exhausted') {
           _functionsAvailable = false; // Disable functions for this session
@@ -145,18 +137,15 @@ class FirebaseFunctionsService {
       // Force token refresh to ensure fresh token
       await user.getIdToken(true);
 
-      debugPrint(
-        'Calling setUserEnabled Cloud Function with region: us-central1',
-      );
       // Call the setUserEnabled Cloud Function
       final callable = _functions.httpsCallable('setUserEnabled');
       await callable.call({'uid': uid, 'isEnabled': isEnabled});
     } catch (e) {
-      debugPrint('Error calling setUserEnabled Cloud Function: $e');
-      if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+      if (kDebugMode) {
+        print('Error calling setUserEnabled Cloud Function: $e');
+      }
 
+      if (e is FirebaseFunctionsException) {
         // Check for usage limits error
         if (e.code == 'resource-exhausted') {
           _functionsAvailable = false; // Disable functions for this session
@@ -209,9 +198,6 @@ class FirebaseFunctionsService {
       // Force token refresh to ensure fresh token
       await user.getIdToken(true);
 
-      debugPrint(
-        'Calling resetUserPassword Cloud Function with region: us-central1',
-      );
       // Call the resetUserPassword Cloud Function
       final callable = _functions.httpsCallable('resetUserPassword');
       final result = await callable.call({'email': email});
@@ -219,11 +205,11 @@ class FirebaseFunctionsService {
       final resultData = result.data as Map<String, dynamic>;
       return resultData['link'] as String;
     } catch (e) {
-      debugPrint('Error calling resetUserPassword Cloud Function: $e');
-      if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+      if (kDebugMode) {
+        print('Error calling resetUserPassword Cloud Function: $e');
+      }
 
+      if (e is FirebaseFunctionsException) {
         // Check for usage limits error
         if (e.code == 'resource-exhausted') {
           _functionsAvailable = false; // Disable functions for this session
@@ -253,35 +239,25 @@ class FirebaseFunctionsService {
   /// Checks if Cloud Functions are available by calling the ping function
   Future<bool> checkAvailability() async {
     try {
-      debugPrint('Attempting to check Cloud Functions availability...');
-
       // Get the specific instance for the region
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-      debugPrint('Using Firebase Functions in region: us-central1');
 
       // Get callable reference to the ping function
       final callable = functions.httpsCallable('ping');
-      debugPrint('Calling ping function...');
 
       // Call the function
       final result = await callable.call();
-
-      // Log the raw result
-      debugPrint('Cloud Functions ping result: ${result.data}');
 
       // Check if the result indicates success
       _functionsAvailable =
           (result.data is Map && result.data['success'] == true);
 
-      debugPrint('Cloud Functions available: $_functionsAvailable');
       return _functionsAvailable;
     } catch (e) {
-      debugPrint('Error checking Cloud Functions availability: $e');
-      if (e is FirebaseFunctionsException) {
-        debugPrint('Firebase Functions error code: ${e.code}');
-        debugPrint('Firebase Functions error message: ${e.message}');
-        debugPrint('Firebase Functions error details: ${e.details}');
+      if (kDebugMode) {
+        print('Error checking Cloud Functions availability: $e');
       }
+
       _functionsAvailable = false;
       return false;
     }
@@ -312,11 +288,8 @@ class FirebaseFunctionsService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint('No authenticated user found');
         return false;
       }
-
-      debugPrint('Checking if user ${user.uid} is admin in Firestore');
 
       // Force token refresh to ensure we have the latest claims
       await user.getIdToken(true);
@@ -329,18 +302,81 @@ class FirebaseFunctionsService {
               .get();
 
       if (!userData.exists) {
-        debugPrint('User document does not exist in Firestore');
         return false;
       }
 
       final role = userData.data()?['role'] as String?;
       final isAdmin = role?.toLowerCase() == 'admin';
 
-      debugPrint('User role in Firestore: $role, isAdmin: $isAdmin');
       return isAdmin;
     } catch (e) {
-      debugPrint('Error verifying admin status: $e');
+      if (kDebugMode) {
+        print('Error verifying admin status: $e');
+      }
       return false;
+    }
+  }
+
+  /// Deletes a user completely (removes from Authentication and Firestore)
+  /// Only callable by admin users
+  Future<void> deleteUser(String uid) async {
+    // If functions are not available, fail early
+    if (!_functionsAvailable) {
+      throw Exception(
+        'Cloud Functions are not available or have reached usage limits. Please try again later or contact the administrator.',
+      );
+    }
+
+    try {
+      // Verify the current Firebase user is signed in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('You must be logged in to delete users');
+      }
+
+      // Verify admin status
+      final isAdmin = await verifyCurrentUserIsAdmin();
+      if (!isAdmin) {
+        throw Exception('Only admins can delete users');
+      }
+
+      // Force token refresh to ensure fresh token
+      await user.getIdToken(true);
+
+      // Call the deleteUser Cloud Function
+      final callable = _functions.httpsCallable('deleteUser');
+      await callable.call({'uid': uid});
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error calling deleteUser Cloud Function: $e');
+      }
+
+      if (e is FirebaseFunctionsException) {
+        // Check for usage limits error
+        if (e.code == 'resource-exhausted') {
+          _functionsAvailable = false; // Disable functions for this session
+          throw Exception(
+            'Cloud Functions usage limit reached. Please try again later or contact the administrator.',
+          );
+        }
+
+        switch (e.code) {
+          case 'permission-denied':
+            throw Exception('Only admins can delete users');
+          case 'not-found':
+            throw Exception('User not found');
+          case 'failed-precondition':
+            throw Exception(e.message ?? 'Cannot delete yourself');
+          case 'unavailable':
+            _functionsAvailable = false; // Functions not deployed yet
+            throw Exception(
+              'Cloud Functions are not available. Please try again later or contact the administrator.',
+            );
+          default:
+            throw Exception('Failed to delete user: ${e.message}');
+        }
+      }
+      throw Exception('Failed to delete user: $e');
     }
   }
 }

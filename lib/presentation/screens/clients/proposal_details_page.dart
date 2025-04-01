@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../../../core/theme/theme.dart';
-import '../../../presentation/layout/main_layout.dart';
+import 'package:go_router/go_router.dart';
 
 class ProposalDetailsPage extends StatelessWidget {
   final Map<String, dynamic> proposalData;
@@ -11,31 +11,28 @@ class ProposalDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MainLayout(
-      showNavigation: false,
-      child: Column(
-        children: [
-          // Action buttons at the top
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: _buildActionButtons(context),
-          ),
+    return Column(
+      children: [
+        // Action buttons at the top
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _buildActionButtons(context),
+        ),
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProposalInfoCard(),
-                  const SizedBox(height: 16),
-                  _buildContractCard(),
-                ],
-              ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildProposalInfoCard(),
+                const SizedBox(height: 16),
+                _buildContractCard(),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -151,7 +148,7 @@ class ProposalDetailsPage extends StatelessWidget {
                 ),
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  Navigator.pop(context, {
+                  context.pop({
                     'action': 'accept',
                   }); // Return to client details with result
                 },
@@ -193,7 +190,7 @@ class ProposalDetailsPage extends StatelessWidget {
                 ),
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
-                  Navigator.pop(context, {
+                  context.pop({
                     'action': 'reject',
                   }); // Return to client details with result
                 },

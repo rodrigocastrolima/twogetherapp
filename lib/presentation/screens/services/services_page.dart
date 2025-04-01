@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/service_types.dart';
+import '../../../core/models/service_types.dart' as service_types show Provider;
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
-import 'package:flutter/rendering.dart';
 import 'dart:ui';
+import '../../../core/theme/ui_styles.dart';
+import '../../../features/services/presentation/widgets/image_upload_widget.dart';
+import '../../../features/services/presentation/providers/service_submission_provider.dart';
 
-class ServicesPage extends StatefulWidget {
+class ServicesPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? preFilledData;
 
   const ServicesPage({super.key, this.preFilledData});
 
   @override
-  State<ServicesPage> createState() => _ServicesPageState();
+  ConsumerState<ServicesPage> createState() => ServicesPageState();
 }
 
-class _ServicesPageState extends State<ServicesPage> {
-  int _currentStep = 0; // Start at 0 to not show step indicator initially
+class ServicesPageState extends ConsumerState<ServicesPage> {
+  int currentStep = 0; // Start at 0 to not show step indicator initially
   ServiceCategory? _selectedCategory;
   EnergyType? _selectedEnergyType;
   ClientType? _selectedClientType;
+  service_types.Provider? _selectedProvider;
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   // Form controllers
   late final TextEditingController _companyNameController;
@@ -28,11 +34,11 @@ class _ServicesPageState extends State<ServicesPage> {
   late final TextEditingController _nifController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
-  String? _invoiceFile;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('ServicesPage opened');
     // Initialize controllers with pre-filled data if available
     _companyNameController = TextEditingController(
       text: widget.preFilledData?['companyName'],
@@ -69,27 +75,50 @@ class _ServicesPageState extends State<ServicesPage> {
 
     setState(() {
       _selectedCategory = category;
-      _currentStep = 1; // Now start counting steps
+      currentStep = 1; // Now start counting steps
       _selectedEnergyType = null;
       _selectedClientType = null;
+      _selectedProvider = null;
       _clearForm();
     });
+
+    // Update the form state
+    final formNotifier = ref.read(serviceFormProvider.notifier);
+    formNotifier.setCategory(category);
   }
 
   void _handleEnergyTypeSelection(EnergyType type) {
     setState(() {
       _selectedEnergyType = type;
-      _currentStep = 2;
+      currentStep = 2;
       _selectedClientType = null;
+      _selectedProvider = null;
       _clearForm();
     });
+
+    // Update the form state
+    final formNotifier = ref.read(serviceFormProvider.notifier);
+    formNotifier.setEnergyType(type);
   }
 
   void _handleClientTypeSelection(ClientType type) {
     setState(() {
       _selectedClientType = type;
-      _currentStep = 3;
+      currentStep = 3;
+
+      // Set provider based on client type
+      if (_selectedEnergyType == EnergyType.solar ||
+          type == ClientType.commercial) {
+        _selectedProvider = service_types.Provider.edp;
+      } else {
+        _selectedProvider = service_types.Provider.repsol;
+      }
     });
+
+    // Update the form state
+    final formNotifier = ref.read(serviceFormProvider.notifier);
+    formNotifier.setClientType(type);
+    formNotifier.setProvider(_selectedProvider!);
   }
 
   void _clearForm() {
@@ -98,50 +127,130 @@ class _ServicesPageState extends State<ServicesPage> {
     _nifController.clear();
     _emailController.clear();
     _phoneController.clear();
-    _invoiceFile = null;
+
+    // Reset form state
+    final formNotifier = ref.read(serviceFormProvider.notifier);
+    formNotifier.reset();
   }
 
   bool _isFormValid() {
+    // Get the current form state
+    final formState = ref.read(serviceFormProvider);
+
+    // Check if images have been selected
+    bool hasImages = formState.selectedImages.isNotEmpty;
+
     if (_selectedClientType == ClientType.commercial) {
       return _companyNameController.text.isNotEmpty &&
           _responsibleNameController.text.isNotEmpty &&
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _phoneController.text.isNotEmpty &&
-          _invoiceFile != null;
+          hasImages;
     } else {
       return _responsibleNameController.text.isNotEmpty &&
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _phoneController.text.isNotEmpty &&
-          _invoiceFile != null;
+          hasImages;
     }
   }
 
-  void _handleSubmit() {
-    if (!_isFormValid()) return;
-    // Handle form submission
-    print('Form submitted');
+  Future<void> _handleSubmit() async {
+    if (!_isFormValid() || _isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Make sure all selections from the UI are set in the form state
+      final formNotifier = ref.read(serviceFormProvider.notifier);
+
+      // Explicitly set the selections from UI state
+      if (_selectedCategory != null) {
+        formNotifier.setCategory(_selectedCategory!);
+      }
+
+      if (_selectedEnergyType != null) {
+        formNotifier.setEnergyType(_selectedEnergyType!);
+      }
+
+      if (_selectedClientType != null) {
+        formNotifier.setClientType(_selectedClientType!);
+      }
+
+      if (_selectedProvider != null) {
+        formNotifier.setProvider(_selectedProvider!);
+      }
+
+      // Now submit with the updated form state
+      final success = await formNotifier.submitForm(
+        companyName: _companyNameController.text,
+        responsibleName: _responsibleNameController.text,
+        nif: _nifController.text,
+        email: _emailController.text,
+        phone: _phoneController.text,
+        ignoreInitialValidation: true,
+      );
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Service request submitted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Reset form and go back to first step
+        setState(() {
+          currentStep = 0;
+          _selectedCategory = null;
+          _selectedEnergyType = null;
+          _selectedClientType = null;
+          _selectedProvider = null;
+          _clearForm();
+        });
+      } else {
+        final formState = ref.read(serviceFormProvider);
+        setState(() {
+          _errorMessage = formState.errorMessage ?? 'Error submitting form';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error submitting form: $e');
+      setState(() {
+        _errorMessage = 'Error submitting form: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
   }
 
-  void _handleBackPress() {
+  void handleBackPress() {
     setState(() {
-      if (_currentStep > 0) {
-        _currentStep--;
-        switch (_currentStep) {
+      if (currentStep > 0) {
+        currentStep--;
+        switch (currentStep) {
           case 0:
             _selectedCategory = null;
             _selectedEnergyType = null;
             _selectedClientType = null;
+            _selectedProvider = null;
             _clearForm();
             break;
           case 1:
             _selectedEnergyType = null;
             _selectedClientType = null;
+            _selectedProvider = null;
             _clearForm();
             break;
           case 2:
             _selectedClientType = null;
+            _selectedProvider = null;
             _clearForm();
             break;
         }
@@ -151,50 +260,12 @@ class _ServicesPageState extends State<ServicesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: const Alignment(-1.0, -1.0),
-            end: const Alignment(1.0, 1.0),
-            colors: [const Color(0xFF93A5CF), const Color(0xFFE4EFE9)],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with back arrow and logo
-            Padding(
-              padding: const EdgeInsets.all(AppConstants.spacing16),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: AppTheme.foreground,
-                    ),
-                    onPressed:
-                        _currentStep == 0
-                            ? () => Navigator.of(context).pop()
-                            : _handleBackPress,
-                  ),
-                  const Spacer(),
-                  Image.asset(
-                    'assets/images/twogether_logo_light_br.png',
-                    height: 32,
-                  ),
-                  const SizedBox(width: AppConstants.spacing16),
-                ],
-              ),
-            ),
-            if (_currentStep > 0) _buildStepIndicator(),
-            Expanded(child: _buildCurrentStep()),
-          ],
-        ),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (currentStep > 0) _buildStepIndicator(),
+        Expanded(child: _buildCurrentStep()),
+      ],
     );
   }
 
@@ -203,21 +274,21 @@ class _ServicesPageState extends State<ServicesPage> {
       padding: const EdgeInsets.all(AppConstants.spacing16),
       child: Row(
         children: [
-          _buildStepNumber(1, _currentStep >= 1),
+          _buildStepNumber(1, currentStep >= 1),
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              child: _buildStepLine(_currentStep >= 2),
+              child: _buildStepLine(currentStep >= 2),
             ),
           ),
-          _buildStepNumber(2, _currentStep >= 2),
+          _buildStepNumber(2, currentStep >= 2),
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              child: _buildStepLine(_currentStep >= 3),
+              child: _buildStepLine(currentStep >= 3),
             ),
           ),
-          _buildStepNumber(3, _currentStep >= 3),
+          _buildStepNumber(3, currentStep >= 3),
         ],
       ),
     );
@@ -229,7 +300,7 @@ class _ServicesPageState extends State<ServicesPage> {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isActive ? AppTheme.primary : AppTheme.muted.withOpacity(0.5),
+        color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(128),
       ),
       child: Center(
         child: Text(
@@ -247,12 +318,12 @@ class _ServicesPageState extends State<ServicesPage> {
   Widget _buildStepLine(bool isActive) {
     return Container(
       height: 1,
-      color: isActive ? AppTheme.primary : AppTheme.muted.withOpacity(0.5),
+      color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(128),
     );
   }
 
   Widget _buildCurrentStep() {
-    switch (_currentStep) {
+    switch (currentStep) {
       case 0:
         return _buildServiceCategoryStep();
       case 1:
@@ -270,50 +341,56 @@ class _ServicesPageState extends State<ServicesPage> {
   }
 
   Widget _buildServiceCategoryStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: AppConstants.spacing24),
-          Text(
-            'Qual tipo de serviço?',
-            style: AppTextStyles.h2.copyWith(
-              color: AppTheme.foreground,
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
+    return NoScrollbarBehavior.noScrollbars(
+      context,
+      SingleChildScrollView(
+        padding: const EdgeInsets.all(AppConstants.spacing16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: AppConstants.spacing24),
+            Text(
+              'Qual tipo de serviço?',
+              style: AppTextStyles.h2.copyWith(
+                color: AppTheme.foreground,
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: AppConstants.spacing32),
-          ...ServiceCategory.values.map(
-            (category) => _buildSelectionTile(
-              title: category.displayName,
-              icon: _getCategoryIcon(category),
-              onTap: () => _handleCategorySelection(category),
-              isDisabled: !category.isAvailable,
+            const SizedBox(height: AppConstants.spacing32),
+            ...ServiceCategory.values.map(
+              (category) => _buildSelectionTile(
+                title: category.displayName,
+                icon: _getCategoryIcon(category),
+                onTap: () => _handleCategorySelection(category),
+                isDisabled: !category.isAvailable,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildEnergyTypeStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Qual tipo de serviço de energia?', style: AppTextStyles.h2),
-          const SizedBox(height: AppConstants.spacing24),
-          ...EnergyType.values.map(
-            (type) => _buildSelectionTile(
-              title: type.displayName,
-              icon: _getEnergyTypeIcon(type),
-              onTap: () => _handleEnergyTypeSelection(type),
+    return NoScrollbarBehavior.noScrollbars(
+      context,
+      SingleChildScrollView(
+        padding: const EdgeInsets.all(AppConstants.spacing16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Qual tipo de serviço de energia?', style: AppTextStyles.h2),
+            const SizedBox(height: AppConstants.spacing24),
+            ...EnergyType.values.map(
+              (type) => _buildSelectionTile(
+                title: type.displayName,
+                icon: _getEnergyTypeIcon(type),
+                onTap: () => _handleEnergyTypeSelection(type),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +398,37 @@ class _ServicesPageState extends State<ServicesPage> {
   Widget _buildClientTypeStep() {
     // For Solar, show only Commercial client with EDP
     if (_selectedEnergyType == EnergyType.solar) {
-      return SingleChildScrollView(
+      return NoScrollbarBehavior.noScrollbars(
+        context,
+        SingleChildScrollView(
+          padding: const EdgeInsets.all(AppConstants.spacing16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Selecione seu fornecedor', style: AppTextStyles.h2),
+              Text(
+                'Escolha com base no tipo de cliente',
+                style: AppTextStyles.body2.copyWith(
+                  color: AppTheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacing24),
+              _buildClientCard(
+                title: 'Clientes Comerciais',
+                subtitle: 'Para empresas e clientes comerciais',
+                imagePath: 'assets/images/edp_logo_br.png',
+                onTap: () => _handleClientTypeSelection(ClientType.commercial),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Original view for Electricity/Gas
+    return NoScrollbarBehavior.noScrollbars(
+      context,
+      SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.spacing16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,39 +447,15 @@ class _ServicesPageState extends State<ServicesPage> {
               imagePath: 'assets/images/edp_logo_br.png',
               onTap: () => _handleClientTypeSelection(ClientType.commercial),
             ),
+            const SizedBox(height: AppConstants.spacing16),
+            _buildClientCard(
+              title: 'Clientes Residenciais',
+              subtitle: 'Para residências e famílias',
+              imagePath: 'assets/images/repsol_logo_br.png',
+              onTap: () => _handleClientTypeSelection(ClientType.residential),
+            ),
           ],
         ),
-      );
-    }
-
-    // Original view for Electricity/Gas
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Selecione seu fornecedor', style: AppTextStyles.h2),
-          Text(
-            'Escolha com base no tipo de cliente',
-            style: AppTextStyles.body2.copyWith(
-              color: AppTheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: AppConstants.spacing24),
-          _buildClientCard(
-            title: 'Clientes Comerciais',
-            subtitle: 'Para empresas e clientes comerciais',
-            imagePath: 'assets/images/edp_logo_br.png',
-            onTap: () => _handleClientTypeSelection(ClientType.commercial),
-          ),
-          const SizedBox(height: AppConstants.spacing16),
-          _buildClientCard(
-            title: 'Clientes Residenciais',
-            subtitle: 'Para residências e famílias',
-            imagePath: 'assets/images/repsol_logo_br.png',
-            onTap: () => _handleClientTypeSelection(ClientType.residential),
-          ),
-        ],
       ),
     );
   }
@@ -395,9 +478,9 @@ class _ServicesPageState extends State<ServicesPage> {
             child: Container(
               padding: const EdgeInsets.all(AppConstants.spacing16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: Colors.white.withAlpha(51)),
               ),
               child: Row(
                 children: [
@@ -429,7 +512,7 @@ class _ServicesPageState extends State<ServicesPage> {
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: AppTheme.foreground.withValues(alpha: 128),
+                    color: AppTheme.foreground.withAlpha(128),
                     size: 20,
                   ),
                 ],
@@ -460,9 +543,9 @@ class _ServicesPageState extends State<ServicesPage> {
               child: Container(
                 padding: const EdgeInsets.all(AppConstants.spacing16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  border: Border.all(color: Colors.white.withAlpha(51)),
                 ),
                 child: Row(
                   children: [
@@ -472,8 +555,8 @@ class _ServicesPageState extends State<ServicesPage> {
                       decoration: BoxDecoration(
                         color:
                             isDisabled
-                                ? Colors.white.withOpacity(0.05)
-                                : AppTheme.primary.withOpacity(0.15),
+                                ? Colors.white.withAlpha(13)
+                                : AppTheme.primary.withAlpha(38),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -502,7 +585,7 @@ class _ServicesPageState extends State<ServicesPage> {
                     if (!isDisabled)
                       Icon(
                         Icons.chevron_right,
-                        color: AppTheme.foreground.withValues(alpha: 128),
+                        color: AppTheme.foreground.withAlpha(128),
                         size: 20,
                       ),
                   ],
@@ -516,6 +599,8 @@ class _ServicesPageState extends State<ServicesPage> {
   }
 
   Widget _buildFormStep() {
+    final formState = ref.watch(serviceFormProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppConstants.spacing16),
       child: Column(
@@ -558,12 +643,24 @@ class _ServicesPageState extends State<ServicesPage> {
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: AppConstants.spacing24),
-          _buildFileUpload(),
+
+          // Document upload widget
+          const ImageUploadWidget(),
+
+          if (_errorMessage != null) ...[
+            const SizedBox(height: AppConstants.spacing16),
+            Text(
+              _errorMessage!,
+              style: TextStyle(color: AppTheme.destructive, fontSize: 14),
+            ),
+          ],
+
           const SizedBox(height: AppConstants.spacing24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isFormValid() ? _handleSubmit : null,
+              onPressed:
+                  _isFormValid() && !_isSubmitting ? _handleSubmit : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 foregroundColor: Colors.white,
@@ -574,7 +671,17 @@ class _ServicesPageState extends State<ServicesPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Enviar'),
+              child:
+                  _isSubmitting
+                      ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                      : const Text('Enviar'),
             ),
           ),
         ],
@@ -606,9 +713,9 @@ class _ServicesPageState extends State<ServicesPage> {
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withAlpha(26),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(color: Colors.white.withAlpha(51)),
               ),
               child: TextField(
                 controller: controller,
@@ -631,46 +738,6 @@ class _ServicesPageState extends State<ServicesPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildFileUpload() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.cloud_upload_outlined,
-                size: 48,
-                color: AppTheme.foreground.withValues(alpha: 179),
-              ),
-              const SizedBox(height: AppConstants.spacing8),
-              Text(
-                _invoiceFile ?? 'Por favor, carregue uma fatura',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.foreground.withValues(alpha: 179),
-                ),
-              ),
-              Text(
-                'Click or drag files here',
-                style: TextStyle(fontSize: 12, color: AppTheme.mutedForeground),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

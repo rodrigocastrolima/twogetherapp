@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
-import 'dart:math' as math;
 import '../../../core/theme/theme.dart';
-import '../../../core/utils/constants.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class AdminReportsPage extends StatefulWidget {
@@ -56,9 +54,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withAlpha(20),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withAlpha(26)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -66,7 +64,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                     dropdownColor: Colors.grey[800],
                     icon: Icon(
                       CupertinoIcons.chevron_down,
-                      color: AppTheme.foreground.withOpacity(0.7),
+                      color: AppTheme.foreground.withAlpha(179),
                     ),
                     style: TextStyle(color: AppTheme.foreground, fontSize: 16),
                     isExpanded: true,
@@ -103,9 +101,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withAlpha(20),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withAlpha(26)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -113,7 +111,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                     dropdownColor: Colors.grey[800],
                     icon: Icon(
                       CupertinoIcons.chevron_down,
-                      color: AppTheme.foreground.withOpacity(0.7),
+                      color: AppTheme.foreground.withAlpha(179),
                     ),
                     style: TextStyle(color: AppTheme.foreground, fontSize: 16),
                     isExpanded: true,
@@ -171,12 +169,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
           height: 400,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,10 +202,10 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
           horizontalInterval: 1,
           verticalInterval: 1,
           getDrawingHorizontalLine: (value) {
-            return FlLine(color: Colors.white.withOpacity(0.1), strokeWidth: 1);
+            return FlLine(color: Colors.white.withAlpha(26), strokeWidth: 1);
           },
           getDrawingVerticalLine: (value) {
-            return FlLine(color: Colors.white.withOpacity(0.1), strokeWidth: 1);
+            return FlLine(color: Colors.white.withAlpha(26), strokeWidth: 1);
           },
         ),
         titlesData: FlTitlesData(
@@ -231,7 +226,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                   child: Text(
                     days[index],
                     style: TextStyle(
-                      color: AppTheme.foreground.withOpacity(0.6),
+                      color: AppTheme.foreground.withAlpha(153),
                       fontSize: 12,
                     ),
                   ),
@@ -249,7 +244,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                   child: Text(
                     '${value.toInt()}k',
                     style: TextStyle(
-                      color: AppTheme.foreground.withOpacity(0.6),
+                      color: AppTheme.foreground.withAlpha(153),
                       fontSize: 12,
                     ),
                   ),
@@ -277,7 +272,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
             ],
             isCurved: true,
             gradient: LinearGradient(
-              colors: [Colors.amber.withOpacity(0.8), Colors.amber],
+              colors: [Colors.amber.withAlpha(204), Colors.amber],
             ),
             barWidth: 3,
             isStrokeCapRound: true,
@@ -295,10 +290,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
-                colors: [
-                  Colors.amber.withOpacity(0.3),
-                  Colors.amber.withOpacity(0.0),
-                ],
+                colors: [Colors.amber.withAlpha(77), Colors.amber.withAlpha(0)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -347,12 +339,9 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
+            color: Colors.white.withAlpha(20),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.1),
-              width: 0.5,
-            ),
+            border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -361,7 +350,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withAlpha(51),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -380,7 +369,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                 title,
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.foreground.withOpacity(0.6),
+                  color: AppTheme.foreground.withAlpha(153),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -411,10 +400,10 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withAlpha(20),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withAlpha(26),
                   width: 0.5,
                 ),
               ),
@@ -427,7 +416,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                     CupertinoIcons.chart_bar_fill,
                     Colors.purple,
                   ),
-                  Divider(color: Colors.white.withOpacity(0.1)),
+                  Divider(color: Colors.white.withAlpha(26)),
                   _buildReportItem(
                     'User Acquisition',
                     'New user onboarding and retention data',
@@ -435,7 +424,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                     CupertinoIcons.person_2_fill,
                     Colors.blue,
                   ),
-                  Divider(color: Colors.white.withOpacity(0.1)),
+                  Divider(color: Colors.white.withAlpha(26)),
                   _buildReportItem(
                     'Submission Analytics',
                     'Success and rejection rates by region',
@@ -466,7 +455,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withAlpha(51),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -486,7 +475,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
                 Text(
                   description,
                   style: TextStyle(
-                    color: AppTheme.foreground.withOpacity(0.7),
+                    color: AppTheme.foreground.withAlpha(179),
                     fontSize: 14,
                   ),
                 ),
@@ -499,7 +488,7 @@ class _AdminReportsPageState extends State<AdminReportsPage> {
               Text(
                 date,
                 style: TextStyle(
-                  color: AppTheme.foreground.withOpacity(0.6),
+                  color: AppTheme.foreground.withAlpha(153),
                   fontSize: 14,
                 ),
               ),
