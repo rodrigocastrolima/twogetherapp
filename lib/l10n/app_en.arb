@@ -9,6 +9,9 @@
     "loginButton": "Login",
     "loginForgotPassword": "Forgot password?",
     
+    "@_ADMIN": {},
+    "adminRetailUsers": "Retail Users",
+    
     "@_HOME": {},
     "homeWelcome": "Welcome",
     "homeEarnings": "Earnings",
