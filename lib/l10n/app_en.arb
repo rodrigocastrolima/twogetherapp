@@ -109,5 +109,14 @@
     "commonClear": "Clear",
     "commonApply": "Apply",
     "commonLoading": "Loading...",
-    "commonLanguage": "Language"
+    "commonLanguage": "Language",
+
+    "@_RETAIL_USERS": {},
+    "tryAgain": "Try Again",
+    "noRetailUsersFound": "No retail users found",
+    "refresh": "Refresh",
+    "unknownUser": "Unknown User",
+    "noEmailProvided": "No email provided",
+    "active": "Active",
+    "inactive": "Inactive"
 } 

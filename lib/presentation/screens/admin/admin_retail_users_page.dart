@@ -131,14 +131,17 @@ class _AdminRetailUsersPageState extends State<AdminRetailUsersPage> {
             margin: const EdgeInsets.only(bottom: 16),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 child: Text(user['Name']?.substring(0, 1) ?? '?'),
               ),
               title: Text(user['Name'] ?? l10n.unknownUser),
               subtitle: Text(user['Email'] ?? l10n.noEmailProvided),
               trailing: Chip(
-                label: Text(user['IsActive'] == true ? l10n.active : l10n.inactive),
-                backgroundColor: user['IsActive'] == true ? Colors.green : Colors.grey,
+                label: Text(
+                  user['IsActive'] == true ? l10n.active : l10n.inactive,
+                ),
+                backgroundColor:
+                    user['IsActive'] == true ? Colors.green : Colors.grey,
                 labelStyle: const TextStyle(color: Colors.white),
               ),
             ),
@@ -148,4 +151,3 @@ class _AdminRetailUsersPageState extends State<AdminRetailUsersPage> {
     );
   }
 }
-

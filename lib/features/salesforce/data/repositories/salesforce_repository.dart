@@ -297,8 +297,7 @@ class SalesforceRepository {
 
       // Note: User object fields might vary. Common fields are included.
       // Adjust based on your Salesforce User object configuration.
-      String query =
-          'SELECT Id, Name, Username, Email, Department, Profile.Name, UserRole.Name, IsActive ';
+      String query = 'SELECT Id, Name, Username, Email, Department, IsActive ';
       query += 'FROM User ';
       query +=
           'WHERE Department = \'${departmentName.replaceAll("'", "\\'")}\' ';

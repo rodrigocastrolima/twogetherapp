@@ -39,8 +39,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
       crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.2,
       children: [
         _buildStatCard(
           'Total Resellers',
@@ -80,29 +81,36 @@ class _AdminHomePageState extends State<AdminHomePage> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white.withAlpha(26), width: 0.5),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: color.withAlpha(51),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 30),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(height: 16),
-              Text(
-                value,
-                style: AppTextStyles.h2.copyWith(color: Colors.white),
+              const SizedBox(height: 12),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: AppTextStyles.h2.copyWith(color: Colors.white),
+                ),
               ),
               const SizedBox(height: 4),
-              Text(
-                title,
-                style: AppTextStyles.body1.copyWith(
-                  color: Colors.white.withAlpha(153),
+              Flexible(
+                child: Text(
+                  title,
+                  style: AppTextStyles.body1.copyWith(
+                    color: Colors.white.withAlpha(153),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
