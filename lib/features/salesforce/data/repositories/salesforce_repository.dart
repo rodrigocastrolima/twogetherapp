@@ -350,4 +350,157 @@ class SalesforceRepository {
       return [];
     }
   }
+
+  /// Fetch opportunities from Salesforce Oportunidade__c object
+  /// Optionally filter by Record Type name
+  Future<List<Map<String, dynamic>>> getOpportunities({
+    String? recordType,
+  }) async {
+    if (kDebugMode) {
+      print(
+        'SalesforceRepository: Attempting to query Oportunidade__c object...',
+      );
+      if (recordType != null) {
+        print('SalesforceRepository: Filtering by Record Type: $recordType');
+      }
+    }
+
+    try {
+      if (!isConnected) {
+        if (kDebugMode) {
+          print('SalesforceRepository: Not connected to Salesforce');
+        }
+        return [];
+      }
+
+      if (kDebugMode) {
+        print('SalesforceRepository: Building opportunities query...');
+      }
+
+      // Use the correct field names from metadata we discovered
+      String query = '''
+        SELECT Id, Name, CreatedDate, LastModifiedDate,
+               Data_de_Previs_o_de_Fecho__c,
+               Receita_Total__c,
+               Fase__c,
+               Tipo_de_Oportunidade__c,
+               Prospect_Cliente__c,
+               RecordType.Name
+        FROM Oportunidade__c 
+      ''';
+
+      // Add record type filter if provided
+      if (recordType != null && recordType.isNotEmpty) {
+        query += ' WHERE RecordType.Name = \'$recordType\'';
+      }
+
+      // Always order by name and limit results
+      query += ' ORDER BY Name LIMIT 50';
+
+      if (kDebugMode) {
+        print('SalesforceRepository: Executing opportunities query: $query');
+      }
+
+      final result = await _connectionService.get(
+        '/services/data/v58.0/query/?q=${Uri.encodeComponent(query)}',
+      );
+
+      if (result == null) {
+        if (kDebugMode) {
+          print('SalesforceRepository: Query returned null data');
+        }
+        return [];
+      }
+
+      if (result['records'] == null) {
+        if (kDebugMode) {
+          print('SalesforceRepository: No records found in query result');
+        }
+        return [];
+      }
+
+      final List<dynamic> records = result['records'];
+      final List<Map<String, dynamic>> opportunities =
+          records.map((record) => record as Map<String, dynamic>).toList();
+
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Found ${opportunities.length} opportunities with record type ${recordType ?? "any"}',
+        );
+      }
+
+      return opportunities;
+    } catch (e) {
+      if (kDebugMode) {
+        print('SalesforceRepository: Error fetching opportunities: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Get metadata for a specific object, including all available fields
+  Future<Map<String, dynamic>?> getObjectMetadata(String objectName) async {
+    if (!_connectionService.isConnected) {
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Not connected to Salesforce, cannot get metadata',
+        );
+      }
+      return null;
+    }
+
+    try {
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Fetching metadata for object: $objectName',
+        );
+      }
+
+      final data = await _connectionService.get(
+        '/services/data/v58.0/sobjects/$objectName/describe',
+      );
+
+      if (data == null) {
+        if (kDebugMode) {
+          print('SalesforceRepository: No metadata returned for $objectName');
+        }
+        return null;
+      }
+
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Successfully retrieved metadata for $objectName',
+        );
+        if (data.containsKey('fields')) {
+          final fields = data['fields'] as List<dynamic>;
+          print('SalesforceRepository: Object has ${fields.length} fields');
+
+          // Print the first few field names for debugging
+          final fieldNames = fields
+              .take(10)
+              .map((field) => field['name'])
+              .join(', ');
+          print('SalesforceRepository: Sample fields: $fieldNames');
+        }
+      }
+
+      return data;
+    } catch (e) {
+      if (kDebugMode) {
+        print('SalesforceRepository: Error getting object metadata: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Get field names for a specific object
+  Future<List<String>> getObjectFields(String objectName) async {
+    final metadata = await getObjectMetadata(objectName);
+    if (metadata == null || !metadata.containsKey('fields')) {
+      return [];
+    }
+
+    final fields = metadata['fields'] as List<dynamic>;
+    return fields.map((field) => field['name'] as String).toList();
+  }
 }
