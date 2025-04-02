@@ -68,6 +68,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     } else if (location == '/admin/resellers') {
       // Now set selected index for Resellers page with a proper index
       setState(() => _selectedIndex = 4);
+    } else if (location == '/admin/retail-users') {
+      setState(() => _selectedIndex = 5);
     }
   }
 
@@ -210,8 +212,15 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                               icon: CupertinoIcons.doc_text_search,
                               selectedIcon: CupertinoIcons.doc_text_search,
                               label: 'Resellers',
-                              index: 4, // Use a real index instead of -1
+                              index: 4,
                               onTap: () => context.go('/admin/resellers'),
+                            ),
+                            _buildTabItem(
+                              icon: CupertinoIcons.person_2,
+                              selectedIcon: CupertinoIcons.person_2_fill,
+                              label: 'Retail',
+                              index: 5,
+                              onTap: () => context.go('/admin/retail-users'),
                             ),
                             _buildTabItem(
                               icon: CupertinoIcons.chat_bubble,
@@ -255,6 +264,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       currentIndex = 3;
     } else if (location == '/admin/resellers') {
       currentIndex = 4;
+    } else if (location == '/admin/retail-users') {
+      currentIndex = 5;
     }
 
     // Fixed width sidebar
@@ -317,6 +328,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       title: 'Resellers',
                       isSelected: currentIndex == 4,
                       onTap: () => _handleNavigation(4),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildNavItem(
+                      icon: CupertinoIcons.person_2,
+                      title: 'Retail Users',
+                      isSelected: currentIndex == 5,
+                      onTap: () => _handleNavigation(5),
                     ),
                     const SizedBox(height: 12),
                     _buildNavItem(
@@ -543,6 +561,9 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         break;
       case 4:
         context.go('/admin/resellers');
+        break;
+      case 5:
+        context.go('/admin/retail-users');
         break;
     }
   }

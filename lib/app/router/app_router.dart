@@ -433,7 +433,7 @@ class AppRouter {
             builder: (context, state) => const AdminSubmissionsPage(),
           ),
           GoRoute(
-            path: '/admin-retail-users',
+            path: '/admin/retail-users',
             name: 'adminRetailUsers',
             builder: (context, state) => const AdminRetailUsersPage(),
           ),

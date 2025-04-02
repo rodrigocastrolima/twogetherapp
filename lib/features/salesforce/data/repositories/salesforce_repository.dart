@@ -29,6 +29,9 @@ class SalesforceRepository {
 
   /// Initialize the connection
   Future<bool> initialize() {
+    if (kDebugMode) {
+      print('SalesforceRepository: Initializing connection...');
+    }
     return _connectionService.initialize();
   }
 
@@ -36,12 +39,18 @@ class SalesforceRepository {
   Future<List<Account>> getAccounts({String? filter, int limit = 10}) async {
     if (!_connectionService.isConnected) {
       if (kDebugMode) {
-        print('Not connected to Salesforce');
+        print(
+          'SalesforceRepository: Not connected to Salesforce, cannot get accounts',
+        );
       }
       return [];
     }
 
     try {
+      if (kDebugMode) {
+        print('SalesforceRepository: Building accounts query...');
+      }
+
       String query =
           'SELECT Id, Name, AccountNumber, Industry, Type, AnnualRevenue, Phone, Website, ';
       query +=
@@ -57,13 +66,20 @@ class SalesforceRepository {
 
       query += ' ORDER BY Name LIMIT $limit';
 
+      if (kDebugMode) {
+        print('SalesforceRepository: Executing accounts query...');
+      }
+
       final data = await _connectionService.get(
         '/services/data/v58.0/query/?q=${Uri.encodeComponent(query)}',
       );
 
       if (data == null || !data.containsKey('records')) {
         if (kDebugMode) {
-          print('Error querying accounts or no records found');
+          print(
+            'SalesforceRepository: Error querying accounts or no records found',
+          );
+          print('SalesforceRepository: Response data: $data');
         }
         return [];
       }
@@ -73,10 +89,16 @@ class SalesforceRepository {
         accounts.add(Account.fromJson(record));
       }
 
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Successfully fetched ${accounts.length} accounts',
+        );
+      }
+
       return accounts;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting accounts: $e');
+        print('SalesforceRepository: Error getting accounts: $e');
       }
       return [];
     }
@@ -244,17 +266,35 @@ class SalesforceRepository {
   }) async {
     if (!_connectionService.isConnected) {
       if (kDebugMode) {
-        print('Not connected to Salesforce. Cannot fetch users.');
+        print(
+          'SalesforceRepository: Not connected to Salesforce, cannot fetch users',
+        );
       }
       // Attempt to connect/refresh token if not connected
       bool connected = await _connectionService.initialize();
       if (!connected) {
-        print('Failed to connect to Salesforce.');
+        if (kDebugMode) {
+          print(
+            'SalesforceRepository: Failed to connect to Salesforce after attempt',
+          );
+        }
         return [];
+      } else {
+        if (kDebugMode) {
+          print(
+            'SalesforceRepository: Successfully connected to Salesforce after attempt',
+          );
+        }
       }
     }
 
     try {
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Building users query for department: $departmentName',
+        );
+      }
+
       // Note: User object fields might vary. Common fields are included.
       // Adjust based on your Salesforce User object configuration.
       String query =
@@ -266,29 +306,47 @@ class SalesforceRepository {
       query += 'ORDER BY Name ';
       query += 'LIMIT $limit';
 
+      if (kDebugMode) {
+        print('SalesforceRepository: Executing users query...');
+        print('SalesforceRepository: Query: $query');
+      }
+
       final data = await _connectionService.get(
         '/services/data/v58.0/query/?q=${Uri.encodeComponent(query)}',
       );
 
-      if (data == null || !data.containsKey('records')) {
+      if (data == null) {
         if (kDebugMode) {
-          print(
-            'Error querying users or no records found for department: $departmentName',
-          );
+          print('SalesforceRepository: Query returned null data');
+        }
+        return [];
+      }
+
+      if (!data.containsKey('records')) {
+        if (kDebugMode) {
+          print('SalesforceRepository: No records found in response');
+          print('SalesforceRepository: Response data: $data');
         }
         return [];
       }
 
       // Return the list of user records as maps
-      // We use Map<String, dynamic> as we don't have a strict User model defined yet
       final List<Map<String, dynamic>> users = List<Map<String, dynamic>>.from(
         data['records'],
       );
 
+      if (kDebugMode) {
+        print(
+          'SalesforceRepository: Successfully fetched ${users.length} users',
+        );
+      }
+
       return users;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting users by department ($departmentName): $e');
+        print(
+          'SalesforceRepository: Error getting users by department ($departmentName): $e',
+        );
       }
       return [];
     }
