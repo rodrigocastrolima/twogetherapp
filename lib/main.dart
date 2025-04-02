@@ -19,9 +19,10 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Set default persistence to SESSION so users are not remembered by default
-  // Remember Me will explicitly change this to LOCAL when checked
-  await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+  // Set default persistence to SESSION only on web platforms
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+  }
 
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
