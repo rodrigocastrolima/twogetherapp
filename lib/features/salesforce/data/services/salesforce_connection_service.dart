@@ -85,27 +85,63 @@ class SalesforceConnectionService {
   // Initialize by checking for existing credentials
   Future<bool> initialize() async {
     try {
+      if (kDebugMode) {
+        print('SalesforceConnectionService: Starting initialization...');
+      }
+
       _accessToken = await _storage.read(key: accessTokenKey);
       _refreshToken = await _storage.read(key: refreshTokenKey);
       _instanceUrl = await _storage.read(key: instanceUrlKey);
       _userId = await _storage.read(key: userIdKey);
       _orgId = await _storage.read(key: orgIdKey);
 
+      if (kDebugMode) {
+        print('SalesforceConnectionService: Stored tokens found:');
+        print('  - Access token exists: ${_accessToken != null}');
+        print('  - Refresh token exists: ${_refreshToken != null}');
+        print('  - Instance URL: ${_instanceUrl ?? "None"}');
+      }
+
       _isConnected = _accessToken != null && _instanceUrl != null;
 
       if (_isConnected) {
         // Validate the connection with a simple API call
+        if (kDebugMode) {
+          print('SalesforceConnectionService: Testing existing token...');
+        }
         _isConnected = await testConnection();
+        if (kDebugMode) {
+          print(
+            'SalesforceConnectionService: Test connection result: $_isConnected',
+          );
+        }
+      } else {
+        // No stored tokens, try to get a fresh token
+        if (kDebugMode) {
+          print(
+            'SalesforceConnectionService: No valid tokens, trying to get a fresh token...',
+          );
+        }
+        _isConnected = await refreshTokenUsingFirebaseFunction();
+        if (kDebugMode) {
+          print(
+            'SalesforceConnectionService: Fresh token acquisition result: $_isConnected',
+          );
+        }
       }
 
       if (kDebugMode) {
-        print('Salesforce connection initialized. Connected: $_isConnected');
+        print(
+          'SalesforceConnectionService: Initialization complete. Connected: $_isConnected',
+        );
       }
 
       return _isConnected;
     } catch (e) {
       if (kDebugMode) {
-        print('Error initializing Salesforce connection: $e');
+        print(
+          'SalesforceConnectionService: Error initializing Salesforce connection: $e',
+        );
       }
       return false;
     }
@@ -114,11 +150,39 @@ class SalesforceConnectionService {
   // Get a fresh token using Firebase Function
   Future<bool> refreshTokenUsingFirebaseFunction() async {
     try {
+      if (kDebugMode) {
+        print(
+          'SalesforceConnectionService: Attempting to get token via Firebase Function...',
+        );
+      }
+
+      // Try with region specification - US-Central1 is the default
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+
+      if (kDebugMode) {
+        print(
+          'SalesforceConnectionService: Firebase Functions instance created, getting callable...',
+        );
+      }
+
       // Call our Firebase function that handles JWT generation and token exchange
-      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable(
+      final HttpsCallable callable = functions.httpsCallable(
         'getSalesforceAccessToken',
       );
+
+      if (kDebugMode) {
+        print('SalesforceConnectionService: Calling Firebase function...');
+      }
+
       final result = await callable.call();
+
+      if (kDebugMode) {
+        print('SalesforceConnectionService: Firebase Function call complete');
+        print(
+          'SalesforceConnectionService: Result data type: ${result.data.runtimeType}',
+        );
+        print('SalesforceConnectionService: Result data: ${result.data}');
+      }
 
       if (result.data != null) {
         final data = result.data;
@@ -126,6 +190,12 @@ class SalesforceConnectionService {
         if (data['access_token'] != null && data['instance_url'] != null) {
           _accessToken = data['access_token'];
           _instanceUrl = data['instance_url'];
+
+          if (kDebugMode) {
+            print('SalesforceConnectionService: Token received:');
+            print('  - Token length: ${_accessToken?.length ?? 0}');
+            print('  - Instance URL: $_instanceUrl');
+          }
 
           // Store the new token
           await _storage.write(key: accessTokenKey, value: _accessToken);
@@ -135,23 +205,51 @@ class SalesforceConnectionService {
 
           if (kDebugMode) {
             print(
-              'Successfully obtained Salesforce token via Firebase Function',
+              'SalesforceConnectionService: Successfully obtained Salesforce token',
             );
           }
 
           return true;
+        } else {
+          if (kDebugMode) {
+            print(
+              'SalesforceConnectionService: Function returned data but missing required fields',
+            );
+            print(
+              'SalesforceConnectionService: Has access_token: ${data['access_token'] != null}',
+            );
+            print(
+              'SalesforceConnectionService: Has instance_url: ${data['instance_url'] != null}',
+            );
+          }
+        }
+      } else {
+        if (kDebugMode) {
+          print('SalesforceConnectionService: Function returned null data');
         }
       }
 
       if (kDebugMode) {
-        print('Failed to obtain Salesforce token: Unexpected response format');
-        print('Response: $result');
+        print('SalesforceConnectionService: Failed to obtain Salesforce token');
       }
 
       return false;
     } catch (e) {
       if (kDebugMode) {
-        print('Error getting Salesforce token via Firebase Function: $e');
+        print(
+          'SalesforceConnectionService: Error getting token via Firebase Function: $e',
+        );
+        if (e is FirebaseFunctionsException) {
+          print(
+            'SalesforceConnectionService: Firebase Function error code: ${e.code}',
+          );
+          print(
+            'SalesforceConnectionService: Firebase Function error details: ${e.details}',
+          );
+          print(
+            'SalesforceConnectionService: Firebase Function error message: ${e.message}',
+          );
+        }
       }
       return false;
     }

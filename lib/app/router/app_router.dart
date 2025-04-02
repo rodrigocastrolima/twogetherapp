@@ -129,10 +129,12 @@ class AuthNotifier extends ChangeNotifier {
     bool rememberMe = false,
   }) async {
     try {
-      // Set persistence based on rememberMe flag
-      await FirebaseAuth.instance.setPersistence(
-        rememberMe ? Persistence.LOCAL : Persistence.SESSION,
-      );
+      // Set persistence based on rememberMe flag only on web platforms
+      if (kIsWeb) {
+        await FirebaseAuth.instance.setPersistence(
+          rememberMe ? Persistence.LOCAL : Persistence.SESSION,
+        );
+      }
 
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -431,7 +433,7 @@ class AppRouter {
             builder: (context, state) => const AdminSubmissionsPage(),
           ),
           GoRoute(
-            path: '/admin-retail-users',
+            path: '/admin/retail-users',
             name: 'adminRetailUsers',
             builder: (context, state) => const AdminRetailUsersPage(),
           ),
