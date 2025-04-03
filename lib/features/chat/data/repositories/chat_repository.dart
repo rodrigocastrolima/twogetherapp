@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
 
@@ -94,6 +95,127 @@ class ChatRepository {
     }
   }
 
+  /// Ensures that a reseller has a default conversation
+  /// This can be called during user creation or login to make sure every reseller has a conversation
+  Future<String> ensureResellerHasConversation(String resellerId) async {
+    try {
+      if (kDebugMode) {
+        print('Ensuring reseller $resellerId has a conversation');
+      }
+
+      // Check if a conversation already exists for this reseller
+      final QuerySnapshot querySnapshot =
+          await _firestore
+              .collection(_conversationsCollection)
+              .where('resellerId', isEqualTo: resellerId)
+              .limit(1)
+              .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        if (kDebugMode) {
+          print('Found existing conversation for reseller: $resellerId');
+        }
+        // Conversation exists, return its ID
+        return querySnapshot.docs.first.id;
+      } else {
+        if (kDebugMode) {
+          print(
+            'No conversation found, creating one for reseller: $resellerId',
+          );
+        }
+
+        // Get the reseller info from the users collection
+        final userDoc =
+            await _firestore.collection('users').doc(resellerId).get();
+
+        if (!userDoc.exists) {
+          if (kDebugMode) {
+            print('Reseller not found in users collection: $resellerId');
+          }
+          throw Exception('Reseller not found');
+        }
+
+        final String displayName =
+            userDoc.data()?['displayName'] ??
+            userDoc.data()?['email'] ??
+            'Unknown User';
+
+        if (kDebugMode) {
+          print(
+            'Creating conversation for reseller: $displayName ($resellerId)',
+          );
+        }
+
+        // Create a new conversation - WITHOUT lastMessageContent/Time or active state
+        final conversationData = {
+          'resellerId': resellerId,
+          'resellerName': displayName,
+          // Don't include lastMessageContent or lastMessageTime - they'll be set when actual messages are sent
+          // Always start as inactive until real messages are sent
+          'active': false,
+          // Initialize with empty unread counts
+          'unreadCounts': {},
+          'unreadByAdmin': false,
+          'unreadByReseller': false,
+          'unreadCount': 0,
+          'participants': ['admin', resellerId],
+          'activeUsers': [],
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+
+        try {
+          // Create the conversation document
+          final docRef = await _firestore
+              .collection(_conversationsCollection)
+              .add(conversationData);
+
+          final conversationId = docRef.id;
+
+          if (kDebugMode) {
+            print('Created new conversation with ID: $conversationId');
+          }
+
+          // Don't add a default welcome message to the database
+          // The welcome message will be added by the UI when needed
+
+          return conversationId;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error creating conversation document: $e');
+          }
+
+          // Try an alternative approach if the first attempt fails
+          // This uses a transaction to ensure atomicity
+          final String conversationId =
+              _firestore.collection(_conversationsCollection).doc().id;
+
+          await _firestore.runTransaction((transaction) async {
+            // Create the conversation document with a predefined ID
+            transaction.set(
+              _firestore
+                  .collection(_conversationsCollection)
+                  .doc(conversationId),
+              conversationData,
+            );
+          });
+
+          if (kDebugMode) {
+            print(
+              'Created conversation using transaction approach: $conversationId',
+            );
+          }
+
+          return conversationId;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error ensuring reseller has conversation: $e');
+      }
+      throw Exception('Failed to create conversation for reseller: $e');
+    }
+  }
+
   /// Get or create a conversation for the current reseller
   Future<String> getOrCreateConversation() async {
     final User? currentUser = _auth.currentUser;
@@ -102,48 +224,7 @@ class ChatRepository {
     }
 
     try {
-      // First check if a conversation already exists for this reseller
-      final QuerySnapshot querySnapshot =
-          await _firestore
-              .collection('conversations')
-              .where('resellerId', isEqualTo: currentUser.uid)
-              .limit(1)
-              .get();
-
-      if (querySnapshot.docs.isNotEmpty) {
-        // Conversation exists, return its ID
-        return querySnapshot.docs.first.id;
-      } else {
-        // Get the reseller name from the users collection
-        final userDoc =
-            await _firestore.collection('users').doc(currentUser.uid).get();
-
-        final String displayName =
-            userDoc.data()?['displayName'] ??
-            currentUser.email ??
-            'Unknown User';
-
-        // Create a new conversation
-        final conversationData = {
-          'resellerId': currentUser.uid,
-          'resellerName': displayName,
-          'lastMessageTime': FieldValue.serverTimestamp(),
-          // Old fields for backward compatibility
-          'unreadByAdmin': false,
-          'unreadByReseller': false,
-          'unreadCount': 0,
-          // New field - empty map of unreadCounts
-          'unreadCounts': {},
-          'participants': ['admin', currentUser.uid],
-          'createdAt': FieldValue.serverTimestamp(),
-        };
-
-        final docRef = await _firestore
-            .collection('conversations')
-            .add(conversationData);
-
-        return docRef.id;
-      }
+      return await ensureResellerHasConversation(currentUser.uid);
     } catch (e) {
       if (kDebugMode) {
         print('Error getting or creating conversation: $e');
@@ -168,18 +249,63 @@ class ChatRepository {
 
   // Get messages for a conversation
   Stream<List<ChatMessage>> getMessages(String conversationId) {
-    return _firestore
-        .collection(_conversationsCollection)
-        .doc(conversationId)
-        .collection(_messagesCollection)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs
-                  .map((doc) => ChatMessage.fromFirestore(doc))
-                  .toList(),
-        );
+    if (kDebugMode) {
+      print('Repository: Getting messages for conversation $conversationId');
+    }
+
+    try {
+      return _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .collection(_messagesCollection)
+          .orderBy('timestamp', descending: true)
+          .snapshots()
+          .map((snapshot) {
+            if (kDebugMode) {
+              print(
+                'Received ${snapshot.docs.length} messages for $conversationId',
+              );
+            }
+
+            // Convert docs to ChatMessage objects
+            final messages =
+                snapshot.docs
+                    .map((doc) {
+                      try {
+                        return ChatMessage.fromFirestore(doc);
+                      } catch (e) {
+                        // Log the error but don't crash
+                        if (kDebugMode) {
+                          print('Error parsing message ${doc.id}: $e');
+                          print('Document data: ${doc.data()}');
+                        }
+                        // Return null for messages that couldn't be parsed
+                        return null;
+                      }
+                    })
+                    // Filter out null messages
+                    .where((message) => message != null)
+                    .cast<ChatMessage>()
+                    .toList();
+
+            // Even if there's an error in data conversion, always return a valid list
+            return messages;
+          })
+          // Handle stream errors by returning an empty list rather than crashing
+          .handleError((error) {
+            if (kDebugMode) {
+              print('Error in messages stream for $conversationId: $error');
+            }
+            // Return empty list on error
+            return <ChatMessage>[];
+          });
+    } catch (e) {
+      // For any initialization errors, return an empty stream
+      if (kDebugMode) {
+        print('Error initializing messages stream for $conversationId: $e');
+      }
+      return Stream.value(<ChatMessage>[]);
+    }
   }
 
   // Mark messages as read for the current user
@@ -336,6 +462,8 @@ class ChatRepository {
       content: content,
       timestamp: DateTime.now(), // Will be overwritten by server timestamp
       isAdmin: isAdmin,
+      // This is a real message, not a default UI message
+      isDefault: false,
     );
 
     // Record this message send time for rate limiting
@@ -380,34 +508,44 @@ class ChatRepository {
         'lastMessageContent': content,
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastMessageIsFromAdmin': isAdmin,
+        // Explicitly mark conversation as active when a message is sent
+        'active': true,
       };
 
       // Determine recipient(s) to mark as having unread messages
       final String senderId = isAdmin ? 'admin' : currentUserId!;
 
-      // Update unread counts for all participants except the sender
+      // For each participant, update their unread count if they're not the sender
       for (final participantId in participants) {
-        // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
-          // Add to the unreadCounts map
-          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
-
-          // Also update old fields for backward compatibility
-          if (participantId == 'admin') {
-            updateData['unreadByAdmin'] = true;
-          } else {
-            updateData['unreadByReseller'] = true;
-          }
+          // Get the current unread count for this recipient
+          final currentUnreadCount =
+              (conversationData['unreadCounts']
+                  as Map<String, dynamic>?)?[participantId] ??
+              0;
+          updateData['unreadCounts.$participantId'] = currentUnreadCount + 1;
         }
       }
 
-      // Update the total unread count for backward compatibility
-      updateData['unreadCount'] = FieldValue.increment(1);
+      // Legacy fields for backward compatibility
+      if (isAdmin) {
+        updateData['unreadByAdmin'] = false;
+        updateData['unreadByReseller'] = true;
+        updateData['unreadCount'] =
+            (conversationData['unreadCount'] as int? ?? 0) + 1;
+      } else {
+        updateData['unreadByAdmin'] = true;
+        updateData['unreadByReseller'] = false;
+        updateData['unreadCount'] =
+            (conversationData['unreadCount'] as int? ?? 0) + 1;
+      }
 
       batch.update(conversationRef, updateData);
 
       // Commit all the changes at once
       await batch.commit();
+
+      // Note: The conversation's 'active' state will be set by the Cloud Function trigger
     } catch (e) {
       if (kDebugMode) {
         print('Error sending text message: $e');
@@ -667,6 +805,10 @@ class ChatRepository {
         }
       }
 
+      // Always mark conversation as active when sending an image
+      // This ensures it will appear in the admin's list
+      updateData['active'] = true;
+
       // Update the total unread count for backward compatibility
       updateData['unreadCount'] = FieldValue.increment(1);
 
@@ -895,7 +1037,7 @@ class ChatRepository {
     _messageSendTimes[userId]!.add(DateTime.now());
   }
 
-  // Set user as active or inactive in a conversation
+  // Track when a user is active in a conversation
   Future<void> setUserActiveInConversation(
     String conversationId,
     bool isActive,
@@ -903,34 +1045,155 @@ class ChatRepository {
     if (currentUserId == null) return;
 
     try {
-      // Check if user is admin
-      final cachedIsAdmin = await isCurrentUserAdmin();
+      if (kDebugMode) {
+        print(
+          'Setting user active status: ${isActive ? 'active' : 'inactive'} '
+          'for conversation: $conversationId',
+        );
+      }
 
-      // The userId to mark as active is 'admin' for admins, or the user's ID for resellers
-      final userIdForStatus = cachedIsAdmin ? 'admin' : currentUserId!;
+      // Determine if current user is admin
+      final bool isAdmin = await isCurrentUserAdmin();
 
-      // Get a reference to the conversation document
-      final conversationRef = _firestore
-          .collection(_conversationsCollection)
-          .doc(conversationId);
+      // The "activeUsers" entry to set or remove is 'admin' for admins, or the user's ID for resellers
+      final String userActiveId = isAdmin ? 'admin' : currentUserId!;
 
-      // Update the activeUsers field to track who is viewing the conversation
-      if (isActive) {
-        // Add user to active users
-        await conversationRef.update({
-          'activeUsers': FieldValue.arrayUnion([userIdForStatus]),
-        });
-      } else {
+      // Get current conversation document
+      final conversationSnapshot =
+          await _firestore
+              .collection(_conversationsCollection)
+              .doc(conversationId)
+              .get();
+
+      if (!conversationSnapshot.exists) {
+        if (kDebugMode) {
+          print('Conversation not found: $conversationId');
+        }
+        return;
+      }
+
+      // Get current active users array
+      final conversationData = conversationSnapshot.data()!;
+      List<dynamic> activeUsers = List<dynamic>.from(
+        conversationData['activeUsers'] ?? [],
+      );
+
+      // Update the active status based on the isActive flag
+      if (isActive && !activeUsers.contains(userActiveId)) {
+        // Add user to active users if they're not already there
+        activeUsers.add(userActiveId);
+      } else if (!isActive && activeUsers.contains(userActiveId)) {
         // Remove user from active users
-        await conversationRef.update({
-          'activeUsers': FieldValue.arrayRemove([userIdForStatus]),
-        });
+        activeUsers.remove(userActiveId);
+      } else {
+        // No change needed
+        if (kDebugMode) {
+          print('No change needed for active status');
+        }
+        return;
+      }
+
+      // Update the conversation with the new activeUsers array
+      await _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .update({'activeUsers': activeUsers});
+
+      if (kDebugMode) {
+        print('Updated active users to: $activeUsers');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error updating user active status: $e');
+        print('Error setting user active status: $e');
       }
       // Don't throw the error to prevent UI disruption
+    }
+  }
+
+  /// Reset a conversation by clearing all messages
+  /// This is an admin-only operation
+  Future<void> resetConversation(String conversationId) async {
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Check if user is admin
+    final isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
+      throw Exception('Only admins can reset conversations');
+    }
+
+    try {
+      // Call the resetConversation Firebase function
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('resetConversation');
+
+      final result = await callable.call({'conversationId': conversationId});
+
+      if (kDebugMode) {
+        print('Reset conversation result: ${result.data}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error resetting conversation: $e');
+      }
+      throw Exception('Failed to reset conversation: $e');
+    }
+  }
+
+  /// Get a list of all inactive conversations (admin only)
+  Future<List<ChatConversation>> getInactiveConversations() async {
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Check if user is admin
+    final isAdmin = await isCurrentUserAdmin();
+    if (!isAdmin) {
+      throw Exception('Only admins can view inactive conversations');
+    }
+
+    try {
+      // Call the getInactiveConversations Firebase function
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('getInactiveConversations');
+
+      final result = await callable.call({});
+
+      if (kDebugMode) {
+        print('Get inactive conversations result: ${result.data}');
+      }
+
+      // Parse the result data
+      final List<dynamic> inactiveConversationsData =
+          result.data['inactiveConversations'] ?? [];
+
+      // Convert to ChatConversation objects
+      final List<ChatConversation> inactiveConversations = [];
+
+      for (final data in inactiveConversationsData) {
+        final conversationId = data['conversationId'] as String;
+
+        // Fetch the full conversation document for complete data
+        final conversationDoc =
+            await _firestore
+                .collection(_conversationsCollection)
+                .doc(conversationId)
+                .get();
+
+        if (conversationDoc.exists) {
+          inactiveConversations.add(
+            ChatConversation.fromFirestore(conversationDoc),
+          );
+        }
+      }
+
+      return inactiveConversations;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting inactive conversations: $e');
+      }
+      throw Exception('Failed to get inactive conversations: $e');
     }
   }
 }

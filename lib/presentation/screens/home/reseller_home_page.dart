@@ -86,6 +86,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     final imageHeight = screenHeight * 0.4; // Increased to show more background
     final statusBarHeight = MediaQuery.of(context).padding.top;
     final currentUser = ref.watch(authStateChangesProvider);
+    final theme = Theme.of(context); // Get the current theme
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -109,8 +110,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           RefreshIndicator(
             key: _refreshIndicatorKey,
             onRefresh: _onRefresh,
-            backgroundColor: Colors.white,
-            color: const Color(0xFF1A2337),
+            backgroundColor:
+                theme.colorScheme.surface, // Use theme surface color
+            color: theme.colorScheme.primary, // Use theme primary color
             strokeWidth: 2.5,
             displacement: statusBarHeight + 40,
             edgeOffset: 0,
@@ -136,7 +138,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                 child: Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withOpacity(
+                                      0.2,
+                                    ), // Keep white for contrast on image
                                     shape: BoxShape.circle,
                                   ),
                                   child: SizedBox(
@@ -149,7 +153,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                           user?.email,
                                         ),
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color:
+                                              Colors
+                                                  .white, // Keep white for contrast
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
@@ -173,7 +179,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                       width: 16,
                                       height: 16,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                        color:
+                                            Colors
+                                                .white, // Keep white for contrast
                                         strokeWidth: 2,
                                       ),
                                     ),
@@ -196,7 +204,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                       child: const Text(
                                         'U',
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color:
+                                              Colors
+                                                  .white, // Keep white for contrast
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                         ),
@@ -239,11 +249,12 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                   // Space after commission box - matching the space before it
                   SizedBox(height: imageHeight * 0.1),
 
-                  // White content area - with straight edges
+                  // White content area - now uses theme background
                   Container(
                     width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color:
+                          theme.colorScheme.background, // Use theme background
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(0), // Straight edges
                       ),
@@ -294,12 +305,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Ações Rápidas',
-          style: TextStyle(
-            fontSize: 20,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1A2337),
+            color:
+                Theme.of(
+                  context,
+                ).colorScheme.onBackground, // Use theme text color
           ),
         ),
         const SizedBox(height: 24),
@@ -310,21 +323,25 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
               icon: CupertinoIcons.arrow_right,
               label: 'Transferir\nNacional',
               onTap: () => {},
+              theme: Theme.of(context), // Pass theme
             ),
             _buildQuickActionItem(
               icon: CupertinoIcons.doc_text,
               label: 'Pagar\nserviços',
               onTap: () => {},
+              theme: Theme.of(context),
             ),
             _buildQuickActionItem(
               icon: CupertinoIcons.phone,
               label: 'Carregar\ntelemóvel',
               onTap: () => {},
+              theme: Theme.of(context),
             ),
             _buildQuickActionItem(
               icon: CupertinoIcons.paperplane,
               label: 'Partilhar\nIBAN',
               onTap: () => {},
+              theme: Theme.of(context),
             ),
           ],
         ),
@@ -334,37 +351,35 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           width: double.infinity,
           height: 50,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A2337),
+            color:
+                Theme.of(
+                  context,
+                ).colorScheme.primary, // Use theme primary color
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextButton.icon(
             onPressed: () => context.push('/services'),
-            icon: const Icon(
+            icon: Icon(
               CupertinoIcons.add_circled,
-              color: Colors.white,
+              color:
+                  Theme.of(
+                    context,
+                  ).colorScheme.onPrimary, // Use theme onPrimary color
               size: 20,
             ),
-            label: const Text(
+            label: Text(
               'Create New Service',
               style: TextStyle(
-                color: Colors.white,
+                color:
+                    Theme.of(
+                      context,
+                    ).colorScheme.onPrimary, // Use theme onPrimary color
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ),
-
-        // --- TEMPORARY BUTTON ---
-        ElevatedButton(
-          onPressed: () {
-            // Make sure you define this route in your GoRouter config
-            context.push('/admin-retail-users');
-          },
-          child: const Text('TEMP: Go to Admin Retail Users'),
-        ),
-
-        // --- END TEMPORARY BUTTON ---
       ],
     );
   }
@@ -373,6 +388,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    required ThemeData theme, // Receive theme
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -382,7 +398,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface, // Use theme surface color
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
@@ -392,7 +408,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                 ),
               ],
             ),
-            child: Icon(icon, color: const Color(0xFF1A2337), size: 22),
+            child: Icon(
+              icon,
+              color: theme.colorScheme.primary,
+              size: 22,
+            ), // Use theme primary
           ),
           const SizedBox(height: 8),
           Text(
@@ -400,7 +420,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              color: const Color(0xFF1A2337).withOpacity(0.8),
+              color: theme.colorScheme.onSurface.withOpacity(
+                0.8,
+              ), // Use theme text color
             ),
           ),
         ],
@@ -450,7 +472,10 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color:
+                Theme.of(
+                  context,
+                ).colorScheme.surface, // Use theme surface color
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
@@ -519,7 +544,10 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color:
+                Theme.of(
+                  context,
+                ).colorScheme.surface, // Use theme surface color
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
@@ -553,16 +581,20 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                       notification['date'] as String,
                       style: TextStyle(
                         fontSize: 12,
-                        color: const Color(0xFF1A2337).withOpacity(0.7),
+                        color: Theme.of(context).colorScheme.onSurface
+                            .withOpacity(0.7), // Use theme text color
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       notification['title'] as String,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A2337),
+                        color:
+                            Theme.of(
+                              context,
+                            ).colorScheme.onSurface, // Use theme text color
                       ),
                     ),
                   ],
@@ -584,11 +616,13 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           icon: CupertinoIcons.exclamationmark_triangle_fill,
           title: notification['title'] as String,
           description: notification['description'] as String,
-          iconColor: AppTheme.destructive,
+          iconColor:
+              Theme.of(context).colorScheme.error, // Use theme error color
           onTap: () {
             final data = notification['data'] as Map<String, dynamic>;
             context.go('/notifications/${data['submissionId']}');
           },
+          theme: Theme.of(context), // Pass theme
         );
       }
     }).toList();
@@ -600,6 +634,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     required String description,
     VoidCallback? onTap,
     Color? iconColor,
+    required ThemeData theme, // Receive theme
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -607,7 +642,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.colorScheme.surface, // Use theme surface color
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
@@ -623,10 +658,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: (iconColor ?? AppTheme.primary).withAlpha(20),
+                color: (iconColor ?? theme.colorScheme.primary).withAlpha(20),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: iconColor ?? AppTheme.primary, size: 18),
+              child: Icon(
+                icon,
+                color: iconColor ?? theme.colorScheme.primary,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -635,10 +674,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A2337),
+                      color:
+                          theme.colorScheme.onSurface, // Use theme text color
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -646,7 +686,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                     description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: const Color(0xFF1A2337).withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withOpacity(
+                        0.7,
+                      ), // Use theme text color
                     ),
                   ),
                 ],
@@ -655,7 +697,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
             Icon(
               CupertinoIcons.chevron_right,
               size: 14,
-              color: const Color(0xFF1A2337).withOpacity(0.4),
+              color: theme.colorScheme.onSurface.withOpacity(
+                0.4,
+              ), // Use theme text color
             ),
           ],
         ),
@@ -805,6 +849,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
+                            color: Colors.white,
                           ),
                         ),
                       ),

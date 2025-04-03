@@ -15,6 +15,12 @@ service cloud.firestore {
         conversation.data.resellerId == request.auth.uid;
     }
     
+    // Check if the user is the reseller in the data being written
+    function isResellerInData() {
+      return request.auth != null && 
+             request.resource.data.resellerId == request.auth.uid;
+    }
+    
     // Check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
@@ -32,7 +38,8 @@ service cloud.firestore {
     match /conversations/{conversationId} {
       // Admins can read and write any conversation
       // Resellers can read and write only their own conversations
-      allow read, write: if isAuthenticated() && 
+      allow create: if isAuthenticated() && (isAdmin() || isResellerInData());
+      allow read, update, delete: if isAuthenticated() && 
         (isAdmin() || resource.data.resellerId == request.auth.uid);
       
       // Messages in conversations

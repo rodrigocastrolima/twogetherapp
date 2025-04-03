@@ -9,7 +9,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "deploy:nolint": "firebase deploy --only functions --force",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "migration:create-conversations": "ts-node src/createMissingConversations.ts"
   },
   "engines": {
     "node": "22"

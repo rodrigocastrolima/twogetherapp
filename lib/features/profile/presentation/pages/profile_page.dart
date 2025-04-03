@@ -22,6 +22,7 @@ class ProfilePage extends ConsumerWidget {
     final themeNotifier = ref.watch(themeProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
 
     return NoScrollbarBehavior.noScrollbars(
       context,
@@ -36,7 +37,7 @@ class ProfilePage extends ConsumerWidget {
             Text(
               l10n.profileTitle,
               style: AppTextStyles.h2.copyWith(
-                color: isDark ? Colors.white : AppTheme.foreground,
+                color: theme.colorScheme.onBackground,
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
               ),
@@ -51,6 +52,7 @@ class ProfilePage extends ConsumerWidget {
               currentTheme,
               l10n,
               isDark,
+              theme,
             ),
           ],
         ),
@@ -71,25 +73,37 @@ class ProfilePage extends ConsumerWidget {
                 Theme.of(context).brightness == Brightness.dark
                     ? AppTheme.darkBackground.withAlpha(230)
                     : Colors.white.withAlpha(230),
-            title: Text(l10n.profileLogout),
-            content: Text(l10n.profileLogoutConfirm),
+            title: Text(
+              l10n.profileLogout,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            content: Text(
+              l10n.profileLogoutConfirm,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: Text(
                   l10n.commonCancel,
                   style: TextStyle(
-                    color:
-                        Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white70
-                            : AppTheme.foreground,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
-                child: Text(l10n.profileLogout),
+                child: Text(
+                  l10n.profileLogout,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onError,
+                  ),
+                ),
               ),
             ],
           ),
@@ -110,6 +124,7 @@ class ProfilePage extends ConsumerWidget {
     ThemeMode currentTheme,
     AppLocalizations l10n,
     bool isDark,
+    ThemeData theme,
   ) {
     String getThemeName() {
       switch (currentTheme) {
@@ -128,178 +143,213 @@ class ProfilePage extends ConsumerWidget {
         Text(
           l10n.profileSettings,
           style: AppTextStyles.h2.copyWith(
-            color: isDark ? Colors.white : AppTheme.foreground,
+            color: theme.colorScheme.onBackground,
             fontSize: 28,
             fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: AppConstants.spacing24),
-        _buildSettingsSection(l10n.profilePersonalInfo, [
-          _buildSettingsTile(
-            icon: Icons.dashboard_outlined,
-            title: 'Dashboard',
-            subtitle: l10n.profilePersonalInfo,
-            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-            onTap: () {
-              // Navigate to dashboard
-            },
-            isDark: isDark,
-          ),
-          _buildSettingsTile(
-            icon: Icons.lock_outline,
-            title: l10n.profileChangePassword,
-            subtitle: l10n.profileUpdatePassword,
-            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-            onTap: () {
-              // Handle password change
-            },
-            isDark: isDark,
-          ),
-        ], isDark),
+        _buildSettingsSection(
+          l10n.profilePersonalInfo,
+          [
+            _buildSettingsTile(
+              icon: Icons.dashboard_outlined,
+              title: 'Dashboard',
+              subtitle: l10n.profilePersonalInfo,
+              trailing: Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+              onTap: () {
+                // Navigate to dashboard
+              },
+              isDark: isDark,
+              theme: theme,
+            ),
+            _buildSettingsTile(
+              icon: Icons.lock_outline,
+              title: l10n.profileChangePassword,
+              subtitle: l10n.profileUpdatePassword,
+              trailing: Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+              onTap: () {
+                // Handle password change
+              },
+              isDark: isDark,
+              theme: theme,
+            ),
+          ],
+          isDark,
+          theme,
+        ),
         const SizedBox(height: AppConstants.spacing32),
-        _buildSettingsSection(l10n.commonFilter, [
-          _buildSettingsTile(
-            icon: Icons.dark_mode,
-            title: l10n.profileTheme,
-            subtitle: getThemeName(),
-            trailing: Switch(
-              value: currentTheme == ThemeMode.dark,
-              activeColor: isDark ? AppTheme.darkPrimary : AppTheme.primary,
-              inactiveTrackColor:
-                  isDark
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.3),
-              onChanged: (bool value) {
-                themeNotifier.setTheme(
-                  value ? ThemeMode.dark : ThemeMode.light,
-                );
-              },
+        _buildSettingsSection(
+          l10n.commonFilter,
+          [
+            _buildSettingsTile(
+              icon: Icons.dark_mode,
+              title: l10n.profileTheme,
+              subtitle: getThemeName(),
+              trailing: Switch(
+                value: currentTheme == ThemeMode.dark,
+                activeColor: theme.colorScheme.primary,
+                inactiveTrackColor: theme.colorScheme.onSurface.withOpacity(
+                  0.3,
+                ),
+                onChanged: (bool value) {
+                  themeNotifier.setTheme(
+                    value ? ThemeMode.dark : ThemeMode.light,
+                  );
+                },
+              ),
+              isDark: isDark,
+              theme: theme,
             ),
-            isDark: isDark,
-          ),
-          _buildSettingsTile(
-            icon: Icons.language,
-            title: l10n.commonLanguage,
-            subtitle: localeNotifier.getLanguageName(),
-            trailing: DropdownButton<String>(
-              value: currentLocale.languageCode,
-              underline: const SizedBox(),
-              icon: const Icon(Icons.chevron_right, color: Colors.white54),
-              dropdownColor:
-                  isDark
-                      ? AppTheme.darkBackground.withOpacity(0.9)
-                      : Colors.white.withOpacity(0.9),
-              items: [
-                DropdownMenuItem(
-                  value: 'pt',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('pt'),
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
+            _buildSettingsTile(
+              icon: Icons.language,
+              title: l10n.commonLanguage,
+              subtitle: localeNotifier.getLanguageName(),
+              trailing: DropdownButton<String>(
+                value: currentLocale.languageCode,
+                underline: const SizedBox(),
+                icon: Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                ),
+                dropdownColor: theme.colorScheme.surface.withOpacity(0.9),
+                items: [
+                  DropdownMenuItem(
+                    value: 'pt',
+                    child: Text(
+                      localeNotifier.getLanguageNameFromCode('pt'),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
                     ),
                   ),
-                ),
-                DropdownMenuItem(
-                  value: 'en',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('en'),
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(
+                      localeNotifier.getLanguageNameFromCode('en'),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
                     ),
                   ),
-                ),
-                DropdownMenuItem(
-                  value: 'es',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('es'),
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
+                  DropdownMenuItem(
+                    value: 'es',
+                    child: Text(
+                      localeNotifier.getLanguageNameFromCode('es'),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
                     ),
                   ),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  localeNotifier.setLocale(value);
-                }
-              },
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    localeNotifier.setLocale(value);
+                  }
+                },
+              ),
+              isDark: isDark,
+              theme: theme,
             ),
-            isDark: isDark,
-          ),
-          _buildSettingsTile(
-            icon: Icons.cloud_outlined,
-            title: 'Salesforce',
-            subtitle: l10n.profileSalesforceConnect,
-            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-            onTap: () {
-              context.go('/salesforce-setup');
-            },
-            isDark: isDark,
-          ),
-          _buildSettingsTile(
-            icon: Icons.notifications_outlined,
-            title: l10n.homeNotifications,
-            subtitle: l10n.homeNoNotifications,
-            trailing: DropdownButton<String>(
-              value: 'Todas',
-              underline: const SizedBox(),
-              icon: const Icon(Icons.chevron_right, color: Colors.white54),
-              dropdownColor:
-                  isDark
-                      ? AppTheme.darkBackground.withOpacity(0.9)
-                      : Colors.white.withOpacity(0.9),
-              items: [
-                DropdownMenuItem(
-                  value: 'Todas',
-                  child: Text(
-                    'Todas',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'Importantes',
-                  child: Text(
-                    'Importantes',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'Nenhuma',
-                  child: Text(
-                    'Nenhuma',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-              onChanged: (value) {
-                // Handle notifications change
+            _buildSettingsTile(
+              icon: Icons.cloud_outlined,
+              title: 'Salesforce',
+              subtitle: l10n.profileSalesforceConnect,
+              trailing: Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
+              ),
+              onTap: () {
+                context.go('/salesforce-setup');
               },
+              isDark: isDark,
+              theme: theme,
             ),
-            isDark: isDark,
-          ),
-        ], isDark),
+            _buildSettingsTile(
+              icon: Icons.notifications_outlined,
+              title: l10n.homeNotifications,
+              subtitle: l10n.homeNoNotifications,
+              trailing: DropdownButton<String>(
+                value: 'Todas',
+                underline: const SizedBox(),
+                icon: Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                ),
+                dropdownColor: theme.colorScheme.surface.withOpacity(0.9),
+                items: [
+                  DropdownMenuItem(
+                    value: 'Todas',
+                    child: Text(
+                      'Todas',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Importantes',
+                    child: Text(
+                      'Importantes',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Nenhuma',
+                    child: Text(
+                      'Nenhuma',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  // Handle notifications change
+                },
+              ),
+              isDark: isDark,
+              theme: theme,
+            ),
+          ],
+          isDark,
+          theme,
+        ),
         const SizedBox(height: AppConstants.spacing32),
-        _buildSettingsSection('', [
-          _buildSettingsTile(
-            icon: Icons.logout,
-            title: l10n.profileLogout,
-            subtitle: l10n.profileEndSession,
-            textColor: Colors.red,
-            onTap: () => _handleLogout(context, l10n),
-            isDark: isDark,
-          ),
-        ], isDark),
+        _buildSettingsSection(
+          '',
+          [
+            _buildSettingsTile(
+              icon: Icons.logout,
+              title: l10n.profileLogout,
+              subtitle: l10n.profileEndSession,
+              textColor: Colors.red,
+              onTap: () => _handleLogout(context, l10n),
+              isDark: isDark,
+              theme: theme,
+            ),
+          ],
+          isDark,
+          theme,
+        ),
       ],
     );
   }
 
-  Widget _buildSettingsSection(String title, List<Widget> items, bool isDark) {
+  Widget _buildSettingsSection(
+    String title,
+    List<Widget> items,
+    bool isDark,
+    ThemeData theme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -314,10 +364,7 @@ class ProfilePage extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color:
-                    isDark
-                        ? Colors.white.withAlpha(128)
-                        : AppTheme.foreground.withAlpha(128),
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
               ),
             ),
           ),
@@ -327,17 +374,9 @@ class ProfilePage extends ConsumerWidget {
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
               decoration: BoxDecoration(
-                color:
-                    isDark
-                        ? Colors.white.withAlpha(10)
-                        : Colors.white.withAlpha(20),
+                color: theme.colorScheme.surface.withOpacity(0.8),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color:
-                      isDark
-                          ? Colors.white.withAlpha(15)
-                          : Colors.white.withAlpha(38),
-                ),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
               ),
               child: Column(children: items),
             ),
@@ -355,15 +394,15 @@ class ProfilePage extends ConsumerWidget {
     VoidCallback? onTap,
     Color? textColor,
     required bool isDark,
+    required ThemeData theme,
   }) {
-    final Color defaultTextColor = isDark ? Colors.white : AppTheme.foreground;
-
+    final Color defaultTextColor = theme.colorScheme.onSurface;
+    final Color iconColor =
+        textColor ?? theme.colorScheme.onSurface.withOpacity(0.7);
     final Color subtitleColor =
         textColor != null
             ? Colors.red.withAlpha(179)
-            : (isDark
-                ? Colors.white.withAlpha(153)
-                : AppTheme.foreground.withAlpha(153));
+            : theme.colorScheme.onSurface.withOpacity(0.6);
 
     return InkWell(
       onTap: onTap,
@@ -374,15 +413,7 @@ class ProfilePage extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color:
-                  textColor ??
-                  (isDark
-                      ? Colors.white.withAlpha(179)
-                      : AppTheme.foreground.withAlpha(179)),
-              size: 24,
-            ),
+            Icon(icon, color: iconColor, size: 24),
             const SizedBox(width: AppConstants.spacing16),
             Expanded(
               child: Column(

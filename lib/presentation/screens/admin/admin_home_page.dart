@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -12,6 +13,8 @@ class AdminHomePage extends StatefulWidget {
 }
 
 class _AdminHomePageState extends State<AdminHomePage> {
+  bool _isRunningMigration = false;
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -29,6 +32,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
           _buildRecentActivities(),
           const SizedBox(height: 32),
           _buildSystemStatus(),
+          const SizedBox(height: 32),
+          _buildTemporaryMigrationSection(),
         ],
       ),
     );
@@ -307,6 +312,182 @@ class _AdminHomePageState extends State<AdminHomePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTemporaryMigrationSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Maintenance Tools',
+          style: AppTextStyles.h3.copyWith(color: Colors.white),
+        ),
+        const SizedBox(height: 16),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(20),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withAlpha(26),
+                  width: 0.5,
+                ),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Database Migrations',
+                    style: AppTextStyles.h4.copyWith(color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Run maintenance tasks and migrations on the database.',
+                    style: AppTextStyles.body2.copyWith(
+                      color: Colors.white.withAlpha(179),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed:
+                        _isRunningMigration
+                            ? null
+                            : () => _runMigration(context),
+                    icon:
+                        _isRunningMigration
+                            ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                            : const Icon(
+                              CupertinoIcons.arrow_clockwise,
+                              size: 18,
+                            ),
+                    label: Text(
+                      _isRunningMigration
+                          ? 'Running...'
+                          : 'Create Missing Conversations',
+                    ),
+                    style: FilledButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.deepPurple,
+                      disabledBackgroundColor: Colors.deepPurple.withOpacity(
+                        0.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _runMigration(BuildContext context) async {
+    try {
+      setState(() {
+        _isRunningMigration = true;
+      });
+
+      final functions = FirebaseFunctions.instance;
+      final callable = functions.httpsCallable('runMigration');
+      final result = await callable.call();
+
+      if (mounted) {
+        _showMigrationResultDialog(context, result.data);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMigrationErrorDialog(context, e.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunningMigration = false;
+        });
+      }
+    }
+  }
+
+  void _showMigrationResultDialog(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('Migration Completed', style: AppTextStyles.h3),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('The migration was completed successfully.'),
+                const SizedBox(height: 16),
+                Text('Results:', style: AppTextStyles.h4),
+                const SizedBox(height: 8),
+                Text('• Created conversations: ${data['created']}'),
+                Text('• Existing conversations: ${data['existing']}'),
+                Text('• Total resellers: ${data['total']}'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showMigrationErrorDialog(BuildContext context, String error) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('Migration Failed', style: AppTextStyles.h3),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('The migration failed with the following error:'),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error, style: const TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
     );
   }
 }

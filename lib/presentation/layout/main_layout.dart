@@ -84,8 +84,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final isSmallScreen = width < 600;
     final isDesktop = width >= 1024;
 
+    // Use theme colors for light mode
+    final Color lightBackgroundColor = Theme.of(context).colorScheme.background;
+
+    // Use theme colors for dark mode
+    final Color darkBackgroundColor = Theme.of(context).colorScheme.background;
+    final Color darkNavBarColor =
+        AppTheme.darkNavBarBackground; // Use the specific nav bar color
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDark ? darkBackgroundColor : lightBackgroundColor,
       extendBodyBehindAppBar: true,
       appBar:
           isSmallScreen &&
@@ -106,7 +114,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       title: Container(
                         height: 80,
                         alignment: Alignment.center,
-                        child: LogoWidget(height: 80, darkMode: isDark),
+                        child: LogoWidget(height: 80, darkMode: false),
                       ),
                       centerTitle: true,
                       actions: [
@@ -119,7 +127,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               : null,
       body: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA), // Daisy white color
+          color: Theme.of(context).colorScheme.background,
         ),
         child: Stack(
           children: [
@@ -160,7 +168,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         child: BackdropFilter(
           filter: AppStyles.standardBlur,
           child: Container(
-            decoration: AppStyles.sidebarDecoration(context),
+            decoration: BoxDecoration(
+              color:
+                  isDark
+                      ? AppTheme
+                          .darkNavBarBackground // Use specific dark nav color
+                      : Theme.of(context).colorScheme.surface.withOpacity(0.8),
+              border: Border(
+                right: BorderSide(
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                ),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -168,7 +187,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 // Logo
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: LogoWidget(height: 50, darkMode: isDark),
+                  child: LogoWidget(height: 50, darkMode: false),
                 ),
                 const SizedBox(height: 24),
                 // Navigation Items
@@ -235,6 +254,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     required Color textColor,
     int badgeCount = 0,
   }) {
+    // Define the Tulip Tree color with enhanced brightness
+    final Color tulipTreeColor = Color(0xFFffbe45);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       decoration: isSelected ? AppStyles.activeItemHighlight(context) : null,
@@ -247,14 +269,24 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color:
-                      isSelected
-                          ? Theme.of(context).primaryColor
-                          : textColor.withOpacity(0.7),
-                  size: 20,
-                ),
+                isSelected
+                    ? ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (Rect bounds) {
+                        return LinearGradient(
+                          colors: [
+                            tulipTreeColor,
+                            tulipTreeColor.withRed(
+                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: Icon(icon, size: 20),
+                    )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -262,10 +294,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     style: TextStyle(
                       color:
                           isSelected
-                              ? Theme.of(context).primaryColor
+                              ? tulipTreeColor
                               : textColor.withOpacity(0.7),
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
+                      shadows:
+                          isSelected
+                              ? [
+                                Shadow(
+                                  color: tulipTreeColor.withOpacity(0.3),
+                                  blurRadius: 2.0,
+                                ),
+                              ]
+                              : null,
                     ),
                   ),
                 ),
@@ -308,14 +349,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             decoration: BoxDecoration(
               color:
                   isDark
-                      ? Colors.black.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.2),
+                      ? AppTheme
+                          .darkNavBarBackground // Use specific dark nav color
+                      : Colors.white.withOpacity(
+                        0.8,
+                      ), // Keep light theme semi-transparent
               border: Border(
                 top: BorderSide(
-                  color:
-                      isDark
-                          ? Colors.white.withOpacity(0.05)
-                          : Colors.black.withOpacity(0.05),
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
                   width: 0.5,
                 ),
               ),
@@ -325,21 +366,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               children: [
                 _buildTabItem(
                   icon: CupertinoIcons.house,
-                  selectedIcon: CupertinoIcons.house_fill,
                   label: l10n.navHome,
                   isSelected: _selectedIndex == 0,
                   onTap: () => _handleNavigation(0),
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
-                  selectedIcon: CupertinoIcons.person_2_fill,
                   label: l10n.navClients,
                   isSelected: _selectedIndex == 1,
                   onTap: () => _handleNavigation(1),
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
-                  selectedIcon: CupertinoIcons.bubble_left_fill,
                   label: l10n.navMessages,
                   isSelected: _selectedIndex == 2,
                   onTap: () => _handleNavigation(2),
@@ -347,7 +385,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person,
-                  selectedIcon: CupertinoIcons.person_fill,
                   label: l10n.navProfile,
                   isSelected: _selectedIndex == 3,
                   onTap: () => _handleNavigation(3),
@@ -362,7 +399,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   Widget _buildTabItem({
     required IconData icon,
-    required IconData selectedIcon,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
@@ -370,6 +406,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
+    // Define the Tulip Tree color with enhanced brightness
+    final Color tulipTreeColor = Color(0xFFffbe45);
 
     return GestureDetector(
       onTap: onTap,
@@ -382,14 +420,24 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(
-                  isSelected ? selectedIcon : icon,
-                  color:
-                      isSelected
-                          ? Theme.of(context).primaryColor
-                          : textColor.withOpacity(0.7),
-                  size: 24,
-                ),
+                isSelected
+                    ? ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (Rect bounds) {
+                        return LinearGradient(
+                          colors: [
+                            tulipTreeColor,
+                            tulipTreeColor.withRed(
+                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: Icon(icon, size: 24),
+                    )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
                 if (badgeCount > 0)
                   Positioned(
                     top: -5,
@@ -411,12 +459,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             Text(
               label,
               style: TextStyle(
-                color:
-                    isSelected
-                        ? Theme.of(context).primaryColor
-                        : textColor.withOpacity(0.7),
+                color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                shadows:
+                    isSelected
+                        ? [
+                          Shadow(
+                            color: tulipTreeColor.withOpacity(0.3),
+                            blurRadius: 1.5,
+                          ),
+                        ]
+                        : null,
               ),
             ),
           ],

@@ -44,7 +44,11 @@ class _ResellerChatView extends ConsumerWidget {
         top: false,
         child: conversationAsync.when(
           data: (conversationId) {
-            return ChatPage(conversationId: conversationId, showAppBar: false);
+            return ChatPage(
+              conversationId: conversationId,
+              showAppBar: false,
+              isAdminView: false,
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error:

@@ -2,25 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/providers/theme_provider.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
 
-class AdminSettingsPage extends StatefulWidget {
+class AdminSettingsPage extends ConsumerStatefulWidget {
   const AdminSettingsPage({super.key});
 
   @override
-  State<AdminSettingsPage> createState() => _AdminSettingsPageState();
+  ConsumerState<AdminSettingsPage> createState() => _AdminSettingsPageState();
 }
 
-class _AdminSettingsPageState extends State<AdminSettingsPage> {
-  bool _isDarkMode = true;
+class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   bool _notificationsEnabled = true;
   bool _securityAlertsEnabled = true;
   String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -40,11 +44,9 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
               'Dark Mode',
               'Switch between light and dark themes',
               CupertinoIcons.moon_fill,
-              _isDarkMode,
+              isDarkMode,
               (value) {
-                setState(() {
-                  _isDarkMode = value;
-                });
+                ref.read(themeProvider.notifier).toggleTheme();
               },
             ),
             _buildToggleSetting(
@@ -230,7 +232,11 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeColor: Colors.amber),
+          CupertinoSwitch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Theme.of(context).colorScheme.primary,
+          ),
         ],
       ),
     );

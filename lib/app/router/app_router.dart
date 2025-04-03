@@ -27,7 +27,8 @@ import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
 import '../../features/admin/presentation/pages/admin_submissions_page.dart';
-import '../../presentation/screens/admin/admin_retail_users_page.dart';
+import '../../presentation/screens/admin/admin_opportunities_page.dart';
+import '../../features/chat/data/repositories/chat_repository.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -176,6 +177,24 @@ class AuthNotifier extends ChangeNotifier {
             _isFirstLogin = doc.data()?['isFirstLogin'] as bool? ?? false;
 
             notifyListeners();
+
+            // Ensure a reseller user has a conversation
+            if (normalizedRole == 'reseller') {
+              try {
+                if (kDebugMode) {
+                  print('Ensuring reseller has a default conversation');
+                }
+
+                // Create a chat repository and ensure the reseller has a conversation
+                final chatRepository = ChatRepository();
+                await chatRepository.ensureResellerHasConversation(user.uid);
+              } catch (e) {
+                // Don't block login if chat creation fails
+                if (kDebugMode) {
+                  print('Failed to ensure conversation: $e');
+                }
+              }
+            }
           }
         } catch (e) {
           if (kDebugMode) {
@@ -429,13 +448,12 @@ class AppRouter {
             builder: (context, state) => const SalesforceSetupPage(),
           ),
           GoRoute(
-            path: '/admin/resellers',
+            path: '/admin/submissions',
             builder: (context, state) => const AdminSubmissionsPage(),
           ),
           GoRoute(
-            path: '/admin/retail-users',
-            name: 'adminRetailUsers',
-            builder: (context, state) => const AdminRetailUsersPage(),
+            path: '/admin/opportunities',
+            builder: (context, state) => const AdminOpportunitiesPage(),
           ),
         ],
       ),

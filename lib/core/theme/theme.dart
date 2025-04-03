@@ -20,18 +20,27 @@ class AppTheme {
   static const ring = Color(0xFF0A0E17);
 
   // Dark theme colors
-  static const darkBackground = Color(0xFF121212);
-  static const darkForeground = Color(0xFFF5F5F6);
-  static const darkPrimary = Color(0xFF3B82F6); // Brighter blue for dark mode
-  static const darkPrimaryForeground = Color(0xFFF8FAFC);
-  static const darkSecondary = Color(0xFF232530);
-  static const darkSecondaryForeground = Color(0xFFF8FAFC);
-  static const darkMuted = Color(0xFF2A2B37);
-  static const darkMutedForeground = Color(0xFF9CA3AF);
-  static const darkAccent = Color(0xFF3B82F6);
-  static const darkAccentForeground = Color(0xFFF8FAFC);
-  static const darkBorder = Color(0xFF383A4E);
-  static const darkInput = Color(0xFF1F2029);
+  static const darkBackground = Color(0xFF0A192F); // Deep dark blue
+  static const darkNavBarBackground = Color(
+    0xFF061324,
+  ); // Slightly darker blue for nav
+  static const darkForeground = Color(0xFFE0E0E0); // Light gray for text
+  static const darkPrimary = Color(
+    0xFF60A5FA,
+  ); // Lighter blue for primary actions
+  static const darkPrimaryForeground = Color(
+    0xFF0A192F,
+  ); // Dark blue text on primary
+  static const darkSecondary = Color(0xFF1E293B); // Dark grayish blue
+  static const darkSecondaryForeground = Color(
+    0xFFE0E0E0,
+  ); // Light gray text on secondary
+  static const darkMuted = Color(0xFF334155); // Muted dark blue/gray
+  static const darkMutedForeground = Color(0xFF94A3B8); // Lighter muted text
+  static const darkAccent = Color(0xFF60A5FA); // Same as primary for accent
+  static const darkAccentForeground = Color(0xFF0A192F); // Dark text on accent
+  static const darkBorder = Color(0xFF1E293B); // Match secondary for borders
+  static const darkInput = Color(0xFF1E293B); // Match secondary for inputs
 
   // Gradient colors
   static const lightGradientStart = Color(0xFF7CBAE3); // Light blue at top
@@ -115,7 +124,7 @@ class AppTheme {
       brightness: Brightness.dark,
       useMaterial3: true,
       colorScheme: const ColorScheme.dark(
-        surface: darkInput,
+        surface: darkSecondary, // Use secondary for card/surface backgrounds
         onSurface: darkForeground,
         primary: darkPrimary,
         onPrimary: darkPrimaryForeground,
@@ -128,32 +137,36 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: darkBackground,
       appBarTheme: const AppBarTheme(
-        backgroundColor: darkBackground,
+        backgroundColor: darkBackground, // Use main dark background
         foregroundColor: darkForeground,
         elevation: 0,
       ),
       cardTheme: CardTheme(
-        color: darkSecondary,
+        color: darkSecondary, // Use secondary color for cards
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: const BorderSide(color: darkBorder),
+          side: const BorderSide(color: darkBorder), // Use dark border
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: darkInput,
+        fillColor: darkInput, // Use dark input color
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: darkBorder),
+          borderSide: const BorderSide(color: darkBorder), // Use dark border
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: BorderSide(color: darkBorder.withAlpha(128)),
+          borderSide: BorderSide(
+            color: darkBorder.withAlpha(128),
+          ), // Slightly lighter border
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: darkPrimary),
+          borderSide: const BorderSide(
+            color: darkPrimary,
+          ), // Primary color for focus
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
@@ -163,9 +176,33 @@ class AppTheme {
           horizontal: 16,
           vertical: 16,
         ),
+        labelStyle: const TextStyle(
+          color: darkMutedForeground,
+        ), // Muted color for labels
+        hintStyle: const TextStyle(
+          color: darkMutedForeground,
+        ), // Muted color for hints
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-      iconTheme: const IconThemeData(color: darkMutedForeground),
+      textTheme: GoogleFonts.interTextTheme(
+        ThemeData.dark().textTheme,
+      ).apply(bodyColor: darkForeground, displayColor: darkForeground),
+      iconTheme: const IconThemeData(
+        color: darkMutedForeground,
+      ), // Muted icon color
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return darkPrimary;
+          }
+          return darkMuted; // Off state color
+        }),
+        trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return darkPrimary.withOpacity(0.5);
+          }
+          return darkMuted.withOpacity(0.5); // Off state track color
+        }),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: darkPrimary,

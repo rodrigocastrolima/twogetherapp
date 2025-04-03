@@ -5,6 +5,9 @@ import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
 import '../../../app/router/app_router.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../features/chat/data/repositories/chat_repository.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   const ChangePasswordPage({super.key});
@@ -49,6 +52,41 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.completeFirstLogin();
       debugPrint('First login marked as completed');
+
+      // Ensure the conversation is created for reseller users
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        try {
+          // Get the user role from Firestore
+          final userDoc =
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .get();
+
+          if (userDoc.exists) {
+            final roleData = userDoc.data()?['role'];
+            final String roleString = roleData is String ? roleData : 'unknown';
+            final normalizedRole = roleString.trim().toLowerCase();
+
+            if (normalizedRole == 'reseller') {
+              // For resellers, ensure conversation exists
+              debugPrint(
+                'First login completed for reseller, ensuring conversation exists',
+              );
+              final chatRepository = ChatRepository();
+              await chatRepository.ensureResellerHasConversation(user.uid);
+              debugPrint('Conversation created or verified for reseller');
+            }
+          }
+        } catch (e) {
+          debugPrint('Error ensuring conversation after password change: $e');
+          // Don't block the completion process for this error
+        }
+      }
+
+      // Add a short delay to ensure Firebase operations complete
+      await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

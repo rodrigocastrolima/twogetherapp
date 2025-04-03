@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import '../../../core/theme/theme.dart';
 import '../../../features/salesforce/data/repositories/salesforce_repository.dart';
 
 class AdminOpportunitiesPage extends StatefulWidget {
-  const AdminOpportunitiesPage({Key? key}) : super(key: key);
+  const AdminOpportunitiesPage({super.key});
 
   @override
   State<AdminOpportunitiesPage> createState() => _AdminOpportunitiesPageState();
@@ -17,7 +16,6 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
   bool _isConnected = false;
   String _errorMessage = '';
   List<Map<String, dynamic>> _opportunities = [];
-  Map<String, dynamic>? _selectedOpportunity;
   List<String> _availableFields = [];
   final String _objectName = 'Oportunidade__c';
 
@@ -137,52 +135,61 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Salesforce Opportunities'),
-        actions: [
-          // Add filter dropdown
-          DropdownButton<String>(
-            value: _selectedRecordType,
-            icon: const Icon(Icons.filter_list, color: Colors.white),
-            underline: Container(), // No underline
-            dropdownColor: Theme.of(context).primaryColor,
-            style: const TextStyle(color: Colors.white),
-            onChanged: (String? newValue) {
-              if (newValue != null && newValue != _selectedRecordType) {
-                setState(() {
-                  _selectedRecordType = newValue;
-                });
-                _fetchOpportunities();
-              }
-            },
-            items:
-                _recordTypes.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-          ),
-          const SizedBox(width: 8),
-          // Refresh button
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchOpportunities,
-            tooltip: l10n.refresh,
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _buildContent(context),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header with title and actions
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Salesforce Opportunities',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            Row(
+              children: [
+                // Filter dropdown
+                DropdownButton<String>(
+                  value: _selectedRecordType,
+                  icon: const Icon(Icons.filter_list),
+                  underline: Container(), // No underline
+                  onChanged: (String? newValue) {
+                    if (newValue != null && newValue != _selectedRecordType) {
+                      setState(() {
+                        _selectedRecordType = newValue;
+                      });
+                      _fetchOpportunities();
+                    }
+                  },
+                  items:
+                      _recordTypes.map<DropdownMenuItem<String>>((
+                        String value,
+                      ) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                ),
+                const SizedBox(width: 8),
+                // Refresh button
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _fetchOpportunities,
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Main content
+        Expanded(child: _buildContent(context)),
+      ],
     );
   }
 
   Widget _buildContent(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -200,7 +207,7 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _initializeSalesforce,
-              child: Text(l10n.tryAgain),
+              child: const Text('Try Again'),
             ),
           ],
         ),
@@ -212,7 +219,10 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Not connected to Salesforce', textAlign: TextAlign.center),
+            const Text(
+              'Not connected to Salesforce',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _initializeSalesforce,
@@ -228,11 +238,11 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('No opportunities found', textAlign: TextAlign.center),
+            const Text('No opportunities found', textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _fetchOpportunities,
-              child: Text(l10n.refresh),
+              child: const Text('Refresh'),
             ),
             const SizedBox(height: 32),
             if (_availableFields.isNotEmpty) ...[
@@ -277,7 +287,7 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(
         child: DataTable(
-          columns: [
+          columns: const [
             DataColumn(label: Text('Name')),
             DataColumn(label: Text('Fase')),
             DataColumn(label: Text('Tipo')),
@@ -320,9 +330,6 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
                     DataCell(Text(recordType)),
                   ],
                   onSelectChanged: (_) {
-                    setState(() {
-                      _selectedOpportunity = opportunity;
-                    });
                     _showOpportunityDetails(opportunity);
                   },
                 );

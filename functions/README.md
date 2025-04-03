@@ -66,4 +66,70 @@ Common issues:
 ## Further Reading
 
 - [Firebase Cloud Functions documentation](https://firebase.google.com/docs/functions)
-- [TypeScript documentation](https://www.typescriptlang.org/docs/) 
+- [TypeScript documentation](https://www.typescriptlang.org/docs/)
+
+# Twogether App - Firebase Functions
+
+This directory contains Firebase Cloud Functions for the Twogether App.
+
+## Chat Feature
+
+The chat feature has been redesigned with the following principles:
+
+1. **Every reseller always has a conversation document** in Firestore
+2. **Conversations are inactive by default** until non-default messages are sent
+3. **Active state is managed automatically** through Firebase triggers 
+4. **Conversations can be reset** rather than deleted, providing a better UX
+
+### Firebase Functions for Chat
+
+1. **updateConversationActivity**: Automatically detects if a conversation should be active based on its messages
+2. **resetConversation**: Allows admins to clear a conversation's messages without deleting the conversation
+3. **getInactiveConversations**: Lets admins see which conversations are inactive
+4. **deleteConversation**: Completely removes a conversation and its messages (existing function)
+
+### Migration Script
+
+For existing reseller accounts that don't have a conversation document, we've provided a migration script.
+
+To run the migration:
+
+```bash
+# Install ts-node if not already installed
+npm install -g ts-node
+
+# Run the migration script 
+npm run migration:create-conversations
+```
+
+The script will:
+1. Find all reseller users in the database
+2. Check if they have an existing conversation
+3. Create a conversation document for any reseller without one
+
+### Deployment
+
+To deploy these functions:
+
+```bash
+npm run build
+firebase deploy --only functions
+```
+
+## Security Rules
+
+The security rules have been updated to accommodate this new design, ensuring:
+
+1. Resellers can only access their own conversations
+2. Admins can access and manage all conversations
+3. Participants can read and write to their conversations
+
+## Function Usage from Dart Client
+
+The client-side repository has been updated with methods to:
+
+1. `ensureResellerHasConversation`: Make sure every reseller has a conversation
+2. `resetConversation`: Reset a conversation (admin only)
+3. `getInactiveConversations`: Get all inactive conversations (admin only)
+
+These can be called from the appropriate UI components. 

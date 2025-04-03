@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Twogether App Migration Runner</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .error {
+      color: red;
+    }
+    .success {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Twogether App Migration Runner</h1>
+
+  <div class="card">
+    <h2>Authentication</h2>
+    <div id="auth-status">Not signed in</div>
+    <div id="login-form" style="margin-top: 10px;">
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password" />
+      <button onclick="signIn()">Sign In</button>
+    </div>
+    <div id="logout-container" style="display:none; margin-top: 10px;">
+      <button onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Create Missing Conversations</h2>
+    <p>This will create conversation documents for all reseller users who don't have one yet.</p>
+    <button id="run-migration" onclick="runMigration()" disabled>Run Migration</button>
+    <div id="migration-result" class="result"></div>
+  </div>
+
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBbnB9q_xQSuZ4ViA8VEwGDadGsGsWrUII",
+      authDomain: "twogetherapp-65678.firebaseapp.com",
+      projectId: "twogetherapp-65678",
+      storageBucket: "twogetherapp-65678.appspot.com",
+      messagingSenderId: "507851595361",
+      appId: "1:507851595361:web:4f4f58f2ef3cb1dd23eeaa"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    // Check authentication state
+    firebase.auth().onAuthStateChanged(function(user) {
+      if (user) {
+        document.getElementById('auth-status').innerHTML = `Signed in as: <strong>${user.email}</strong>`;
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('logout-container').style.display = 'block';
+        
+        // Check user's role to enable migration button
+        checkAdminStatus(user)
+          .then(isAdmin => {
+            document.getElementById('run-migration').disabled = !isAdmin;
+            if (!isAdmin) {
+              document.getElementById('migration-result').innerHTML = 'You must be an admin to run this migration.';
+              document.getElementById('migration-result').className = 'result error';
+            }
+          })
+          .catch(error => {
+            console.error('Error checking admin status:', error);
+            document.getElementById('migration-result').innerHTML = `Error checking admin status: ${error.message}`;
+            document.getElementById('migration-result').className = 'result error';
+          });
+      } else {
+        document.getElementById('auth-status').innerText = 'Not signed in';
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('logout-container').style.display = 'none';
+        document.getElementById('run-migration').disabled = true;
+      }
+    });
+
+    // Sign in
+    function signIn() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .catch(error => {
+          console.error('Error signing in:', error);
+          document.getElementById('auth-status').innerText = `Error signing in: ${error.message}`;
+        });
+    }
+
+    // Sign out
+    function signOut() {
+      firebase.auth().signOut()
+        .catch(error => {
+          console.error('Error signing out:', error);
+        });
+    }
+
+    // Check if user is admin
+    async function checkAdminStatus(user) {
+      try {
+        // Get the user document from Firestore
+        const db = firebase.firestore();
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        
+        if (!userDoc.exists) {
+          console.log('No user document found');
+          return false;
+        }
+        
+        const userData = userDoc.data();
+        return userData.role && userData.role.toLowerCase() === 'admin';
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
+    }
+
+    // Run the migration
+    function runMigration() {
+      const resultElement = document.getElementById('migration-result');
+      resultElement.innerHTML = 'Running migration...';
+      resultElement.className = 'result';
+      
+      // Get the functions instance
+      const functions = firebase.functions();
+      const runMigrationFn = functions.httpsCallable('runMigration');
+      
+      // Call the function
+      runMigrationFn()
+        .then(result => {
+          console.log('Migration result:', result);
+          resultElement.innerHTML = `Migration completed successfully!\n\n${JSON.stringify(result.data, null, 2)}`;
+          resultElement.className = 'result success';
+        })
+        .catch(error => {
+          console.error('Error running migration:', error);
+          resultElement.innerHTML = `Error running migration: ${error.message}`;
+          resultElement.className = 'result error';
+        });
+    }
+  </script>
+</body>
+</html> 

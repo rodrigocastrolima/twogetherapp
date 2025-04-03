@@ -14,6 +14,8 @@ import { cleanupExpiredMessages } from './messageCleanup';
 import { onNewMessageNotification } from './notifications';
 import * as jwt from "jsonwebtoken"; // For JWT generation
 import axios from "axios"; // For HTTP requests
+// Import v2 Firestore triggers
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -229,6 +231,46 @@ export const createUser = onCall({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       createdBy: callerUid,
     });
+
+    // If this is a reseller, create a default conversation with welcome message
+    if (role.toLowerCase() === 'reseller') {
+      logger.info(`Creating default conversation for reseller: ${userRecord.uid}`);
+      
+      try {
+        // Create conversation document
+        const conversationRef = await admin.firestore().collection('conversations').add({
+          resellerId: userRecord.uid,
+          resellerName: displayName || email,
+          lastMessageContent: 'Welcome! How can we assist you today?',
+          lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+          lastMessageIsFromAdmin: true,
+          active: false, // Start as inactive - only becomes active when real messages are exchanged
+          unreadByAdmin: false,
+          unreadByReseller: false,
+          unreadCount: 0,
+          unreadCounts: {},
+          participants: ['admin', userRecord.uid],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Add default welcome message
+        await conversationRef.collection('messages').add({
+          content: 'Welcome! How can we assist you today?',
+          isDefault: true,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          isAdmin: true,
+          isRead: false,
+          senderId: 'admin',
+          senderName: 'Twogether Support',
+          type: 'text',
+        });
+
+        logger.info(`Default conversation created for reseller: ${userRecord.uid}, conversation ID: ${conversationRef.id}`);
+      } catch (error) {
+        // Don't fail the user creation if conversation creation fails, just log the error
+        logger.error(`Error creating default conversation: ${error}`);
+      }
+    }
 
     logger.info(`User created successfully: ${userRecord.uid}`, {
       uid: userRecord.uid,
@@ -670,6 +712,554 @@ export const getSalesforceAccessToken = onCall(
     }
   }
 );
+
+/**
+ * Resets a conversation to its default state by removing all messages except a default welcome message.
+ * This makes the conversation invisible to admin users but preserves it for resellers.
+ * Only authenticated admin users can call this function.
+ */
+export const deleteConversation = onCall({
+  enforceAppCheck: false, // Set to true in production
+}, async (request) => {
+  try {
+    // Check if we've reached usage limits
+    const withinLimits = await checkUsageLimits("deleteConversation");
+    if (!withinLimits) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Function invocation limit reached to prevent unexpected charges. Please try again tomorrow or contact the administrator."
+      );
+    }
+
+    // Log request detail to help diagnose issues
+    logger.info(`deleteConversation function called with data: ${JSON.stringify(request.data)}`);
+    
+    // Ensure the caller is authenticated.
+    if (!request.auth) {
+      logger.error("No auth context provided");
+      throw new HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
+    }
+
+    const uid = request.auth.uid;
+
+    // Check if the user is an admin by retrieving their user document.
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists || (userDoc.data()?.role || '').toLowerCase() !== 'admin') {
+      logger.error(`User is not an admin. User ID: ${uid}`);
+      throw new HttpsError(
+        "permission-denied",
+        "Only admin users can reset conversations."
+      );
+    }
+
+    // Validate the conversationId passed from the client.
+    const conversationId = request.data.conversationId;
+    if (!conversationId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "The function must be called with a conversationId."
+      );
+    }
+
+    const conversationRef = admin.firestore().collection('conversations').doc(conversationId);
+    const conversationDoc = await conversationRef.get();
+    if (!conversationDoc.exists) {
+      throw new HttpsError(
+        "not-found",
+        "Conversation not found."
+      );
+    }
+
+    // Get conversation data to extract reseller info
+    const conversationData = conversationDoc.data();
+    const resellerId = conversationData?.resellerId;
+    
+    if (!resellerId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Conversation is missing reseller information."
+      );
+    }
+
+    // Reference to the Storage bucket.
+    const bucket = admin.storage().bucket();
+
+    // Get all messages in the conversation subcollection.
+    const messagesSnapshot = await conversationRef.collection('messages').get();
+    
+    // Create a batch for Firestore operations
+    const batch = admin.firestore().batch();
+    let messagesDeleted = 0;
+    let imagesDeleted = 0;
+    let defaultMessageExists = false;
+    let defaultMessageId = null;
+    
+    // First check if there's already a default message
+    for (const messageDoc of messagesSnapshot.docs) {
+      const messageData = messageDoc.data();
+      
+      // Check if this is the default welcome message
+      if (messageData.isDefault === true) {
+        defaultMessageExists = true;
+        defaultMessageId = messageDoc.id;
+        logger.info(`Found existing default message: ${defaultMessageId}`);
+        break;
+      }
+    }
+
+    // Process each message
+    for (const messageDoc of messagesSnapshot.docs) {
+      const messageData = messageDoc.data();
+      
+      // Skip the default message if it exists
+      if (defaultMessageExists && messageDoc.id === defaultMessageId) {
+        logger.info(`Keeping default message: ${messageDoc.id}`);
+        continue;
+      }
+      
+      messagesDeleted++;
+
+      // If the message is an image, attempt to delete the associated Storage file.
+      if (messageData.type === 'image' && messageData.content) {
+        let imageUrl: string = '';
+        try {
+          // The content may be a JSON string with url and base64 fields or just a URL.
+          if (typeof messageData.content === 'string' && messageData.content.trim().startsWith('{')) {
+            try {
+              const jsonContent = JSON.parse(messageData.content);
+              imageUrl = jsonContent.url;
+            } catch (e) {
+              imageUrl = messageData.content; // Use as is if parsing fails
+            }
+          } else {
+            imageUrl = messageData.content;
+          }
+
+          // Extract the file path from the Firebase Storage URL.
+          // Expected URL format: 
+          // https://firebasestorage.googleapis.com/v0/b/{bucket}/o/chat_images%2F{fileName}?alt=media&token=...
+          if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+            const parts = imageUrl.split('/o/');
+            if (parts.length > 1) {
+              // The encoded file path is between '/o/' and '?'
+              const filePart = parts[1].split('?')[0];
+              // Decode the file path to get the actual Storage path.
+              const filePath = decodeURIComponent(filePart);
+              // Delete the file from Storage.
+              try {
+                await bucket.file(filePath).delete();
+                imagesDeleted++;
+                logger.info(`Deleted Storage file: ${filePath}`);
+              } catch (storageError) {
+                // Log but continue if image deletion fails
+                logger.warn(`Error deleting image file: ${storageError}`);
+              }
+            }
+          }
+        } catch (error) {
+          logger.error(`Error processing image for message ${messageDoc.id}:`, error);
+          // Continue processing even if deletion of the image file fails.
+        }
+      }
+      // Add this message to the batch for deletion
+      batch.delete(messageDoc.ref);
+    }
+
+    // If we don't have a default message, create one
+    const welcomeMessage = "Welcome! How can we assist you today?";
+    if (!defaultMessageExists) {
+      logger.info(`Creating new default welcome message for conversation: ${conversationId}`);
+      
+      // Get user document for the reseller to get their name
+      let resellerName = conversationData?.resellerName || "User";
+      
+      if (!resellerName && resellerId) {
+        try {
+          const resellerDoc = await admin.firestore().collection('users').doc(resellerId).get();
+          if (resellerDoc.exists) {
+            const resellerData = resellerDoc.data();
+            resellerName = resellerData?.displayName || resellerData?.email || "User";
+          }
+        } catch (error) {
+          logger.warn(`Error fetching reseller info: ${error}`);
+          // Continue with default name
+        }
+      }
+      
+      // Create the default welcome message
+      const newDefaultMessageRef = conversationRef.collection('messages').doc();
+      batch.set(newDefaultMessageRef, {
+        content: welcomeMessage,
+        isDefault: true,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        isAdmin: true,
+        isRead: false,
+        senderId: 'admin',
+        senderName: 'Twogether Support',
+        type: 'text'
+      });
+    }
+
+    // Update the conversation document to mark it as inactive and update last message
+    batch.update(conversationRef, {
+      lastMessageContent: welcomeMessage,
+      lastMessageTime: admin.firestore.FieldValue.serverTimestamp(),
+      lastMessageIsFromAdmin: true,
+      active: false,
+      // Clear unread flags but preserve the structure
+      unreadByAdmin: false,
+      unreadByReseller: false,
+      unreadCount: 0,
+      unreadCounts: {},
+    });
+
+    // Commit all the batch operations
+    await batch.commit();
+
+    logger.info(`Conversation ${conversationId} reset to default state. Deleted ${messagesDeleted} messages and ${imagesDeleted} images`);
+
+    return {
+      success: true,
+      messagesDeleted,
+      imagesDeleted,
+      message: 'Conversation has been reset to default state.'
+    };
+  } catch (error) {
+    logger.error("Error resetting conversation:", error);
+    throw new HttpsError(
+      "internal",
+      `Error resetting conversation: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+});
+
+/**
+ * Firebase function that triggers when a message is created, updated, or deleted.
+ * It checks if there are any non-default messages in the conversation and updates
+ * the conversation's 'active' field accordingly.
+ */
+export const updateConversationActivity = onDocumentWritten({
+  document: 'conversations/{conversationId}/messages/{messageId}',
+}, async (event) => {
+  const conversationId = event.params.conversationId;
+  const conversationRef = admin.firestore().collection('conversations').doc(conversationId);
+
+  try {
+    logger.info(`Checking activity status for conversation: ${conversationId}`);
+    
+    // First get the conversation document to check current state
+    const conversationDoc = await conversationRef.get();
+    if (!conversationDoc.exists) {
+      logger.error(`Conversation ${conversationId} not found`);
+      return { success: false, error: 'Conversation not found' };
+    }
+    
+    // Get all messages for this conversation
+    const messagesSnapshot = await conversationRef.collection('messages').get();
+    logger.info(`Found ${messagesSnapshot.size} messages in conversation ${conversationId}`);
+    
+    let isActive = false;
+    // Define type for lastRealMessage
+    interface MessageData {
+      content: string;
+      timestamp: admin.firestore.Timestamp;
+      isAdmin: boolean;
+      isDefault?: boolean;
+      [key: string]: any; // Allow other fields
+    }
+    let lastRealMessage: MessageData | null = null;
+    
+    // Check each message, looking for non-default ones
+    messagesSnapshot.forEach(doc => {
+      const data = doc.data() as MessageData;
+      // Log the message info for debugging
+      logger.debug(`Message ${doc.id}: isDefault=${data.isDefault}, content="${data.content?.substring(0, 20) || ''}..."`);
+      
+      // If there is any message that is not default, mark the conversation as active
+      if (data && data.isDefault !== true) {
+        isActive = true;
+        
+        // Keep track of the last real message for updating lastMessageContent
+        if (!lastRealMessage || 
+            (data.timestamp && 
+             lastRealMessage.timestamp && 
+             data.timestamp.toDate() > lastRealMessage.timestamp.toDate())) {
+          lastRealMessage = data;
+        }
+      }
+    });
+
+    // Create update data object
+    const updateData: Record<string, any> = { active: isActive };
+    
+    // Only update lastMessageContent if we have a real message and it's different
+    if (isActive && lastRealMessage) {
+      // Use non-null assertion since we've already checked lastRealMessage is not null
+      const contentPreview = (lastRealMessage as MessageData).content?.substring(0, 20) || '';
+      logger.info(`Updating conversation with last real message: "${contentPreview}..."`);
+      
+      // Include last message data only if it's a real message
+      updateData.lastMessageContent = (lastRealMessage as MessageData).content;
+      updateData.lastMessageTime = (lastRealMessage as MessageData).timestamp;
+      updateData.lastMessageIsFromAdmin = (lastRealMessage as MessageData).isAdmin;
+    } else if (!isActive) {
+      // If there are no real messages, clear the last message fields
+      logger.info(`No real messages found, clearing lastMessageContent for conversation ${conversationId}`);
+      updateData.lastMessageContent = null;
+      updateData.lastMessageTime = null;
+      updateData.lastMessageIsFromAdmin = null;
+    }
+
+    // Update the conversation document accordingly
+    await conversationRef.update(updateData);
+    logger.info(`Conversation ${conversationId} updated to active: ${isActive}`);
+    
+    return { success: true };
+  } catch (error) {
+    logger.error(`Error updating conversation activity for ${conversationId}:`, error);
+    return { success: false, error: error };
+  }
+});
+
+/**
+ * Callable function that allows an admin to "reset" a conversation by clearing
+ * all messages while keeping the conversation document intact.
+ * It deletes all messages in the subcollection and updates the conversation
+ * document (clearing lastMessageContent/lastMessageTime and marking it inactive).
+ */
+export const resetConversation = onCall({
+  enforceAppCheck: false, // Set to true in production
+}, async (request) => {
+  // Ensure the caller is authenticated
+  if (!request.auth) {
+    throw new HttpsError(
+      'unauthenticated', 
+      'Authentication required.'
+    );
+  }
+  
+  const uid = request.auth.uid;
+  
+  try {
+    // Verify admin status
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists || (userDoc.data()?.role || '').toLowerCase() !== 'admin') {
+      throw new HttpsError(
+        'permission-denied', 
+        'Only admin users can reset conversations.'
+      );
+    }
+    
+    const conversationId = request.data.conversationId;
+    if (!conversationId) {
+      throw new HttpsError(
+        'invalid-argument', 
+        'A conversationId must be provided.'
+      );
+    }
+    
+    const conversationRef = admin.firestore().collection('conversations').doc(conversationId);
+    const conversationSnap = await conversationRef.get();
+    
+    if (!conversationSnap.exists) {
+      throw new HttpsError('not-found', 'Conversation not found.');
+    }
+    
+    // Get the messages to delete
+    const messagesSnapshot = await conversationRef.collection('messages').get();
+    
+    if (messagesSnapshot.empty) {
+      logger.info(`No messages to delete in conversation ${conversationId}`);
+    } else {
+      logger.info(`Deleting ${messagesSnapshot.size} messages from conversation ${conversationId}`);
+      
+      // Delete all messages using a batch
+      const batch = admin.firestore().batch();
+      messagesSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Update the conversation document
+      batch.update(conversationRef, {
+        lastMessageContent: null,
+        lastMessageTime: null,
+        active: false,
+        unreadCounts: {},
+        unreadByAdmin: false,
+        unreadByReseller: false,
+        unreadCount: 0
+      });
+      
+      await batch.commit();
+      
+      logger.info(`Successfully reset conversation ${conversationId}`);
+    }
+    
+    return {
+      success: true,
+      message: 'Conversation reset: messages cleared and conversation marked inactive.'
+    };
+  } catch (error) {
+    logger.error('Error resetting conversation:', error);
+    throw new HttpsError(
+      'internal',
+      `Error resetting conversation: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+});
+
+/**
+ * Callable function that returns a list of conversation documents that are inactive
+ * (i.e., they contain no real messages, only default UI messages).
+ * This allows admins to easily see which conversations have only the default UI state.
+ */
+export const getInactiveConversations = onCall({
+  enforceAppCheck: false, // Set to true in production
+}, async (request) => {
+  // Verify that the caller is authenticated
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Authentication required.');
+  }
+  
+  const uid = request.auth.uid;
+  
+  try {
+    // Verify admin status
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists || (userDoc.data()?.role || '').toLowerCase() !== 'admin') {
+      throw new HttpsError(
+        'permission-denied', 
+        'Only admin users can retrieve inactive conversations.'
+      );
+    }
+    
+    const snapshot = await admin.firestore()
+      .collection('conversations')
+      .where('active', '==', false)
+      .get();
+    
+    const inactiveConversations: any[] = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      inactiveConversations.push({
+        conversationId: doc.id,
+        resellerId: data.resellerId,
+        resellerName: data.resellerName,
+        lastMessageTime: data.lastMessageTime || null,
+        createdAt: data.createdAt || null
+      });
+    });
+    
+    logger.info(`Retrieved ${inactiveConversations.length} inactive conversations`);
+    
+    return { inactiveConversations };
+  } catch (error) {
+    logger.error('Error retrieving inactive conversations:', error);
+    throw new HttpsError(
+      'unknown', 
+      `Failed to get inactive conversations: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+});
+
+/**
+ * Callable function that creates conversation documents for resellers who don't have one yet.
+ * This is essentially a migration that can be run on demand.
+ * Only authenticated admin users can call this function.
+ */
+export const runMigration = onCall({
+  enforceAppCheck: false, // Set to true in production
+}, async (request) => {
+  // Ensure the caller is authenticated
+  if (!request.auth) {
+    throw new HttpsError(
+      'unauthenticated', 
+      'Authentication required.'
+    );
+  }
+  
+  const uid = request.auth.uid;
+  
+  try {
+    // Verify admin status
+    const userDoc = await admin.firestore().collection('users').doc(uid).get();
+    if (!userDoc.exists || (userDoc.data()?.role || '').toLowerCase() !== 'admin') {
+      throw new HttpsError(
+        'permission-denied', 
+        'Only admin users can run migrations.'
+      );
+    }
+    
+    logger.info('Starting migration: Creating missing conversations for resellers...');
+    
+    // Query all reseller users
+    const usersSnapshot = await admin.firestore().collection('users')
+      .where('role', '==', 'reseller')
+      .get();
+    
+    logger.info(`Found ${usersSnapshot.size} reseller users`);
+    
+    let createdCount = 0;
+    let existingCount = 0;
+    
+    for (const userDoc of usersSnapshot.docs) {
+      const resellerId = userDoc.id;
+      
+      // Check if a conversation exists for this reseller
+      const convSnapshot = await admin.firestore().collection('conversations')
+        .where('resellerId', '==', resellerId)
+        .limit(1)
+        .get();
+      
+      if (convSnapshot.empty) {
+        const userData = userDoc.data();
+        const conversationData = {
+          resellerId,
+          resellerName: userData.displayName || userData.email || 'Unknown User',
+          lastMessageContent: null,  // No stored messages
+          lastMessageTime: null,
+          active: false,             // Initially inactive
+          unreadCounts: {},
+          unreadByAdmin: false,
+          unreadByReseller: false,
+          unreadCount: 0,
+          participants: ['admin', resellerId],
+          activeUsers: [],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        
+        await admin.firestore().collection('conversations').add(conversationData);
+        logger.info(`Created conversation for reseller: ${resellerId} (${userData.email || 'unknown email'})`);
+        createdCount++;
+      } else {
+        logger.info(`Conversation already exists for reseller: ${resellerId}`);
+        existingCount++;
+      }
+    }
+    
+    logger.info('Migration complete:');
+    logger.info(`- Created ${createdCount} new conversations`);
+    logger.info(`- Found ${existingCount} existing conversations`);
+    logger.info(`- Total resellers processed: ${usersSnapshot.size}`);
+    
+    return {
+      success: true,
+      created: createdCount,
+      existing: existingCount,
+      total: usersSnapshot.size,
+      message: `Migration completed successfully. Created ${createdCount} new conversations.`
+    };
+  } catch (error) {
+    logger.error('Error during migration:', error);
+    throw new HttpsError(
+      'internal',
+      `Error during migration: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+});
 
 // Export Cloud Functions
 export {

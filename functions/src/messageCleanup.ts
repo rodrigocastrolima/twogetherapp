@@ -116,6 +116,7 @@ export const cleanupExpiredMessages = functions.scheduler
           const updateData: any = {
             lastMessageContent: null,
             lastMessageIsFromAdmin: null,
+            lastMessageTime: null, // Reset the timestamp when no messages remain
             // IMPORTANT: DO NOT reset the following fields to preserve notifications
             // unreadByAdmin: false,
             // unreadByReseller: false,
@@ -133,8 +134,8 @@ export const cleanupExpiredMessages = functions.scheduler
           
           await db.collection('conversations').doc(conversationId).update({
             lastMessageContent: latestMessage.content,
-            lastMessageIsFromAdmin: latestMessage.isFromAdmin,
-            lastMessageTime: latestMessage.timestamp
+            lastMessageIsFromAdmin: latestMessage.isAdmin, // Use isAdmin instead of isFromAdmin to match the schema
+            lastMessageTime: latestMessage.timestamp // Ensure this field is updated
             // IMPORTANT: DO NOT update notification fields here
             // This preserves both the legacy unread fields and the new unreadCounts map
           });

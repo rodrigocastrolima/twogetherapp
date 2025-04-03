@@ -975,7 +975,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
             // Mobile layout - stacked vertically
             Text(
               'User Management',
-              style: TextStyle(
+                  style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.foreground,
@@ -1079,7 +1079,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
           // Content
           Expanded(
             child:
-                _isLoading
+          _isLoading
                     ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1099,8 +1099,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                         ],
                       ),
                     )
-                    : _errorMessage != null
-                    ? Center(
+              : _errorMessage != null
+              ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1111,7 +1111,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _errorMessage!,
+                  _errorMessage!,
                             style: TextStyle(
                               color: Colors.red.withOpacity(0.9),
                             ),
@@ -1128,9 +1128,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                             ),
                           ),
                         ],
-                      ),
-                    )
-                    : _users.isEmpty
+                ),
+              )
+              : _users.isEmpty
                     ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1150,7 +1150,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           ),
                           const SizedBox(height: 24),
                           FilledButton.icon(
-                            onPressed: _showCreateUserDialog,
+        onPressed: _showCreateUserDialog,
                             icon: const Icon(Icons.person_add),
                             label: const Text('Create First User'),
                             style: FilledButton.styleFrom(
@@ -1184,9 +1184,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
             backgroundColor: Colors.transparent,
             // Use more space on small screens
             insetPadding:
@@ -1197,7 +1197,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
               borderRadius: BorderRadius.circular(16),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
+          child: Container(
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(16),
@@ -1210,62 +1210,62 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                     maxWidth: isSmallScreen ? double.infinity : 500,
                     maxHeight: isSmallScreen ? screenSize.height * 0.9 : 600,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                       // Header
-                      Padding(
+                Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: 16.0,
                           vertical: isSmallScreen ? 12.0 : 16.0,
                         ),
-                        child: Row(
-                          children: [
+                  child: Row(
+                    children: [
                             Icon(Icons.person_add, color: AppTheme.primary),
                             const SizedBox(width: 12),
                             Text(
-                              'Create New User',
-                              style: TextStyle(
-                                color: Colors.white,
+                        'Create New User',
+                        style: TextStyle(
+                          color: Colors.white,
                                 fontSize: isSmallScreen ? 18 : 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
                               icon: const Icon(
                                 Icons.close,
                                 color: Colors.white70,
                               ),
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.white.withOpacity(0.1),
                               ),
-                            ),
-                          ],
-                        ),
                       ),
+                    ],
+                  ),
+                ),
                       Divider(color: Colors.white.withOpacity(0.2)),
                       // Form content
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Padding(
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Padding(
                             padding: EdgeInsets.all(
                               isSmallScreen ? 12.0 : 16.0,
                             ),
                             child: CreateUserForm(
-                              onSubmit: _createUser,
-                              onCancel: () {
-                                Navigator.of(context).pop();
-                              },
-                              isLoading: _isCreatingUser,
-                            ),
-                          ),
-                        ),
+                            onSubmit: _createUser,
+                            onCancel: () {
+                              Navigator.of(context).pop();
+                            },
+                            isLoading: _isCreatingUser,
                       ),
-                    ],
+                    ),
+                  ),
+                ),
+              ],
                   ),
                 ),
               ),

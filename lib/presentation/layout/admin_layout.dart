@@ -65,11 +65,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       setState(() => _selectedIndex = 2);
     } else if (location == '/admin/settings') {
       setState(() => _selectedIndex = 3);
-    } else if (location == '/admin/resellers') {
-      // Now set selected index for Resellers page with a proper index
+    } else if (location == '/admin/opportunities') {
       setState(() => _selectedIndex = 4);
-    } else if (location == '/admin/retail-users') {
-      setState(() => _selectedIndex = 5);
     }
   }
 
@@ -209,18 +206,11 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                               index: 0,
                             ),
                             _buildTabItem(
-                              icon: CupertinoIcons.doc_text_search,
-                              selectedIcon: CupertinoIcons.doc_text_search,
-                              label: 'Resellers',
+                              icon: CupertinoIcons.graph_square,
+                              selectedIcon: CupertinoIcons.graph_square,
+                              label: 'Opportunities',
                               index: 4,
-                              onTap: () => context.go('/admin/resellers'),
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.person_2,
-                              selectedIcon: CupertinoIcons.person_2_fill,
-                              label: 'Retail',
-                              index: 5,
-                              onTap: () => context.go('/admin/retail-users'),
+                              onTap: () => context.go('/admin/opportunities'),
                             ),
                             _buildTabItem(
                               icon: CupertinoIcons.chat_bubble,
@@ -262,10 +252,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       currentIndex = 2;
     } else if (location == '/admin/settings') {
       currentIndex = 3;
-    } else if (location == '/admin/resellers') {
+    } else if (location == '/admin/opportunities') {
       currentIndex = 4;
-    } else if (location == '/admin/retail-users') {
-      currentIndex = 5;
     }
 
     // Fixed width sidebar
@@ -324,17 +312,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                     ),
                     const SizedBox(height: 12),
                     _buildNavItem(
-                      icon: CupertinoIcons.doc_text_search,
-                      title: 'Resellers',
+                      icon: CupertinoIcons.graph_square,
+                      title: 'Opportunities',
                       isSelected: currentIndex == 4,
                       onTap: () => _handleNavigation(4),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNavItem(
-                      icon: CupertinoIcons.person_2,
-                      title: 'Retail Users',
-                      isSelected: currentIndex == 5,
-                      onTap: () => _handleNavigation(5),
                     ),
                     const SizedBox(height: 12),
                     _buildNavItem(
@@ -468,7 +449,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     final bool isSelected =
         _selectedIndex == index ||
         (index == 4 &&
-            GoRouterState.of(context).matchedLocation == '/admin/resellers');
+            GoRouterState.of(context).matchedLocation ==
+                '/admin/opportunities');
 
     return GestureDetector(
       onTap:
@@ -560,10 +542,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         context.go('/admin/settings');
         break;
       case 4:
-        context.go('/admin/resellers');
-        break;
-      case 5:
-        context.go('/admin/retail-users');
+        context.go('/admin/opportunities');
         break;
     }
   }

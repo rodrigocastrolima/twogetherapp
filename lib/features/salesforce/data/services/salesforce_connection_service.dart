@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -115,6 +116,21 @@ class SalesforceConnectionService {
             'SalesforceConnectionService: Test connection result: $_isConnected',
           );
         }
+
+        // If token validation failed, try to refresh it
+        if (!_isConnected) {
+          if (kDebugMode) {
+            print(
+              'SalesforceConnectionService: Token validation failed, trying to refresh token...',
+            );
+          }
+          _isConnected = await refreshTokenUsingFirebaseFunction();
+          if (kDebugMode) {
+            print(
+              'SalesforceConnectionService: Token refresh result: $_isConnected',
+            );
+          }
+        }
       } else {
         // No stored tokens, try to get a fresh token
         if (kDebugMode) {
@@ -154,6 +170,10 @@ class SalesforceConnectionService {
         print(
           'SalesforceConnectionService: Attempting to get token via Firebase Function...',
         );
+        // Log platform information to help diagnose issues
+        print(
+          'SalesforceConnectionService: Platform: ${kIsWeb ? 'Web' : 'Native'}',
+        );
       }
 
       // Try with region specification - US-Central1 is the default
@@ -174,14 +194,41 @@ class SalesforceConnectionService {
         print('SalesforceConnectionService: Calling Firebase function...');
       }
 
-      final result = await callable.call();
+      // Add a timeout to prevent hanging indefinitely
+      final resultFuture = callable.call();
+      final timeoutFuture = Future.delayed(const Duration(seconds: 30), () {
+        throw TimeoutException(
+          'Firebase function call timed out after 30 seconds',
+        );
+      });
+
+      final result = await Future.any([resultFuture, timeoutFuture]);
 
       if (kDebugMode) {
         print('SalesforceConnectionService: Firebase Function call complete');
         print(
           'SalesforceConnectionService: Result data type: ${result.data.runtimeType}',
         );
-        print('SalesforceConnectionService: Result data: ${result.data}');
+
+        // Log existence of fields without exposing the actual token
+        if (result.data != null && result.data is Map) {
+          print('SalesforceConnectionService: Response contains:');
+          print(
+            '  - access_token exists: ${result.data['access_token'] != null}',
+          );
+          print(
+            '  - instance_url exists: ${result.data['instance_url'] != null}',
+          );
+          if (result.data['access_token'] != null) {
+            print(
+              '  - access_token length: ${result.data['access_token'].toString().length}',
+            );
+          }
+        } else {
+          print(
+            'SalesforceConnectionService: Result data is not a Map: ${result.data}',
+          );
+        }
       }
 
       if (result.data != null) {
@@ -239,6 +286,7 @@ class SalesforceConnectionService {
         print(
           'SalesforceConnectionService: Error getting token via Firebase Function: $e',
         );
+
         if (e is FirebaseFunctionsException) {
           print(
             'SalesforceConnectionService: Firebase Function error code: ${e.code}',
@@ -248,6 +296,10 @@ class SalesforceConnectionService {
           );
           print(
             'SalesforceConnectionService: Firebase Function error message: ${e.message}',
+          );
+        } else if (e is TimeoutException) {
+          print(
+            'SalesforceConnectionService: Firebase Function call timed out',
           );
         }
       }

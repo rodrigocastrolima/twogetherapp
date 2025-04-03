@@ -7,6 +7,7 @@ class ChatConversation {
   final String resellerName;
   final String? lastMessageContent;
   final DateTime? lastMessageTime;
+  final bool? active; // Whether the conversation is active (has real messages)
 
   // New approach: Map-based unread tracking per participant
   final Map<String, int> unreadCounts; // Map of userId -> unread count
@@ -23,6 +24,7 @@ class ChatConversation {
     required this.resellerName,
     this.lastMessageContent,
     this.lastMessageTime,
+    this.active,
     required this.unreadCounts,
   });
 
@@ -75,6 +77,7 @@ class ChatConversation {
       resellerName: data['resellerName'] ?? '',
       lastMessageContent: data['lastMessageContent'],
       lastMessageTime: lastMessageTime,
+      active: data['active'],
       unreadCounts: unreadCounts,
     );
   }
@@ -87,6 +90,7 @@ class ChatConversation {
       'lastMessageContent': lastMessageContent,
       'lastMessageTime':
           lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
+      'active': active,
       'unreadCounts': unreadCounts,
       // Keep the old fields for backward compatibility
       'unreadByAdmin': unreadByAdmin,
@@ -102,6 +106,7 @@ class ChatConversation {
     String? resellerName,
     String? lastMessageContent,
     DateTime? lastMessageTime,
+    bool? active,
     Map<String, int>? unreadCounts,
   }) {
     return ChatConversation(
@@ -110,6 +115,7 @@ class ChatConversation {
       resellerName: resellerName ?? this.resellerName,
       lastMessageContent: lastMessageContent ?? this.lastMessageContent,
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      active: active ?? this.active,
       unreadCounts: unreadCounts ?? Map<String, int>.from(this.unreadCounts),
     );
   }

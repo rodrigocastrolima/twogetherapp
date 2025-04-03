@@ -20,12 +20,14 @@ class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
   final String? title;
   final bool showAppBar;
+  final bool isAdminView;
 
   const ChatPage({
     super.key,
     required this.conversationId,
     this.title,
     this.showAppBar = true,
+    this.isAdminView = false,
   });
 
   @override
@@ -212,6 +214,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messagesStream = ref.watch(messagesProvider(widget.conversationId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Debug logging when messages stream changes
+    if (kDebugMode && messagesStream is AsyncLoading) {
+      print('DEBUG: Messages stream loading for ${widget.conversationId}');
+    } else if (kDebugMode && messagesStream is AsyncError) {
+      print(
+        'DEBUG: Messages stream error: ${(messagesStream as AsyncError).error}',
+      );
+    } else if (kDebugMode && messagesStream is AsyncData) {
+      print(
+        'DEBUG: Messages loaded: ${(messagesStream as AsyncData<List<ChatMessage>>).value.length}',
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar:
@@ -238,41 +253,71 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         top: false,
         child: Column(
           children: [
-            // Support header - Apple-style clean design
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Support",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      color: AppTheme.foreground,
+            // Support header - only show for reseller view (non-admin)
+            if (!widget.isAdminView) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Support",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                        color: AppTheme.foreground,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Our team is here to help with your inquiries.",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      letterSpacing: -0.3,
+                    const SizedBox(height: 8),
+                    Text(
+                      "Our team is here to help with your inquiries.",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ],
 
             // Messages area
             Expanded(
               child: messagesStream.when(
                 data: (messages) {
-                  if (messages.isEmpty) {
+                  // Filter out any default messages that might have been saved to the database
+                  final realMessages =
+                      messages.where((m) => !m.isDefault).toList();
+
+                  // If there are no messages, show the empty state with welcome message
+                  // (only for non-admin view)
+                  if (realMessages.isEmpty && !widget.isAdminView) {
                     return _buildEmptyState();
+                  } else if (realMessages.isEmpty && widget.isAdminView) {
+                    // For admin view, show a simpler empty state
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.chat_bubble_2,
+                            color: Colors.grey.withOpacity(0.5),
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "No messages yet",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   return NoScrollbarBehavior.noScrollbars(
@@ -281,22 +326,98 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       controller: _scrollController,
                       reverse: true, // Show newest at the bottom
                       padding: const EdgeInsets.all(20),
-                      itemCount: messages.length,
+                      itemCount: realMessages.length,
                       itemBuilder: (context, index) {
-                        final message = messages[index];
+                        final message = realMessages[index];
                         return _buildMessageItem(message);
                       },
                     ),
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading:
+                    () => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.amber,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Loading messages...",
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (kDebugMode)
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              "Loading conversation: ${widget.conversationId}",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                      ],
+                    ),
                 error:
-                    (error, _) =>
-                        Center(child: Text('Error: ${error.toString()}')),
+                    (error, stack) => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: Colors.red[400],
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Error loading messages",
+                          style: TextStyle(
+                            color: Colors.red[400],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            kDebugMode
+                                ? error.toString()
+                                : "Please try again later",
+                            style: TextStyle(color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        if (kDebugMode)
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              "Conversation ID: ${widget.conversationId}",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ElevatedButton(
+                          onPressed: () {
+                            // Force refresh by rebuilding
+                            setState(() {});
+                          },
+                          child: Text("Retry"),
+                        ),
+                      ],
+                    ),
               ),
             ),
 
-            // Input area
+            // Input area - always visible
             _buildMessageInput(),
           ],
         ),
@@ -352,15 +473,36 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            Text(
-              "Send a message to get started.",
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.primary,
-                letterSpacing: -0.3,
+            // Show a default example message from support - this is UI only, not stored in DB
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              color: isDark ? Colors.black12 : Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color:
+                      isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+                  width: 1,
+                ),
               ),
-              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => _focusNode.requestFocus(),
+              icon: const Icon(Icons.send),
+              label: const Text("Send a message to get started"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
             ),
           ],
         ),
@@ -371,180 +513,228 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Widget _buildMessageItem(ChatMessage message) {
     final isCurrentUser =
         message.senderId == ref.read(chatRepositoryProvider).currentUserId;
+    // Format timestamp in iOS style - only show hours and minutes
     final timeString = DateFormat('HH:mm').format(message.timestamp);
 
-    // Determine if the message is from the Twogether Support
-    final isAssistantMessage = !isCurrentUser && message.isAdmin;
+    // The key fix: Explicitly check if the message is truly from admin
+    // Messages are only from admin if isAdmin flag is true - it should NOT be
+    // assumed that all non-current-user messages are from admin
+    final bool isFromAdmin = message.isAdmin;
+
+    // Control whether to show sender names above messages
+    final bool showNames = true;
+
+    // For better naming clarity in the UI
+    final String senderName =
+        isFromAdmin
+            ? "Twogether Support"
+            : (isCurrentUser ? "You" : message.senderName);
+
+    // Add extra debug logging for image messages to help diagnose issues
+    if (message.type == MessageType.image && kDebugMode) {
+      print(
+        'Rendering image message from ${isFromAdmin ? "admin" : (isCurrentUser ? "current user" : "other user")}',
+      );
+      print(
+        'Image content: ${message.content.length > 100 ? "${message.content.substring(0, 100)}..." : message.content}',
+      );
+      print('Is admin: ${message.isAdmin}, Is current user: $isCurrentUser');
+    }
+
+    // iOS-style colors for message bubbles
+    final bubbleColor =
+        isCurrentUser
+            ? const Color(0xFF007AFF) // iOS blue for sent messages
+            : const Color(0xFFE9E9EB); // iOS gray for received messages
+
+    // Text color based on bubble color
+    final textColor = isCurrentUser ? Colors.white : Colors.black;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment:
-            isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment:
+            isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          if (!isCurrentUser) ...[
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CupertinoIcons.person_crop_circle_fill,
-                size: 18,
-                color: AppTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-          ],
-          Flexible(
-            child: Column(
-              crossAxisAlignment:
-                  isCurrentUser
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-              children: [
-                // Sender name for non-user messages
-                if (!isCurrentUser) ...[
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 4),
-                    child: Text(
-                      "Twogether Support",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primary,
-                        letterSpacing: -0.3,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment:
+                isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isCurrentUser && !widget.isAdminView) ...[
+                Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(top: 2, right: 8),
+                  decoration: BoxDecoration(
+                    color:
+                        isFromAdmin
+                            ? AppTheme.primary.withOpacity(0.15)
+                            : Colors.grey.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isFromAdmin
+                        ? CupertinoIcons.person_crop_circle_fill
+                        : CupertinoIcons.person,
+                    size: 16,
+                    color: isFromAdmin ? AppTheme.primary : Colors.grey,
+                  ),
+                ),
+              ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment:
+                      isCurrentUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                  children: [
+                    // Sender name for non-user messages in non-admin view
+                    if (!isCurrentUser && !widget.isAdminView && showNames) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2, bottom: 2),
+                        child: Text(
+                          senderName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isFromAdmin ? AppTheme.primary : Colors.grey,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
 
-                // Message bubble
-                ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18),
-                    topRight: const Radius.circular(18),
-                    bottomLeft: Radius.circular(isCurrentUser ? 18 : 4),
-                    bottomRight: Radius.circular(isCurrentUser ? 4 : 18),
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Container(
+                    // Message bubble with iOS style
+                    Container(
                       padding:
                           message.type == MessageType.image
-                              ? const EdgeInsets.all(4)
+                              ? EdgeInsets
+                                  .zero // No padding for images
                               : const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
+                                horizontal: 14,
+                                vertical: 8,
                               ),
                       decoration: BoxDecoration(
+                        // Make bubble transparent for images
                         color:
-                            isCurrentUser
-                                ? AppTheme.primary.withOpacity(0.1)
-                                : Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(18),
-                          topRight: const Radius.circular(18),
-                          bottomLeft: Radius.circular(isCurrentUser ? 18 : 4),
-                          bottomRight: Radius.circular(isCurrentUser ? 4 : 18),
-                        ),
-                        border: Border.all(
-                          color:
+                            message.type == MessageType.image
+                                ? Colors.transparent
+                                : bubbleColor,
+                        borderRadius: BorderRadius.circular(18).copyWith(
+                          bottomRight:
                               isCurrentUser
-                                  ? AppTheme.primary.withOpacity(0.2)
-                                  : Colors.white.withOpacity(0.15),
-                          width: 0.5,
+                                  ? const Radius.circular(6)
+                                  : const Radius.circular(18),
+                          bottomLeft:
+                              !isCurrentUser
+                                  ? const Radius.circular(6)
+                                  : const Radius.circular(18),
                         ),
+                        // Remove shadow for images
+                        boxShadow:
+                            message.type == MessageType.image
+                                ? null
+                                : [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
                       ),
                       child:
                           message.type == MessageType.image
-                              ? ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth:
-                                      MediaQuery.of(context).size.width * 0.6,
-                                  maxHeight: 200,
-                                ),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    if (kDebugMode) {
-                                      print(
-                                        'Opening full image: ${message.content}',
-                                      );
-                                    }
-                                    // Show full size image dialog
-                                    showDialog(
-                                      context: context,
-                                      builder:
-                                          (context) => Dialog(
-                                            backgroundColor: Colors.transparent,
-                                            insetPadding: const EdgeInsets.all(
-                                              10,
-                                            ),
-                                            child: GestureDetector(
-                                              onTap:
-                                                  () => Navigator.pop(context),
-                                              child: SafeNetworkImage(
-                                                imageUrl: message.content,
-                                                fit: BoxFit.contain,
-                                              ),
-                                            ),
-                                          ),
+                              ? Builder(
+                                builder: (context) {
+                                  // Enhanced image message handling with better error reporting
+                                  if (kDebugMode) {
+                                    print(
+                                      'Building image content with URL: ${message.content.length > 50 ? "${message.content.substring(0, 50)}..." : message.content}',
                                     );
-                                  },
-                                  child: SafeNetworkImage(
-                                    imageUrl: message.content,
-                                    fit: BoxFit.cover,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                                  }
+
+                                  return ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                          0.6,
+                                      maxHeight: 200,
+                                    ),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        if (kDebugMode) {
+                                          print(
+                                            'Opening full image: ${message.content.length > 50 ? "${message.content.substring(0, 50)}..." : message.content}',
+                                          );
+                                        }
+                                        // Show full size image dialog
+                                        showDialog(
+                                          context: context,
+                                          builder:
+                                              (context) => Dialog(
+                                                backgroundColor:
+                                                    Colors.transparent,
+                                                insetPadding:
+                                                    const EdgeInsets.all(10),
+                                                child: GestureDetector(
+                                                  onTap:
+                                                      () => Navigator.pop(
+                                                        context,
+                                                      ),
+                                                  child: SafeNetworkImage(
+                                                    imageUrl: message.content,
+                                                    fit: BoxFit.contain,
+                                                  ),
+                                                ),
+                                              ),
+                                        );
+                                      },
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: SafeNetworkImage(
+                                          imageUrl: message.content,
+                                          fit: BoxFit.cover,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               )
                               : Text(
                                 message.content,
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  color: AppTheme.foreground,
-                                  letterSpacing: -0.3,
+                                  fontSize: 16,
+                                  color: textColor,
                                   height: 1.3,
                                 ),
                               ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+            ],
+          ),
 
-                // Timestamp
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 2),
-                  child: Text(
-                    timeString,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.withOpacity(0.7),
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ),
-              ],
+          // iOS-style timestamp - small and subtle
+          Padding(
+            padding: EdgeInsets.only(
+              top: 2,
+              bottom: 1,
+              right: isCurrentUser ? 8 : 0,
+              left: isCurrentUser ? 0 : 8,
+            ),
+            child: Text(
+              timeString,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.withOpacity(0.7),
+              ),
             ),
           ),
-          if (isCurrentUser) ...[
-            const SizedBox(width: 12),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CupertinoIcons.person_fill,
-                size: 18,
-                color: AppTheme.primary,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -608,6 +798,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           borderRadius: BorderRadius.circular(12),
           child: CachedNetworkImage(
             imageUrl: imageUrl,
+            fit: BoxFit.cover,
             placeholder:
                 (context, url) => const Center(
                   child: SizedBox(
@@ -643,8 +834,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ),
               );
             },
-            fit: BoxFit.cover,
-            // Disable caching temporarily for debugging
             cacheManager: null,
           ),
         ),
@@ -737,9 +926,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Widget _buildMessageInput() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color:
+            isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.white.withOpacity(0.9),
         border: Border(
           top: BorderSide(
             color:
@@ -753,140 +945,117 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Camera button
+          // Camera button with iOS style
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: Colors.transparent,
+              color:
+                  isDark
+                      ? Colors.grey.withOpacity(0.2)
+                      : Colors.grey.withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(
-                color:
-                    isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
-                width: 0.5,
-              ),
             ),
             child: IconButton(
-              icon: const Icon(CupertinoIcons.camera),
+              icon: Icon(CupertinoIcons.camera_fill, size: 20),
               onPressed:
                   _isImageLoading
                       ? null
                       : () => _getImageFromSource(ImageSource.camera),
               color:
-                  isDark ? Colors.white.withOpacity(0.6) : Colors.grey.shade600,
-              iconSize: 18,
+                  isDark ? Colors.white.withOpacity(0.8) : Colors.grey.shade700,
               padding: EdgeInsets.zero,
             ),
           ),
 
-          // Gallery button
-          const SizedBox(width: 8), // Add some space between buttons
+          // Gallery button with iOS style
+          const SizedBox(width: 8),
           Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: Colors.transparent,
+              color:
+                  isDark
+                      ? Colors.grey.withOpacity(0.2)
+                      : Colors.grey.withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(
-                color:
-                    isDark
-                        ? Colors.white.withOpacity(0.1)
-                        : Colors.black.withOpacity(0.1),
-                width: 0.5,
-              ),
             ),
             child: IconButton(
-              icon: const Icon(CupertinoIcons.photo),
+              icon: Icon(CupertinoIcons.photo_fill, size: 20),
               onPressed:
                   _isImageLoading
                       ? null
                       : () => _getImageFromSource(ImageSource.gallery),
               color:
-                  isDark ? Colors.white.withOpacity(0.6) : Colors.grey.shade600,
-              iconSize: 18,
+                  isDark ? Colors.white.withOpacity(0.8) : Colors.grey.shade700,
               padding: EdgeInsets.zero,
             ),
           ),
 
-          // Text input - simplified design with no inner containers
+          // Text input - iOS style pill shape
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: TextField(
-                controller: _messageController,
-                focusNode: _focusNode,
-                decoration: InputDecoration(
-                  hintText: 'Type a message to support...',
-                  hintStyle: TextStyle(
-                    color:
-                        isDark
-                            ? Colors.white.withOpacity(0.5)
-                            : Colors.black.withOpacity(0.4),
-                    fontSize: 15,
-                    letterSpacing: -0.3,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  isDense: true,
-                  filled: false,
-                  fillColor: Colors.transparent,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color:
+                      isDark
+                          ? Colors.grey.withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  focusNode: _focusNode,
+                  decoration: InputDecoration(
+                    hintText: widget.isAdminView ? 'Message' : 'Send a message',
+                    hintStyle: TextStyle(
                       color:
                           isDark
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.black.withOpacity(0.1),
-                      width: 0.5,
+                              ? Colors.white.withOpacity(0.5)
+                              : Colors.black.withOpacity(0.4),
+                      fontSize: 16,
                     ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color:
-                          isDark
-                              ? Colors.white.withOpacity(0.2)
-                              : Colors.black.withOpacity(0.2),
-                      width: 1.0,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
+                    isDense: true,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                   ),
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                  minLines: 1,
+                  maxLines: 5,
+                  style: TextStyle(fontSize: 16, color: AppTheme.foreground),
+                  cursorColor:
+                      isDark ? Colors.white70 : const Color(0xFF007AFF),
                 ),
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-                minLines: 1,
-                maxLines: 5,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.foreground,
-                  letterSpacing: -0.3,
-                ),
-                cursorColor: isDark ? Colors.white70 : AppTheme.primary,
               ),
             ),
           ),
 
-          // Send button
+          // Send button - iOS style
           _isImageLoading
               ? Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 padding: const EdgeInsets.all(8),
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isDark ? Colors.white70 : AppTheme.primary,
+                    isDark ? Colors.white70 : const Color(0xFF007AFF),
                   ),
                 ),
               )
               : Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF007AFF),
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
@@ -894,7 +1063,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   icon: const Icon(
                     CupertinoIcons.arrow_up,
                     color: Colors.white,
-                    size: 18,
+                    size: 20,
                   ),
                   padding: EdgeInsets.zero,
                 ),
@@ -1144,23 +1313,10 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       // Regular URL processing
       _processedUrl = widget.imageUrl;
 
-      // For Firebase Storage URLs, ensure they're properly formatted and properly decoded
+      // For Firebase Storage URLs, ensure they're properly formatted
       if (_processedUrl.contains('firebasestorage.googleapis.com')) {
-        // Always decode the URL first to prevent double-encoding issues
-        _processedUrl = Uri.decodeFull(_processedUrl);
-
-        // Check if this is the known problematic image
-        final specificImage = '1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1';
-        if (_processedUrl.contains(specificImage) && kIsWeb) {
-          // For the known problematic image on web, just show a placeholder
-          if (kDebugMode) {
-            print('Problematic image detected, showing placeholder instead');
-          }
-          _showPlaceholder = true;
-          _isInitialized = true;
-          if (mounted) setState(() {});
-          return;
-        }
+        // Do not decode the URL as Firebase requires percent-encoding
+        // _processedUrl remains unchanged
 
         // Make sure the URL has the alt=media parameter
         if (!_processedUrl.contains('alt=media')) {
@@ -1179,10 +1335,38 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
           } else {
             _processedUrl += '?t=$timestamp';
           }
+        } else {
+          // For non-web (mobile), also try to add a cache-busting parameter
+          // This helps ensure the image loads on reseller devices
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          if (_processedUrl.contains('?')) {
+            _processedUrl += '&t=$timestamp';
+          } else {
+            _processedUrl += '?t=$timestamp';
+          }
         }
 
         if (kDebugMode) {
           print('Processed Firebase Storage URL: $_processedUrl');
+        }
+
+        // On mobile platforms, immediately try to get a fresh URL
+        // to avoid using possibly expired URLs
+        if (!kIsWeb) {
+          try {
+            final freshUrl = await _getFirebaseStorageUrl(_processedUrl);
+            _processedUrl = freshUrl;
+            if (kDebugMode) {
+              print('Using fresh URL for mobile: $_processedUrl');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print(
+                'Error getting fresh URL for mobile, using original URL: $e',
+              );
+            }
+            // Continue with the original URL
+          }
         }
       }
 
@@ -1250,14 +1434,17 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       return _buildPlaceholderImage();
     }
 
-    // For web, try using base64 data if available
-    if (kIsWeb && _useBase64 && _base64Data != null) {
+    // Try using base64 data if available, for both web and mobile
+    if (_base64Data != null && _base64Data!.isNotEmpty) {
       try {
+        // Handle both data URI format and plain base64
         if (_base64Data!.startsWith('data:image')) {
+          // This is a data URI format
+          final base64String = _base64Data!.split(',')[1];
           return ClipRRect(
             borderRadius: widget.borderRadius,
             child: Image.memory(
-              base64Decode(_base64Data!.split(',')[1]),
+              base64Decode(base64String),
               fit: widget.fit,
               width: widget.width,
               height: widget.height,
@@ -1265,8 +1452,28 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
                 if (kDebugMode) {
                   print('Error with base64 image: $error');
                 }
-                // Show placeholder for base64 errors
-                return _buildPlaceholderImage();
+                // If base64 fails on web, still try the URL as fallback
+                _useBase64 = false;
+                return _buildNetworkImage(_processedUrl);
+              },
+            ),
+          );
+        } else {
+          // Try to decode the plain base64 string
+          return ClipRRect(
+            borderRadius: widget.borderRadius,
+            child: Image.memory(
+              base64Decode(_base64Data!),
+              fit: widget.fit,
+              width: widget.width,
+              height: widget.height,
+              errorBuilder: (context, error, stackTrace) {
+                if (kDebugMode) {
+                  print('Error with plain base64 image: $error');
+                }
+                // If base64 fails, try the URL as fallback
+                _useBase64 = false;
+                return _buildNetworkImage(_processedUrl);
               },
             ),
           );
@@ -1275,28 +1482,25 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         if (kDebugMode) {
           print('Error using base64 data: $e');
         }
-        // Show placeholder for base64 errors
-        return _buildPlaceholderImage();
+        // Fall back to URL if base64 fails
+        _useBase64 = false;
       }
     }
 
-    // For Firebase Storage URLs on web, use direct placeholder for known issue
-    if (_processedUrl.contains('firebasestorage.googleapis.com') && kIsWeb) {
-      // Check for the specific known problematic image before trying FutureBuilder
-      if (_processedUrl.contains(
-        '1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1',
-      )) {
-        return _buildPlaceholderImage();
-      }
+    // If base64 wasn't used or failed, proceed with URL
+    return _buildNetworkImage(_processedUrl);
+  }
 
-      // For other Firebase Storage URLs, try once with FutureBuilder
-      // but have a quick timeout to avoid hanging
+  // Helper method to build network image with proper error handling
+  Widget _buildNetworkImage(String url) {
+    // For Firebase Storage URLs on web, try with FutureBuilder
+    if (url.contains('firebasestorage.googleapis.com') && kIsWeb) {
       return FutureBuilder<String>(
         future: Future.any([
-          _getFirebaseStorageUrl(_processedUrl),
+          _getFirebaseStorageUrl(url),
           // Add a short timeout to prevent endless loading
           Future.delayed(
-            const Duration(seconds: 3),
+            const Duration(seconds: 5),
             () => throw Exception('Timeout'),
           ),
         ]),
@@ -1309,80 +1513,49 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
             if (kDebugMode) {
               print('Error getting fresh URL: ${snapshot.error}');
             }
+            // If we have base64 data, try that as a last resort
+            if (_base64Data != null && !_useBase64) {
+              _useBase64 = true;
+              return build(context); // Rebuild with base64
+            }
             return _buildPlaceholderImage();
           }
 
           final freshUrl = snapshot.data!;
-          return ClipRRect(
-            borderRadius: widget.borderRadius,
-            child: Image.network(
-              freshUrl,
-              fit: widget.fit,
-              width: widget.width,
-              height: widget.height,
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods':
-                    'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers':
-                    'Origin, Content-Type, X-Auth-Token',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return _buildLoadingIndicator(loadingProgress);
-              },
-              errorBuilder: (context, error, stackTrace) {
-                if (kDebugMode) {
-                  print('Fresh URL image error: $error');
-                }
-                // Show placeholder on error
-                return _buildPlaceholderImage();
-              },
-              cacheWidth: widget.width?.toInt(),
-              cacheHeight: widget.height?.toInt(),
-            ),
-          );
+          return _buildDirectNetworkImage(freshUrl);
         },
       );
     }
 
-    // Default to regular network image with fallback to placeholder
+    // For regular URLs or Firebase on mobile, just use directly
+    return _buildDirectNetworkImage(url);
+  }
+
+  // Helper method to build a regular network image
+  Widget _buildDirectNetworkImage(String url) {
     return ClipRRect(
       borderRadius: widget.borderRadius,
-      child: Image.network(
-        _processedUrl,
+      child: CachedNetworkImage(
+        imageUrl: url,
         fit: widget.fit,
         width: widget.width,
         height: widget.height,
-        headers:
-            kIsWeb
-                ? {
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods':
-                      'GET, POST, PUT, DELETE, OPTIONS',
-                  'Access-Control-Allow-Headers':
-                      'Origin, Content-Type, X-Auth-Token',
-                  'Cache-Control': 'no-cache, no-store, must-revalidate',
-                  'Pragma': 'no-cache',
-                  'Expires': '0',
-                }
-                : null,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return _buildLoadingIndicator(loadingProgress);
-        },
-        errorBuilder: (context, error, stackTrace) {
+        placeholder: (context, url) => _buildLoadingIndicator(null),
+        errorWidget: (context, url, error) {
           if (kDebugMode) {
             print('Network image error: $error');
           }
-          // Show placeholder on error without causing setState during build
+          // If network image fails and we have base64 data, try that instead
+          if (_base64Data != null && !_useBase64) {
+            _useBase64 = true;
+            Future.microtask(() {
+              if (mounted) setState(() {});
+            });
+            return Container(color: Colors.transparent);
+          }
+          // Otherwise show placeholder
           return _buildPlaceholderImage();
         },
-        cacheWidth: widget.width?.toInt(),
-        cacheHeight: widget.height?.toInt(),
       ),
     );
   }
@@ -1488,28 +1661,17 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         print('Original Firebase URL: $path');
       }
 
-      // For the specific problematic image, throw an exception immediately to skip to placeholder
-      if (path.contains('1743410189275_YXSDrAQ77JPsh1RR2wlQlHWIovf1') &&
-          kIsWeb) {
-        throw Exception('Known problematic image, skipping to placeholder');
-      }
-
-      // First, fully decode the URL to prevent issues with encoded characters
-      path = Uri.decodeFull(path);
-
-      // Try to extract the path from the URL
+      // Don't decode the URL to preserve the encoding needed by Firebase Storage
       String storagePath = '';
 
-      // Look for the image name provided by the user
+      // Extract the path from the URL
       if (path.contains('/o/')) {
-        // Standard extraction method for other images
+        // Standard extraction method
         final pathStart = path.indexOf('/o/') + 3;
         final pathEnd = path.contains('?') ? path.indexOf('?') : path.length;
         storagePath = path.substring(pathStart, pathEnd);
 
-        // Further decode in case there are still encoded characters
-        storagePath = Uri.decodeFull(storagePath);
-
+        // Don't decode the path - keep it percent-encoded for Firebase
         if (kDebugMode) {
           print('Extracted storage path: $storagePath');
         }
@@ -1519,9 +1681,14 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         final lastPart = uriParts.last;
         final fileName = lastPart.split('?').first;
 
-        if (fileName.isNotEmpty && fileName.contains('.')) {
-          // This looks like a filename with extension
-          storagePath = 'chat_images/$fileName';
+        if (fileName.isNotEmpty) {
+          // This looks like a filename
+          if (fileName.contains('chat_images')) {
+            storagePath = fileName;
+          } else {
+            storagePath = 'chat_images/$fileName';
+          }
+
           if (kDebugMode) {
             print('Extracted filename: $storagePath');
           }
@@ -1535,26 +1702,69 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
 
       // If we have a valid path, get a fresh download URL
       if (storagePath.isNotEmpty) {
-        // Get reference to the Firebase Storage location
-        final ref = FirebaseStorage.instance.ref(storagePath);
+        try {
+          // Get reference to the Firebase Storage location
+          // Make sure to handle URL encoding correctly
+          if (storagePath.startsWith('chat_images%2F')) {
+            // This is likely a URL-encoded path, extract the filename
+            final parts = storagePath.split('%2F');
+            if (parts.length > 1) {
+              final filename = parts[1];
+              storagePath = 'chat_images/$filename';
+              if (kDebugMode) {
+                print('Reformatted encoded path to: $storagePath');
+              }
+            }
+          }
 
-        // Get a fresh download URL
-        final freshUrl = await ref.getDownloadURL();
+          final ref = FirebaseStorage.instance.ref(storagePath);
 
-        if (kDebugMode) {
-          print('Got fresh download URL: $freshUrl');
+          // Get a fresh download URL
+          final freshUrl = await ref.getDownloadURL();
+
+          if (kDebugMode) {
+            print('Got fresh download URL: $freshUrl');
+          }
+
+          // Add cache busting parameter
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final finalUrl =
+              freshUrl.contains('?')
+                  ? '$freshUrl&t=$timestamp'
+                  : '$freshUrl?t=$timestamp';
+
+          return finalUrl;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error getting fresh download URL: $e');
+
+            // Try a fallback approach for certain error types
+            if (e.toString().contains('object-not-found')) {
+              // This could be a URL encoding issue, try with an alternative path format
+              try {
+                if (storagePath.contains('%2F')) {
+                  // Try with decoded path
+                  final decodedPath = Uri.decodeComponent(storagePath);
+                  final ref = FirebaseStorage.instance.ref(decodedPath);
+                  final freshUrl = await ref.getDownloadURL();
+
+                  if (kDebugMode) {
+                    print('Success with decoded path: $freshUrl');
+                  }
+
+                  return freshUrl;
+                }
+              } catch (fallbackError) {
+                if (kDebugMode) {
+                  print('Fallback approach also failed: $fallbackError');
+                }
+              }
+            }
+          }
+          throw e;
         }
-
-        // Add cache busting parameter
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final finalUrl =
-            freshUrl.contains('?')
-                ? '$freshUrl&t=$timestamp'
-                : '$freshUrl?t=$timestamp';
-
-        return finalUrl;
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (kDebugMode) {
         print('Error getting fresh download URL: $e');
       }
