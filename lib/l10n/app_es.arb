@@ -9,6 +9,18 @@
     "loginButton": "Iniciar sesión",
     "loginForgotPassword": "¿Olvidaste tu contraseña?",
     
+    "@_ADMIN": {},
+    "adminRetailUsers": "Usuarios Minoristas",
+    "adminReports": "Informes",
+    "adminOpportunities": "Oportunidades",
+    "adminDashboard": "Panel",
+    "adminUserManagement": "Gestión de Usuarios",
+    "adminUserManagementDescription": "Crear y administrar cuentas de usuario",
+    "adminSystemConfig": "Configuración del Sistema",
+    "adminSystemConfigDescription": "Configuración avanzada del sistema",
+    "adminProfile": "Perfil de Administrador",
+    "adminPreferences": "Preferencias de Administrador",
+    
     "@_HOME": {},
     "homeWelcome": "Bienvenido",
     "homeEarnings": "Ganancias",
@@ -17,12 +29,54 @@
     "homeViewDetails": "Ver Detalles",
     "homeNotifications": "Notificaciones",
     "homeNoNotifications": "Sin notificaciones",
-    "homeNotificationMeeting": "Reunión Programada",
+    "homeNotificationMeeting": "Reunião Programada",
     "homeNotificationMeetingDesc": "Tienes una reunión programada para hoy a las 14h",
     "homeNotificationRequest": "Nueva Solicitud de Servicio",
     "homeNotificationRequestDesc": "Una nueva solicitud de servicio requiere tu atención",
     "homeNotificationPayment": "Pago Recibido",
-    "homeNotificationPaymentDesc": "El pago de la comisión ha sido procesado",
+    "homeNotificationPaymentDesc": "Pago de comisión procesado",
+    "homeQuickActionsTitle": "Acciones Rápidas",
+    "homeQuickActionTransferLabel": "Transferencia\nNacional",
+    "homeQuickActionPayBillsLabel": "Pagar\nServicios",
+    "homeQuickActionTopUpLabel": "Recargar\nTeléfono",
+    "homeQuickActionShareIbanLabel": "Compartir\nIBAN",
+    "homeCreateNewServiceButton": "Crear Nuevo Servicio",
+    "homeNotificationsPending": "Pendientes",
+    "homeNotificationExamplePurchaseTitle": "COMPRA {purchaseId}",
+    "@homeNotificationExamplePurchaseTitle": {
+        "placeholders": {
+            "purchaseId": {
+                "type": "int"
+            }
+        }
+    },
+    "homeNotificationExampleRejectionTitle": "Solicitud Rechazada",
+    "homeNotificationExampleRejectionDesc": "Tu solicitud {submissionId} fue rechazada",
+    "@homeNotificationExampleRejectionDesc": {
+        "placeholders": {
+            "submissionId": {
+                "type": "String"
+            }
+        }
+    },
+    "homeCommissionBoxTitle": "COMISIONES",
+    "homeCommissionBoxDetailsButton": "VER DETALLES",
+    
+    "@_CHAT": {},
+    "chatSupportTitle": "Soporte",
+    "chatSupportSubtitle": "Nuestro equipo está aquí para ayudar con tus consultas.",
+    "chatSupportName": "Soporte Twogether",
+    "chatYou": "Tú",
+    "chatMessage": "Mensaje",
+    "chatSendMessage": "Enviar un mensaje",
+    "chatSendMessagePrompt": "Envía un mensaje para comenzar",
+    "chatLoadingMessages": "Cargando mensajes...",
+    "chatNoMessages": "Sin mensajes",
+    "chatErrorLoading": "Error al cargar mensajes",
+    "chatTryAgainLater": "Por favor intenta más tarde",
+    "chatRetry": "Reintentar",
+    "chatWelcomeTitle": "Bienvenido a Soporte",
+    "chatWelcomeMessage": "Conéctate directamente con nuestro equipo de soporte para recibir asistencia personalizada con tu cuenta, servicios y cualquier pregunta que puedas tener.",
     
     "@_SERVICES": {},
     "servicesTitle": "Servicios",
@@ -84,12 +138,15 @@
     "profileThemeDark": "Oscuro",
     "profileSalesforceConnect": "Conectar con Salesforce",
     "profileEndSession": "Terminar sesión",
+    "viewEditProfile": "Ver y editar tu perfil",
     
     "@_NAVIGATION": {},
     "navHome": "Inicio",
     "navClients": "Clientes",
     "navMessages": "Mensajes",
-    "navProfile": "Perfil",
+    "navSettings": "Ajustes",
+    "navReports": "Informes",
+    "navOpportunities": "Oportunidades",
     
     "@_COMMON": {},
     "commonSave": "Guardar",
@@ -106,5 +163,36 @@
     "commonClear": "Limpiar",
     "commonApply": "Aplicar",
     "commonLoading": "Cargando...",
-    "commonLanguage": "Idioma"
+    "commonLanguage": "Idioma",
+    "commonLanguageSelection": "Cambiar idioma de la aplicación",
+    "commonSettings": "Configuración del Sistema",
+    "commonMore": "Más acciones",
+    "userInitialsDefault": "U",
+    "currencyCodeEUR": "EUR",
+    "account": "Cuenta",
+    "security": "Seguridad",
+    "changePasswordSettings": "Cambiar contraseña y configuración de seguridad",
+    "notificationPreferences": "Activar notificaciones push",
+    "securityAlerts": "Alertas de Seguridad",
+    "securityAlertsDescription": "Recibir alertas sobre eventos de seguridad",
+    "exportDatabase": "Exportar Base de Datos",
+    "exportDatabaseDescription": "Exportar una copia de seguridad de la base de datos",
+    "selectExportFormat": "Seleccionar formato de exportación:",
+    "export": "Exportar",
+    "exportSuccessful": "Exportación Exitosa",
+    "exportSuccessfulDescription": "La base de datos se ha exportado correctamente a tu carpeta de descargas.",
+    "exportFormatJSON": "JSON",
+    "exportFormatCSV": "CSV",
+    "exportFormatSQL": "SQL",
+    "ok": "Aceptar",
+    "salesforceIntegrationDescription": "Conectar y configurar Salesforce",
+
+    "@_RETAIL_USERS": {},
+    "tryAgain": "Intentar de nuevo",
+    "noRetailUsersFound": "No se encontraron usuarios minoristas",
+    "refresh": "Actualizar",
+    "unknownUser": "Usuario Desconocido",
+    "noEmailProvided": "Email no proporcionado",
+    "active": "Activo",
+    "inactive": "Inactivo"
 } 

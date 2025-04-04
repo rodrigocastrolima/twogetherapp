@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'dart:async';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/theme/text_styles.dart';
@@ -16,6 +16,7 @@ import '../providers/chat_provider.dart';
 import 'chat_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/repositories/chat_repository.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // Provider to fetch all resellers
 final resellersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -46,9 +47,57 @@ class AdminChatPage extends ConsumerStatefulWidget {
 class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   // State variable to track if we're showing only active conversations
   bool _showOnlyActive = true;
+  double _dragPosition = 0; // 0 = Active tab, 1 = All tab
+  bool _isDragging = false;
+
+  // Search query
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  // Add a PageController to manage the page view
+  final PageController _pageController = PageController(initialPage: 0);
+  double _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+
+    // Add listener to page controller to update the current page value
+    _pageController.addListener(() {
+      setState(() {
+        _currentPage = _pageController.page ?? 0;
+        // Update the filter state when page changes
+        _showOnlyActive = _currentPage < 0.5;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.trim().toLowerCase();
+    });
+  }
+
+  void _toggleActiveFilter() {
+    setState(() {
+      _showOnlyActive = !_showOnlyActive;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     // Watch both conversations and resellers
     final conversationsStream = ref.watch(conversationsProvider);
     final resellersStream = ref.watch(resellersProvider);
@@ -58,35 +107,22 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 24,
         title: Text(
-          'Chat with Resellers',
-          style: AppTextStyles.h3.copyWith(color: Colors.white),
-        ),
-        centerTitle: true,
-        // Add actions for the filter toggle
-        actions: [
-          // Filter toggle button
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: Icon(
-                _showOnlyActive ? Icons.filter_list : Icons.filter_list_off,
-                color: _showOnlyActive ? Colors.amber : Colors.white70,
-              ),
-              onPressed: _toggleActiveFilter,
-              tooltip:
-                  _showOnlyActive
-                      ? 'Showing active conversations only'
-                      : 'Showing all conversations',
-            ),
+          l10n.messagesPageTitle,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: theme.colorScheme.onBackground,
+            fontWeight: FontWeight.w700,
           ),
-        ],
+          textAlign: TextAlign.left,
+        ),
       ),
       body: SafeArea(
         child: Container(
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
           clipBehavior: Clip.antiAlias,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: BackdropFilter(
             filter: AppStyles.standardBlur,
             child: Container(
@@ -101,13 +137,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           Icon(
                             CupertinoIcons.person_3_fill,
                             size: 48,
-                            color: AppColors.whiteAlpha50,
+                            color: theme.colorScheme.primary.withOpacity(0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No resellers found',
-                            style: AppTextStyles.body1.copyWith(
-                              color: AppColors.whiteAlpha70,
+                            l10n.noRetailUsersFound,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onBackground,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -118,142 +155,382 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                   return conversationsStream.when(
                     data: (conversations) {
                       // Get all conversations or filter active ones based on state
-                      final List<ChatConversation> filteredConversations =
-                          _showOnlyActive
-                              ? conversations
-                                  .where((c) => c.active ?? false)
-                                  .toList()
-                              : conversations;
+                      final List<ChatConversation> activeConversations =
+                          conversations
+                              .where((c) => c.active ?? false)
+                              .toList();
 
-                      // Display a message if there are no conversations to show
-                      if (filteredConversations.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _showOnlyActive
-                                    ? CupertinoIcons.chat_bubble_2
-                                    : CupertinoIcons.square_stack_3d_down_right,
-                                size: 48,
-                                color: AppColors.whiteAlpha50,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _showOnlyActive
-                                    ? 'No active conversations found'
-                                    : 'No conversations found',
-                                style: AppTextStyles.body1.copyWith(
-                                  color: AppColors.whiteAlpha70,
-                                ),
-                              ),
-                              if (_showOnlyActive) ...[
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _showOnlyActive = false;
-                                    });
-                                  },
-                                  child: Text(
-                                    'Show all conversations',
-                                    style: TextStyle(color: Colors.amber),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      }
+                      final List<ChatConversation> inactiveConversations =
+                          conversations
+                              .where((c) => !(c.active ?? false))
+                              .toList();
 
-                      // Sort conversations by newest message first, putting active ones at the top
-                      filteredConversations.sort((a, b) {
-                        // First sort by active status
-                        if ((a.active ?? false) != (b.active ?? false)) {
-                          return (a.active ?? false)
-                              ? -1
-                              : 1; // Active conversations first
-                        }
-                        // Then sort by time
-                        if (a.lastMessageTime == null &&
-                            b.lastMessageTime == null) {
-                          return 0;
-                        } else if (a.lastMessageTime == null) {
-                          return 1;
-                        } else if (b.lastMessageTime == null) {
-                          return -1;
-                        }
-                        return b.lastMessageTime!.compareTo(a.lastMessageTime!);
-                      });
+                      // Apply search filter if there's a query
+                      final List<ChatConversation>
+                      searchFilteredActiveConversations =
+                          _searchQuery.isEmpty
+                              ? activeConversations
+                              : activeConversations.where((c) {
+                                // Find the reseller for this conversation
+                                final reseller = resellers.firstWhere(
+                                  (r) => r['id'] == c.resellerId,
+                                  orElse: () => {'name': '', 'email': ''},
+                                );
 
-                      // Create a map of all filtered conversations by reseller ID
-                      final conversationsByResellerId = {
-                        for (var conversation in filteredConversations)
+                                // Search in name, email, and last message
+                                return (reseller['name'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (reseller['email'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (c.lastMessageContent ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery);
+                              }).toList();
+
+                      final List<ChatConversation>
+                      searchFilteredInactiveConversations =
+                          _searchQuery.isEmpty
+                              ? inactiveConversations
+                              : inactiveConversations.where((c) {
+                                // Find the reseller for this conversation
+                                final reseller = resellers.firstWhere(
+                                  (r) => r['id'] == c.resellerId,
+                                  orElse: () => {'name': '', 'email': ''},
+                                );
+
+                                // Search in name, email, and last message
+                                return (reseller['name'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (reseller['email'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (c.lastMessageContent ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery);
+                              }).toList();
+
+                      // Create maps of conversations by reseller ID for both filtered lists
+                      final activeConversationsByResellerId = {
+                        for (var conversation
+                            in searchFilteredActiveConversations)
                           conversation.resellerId: conversation,
                       };
 
-                      // Get all resellers that have any conversation (active or inactive)
-                      final resellersWithConversations =
+                      final inactiveConversationsByResellerId = {
+                        for (var conversation
+                            in searchFilteredInactiveConversations)
+                          conversation.resellerId: conversation,
+                      };
+
+                      // Get all resellers that have conversations from each filtered list
+                      final resellersWithActiveConversations =
                           resellers
                               .where(
-                                (reseller) => conversationsByResellerId
+                                (reseller) => activeConversationsByResellerId
+                                    .containsKey(reseller['id']),
+                              )
+                              .toList();
+
+                      final resellersWithInactiveConversations =
+                          resellers
+                              .where(
+                                (reseller) => inactiveConversationsByResellerId
                                     .containsKey(reseller['id']),
                               )
                               .toList();
 
                       return Column(
                         children: [
-                          // Filter indicator - make it tappable to toggle
-                          GestureDetector(
-                            onTap: _toggleActiveFilter,
+                          // Search bar
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6,
-                                horizontal: 12,
-                              ),
-                              margin: const EdgeInsets.symmetric(
-                                vertical: 6,
-                                horizontal: 8,
-                              ),
+                              height: 44,
                               decoration: BoxDecoration(
                                 color:
-                                    _showOnlyActive
-                                        ? Colors.amber.withOpacity(0.15)
-                                        : Colors.grey.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(16),
+                                    theme.brightness == Brightness.dark
+                                        ? theme.colorScheme.surface.withOpacity(
+                                          0.7,
+                                        )
+                                        : theme.colorScheme.surface.withOpacity(
+                                          0.9,
+                                        ),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color:
-                                      _showOnlyActive
-                                          ? Colors.amber.withOpacity(0.3)
-                                          : Colors.grey.withOpacity(0.3),
-                                  width: 1,
+                                  color: theme.colorScheme.onBackground
+                                      .withOpacity(0.1),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.shadowColor.withOpacity(0.05),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onBackground,
+                                  fontSize: 15,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: "Search conversations...",
+                                  hintStyle: TextStyle(
+                                    color: theme.colorScheme.onBackground
+                                        .withOpacity(0.5),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 0,
+                                  ),
+                                  prefixIcon: Icon(
+                                    CupertinoIcons.search,
+                                    color: theme.colorScheme.onBackground
+                                        .withOpacity(0.5),
+                                    size: 18,
+                                  ),
+                                  suffixIcon:
+                                      _searchQuery.isNotEmpty
+                                          ? IconButton(
+                                            icon: Icon(
+                                              CupertinoIcons.clear,
+                                              color: theme
+                                                  .colorScheme
+                                                  .onBackground
+                                                  .withOpacity(0.5),
+                                              size: 16,
+                                            ),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                            },
+                                          )
+                                          : null,
+                                  border: InputBorder.none,
                                 ),
                               ),
+                            ),
+                          ),
+
+                          // Segmented control (Apple-style)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: Container(
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFFE5E5EA,
+                                ), // iOS gray background
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               child: Row(
-                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    _showOnlyActive
-                                        ? Icons.filter_alt
-                                        : Icons.filter_alt_off,
-                                    size: 14,
-                                    color:
-                                        _showOnlyActive
-                                            ? Colors.amber
-                                            : Colors.white70,
+                                  // Active Tab
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        if (!_showOnlyActive) {
+                                          setState(() {
+                                            _showOnlyActive = true;
+                                            _pageController.jumpToPage(0);
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color:
+                                              _showOnlyActive
+                                                  ? Colors.white
+                                                  : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                          boxShadow:
+                                              _showOnlyActive
+                                                  ? [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.06),
+                                                      blurRadius: 1,
+                                                      offset: const Offset(
+                                                        0,
+                                                        1,
+                                                      ),
+                                                    ),
+                                                  ]
+                                                  : null,
+                                        ),
+                                        child: Center(
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                l10n.active,
+                                                style: TextStyle(
+                                                  color:
+                                                      _showOnlyActive
+                                                          ? const Color(
+                                                            0xFF007AFF,
+                                                          )
+                                                          : Colors.black87,
+                                                  fontWeight:
+                                                      _showOnlyActive
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w500,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (searchFilteredActiveConversations
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(width: 4),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 1,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        _showOnlyActive
+                                                            ? const Color(
+                                                              0xFF007AFF,
+                                                            ).withOpacity(0.2)
+                                                            : Colors.black
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    '${searchFilteredActiveConversations.length}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          _showOnlyActive
+                                                              ? const Color(
+                                                                0xFF007AFF,
+                                                              )
+                                                              : Colors.black87,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _showOnlyActive
-                                        ? 'Active only (${filteredConversations.length})'
-                                        : 'All conversations (${filteredConversations.length})',
-                                    style: TextStyle(
-                                      color:
-                                          _showOnlyActive
-                                              ? Colors.amber
-                                              : Colors.white70,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                                  // Inactive Tab
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        if (_showOnlyActive) {
+                                          setState(() {
+                                            _showOnlyActive = false;
+                                            _pageController.jumpToPage(1);
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color:
+                                              !_showOnlyActive
+                                                  ? Colors.white
+                                                  : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            7,
+                                          ),
+                                          boxShadow:
+                                              !_showOnlyActive
+                                                  ? [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.06),
+                                                      blurRadius: 1,
+                                                      offset: const Offset(
+                                                        0,
+                                                        1,
+                                                      ),
+                                                    ),
+                                                  ]
+                                                  : null,
+                                        ),
+                                        child: Center(
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                l10n.inactive,
+                                                style: TextStyle(
+                                                  color:
+                                                      !_showOnlyActive
+                                                          ? const Color(
+                                                            0xFF007AFF,
+                                                          )
+                                                          : Colors.black87,
+                                                  fontWeight:
+                                                      !_showOnlyActive
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w500,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              if (searchFilteredInactiveConversations
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(width: 4),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 1,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        !_showOnlyActive
+                                                            ? const Color(
+                                                              0xFF007AFF,
+                                                            ).withOpacity(0.2)
+                                                            : Colors.black
+                                                                .withOpacity(
+                                                                  0.1,
+                                                                ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    '${searchFilteredInactiveConversations.length}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          !_showOnlyActive
+                                                              ? const Color(
+                                                                0xFF007AFF,
+                                                              )
+                                                              : Colors.black87,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -261,40 +538,59 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             ),
                           ),
 
-                          // Main list
+                          // Page View for the content
                           Expanded(
-                            child: NoScrollbarBehavior.noScrollbars(
-                              context,
-                              ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
+                            child: PageView(
+                              controller: _pageController,
+                              onPageChanged: (page) {
+                                if ((_showOnlyActive && page == 1) ||
+                                    (!_showOnlyActive && page == 0)) {
+                                  setState(() {
+                                    _showOnlyActive = page == 0;
+                                  });
+                                }
+                              },
+                              children: [
+                                // Active conversations page
+                                _buildConversationsContent(
+                                  searchFilteredActiveConversations,
+                                  resellersWithActiveConversations,
+                                  activeConversationsByResellerId,
+                                  l10n,
+                                  theme,
+                                  true,
                                 ),
-                                itemCount: resellersWithConversations.length,
-                                itemBuilder: (context, index) {
-                                  final reseller =
-                                      resellersWithConversations[index];
-                                  // Get the conversation for this reseller
-                                  final conversation =
-                                      conversationsByResellerId[reseller['id']];
 
-                                  return _buildResellerItem(
-                                    context,
-                                    reseller,
-                                    conversation,
-                                  );
-                                },
-                              ),
+                                // Inactive conversations page
+                                _buildConversationsContent(
+                                  searchFilteredInactiveConversations,
+                                  resellersWithInactiveConversations,
+                                  inactiveConversationsByResellerId,
+                                  l10n,
+                                  theme,
+                                  false,
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       );
                     },
                     loading:
-                        () => const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.amber,
-                            ),
+                        () => Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CupertinoActivityIndicator(),
+                              const SizedBox(height: 12),
+                              Text(
+                                l10n.commonLoading,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onBackground
+                                      .withOpacity(0.7),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                     error:
@@ -307,13 +603,13 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                 Icon(
                                   CupertinoIcons.exclamationmark_triangle_fill,
                                   size: 48,
-                                  color: Colors.amber,
+                                  color: theme.colorScheme.error,
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  'Error loading conversations',
-                                  style: AppTextStyles.body1.copyWith(
-                                    color: Colors.white,
+                                  l10n.chatErrorLoading,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: theme.colorScheme.onBackground,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -321,8 +617,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                 Text(
                                   error.toString(),
                                   textAlign: TextAlign.center,
-                                  style: AppTextStyles.body2.copyWith(
-                                    color: AppColors.whiteAlpha70,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onBackground
+                                        .withOpacity(0.7),
                                   ),
                                 ),
                               ],
@@ -332,9 +629,21 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                   );
                 },
                 loading:
-                    () => const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+                    () => Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CupertinoActivityIndicator(),
+                          const SizedBox(height: 12),
+                          Text(
+                            l10n.commonLoading,
+                            style: TextStyle(
+                              color: theme.colorScheme.onBackground.withOpacity(
+                                0.7,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 error:
@@ -347,13 +656,13 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             Icon(
                               CupertinoIcons.exclamationmark_triangle_fill,
                               size: 48,
-                              color: Colors.amber,
+                              color: theme.colorScheme.error,
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Error loading resellers',
-                              style: AppTextStyles.body1.copyWith(
-                                color: Colors.white,
+                              l10n.chatErrorLoading,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onBackground,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -361,8 +670,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             Text(
                               error.toString(),
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.body2.copyWith(
-                                color: AppColors.whiteAlpha70,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onBackground
+                                    .withOpacity(0.7),
                               ),
                             ),
                           ],
@@ -382,11 +692,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     Map<String, dynamic> reseller,
     ChatConversation? conversation,
   ) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     // Format time if conversation exists and has a last message
     final formattedTime =
         conversation?.lastMessageTime != null
             ? DateFormat('dd/MM • HH:mm').format(conversation!.lastMessageTime!)
-            : 'No messages yet';
+            : '';
 
     // Check if there are unread messages for admin
     final hasUnreadMessages =
@@ -397,195 +710,194 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     final bool isInactive =
         conversation != null && !(conversation.active ?? false);
 
-    // Determine message content to display - show appropriate text if no messages
-    final String messageContent =
-        conversation?.lastMessageContent ?? 'Start a conversation';
+    // Get email for display in the subtitle for inactive conversations
+    final String email = reseller['email'] ?? '';
+
+    // Get last message content for active conversations
+    final String lastMessage = conversation?.lastMessageContent ?? '';
+
+    // Determine which text to display in the subtitle
+    final String subtitleText = isInactive ? email : lastMessage;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: AppStyles.glassCardWithHighlight(
-        isHighlighted: hasUnreadMessages,
-        context: context,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color:
+            hasUnreadMessages
+                ? theme.colorScheme.primary.withOpacity(0.07)
+                : theme.colorScheme.surface.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              hasUnreadMessages
+                  ? theme.colorScheme.primary.withOpacity(0.3)
+                  : theme.colorScheme.onBackground.withOpacity(0.1),
+          width: hasUnreadMessages ? 1.0 : 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                // Navigate to chat with this reseller
-                _openOrCreateChat(context, reseller);
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              // Navigate to chat with this reseller
+              _openOrCreateChat(context, reseller);
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color:
+                          hasUnreadMessages
+                              ? theme.colorScheme.primary.withOpacity(0.15)
+                              : isInactive
+                              ? theme.colorScheme.onBackground.withOpacity(0.08)
+                              : theme.colorScheme.secondary.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
                         color:
                             hasUnreadMessages
-                                ? AppColors.amber.withAlpha(38)
+                                ? theme.colorScheme.primary.withOpacity(0.3)
                                 : isInactive
-                                ? Colors.grey.withAlpha(38)
-                                : AppTheme.primary.withAlpha(38),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color:
-                              hasUnreadMessages
-                                  ? AppColors.amber.withAlpha(77)
-                                  : isInactive
-                                  ? Colors.grey.withAlpha(77)
-                                  : AppTheme.primary.withAlpha(77),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          isInactive
-                              ? CupertinoIcons.person
-                              : CupertinoIcons.person_solid,
-                          size: 24,
-                          color:
-                              hasUnreadMessages
-                                  ? AppColors.amber
-                                  : isInactive
-                                  ? Colors.grey
-                                  : AppColors.whiteAlpha90,
-                        ),
+                                ? theme.colorScheme.onBackground.withOpacity(
+                                  0.1,
+                                )
+                                : theme.colorScheme.secondary.withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(width: 16),
-
-                    // Content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  reseller['name'],
-                                  style: AppTextStyles.body1.copyWith(
-                                    fontWeight:
-                                        hasUnreadMessages
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                    color:
-                                        hasUnreadMessages
-                                            ? Colors.white
-                                            : isInactive
-                                            ? AppColors.whiteAlpha70
-                                            : AppColors.whiteAlpha90,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                    child: Center(
+                      child: Icon(
+                        isInactive
+                            ? CupertinoIcons.person
+                            : CupertinoIcons.person_solid,
+                        size: 22,
+                        color:
+                            hasUnreadMessages
+                                ? theme.colorScheme.primary
+                                : isInactive
+                                ? theme.colorScheme.onBackground.withOpacity(
+                                  0.5,
+                                )
+                                : theme.colorScheme.onBackground.withOpacity(
+                                  0.9,
                                 ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                reseller['name'],
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight:
+                                      hasUnreadMessages
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                  color:
+                                      hasUnreadMessages
+                                          ? theme.colorScheme.onBackground
+                                          : isInactive
+                                          ? theme.colorScheme.onBackground
+                                              .withOpacity(0.7)
+                                          : theme.colorScheme.onBackground
+                                              .withOpacity(0.9),
+                                  fontSize: 15,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
+                            ),
+                            if (formattedTime.isNotEmpty) ...[
                               const SizedBox(width: 8),
                               Text(
                                 formattedTime,
-                                style: AppTextStyles.caption.copyWith(
+                                style: theme.textTheme.bodySmall?.copyWith(
                                   color:
                                       hasUnreadMessages
-                                          ? AppColors.amber
+                                          ? theme.colorScheme.primary
                                           : isInactive
-                                          ? AppColors.whiteAlpha30
-                                          : AppColors.whiteAlpha50,
+                                          ? theme.colorScheme.onBackground
+                                              .withOpacity(0.3)
+                                          : theme.colorScheme.onBackground
+                                              .withOpacity(0.5),
+                                  fontSize: 11,
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                subtitleText,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onBackground
+                                      .withOpacity(0.6),
+                                  fontWeight: FontWeight.normal,
+                                  fontStyle:
+                                      isInactive
+                                          ? FontStyle.normal
+                                          : FontStyle.normal,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (hasUnreadMessages) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                                 child: Text(
-                                  messageContent,
-                                  style: AppTextStyles.body2.copyWith(
-                                    color:
-                                        hasUnreadMessages
-                                            ? AppColors.whiteAlpha90
-                                            : isInactive
-                                            ? AppColors.whiteAlpha50
-                                            : AppColors.whiteAlpha70,
-                                    fontWeight:
-                                        hasUnreadMessages
-                                            ? FontWeight.w500
-                                            : FontWeight.normal,
-                                    fontStyle:
-                                        isInactive
-                                            ? FontStyle.italic
-                                            : FontStyle.normal,
+                                  unreadCount.toString(),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (hasUnreadMessages) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.amber,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    unreadCount.toString(),
-                                    style: AppTextStyles.caption.copyWith(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              if (isInactive) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    'New',
-                                    style: AppTextStyles.caption.copyWith(
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
-                    // Add the menu button for all conversations (including inactive ones)
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.white70),
-                      onPressed:
-                          () =>
-                              _showActionsMenu(context, reseller, conversation),
-                      tooltip: 'More actions',
-                    ),
-                  ],
-                ),
+                  ),
+                  // Add the menu button for all conversations (including inactive ones)
+                  _buildActionsButton(context, reseller, conversation),
+                ],
               ),
             ),
           ),
@@ -594,145 +906,390 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     );
   }
 
-  // Show a popup menu with actions for the conversation
-  void _showActionsMenu(
+  // Widget for the actions button with menu
+  Widget _buildActionsButton(
     BuildContext context,
     Map<String, dynamic> reseller,
     ChatConversation? conversation,
   ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder:
-          (context) => Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final width = MediaQuery.of(context).size.width;
+
+    // More reliable detection - only use desktop UI on screens wider than 1024px
+    // For mobile and tablets (and browser tests), use the bottom sheet
+    final bool useDesktopUI = width >= 1024 && !kIsWeb;
+
+    // Use different widget types based on screen size
+    if (useDesktopUI) {
+      // Desktop: Use PopupMenuButton with themed styling
+      return PopupMenuButton<String>(
+        icon: Icon(
+          Icons.more_vert,
+          color: theme.colorScheme.onBackground.withOpacity(0.7),
+          size: 20,
+        ),
+        padding: EdgeInsets.zero,
+        tooltip: l10n.commonMore,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 4,
+        color: theme.colorScheme.surface,
+        itemBuilder: (BuildContext context) {
+          return <PopupMenuEntry<String>>[
+            // Heading with reseller name
+            PopupMenuItem<String>(
+              enabled: false,
+              height: 36,
+              value: 'header',
+              child: Center(
+                child: Text(
+                  reseller['name'],
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header with reseller name
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  child: Text(
-                    reseller['name'],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            const PopupMenuDivider(),
+            // Clear conversation option
+            PopupMenuItem<String>(
+              value: 'clear',
+              height: 48,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cleaning_services_outlined,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Clear Conversation',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'Remove all messages',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ],
+              ),
+            ),
+            // Delete option
+            PopupMenuItem<String>(
+              value: 'delete',
+              height: 48,
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: theme.colorScheme.error, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Delete Conversation',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'Permanently delete this conversation',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ];
+        },
+        onSelected: (String value) {
+          if (value == 'clear') {
+            _showResetConfirmation(context, conversation, reseller['name']);
+          } else if (value == 'delete') {
+            _showDeleteConfirmation(context, conversation, reseller['name']);
+          }
+        },
+      );
+    } else {
+      // Mobile/Tablet: Use IconButton that shows a bottom sheet
+      return IconButton(
+        icon: Icon(
+          Icons.more_vert,
+          color: theme.colorScheme.onBackground.withOpacity(0.7),
+          size: 20,
+        ),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        tooltip: l10n.commonMore,
+        onPressed: () => _showBottomSheetMenu(context, reseller, conversation),
+      );
+    }
+  }
+
+  // Show a bottom sheet menu for actions on mobile
+  void _showBottomSheetMenu(
+    BuildContext context,
+    Map<String, dynamic> reseller,
+    ChatConversation? conversation,
+  ) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withOpacity(0.5),
+      pageBuilder: (
+        BuildContext context,
+        Animation<double> animation,
+        Animation<double> secondaryAnimation,
+      ) {
+        return Material(
+          color: Colors.transparent,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).pop(),
+            child: Stack(
+              children: [
+                // This will handle taps on the empty area to dismiss
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                 ),
 
-                const Divider(height: 1, color: Colors.grey),
+                // The actual bottom sheet content
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    // Prevent taps on the sheet from dismissing
+                    onTap: () {},
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header with reseller name
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            width: double.infinity,
+                            alignment: Alignment.center,
+                            child: Text(
+                              reseller['name'],
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
 
-                // Reset conversation option
-                ListTile(
-                  leading: const Icon(Icons.refresh, color: Colors.amber),
-                  title: const Text(
-                    'Reset Conversation',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  subtitle: const Text(
-                    'Clears all messages but keeps the conversation',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop(); // Close the modal first
-                    _showResetConfirmation(
-                      context,
-                      conversation,
-                      reseller['name'],
-                    );
-                  },
-                ),
+                          Divider(
+                            height: 1,
+                            color: Colors.grey.withOpacity(0.3),
+                          ),
 
-                // Delete option
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text(
-                    'Delete Conversation',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  subtitle: const Text(
-                    'Permanently removes all messages',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop(); // Close the modal first
-                    _showDeleteConfirmation(
-                      context,
-                      conversation,
-                      reseller['name'],
-                    );
-                  },
-                ),
+                          // Clear conversation option (formerly "Atualizar")
+                          ListTile(
+                            leading: Icon(
+                              Icons.cleaning_services_outlined,
+                              color: Colors.blue,
+                            ),
+                            title: Text(
+                              'Clear Conversation', // New label
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                            subtitle: Text(
+                              'Remove all messages',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                            onTap: () {
+                              Navigator.of(
+                                context,
+                              ).pop(); // Close the modal first
+                              _showResetConfirmation(
+                                context,
+                                conversation,
+                                reseller['name'],
+                              );
+                            },
+                          ),
 
-                // Cancel button
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[800],
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+                          // Delete option
+                          ListTile(
+                            leading: Icon(Icons.delete, color: Colors.red),
+                            title: Text(
+                              'Delete Conversation',
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                            subtitle: Text(
+                              'Permanently delete this conversation',
+                              style: TextStyle(color: Colors.black54),
+                            ),
+                            onTap: () {
+                              Navigator.of(
+                                context,
+                              ).pop(); // Close the modal first
+                              _showDeleteConfirmation(
+                                context,
+                                conversation,
+                                reseller['name'],
+                              );
+                            },
+                          ),
+
+                          // Cancel button - iOS style
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.blue,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    side: BorderSide(
+                                      color: Colors.grey.withOpacity(0.2),
+                                    ),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: Text(
+                                  'Cancel',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Padding for bottom safe area
+                          SizedBox(
+                            height: MediaQuery.of(context).padding.bottom,
+                          ),
+                        ],
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white),
-                    ),
                   ),
                 ),
-                // Padding for bottom safe area
-                SizedBox(height: MediaQuery.of(context).padding.bottom),
               ],
             ),
           ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        // Slide animation from bottom
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
     );
   }
 
-  // Show confirmation dialog before resetting a conversation
+  // Update the confirmation dialogs to match the style
   void _showResetConfirmation(
     BuildContext context,
     ChatConversation? conversation,
     String resellerName,
   ) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Reset Conversation?',
-              style: TextStyle(color: Colors.white),
+            backgroundColor: Colors.white,
+            title: Text(
+              'Clear Conversation',
+              style: TextStyle(color: Colors.black87),
             ),
             content: Text(
-              'This will clear all messages with $resellerName but keep the conversation. '
-              'The conversation will become inactive until new messages are sent.',
-              style: const TextStyle(color: Colors.white70),
+              'Are you sure you want to clear all messages with ${resellerName}?',
+              style: TextStyle(color: Colors.black54),
             ),
             actions: [
               TextButton(
-                child: const Text('Cancel'),
+                child: Text('Cancel'),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               TextButton(
-                child: const Text(
-                  'Reset',
-                  style: TextStyle(color: Colors.amber),
-                ),
+                child: Text('Clear', style: TextStyle(color: Colors.blue)),
                 onPressed: () {
                   Navigator.of(context).pop();
                   _resetConversation(context, conversation?.id, resellerName);
+                },
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Update the delete confirmation dialog
+  void _showDeleteConfirmation(
+    BuildContext context,
+    ChatConversation? conversation,
+    String resellerName,
+  ) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: Text(
+              'Delete Conversation',
+              style: TextStyle(color: Colors.black87),
+            ),
+            content: Text(
+              'Are you sure you want to permanently delete your conversation with ${resellerName}?',
+              style: TextStyle(color: Colors.black54),
+            ),
+            actions: [
+              TextButton(
+                child: Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              TextButton(
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _deleteConversation(context, conversation?.id, resellerName);
                 },
               ),
             ],
@@ -805,45 +1362,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
         );
       }
     }
-  }
-
-  // Show confirmation dialog before deleting
-  void _showDeleteConfirmation(
-    BuildContext context,
-    ChatConversation? conversation,
-    String resellerName,
-  ) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Delete Conversation?',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Text(
-              'This will permanently delete all messages with $resellerName. This action cannot be undone.',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                child: const Text('Cancel'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              TextButton(
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _deleteConversation(context, conversation?.id, resellerName);
-                },
-              ),
-            ],
-          ),
-    );
   }
 
   // Call the Firebase function to delete the conversation
@@ -1231,10 +1749,129 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     );
   }
 
-  // Add a method to toggle the filter
-  void _toggleActiveFilter() {
-    setState(() {
-      _showOnlyActive = !_showOnlyActive;
-    });
+  Widget _buildConversationsContent(
+    List<ChatConversation> conversations,
+    List<Map<String, dynamic>> resellers,
+    Map<String, ChatConversation> conversationsByResellerId,
+    AppLocalizations l10n,
+    ThemeData theme,
+    bool showOnlyActive,
+  ) {
+    // Conversation content
+    if (conversations.isNotEmpty) {
+      return NoScrollbarBehavior.noScrollbars(
+        context,
+        ListView.builder(
+          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          itemCount: resellers.length,
+          itemBuilder: (context, index) {
+            final reseller = resellers[index];
+            // Get the conversation for this reseller
+            final conversation = conversationsByResellerId[reseller['id']];
+            return _buildResellerItem(context, reseller, conversation);
+          },
+        ),
+      );
+    } else {
+      // Empty state for no conversations
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _searchQuery.isNotEmpty
+                    ? CupertinoIcons.search
+                    : showOnlyActive
+                    ? CupertinoIcons.chat_bubble_2
+                    : CupertinoIcons.square_stack_3d_down_right,
+                size: 42,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? "No results found"
+                  : showOnlyActive
+                  ? "No active conversations"
+                  : "No inactive conversations",
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onBackground,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: 280,
+              child: Text(
+                _searchQuery.isNotEmpty
+                    ? l10n.clientsEmptyStateMessage
+                    : showOnlyActive
+                    ? "Try viewing inactive conversations or start a new one"
+                    : "No inactive conversations found",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onBackground.withOpacity(0.6),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_searchQuery.isNotEmpty)
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                color: theme.colorScheme.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(24),
+                child: Text(
+                  l10n.commonClear,
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onPressed: () {
+                  _searchController.clear();
+                },
+              )
+            else
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                color: theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(24),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      CupertinoIcons.plus,
+                      color: theme.colorScheme.onPrimary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Start Conversation",
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                onPressed: () => _showStartNewChatDialog(context, ref),
+              ),
+          ],
+        ),
+      );
+    }
   }
 }

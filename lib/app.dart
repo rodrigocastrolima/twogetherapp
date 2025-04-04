@@ -63,7 +63,7 @@ class _NoTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // Just return the child without animation for immediate transitions
+    // Return the child directly with no animations or transitions
     return child;
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,58 @@ import '../../../../core/theme/ui_styles.dart';
 import '../pages/image_preview_screen.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'dart:async';
+
+// Extension for chat-specific theme colors
+extension ChatTheme on ThemeData {
+  // Message bubble colors
+  Color get messageBubbleSent =>
+      const Color(0xFF0B84FE); // Original iPhone-like blue for sent messages
+
+  // Removed gradient list, not needed anymore
+
+  Color get messageBubbleReceived =>
+      brightness == Brightness.dark
+          ? colorScheme.surfaceVariant.withOpacity(0.7)
+          : const Color(0xFFE9E9EB);
+
+  // Text colors for message bubbles
+  Color get messageBubbleTextSent => Colors.white;
+  Color get messageBubbleTextReceived =>
+      brightness == Brightness.dark
+          ? colorScheme.onSurfaceVariant
+          : colorScheme.onSurface;
+
+  // Support header background
+  Color get chatSupportHeaderBackground =>
+      brightness == Brightness.dark
+          ? colorScheme.surface.withOpacity(0.1)
+          : colorScheme.surface;
+
+  // Icon container colors
+  Color get chatIconBackground =>
+      brightness == Brightness.dark
+          ? colorScheme.surfaceVariant.withOpacity(0.2)
+          : colorScheme.surfaceVariant.withOpacity(0.1);
+
+  // Input field styling
+  Color get chatInputBackground =>
+      brightness == Brightness.dark
+          ? Colors.grey.withOpacity(0.2)
+          : Colors.grey.withOpacity(0.1);
+}
+
+// Add extension to ChatMessage for cleaner code
+extension ChatMessageExtension on ChatMessage {
+  // Static variable to hold the current user ID
+  static String? currentUserId;
+
+  // Use the actual user ID from the chat repository
+  bool get isFromUser => senderId == ChatMessageExtension.currentUserId;
+  bool get isFromAdmin => isAdmin == true;
+  bool get isImage => type == MessageType.image;
+}
 
 class ChatPage extends ConsumerStatefulWidget {
   final String conversationId;
@@ -40,12 +93,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   final FocusNode _focusNode = FocusNode();
   bool _isLoading = false;
   bool _isImageLoading = false;
+  bool _hasText = false; // Add this to track whether there's text in the input
+  Timer? _debounceTimer; // Add debounce timer to prevent too many updates
 
   @override
   void initState() {
     super.initState();
     // Mark conversation as read initially
     _markAsRead();
+
+    // Add listener to text controller to update _hasText state
+    _messageController.addListener(_updateHasText);
 
     // Set user as active in this conversation
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,6 +113,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   void dispose() {
+    // Remove listener from text controller
+    _messageController.removeListener(_updateHasText);
+
+    // Cancel the debounce timer if it exists
+    _debounceTimer?.cancel();
+
     // Set user as inactive in this conversation before disposing
     try {
       if (mounted) {
@@ -171,12 +235,23 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (mounted) {
         // Show the image preview screen
         final result = await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder:
-                (context) => ImagePreviewScreen(
+          PageRouteBuilder(
+            opaque: true, // Make it opaque to hide underlying UI
+            fullscreenDialog: true,
+            transitionDuration: const Duration(milliseconds: 200),
+            pageBuilder:
+                (context, animation, secondaryAnimation) => ImagePreviewScreen(
                   imageFile: pickedImage,
                   conversationId: widget.conversationId,
                 ),
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              return FadeTransition(opacity: animation, child: child);
+            },
           ),
         );
 
@@ -213,6 +288,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   Widget build(BuildContext context) {
     final messagesStream = ref.watch(messagesProvider(widget.conversationId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    // Update the extension placeholder with the actual current user ID
+    final currentUserId = ref.read(chatRepositoryProvider).currentUserId;
+    ChatMessageExtension.currentUserId = currentUserId;
 
     // Debug logging when messages stream changes
     if (kDebugMode && messagesStream is AsyncLoading) {
@@ -227,6 +308,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
     }
 
+    // Check if support is online (between 9am and 6pm)
+    final isOnline = _isBusinessHours();
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar:
@@ -234,12 +318,104 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               ? AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
-                title: Text(
-                  widget.title ?? 'Support Chat',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Support avatar with enhanced styling
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primary.withOpacity(0.8),
+                            Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
+                                AppTheme.primary,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        CupertinoIcons.person_badge_plus_fill,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title ?? l10n.chatSupportTitle,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            // Enhanced online indicator with animated gradient border when online
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: isOnline ? Colors.green : Colors.grey,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color:
+                                      isOnline
+                                          ? Colors.white.withOpacity(0.5)
+                                          : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                                boxShadow:
+                                    isOnline
+                                        ? [
+                                          BoxShadow(
+                                            color: Colors.green.withOpacity(
+                                              0.4,
+                                            ),
+                                            blurRadius: 4,
+                                            spreadRadius: 1,
+                                          ),
+                                        ]
+                                        : null,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Online status text with better styling
+                            Text(
+                              isOnline
+                                  ? 'Available now'
+                                  : 'Offline - responses may be delayed',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isOnline
+                                        ? Colors.green.withOpacity(0.8)
+                                        : theme.colorScheme.onBackground
+                                            .withOpacity(0.6),
+                                fontWeight:
+                                    isOnline
+                                        ? FontWeight.w500
+                                        : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 centerTitle: true,
                 leading: IconButton(
@@ -253,37 +429,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         top: false,
         child: Column(
           children: [
-            // Support header - only show for reseller view (non-admin)
-            if (!widget.isAdminView) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Support",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                        color: AppTheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Our team is here to help with your inquiries.",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
             // Messages area
             Expanded(
               child: messagesStream.when(
@@ -295,7 +440,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   // If there are no messages, show the empty state with welcome message
                   // (only for non-admin view)
                   if (realMessages.isEmpty && !widget.isAdminView) {
-                    return _buildEmptyState();
+                    return _buildEmptyStateUI(context);
                   } else if (realMessages.isEmpty && widget.isAdminView) {
                     // For admin view, show a simpler empty state
                     return Center(
@@ -329,7 +474,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       itemCount: realMessages.length,
                       itemBuilder: (context, index) {
                         final message = realMessages[index];
-                        return _buildMessageItem(message);
+                        return _buildMessageBubble(context, message, true);
                       },
                     ),
                   );
@@ -339,16 +484,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const CircularProgressIndicator(
+                        CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.amber,
+                            theme.colorScheme.primary,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          "Loading messages...",
+                          // Use a fallback to avoid linter errors until the l10n files are generated
+                          'Loading messages...',
                           style: TextStyle(
-                            color: isDark ? Colors.white70 : Colors.black54,
+                            color: theme.colorScheme.onBackground.withOpacity(
+                              0.7,
+                            ),
                             fontSize: 14,
                           ),
                         ),
@@ -358,7 +506,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             child: Text(
                               "Loading conversation: ${widget.conversationId}",
                               style: TextStyle(
-                                color: Colors.grey,
+                                color: theme.colorScheme.onBackground
+                                    .withOpacity(0.5),
                                 fontSize: 12,
                               ),
                               textAlign: TextAlign.center,
@@ -372,14 +521,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       children: [
                         Icon(
                           Icons.error_outline,
-                          color: Colors.red[400],
+                          color: theme.colorScheme.error,
                           size: 48,
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          "Error loading messages",
+                          // Use a fallback to avoid linter errors until the l10n files are generated
+                          'Error loading messages',
                           style: TextStyle(
-                            color: Colors.red[400],
+                            color: theme.colorScheme.error,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -388,8 +538,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           child: Text(
                             kDebugMode
                                 ? error.toString()
-                                : "Please try again later",
-                            style: TextStyle(color: Colors.grey),
+                                // Use a fallback to avoid linter errors until the l10n files are generated
+                                : 'Please try again later',
+                            style: TextStyle(
+                              color: theme.colorScheme.onBackground.withOpacity(
+                                0.6,
+                              ),
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -399,7 +554,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             child: Text(
                               "Conversation ID: ${widget.conversationId}",
                               style: TextStyle(
-                                color: Colors.grey,
+                                color: theme.colorScheme.onBackground
+                                    .withOpacity(0.5),
                                 fontSize: 12,
                               ),
                               textAlign: TextAlign.center,
@@ -410,7 +566,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             // Force refresh by rebuilding
                             setState(() {});
                           },
-                          child: Text("Retry"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                          ),
+                          // Use a fallback to avoid linter errors until the l10n files are generated
+                          child: Text('Retry'),
                         ),
                       ],
                     ),
@@ -425,319 +586,241 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
-  Widget _buildEmptyState() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildEmptyStateUI(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppTheme.primary.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                CupertinoIcons.chat_bubble_text_fill,
-                color: AppTheme.primary,
-                size: 36,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              "Welcome to Support",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.foreground,
-                letterSpacing: -0.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "Connect directly with our support team for personalized assistance with your account, services, and any questions you may have.",
-              style: TextStyle(
-                fontSize: 15,
-                color: isDark ? Colors.white70 : Colors.black54,
-                height: 1.4,
-                letterSpacing: -0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            // Show a default example message from support - this is UI only, not stored in DB
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              color: isDark ? Colors.black12 : Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color:
-                      isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
-                  width: 1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _focusNode.requestFocus(),
-              icon: const Icon(Icons.send),
-              label: const Text("Send a message to get started"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMessageItem(ChatMessage message) {
-    final isCurrentUser =
-        message.senderId == ref.read(chatRepositoryProvider).currentUserId;
-    // Format timestamp in iOS style - only show hours and minutes
-    final timeString = DateFormat('HH:mm').format(message.timestamp);
-
-    // The key fix: Explicitly check if the message is truly from admin
-    // Messages are only from admin if isAdmin flag is true - it should NOT be
-    // assumed that all non-current-user messages are from admin
-    final bool isFromAdmin = message.isAdmin;
-
-    // Control whether to show sender names above messages
-    final bool showNames = true;
-
-    // For better naming clarity in the UI
-    final String senderName =
-        isFromAdmin
-            ? "Twogether Support"
-            : (isCurrentUser ? "You" : message.senderName);
-
-    // Add extra debug logging for image messages to help diagnose issues
-    if (message.type == MessageType.image && kDebugMode) {
-      print(
-        'Rendering image message from ${isFromAdmin ? "admin" : (isCurrentUser ? "current user" : "other user")}',
-      );
-      print(
-        'Image content: ${message.content.length > 100 ? "${message.content.substring(0, 100)}..." : message.content}',
-      );
-      print('Is admin: ${message.isAdmin}, Is current user: $isCurrentUser');
-    }
-
-    // iOS-style colors for message bubbles
-    final bubbleColor =
-        isCurrentUser
-            ? const Color(0xFF007AFF) // iOS blue for sent messages
-            : const Color(0xFFE9E9EB); // iOS gray for received messages
-
-    // Text color based on bubble color
-    final textColor = isCurrentUser ? Colors.white : Colors.black;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
-        crossAxisAlignment:
-            isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment:
-                isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              if (!isCurrentUser && !widget.isAdminView) ...[
-                Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(top: 2, right: 8),
-                  decoration: BoxDecoration(
-                    color:
-                        isFromAdmin
-                            ? AppTheme.primary.withOpacity(0.15)
-                            : Colors.grey.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isFromAdmin
-                        ? CupertinoIcons.person_crop_circle_fill
-                        : CupertinoIcons.person,
-                    size: 16,
-                    color: isFromAdmin ? AppTheme.primary : Colors.grey,
-                  ),
-                ),
-              ],
-              Flexible(
-                child: Column(
-                  crossAxisAlignment:
-                      isCurrentUser
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                  children: [
-                    // Sender name for non-user messages in non-admin view
-                    if (!isCurrentUser && !widget.isAdminView && showNames) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2, bottom: 2),
-                        child: Text(
-                          senderName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: isFromAdmin ? AppTheme.primary : Colors.grey,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Message bubble with iOS style
-                    Container(
-                      padding:
-                          message.type == MessageType.image
-                              ? EdgeInsets
-                                  .zero // No padding for images
-                              : const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                      decoration: BoxDecoration(
-                        // Make bubble transparent for images
-                        color:
-                            message.type == MessageType.image
-                                ? Colors.transparent
-                                : bubbleColor,
-                        borderRadius: BorderRadius.circular(18).copyWith(
-                          bottomRight:
-                              isCurrentUser
-                                  ? const Radius.circular(6)
-                                  : const Radius.circular(18),
-                          bottomLeft:
-                              !isCurrentUser
-                                  ? const Radius.circular(6)
-                                  : const Radius.circular(18),
-                        ),
-                        // Remove shadow for images
-                        boxShadow:
-                            message.type == MessageType.image
-                                ? null
-                                : [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 2,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                      ),
-                      child:
-                          message.type == MessageType.image
-                              ? Builder(
-                                builder: (context) {
-                                  // Enhanced image message handling with better error reporting
-                                  if (kDebugMode) {
-                                    print(
-                                      'Building image content with URL: ${message.content.length > 50 ? "${message.content.substring(0, 50)}..." : message.content}',
-                                    );
-                                  }
-
-                                  return ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                          0.6,
-                                      maxHeight: 200,
-                                    ),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        if (kDebugMode) {
-                                          print(
-                                            'Opening full image: ${message.content.length > 50 ? "${message.content.substring(0, 50)}..." : message.content}',
-                                          );
-                                        }
-                                        // Show full size image dialog
-                                        showDialog(
-                                          context: context,
-                                          builder:
-                                              (context) => Dialog(
-                                                backgroundColor:
-                                                    Colors.transparent,
-                                                insetPadding:
-                                                    const EdgeInsets.all(10),
-                                                child: GestureDetector(
-                                                  onTap:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                      ),
-                                                  child: SafeNetworkImage(
-                                                    imageUrl: message.content,
-                                                    fit: BoxFit.contain,
-                                                  ),
-                                                ),
-                                              ),
-                                        );
-                                      },
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(14),
-                                        child: SafeNetworkImage(
-                                          imageUrl: message.content,
-                                          fit: BoxFit.cover,
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              )
-                              : Text(
-                                message.content,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: textColor,
-                                  height: 1.3,
-                                ),
-                              ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // iOS-style timestamp - small and subtle
-          Padding(
-            padding: EdgeInsets.only(
-              top: 2,
-              bottom: 1,
-              right: isCurrentUser ? 8 : 0,
-              left: isCurrentUser ? 0 : 8,
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              shape: BoxShape.circle,
             ),
+            padding: const EdgeInsets.all(20),
+            child: Icon(
+              CupertinoIcons.chat_bubble_2,
+              size: 40,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              timeString,
+              l10n.chatWelcomeTitle,
               style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.withOpacity(0.7),
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: theme.colorScheme.onBackground,
               ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              l10n.chatWelcomeMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.onBackground.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              l10n.chatSendMessagePrompt,
+              style: TextStyle(
+                fontSize: 16,
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onBackground.withOpacity(0.5),
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildMessageBubble(
+    BuildContext context,
+    ChatMessage message,
+    bool showTime,
+  ) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final isFromMe = message.isFromUser && !widget.isAdminView;
+    final isFromAdmin = message.isFromAdmin;
+    final isImage = message.isImage;
+
+    // Determine sender name to display
+    String senderName;
+    if (isFromMe) {
+      senderName = l10n.chatYou;
+    } else if (isFromAdmin) {
+      senderName = l10n.chatSupportName;
+    } else {
+      senderName = message.senderName ?? 'User';
+    }
+
+    // Set bubble colors based on sender and theme
+    // Use transparent background for images
+    final bubbleColor =
+        isImage
+            ? Colors.transparent
+            : isFromMe
+            ? theme.messageBubbleSent
+            : theme.messageBubbleReceived;
+
+    final textColor =
+        isFromMe
+            ? theme.messageBubbleTextSent
+            : theme.messageBubbleTextReceived;
+
+    // Set padding based on message type
+    final contentPadding =
+        isImage
+            ? EdgeInsets.zero
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      child: Row(
+        mainAxisAlignment:
+            isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isFromMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor:
+                  isFromAdmin
+                      ? theme.colorScheme.primary.withOpacity(0.2)
+                      : theme.colorScheme.secondary.withOpacity(0.2),
+              child: Text(
+                senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                style: TextStyle(
+                  color:
+                      isFromAdmin
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.secondary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+                  isFromMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (!isFromMe && senderName.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 4),
+                    child: Text(
+                      senderName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: contentPadding,
+                  child: _buildMessageContent(context, message, textColor),
+                ),
+                if (showTime)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 4, left: 4),
+                    child: Text(
+                      DateFormat('HH:mm').format(message.timestamp),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.onBackground.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageContent(
+    BuildContext context,
+    ChatMessage message,
+    Color textColor,
+  ) {
+    final theme = Theme.of(context);
+
+    if (message.isImage) {
+      // Debug logging for image messages
+      if (kDebugMode) {
+        print(
+          'DEBUG: Image message detected. Raw content: ${message.content.substring(0, min(100, message.content.length))}...',
+        );
+      }
+
+      // We'll use the SafeNetworkImage widget which has specialized logic
+      // for handling Firebase Storage URLs and fallback mechanisms
+      return Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.6,
+          maxHeight: 200,
+        ),
+        child: GestureDetector(
+          onTap: () {
+            // Show dialog with the image when tapped
+            showDialog(
+              context: context,
+              builder:
+                  (context) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    insetPadding: const EdgeInsets.all(10),
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: SafeNetworkImage(
+                        imageUrl: message.content,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SafeNetworkImage(
+              imageUrl: message.content,
+              fit: BoxFit.cover,
+              height: 200,
+              width: MediaQuery.of(context).size.width * 0.6,
+            ),
+          ),
+        ),
+      );
+    } else {
+      return Text(
+        message.content,
+        style: TextStyle(color: textColor, fontSize: 16),
+      );
+    }
   }
 
   Widget _buildImageContent(String imageUrl) {
@@ -924,153 +1007,172 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   }
 
   Widget _buildMessageInput() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final iphoneBlue = const Color(
+      0xFF0B84FE,
+    ); // Original iPhone-like blue color
+    final iconGray = const Color(0xFF8E8E93); // iOS gray color for icons
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      decoration: BoxDecoration(
-        color:
-            isDark
-                ? Colors.black.withOpacity(0.2)
-                : Colors.white.withOpacity(0.9),
-        border: Border(
-          top: BorderSide(
-            color:
-                isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.05),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Camera button with iOS style
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color:
-                  isDark
-                      ? Colors.grey.withOpacity(0.2)
-                      : Colors.grey.withOpacity(0.1),
-              shape: BoxShape.circle,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: Colors.transparent),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Camera button with gray styling
+            Container(
+              decoration: BoxDecoration(
+                color: iconGray, // Gray instead of blue
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  CupertinoIcons.camera_fill,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                onPressed:
+                    _isImageLoading
+                        ? null
+                        : () => _getImageFromSource(ImageSource.camera),
+              ),
             ),
-            child: IconButton(
-              icon: Icon(CupertinoIcons.camera_fill, size: 20),
-              onPressed:
-                  _isImageLoading
-                      ? null
-                      : () => _getImageFromSource(ImageSource.camera),
-              color:
-                  isDark ? Colors.white.withOpacity(0.8) : Colors.grey.shade700,
-              padding: EdgeInsets.zero,
-            ),
-          ),
 
-          // Gallery button with iOS style
-          const SizedBox(width: 8),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color:
-                  isDark
-                      ? Colors.grey.withOpacity(0.2)
-                      : Colors.grey.withOpacity(0.1),
-              shape: BoxShape.circle,
+            // Gallery button with gray styling
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(
+                color: iconGray, // Gray instead of blue
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  CupertinoIcons.photo,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                onPressed:
+                    _isImageLoading
+                        ? null
+                        : () => _getImageFromSource(ImageSource.gallery),
+              ),
             ),
-            child: IconButton(
-              icon: Icon(CupertinoIcons.photo_fill, size: 20),
-              onPressed:
-                  _isImageLoading
-                      ? null
-                      : () => _getImageFromSource(ImageSource.gallery),
-              color:
-                  isDark ? Colors.white.withOpacity(0.8) : Colors.grey.shade700,
-              padding: EdgeInsets.zero,
-            ),
-          ),
 
-          // Text input - iOS style pill shape
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+            const SizedBox(width: 12),
+
+            // Enhanced text input field - iPhone-like with light gray rounded rect
+            Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   color:
-                      isDark
-                          ? Colors.grey.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                      theme.brightness == Brightness.dark
+                          ? Colors.grey.shade800.withOpacity(0.5)
+                          : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: _messageController,
                   focusNode: _focusNode,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: theme.colorScheme.onSurface,
+                  ),
                   decoration: InputDecoration(
-                    hintText: widget.isAdminView ? 'Message' : 'Send a message',
+                    hintText:
+                        widget.isAdminView
+                            ? 'Message' // TODO: Replace with l10n.chatMessage
+                            : 'Send a message', // TODO: Replace with l10n.chatSendMessage
                     hintStyle: TextStyle(
-                      color:
-                          isDark
-                              ? Colors.white.withOpacity(0.5)
-                              : Colors.black.withOpacity(0.4),
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
                       fontSize: 16,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    isDense: true,
-                    filled: false,
                     border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
                   ),
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _sendMessage(),
-                  minLines: 1,
-                  maxLines: 5,
-                  style: TextStyle(fontSize: 16, color: AppTheme.foreground),
-                  cursorColor:
-                      isDark ? Colors.white70 : const Color(0xFF007AFF),
+                  cursorColor: iphoneBlue, // Original iPhone blue cursor
                 ),
               ),
             ),
-          ),
 
-          // Send button - iOS style
-          _isImageLoading
-              ? Container(
-                width: 38,
-                height: 38,
-                padding: const EdgeInsets.all(8),
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isDark ? Colors.white70 : const Color(0xFF007AFF),
+            const SizedBox(width: 8),
+
+            // Send button with fixed size and only color animation to prevent twitching
+            _isImageLoading
+                ? Container(
+                  width: 44, // Fixed size to avoid layout shifts
+                  height: 44, // Fixed size to avoid layout shifts
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(iphoneBlue),
+                    ),
+                  ),
+                )
+                : Container(
+                  width: 44, // Fixed size to avoid layout shifts
+                  height: 44, // Fixed size to avoid layout shifts
+                  decoration: BoxDecoration(shape: BoxShape.circle),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(
+                        begin: iconGray.withOpacity(0.7),
+                        end: _hasText ? iphoneBlue : iconGray.withOpacity(0.7),
+                      ),
+                      duration: const Duration(milliseconds: 150),
+                      builder:
+                          (context, color, _) => Container(
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(
+                                CupertinoIcons.arrow_up,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              onPressed: _hasText ? _sendMessage : null,
+                            ),
+                          ),
+                    ),
                   ),
                 ),
-              )
-              : Container(
-                width: 38,
-                height: 38,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF007AFF),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  onPressed: _sendMessage,
-                  icon: const Icon(
-                    CupertinoIcons.arrow_up,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  // Update _hasText state based on whether the input has text, with debounce
+  void _updateHasText() {
+    // Cancel previous timer if it exists
+    _debounceTimer?.cancel();
+
+    // Set a new timer to debounce the state update
+    _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+      final newHasText = _messageController.text.trim().isNotEmpty;
+      if (_hasText != newHasText && mounted) {
+        setState(() {
+          _hasText = newHasText;
+        });
+      }
+    });
   }
 
   // Add a check to test the image URL and report any issues
@@ -1235,6 +1337,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
     );
   }
+
+  // Helper method to check if current time is within business hours (9am-6pm)
+  bool _isBusinessHours() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    return hour >= 9 && hour < 18; // 9am to 6pm
+  }
 }
 
 class SafeNetworkImage extends StatefulWidget {
@@ -1260,12 +1369,15 @@ class SafeNetworkImage extends StatefulWidget {
 class _SafeNetworkImageState extends State<SafeNetworkImage> {
   bool _hasError = false;
   int _retryCount = 0;
-  final int _maxRetries = 1; // Reduce max retries to avoid excessive retries
+  final int _maxRetries = 1; // Keep this at 1 to avoid excessive retries
   late String _processedUrl;
   bool _useBase64 = false;
   String? _base64Data;
   bool _isInitialized = false;
-  bool _showPlaceholder = false; // Add flag to show placeholder
+  bool _showPlaceholder = false; // Flag to show placeholder
+
+  // Add a "corrupted" flag to identify permanently broken images
+  bool _isCorrupted = false;
 
   @override
   void initState() {
@@ -1283,18 +1395,50 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         Map<String, dynamic>? content;
         try {
           content = json.decode(widget.imageUrl) as Map<String, dynamic>;
-          if (content.containsKey('url') && content.containsKey('base64')) {
+          if (content.containsKey('url')) {
             _processedUrl = content['url'] as String;
-            _base64Data = content['base64'] as String;
 
-            // For web, prefer base64 data if available
-            if (kIsWeb && _base64Data != null && _base64Data!.isNotEmpty) {
-              _useBase64 = true;
-            }
+            // TEMPORARY WORKAROUND - Skip base64 for large images to avoid corruption issues
+            // Only use base64 data if it's reasonably sized (< 50KB) and appears valid
+            if (content.containsKey('base64') && content['base64'] is String) {
+              final base64Raw = content['base64'] as String;
+              if (base64Raw.isNotEmpty &&
+                  base64Raw.length > 10 &&
+                  base64Raw.length < 50000) {
+                _base64Data = base64Raw;
 
-            if (kDebugMode) {
-              print('Found enhanced image content with base64 data');
-              print('Will use base64 for web: $_useBase64');
+                // For web, prefer base64 data if available
+                if (kIsWeb && _base64Data != null && _base64Data!.isNotEmpty) {
+                  _useBase64 = true;
+                }
+
+                if (kDebugMode) {
+                  print('Found enhanced image content with base64 data');
+                  print('Base64 data length: ${_base64Data!.length}');
+                  print('Will use base64 for web: $_useBase64');
+                }
+              } else {
+                if (kDebugMode) {
+                  if (base64Raw.length >= 50000) {
+                    print(
+                      'Skipping base64 data for large image (${base64Raw.length} characters) - using URL only',
+                    );
+                  } else {
+                    print(
+                      'Base64 data found but appears too short or invalid: ${base64Raw.length} characters',
+                    );
+                  }
+                }
+                // Don't use base64 for large images or if it seems problematic
+                _base64Data = null;
+                _useBase64 = false;
+              }
+            } else {
+              if (kDebugMode) {
+                print('URL found in JSON, but no valid base64 data');
+              }
+              _base64Data = null;
+              _useBase64 = false;
             }
 
             _isInitialized = true;
@@ -1307,6 +1451,8 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
           if (kDebugMode) {
             print('Error parsing image JSON: $e');
           }
+          // If we can't parse the JSON, mark it as corrupted
+          _isCorrupted = true;
         }
       }
 
@@ -1327,23 +1473,12 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
           }
         }
 
-        // For web, add cache-busting parameter
-        if (kIsWeb) {
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          if (_processedUrl.contains('?')) {
-            _processedUrl += '&t=$timestamp';
-          } else {
-            _processedUrl += '?t=$timestamp';
-          }
+        // Add cache-busting parameter
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        if (_processedUrl.contains('?')) {
+          _processedUrl += '&t=$timestamp';
         } else {
-          // For non-web (mobile), also try to add a cache-busting parameter
-          // This helps ensure the image loads on reseller devices
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          if (_processedUrl.contains('?')) {
-            _processedUrl += '&t=$timestamp';
-          } else {
-            _processedUrl += '?t=$timestamp';
-          }
+          _processedUrl += '?t=$timestamp';
         }
 
         if (kDebugMode) {
@@ -1380,6 +1515,7 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       }
       _processedUrl = widget.imageUrl;
       _isInitialized = true;
+      _showPlaceholder = true;
 
       // Since this is async, we need to rebuild the widget
       if (mounted) setState(() {});
@@ -1387,6 +1523,14 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
   }
 
   void _resetAndRetry() {
+    if (_isCorrupted || _retryCount >= _maxRetries) {
+      // If the image is corrupted or we've exhausted retries, show placeholder
+      setState(() {
+        _showPlaceholder = true;
+      });
+      return;
+    }
+
     if (_retryCount < _maxRetries) {
       setState(() {
         _retryCount++;
@@ -1416,6 +1560,11 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
+    // If we already know it's corrupted or have tried enough, show placeholder
+    if (_isCorrupted || _showPlaceholder) {
+      return _buildPlaceholderImage();
+    }
+
     // If we haven't processed the image data yet, show a loading indicator
     if (!_isInitialized) {
       return Container(
@@ -1429,22 +1578,24 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       );
     }
 
-    // If explicitly set to show placeholder or we've had an error and exhausted retries
-    if (_showPlaceholder || (_hasError && _retryCount >= _maxRetries)) {
+    // If we've had an error and exhausted retries
+    if (_hasError && _retryCount >= _maxRetries) {
       return _buildPlaceholderImage();
     }
 
     // Try using base64 data if available, for both web and mobile
-    if (_base64Data != null && _base64Data!.isNotEmpty) {
+    if (_useBase64 && _base64Data != null && _base64Data!.isNotEmpty) {
       try {
         // Handle both data URI format and plain base64
         if (_base64Data!.startsWith('data:image')) {
           // This is a data URI format
           final base64String = _base64Data!.split(',')[1];
+          // Apply padding correction to truncated base64 data
+          final paddedBase64 = _correctBase64Padding(base64String);
           return ClipRRect(
             borderRadius: widget.borderRadius,
             child: Image.memory(
-              base64Decode(base64String),
+              base64Decode(paddedBase64),
               fit: widget.fit,
               width: widget.width,
               height: widget.height,
@@ -1452,18 +1603,21 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
                 if (kDebugMode) {
                   print('Error with base64 image: $error');
                 }
-                // If base64 fails on web, still try the URL as fallback
-                _useBase64 = false;
-                return _buildNetworkImage(_processedUrl);
+                // Mark as corrupted if base64 fails
+                _isCorrupted = true;
+                // Show placeholder
+                return _buildPlaceholderImage();
               },
             ),
           );
         } else {
           // Try to decode the plain base64 string
+          // Apply padding correction to truncated base64 data
+          final paddedBase64 = _correctBase64Padding(_base64Data!);
           return ClipRRect(
             borderRadius: widget.borderRadius,
             child: Image.memory(
-              base64Decode(_base64Data!),
+              base64Decode(paddedBase64),
               fit: widget.fit,
               width: widget.width,
               height: widget.height,
@@ -1471,9 +1625,10 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
                 if (kDebugMode) {
                   print('Error with plain base64 image: $error');
                 }
-                // If base64 fails, try the URL as fallback
-                _useBase64 = false;
-                return _buildNetworkImage(_processedUrl);
+                // Mark as corrupted if base64 fails
+                _isCorrupted = true;
+                // Show placeholder instead of retrying
+                return _buildPlaceholderImage();
               },
             ),
           );
@@ -1482,8 +1637,9 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         if (kDebugMode) {
           print('Error using base64 data: $e');
         }
-        // Fall back to URL if base64 fails
-        _useBase64 = false;
+        // Mark as corrupted
+        _isCorrupted = true;
+        return _buildPlaceholderImage();
       }
     }
 
@@ -1493,14 +1649,19 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
 
   // Helper method to build network image with proper error handling
   Widget _buildNetworkImage(String url) {
+    // If we already know it's corrupted, don't even try
+    if (_isCorrupted) {
+      return _buildPlaceholderImage();
+    }
+
     // For Firebase Storage URLs on web, try with FutureBuilder
     if (url.contains('firebasestorage.googleapis.com') && kIsWeb) {
       return FutureBuilder<String>(
         future: Future.any([
           _getFirebaseStorageUrl(url),
-          // Add a short timeout to prevent endless loading
+          // Add a shorter timeout to prevent endless loading
           Future.delayed(
-            const Duration(seconds: 5),
+            const Duration(seconds: 2),
             () => throw Exception('Timeout'),
           ),
         ]),
@@ -1513,11 +1674,8 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
             if (kDebugMode) {
               print('Error getting fresh URL: ${snapshot.error}');
             }
-            // If we have base64 data, try that as a last resort
-            if (_base64Data != null && !_useBase64) {
-              _useBase64 = true;
-              return build(context); // Rebuild with base64
-            }
+            // Mark as corrupted
+            _isCorrupted = true;
             return _buildPlaceholderImage();
           }
 
@@ -1545,15 +1703,9 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
           if (kDebugMode) {
             print('Network image error: $error');
           }
-          // If network image fails and we have base64 data, try that instead
-          if (_base64Data != null && !_useBase64) {
-            _useBase64 = true;
-            Future.microtask(() {
-              if (mounted) setState(() {});
-            });
-            return Container(color: Colors.transparent);
-          }
-          // Otherwise show placeholder
+          // Mark as corrupted
+          _isCorrupted = true;
+          // Show placeholder immediately
           return _buildPlaceholderImage();
         },
       ),
@@ -1775,5 +1927,51 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
     // If anything fails, return the original URL with a cache-busting parameter
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     return path.contains('?') ? '$path&t=$timestamp' : '$path?t=$timestamp';
+  }
+
+  // Add a helper method to correct base64 padding if it was truncated
+  String _correctBase64Padding(String base64String) {
+    try {
+      // First, sanitize by removing any invalid characters that might have resulted from truncation
+      // Only keep valid base64 characters (A-Za-z0-9+/)
+      final sanitizedString = base64String.replaceAll(
+        RegExp(r'[^A-Za-z0-9+/]'),
+        '',
+      );
+
+      if (sanitizedString.length != base64String.length && kDebugMode) {
+        print(
+          'Sanitized base64 string (removed ${base64String.length - sanitizedString.length} invalid characters)',
+        );
+      }
+
+      // Base64 data must have a length that is a multiple of 4
+      // If it doesn't, we need to add padding characters ('=')
+      if (sanitizedString.length % 4 != 0) {
+        if (kDebugMode) {
+          print('Correcting base64 padding for truncated data');
+          print('Original length: ${base64String.length}');
+          print('Sanitized length: ${sanitizedString.length}');
+        }
+
+        // Calculate how many padding characters we need to add
+        final paddingLength = 4 - (sanitizedString.length % 4);
+        final paddedString = sanitizedString + ('=' * paddingLength);
+
+        if (kDebugMode) {
+          print('Padded length: ${paddedString.length}');
+        }
+
+        return paddedString;
+      }
+
+      return sanitizedString;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error correcting base64 padding: $e');
+      }
+      // Return the original string if any error occurs during correction
+      return base64String;
+    }
   }
 }

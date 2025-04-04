@@ -11,6 +11,15 @@
     
     "@_ADMIN": {},
     "adminRetailUsers": "Retail Users",
+    "adminReports": "Reports",
+    "adminOpportunities": "Opportunities",
+    "adminDashboard": "Dashboard",
+    "adminUserManagement": "User Management",
+    "adminUserManagementDescription": "Create and manage user accounts",
+    "adminSystemConfig": "System Configuration",
+    "adminSystemConfigDescription": "Advanced system settings",
+    "adminProfile": "Admin Profile",
+    "adminPreferences": "Admin Preferences",
     
     "@_HOME": {},
     "homeWelcome": "Welcome",
@@ -26,6 +35,52 @@
     "homeNotificationRequestDesc": "A new service request requires your attention",
     "homeNotificationPayment": "Payment Received",
     "homeNotificationPaymentDesc": "Commission payment has been processed",
+    "homeQuickActionsTitle": "Quick Actions",
+    "homeQuickActionTransferLabel": "National\nTransfer",
+    "homeQuickActionPayBillsLabel": "Pay\nServices",
+    "homeQuickActionTopUpLabel": "Top-up\nPhone",
+    "homeQuickActionShareIbanLabel": "Share\nIBAN",
+    "homeCreateNewServiceButton": "Create New Service",
+    "homeNotificationsPending": "Pending",
+    "homeNotificationExamplePurchaseTitle": "PURCHASE {purchaseId}",
+    "@homeNotificationExamplePurchaseTitle": {
+        "description": "Example notification title for a purchase, includes ID",
+        "placeholders": {
+            "purchaseId": {
+                "type": "int",
+                "example": "8110"
+            }
+        }
+    },
+    "homeNotificationExampleRejectionTitle": "Submission Rejected",
+    "homeNotificationExampleRejectionDesc": "Your submission {submissionId} was rejected",
+    "@homeNotificationExampleRejectionDesc": {
+        "description": "Example notification description for a rejection, includes ID",
+        "placeholders": {
+            "submissionId": {
+                "type": "String",
+                "example": "TR003_0001"
+            }
+        }
+    },
+    "homeCommissionBoxTitle": "COMMISSIONS",
+    "homeCommissionBoxDetailsButton": "VIEW DETAILS",
+    
+    "@_CHAT": {},
+    "chatSupportTitle": "Support",
+    "chatSupportSubtitle": "Our team is here to help with your inquiries.",
+    "chatSupportName": "Twogether Support",
+    "chatYou": "You",
+    "chatMessage": "Message",
+    "chatSendMessage": "Send a message",
+    "chatSendMessagePrompt": "Send a message to get started",
+    "chatLoadingMessages": "Loading messages...",
+    "chatNoMessages": "No messages yet",
+    "chatErrorLoading": "Error loading messages",
+    "chatTryAgainLater": "Please try again later",
+    "chatRetry": "Retry",
+    "chatWelcomeTitle": "Welcome to Support",
+    "chatWelcomeMessage": "Connect directly with our support team for personalized assistance with your account, services, and any questions you may have.",
     
     "@_SERVICES": {},
     "servicesTitle": "Services",
@@ -87,12 +142,15 @@
     "profileThemeDark": "Dark",
     "profileSalesforceConnect": "Connect with Salesforce",
     "profileEndSession": "End session",
+    "viewEditProfile": "View and edit your profile",
     
     "@_NAVIGATION": {},
     "navHome": "Home",
     "navClients": "Clients",
     "navMessages": "Messages",
-    "navProfile": "Profile",
+    "navSettings": "Settings",
+    "navReports": "Reports",
+    "navOpportunities": "Opportunities",
     
     "@_COMMON": {},
     "commonSave": "Save",
@@ -110,6 +168,28 @@
     "commonApply": "Apply",
     "commonLoading": "Loading...",
     "commonLanguage": "Language",
+    "commonLanguageSelection": "Change application language",
+    "commonSettings": "System Settings",
+    "commonMore": "More actions",
+    "userInitialsDefault": "U",
+    "currencyCodeEUR": "EUR",
+    "account": "Account",
+    "security": "Security",
+    "changePasswordSettings": "Change password and security settings",
+    "notificationPreferences": "Enable push notifications",
+    "securityAlerts": "Security Alerts",
+    "securityAlertsDescription": "Receive alerts about security events",
+    "exportDatabase": "Export Database",
+    "exportDatabaseDescription": "Export a backup of the database",
+    "selectExportFormat": "Select export format:",
+    "export": "Export",
+    "exportSuccessful": "Export Successful",
+    "exportSuccessfulDescription": "Database has been exported successfully to your downloads folder.",
+    "exportFormatJSON": "JSON",
+    "exportFormatCSV": "CSV", 
+    "exportFormatSQL": "SQL",
+    "ok": "OK",
+    "salesforceIntegrationDescription": "Connect and configure Salesforce",
 
     "@_RETAIL_USERS": {},
     "tryAgain": "Try Again",

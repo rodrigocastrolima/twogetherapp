@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/ui_styles.dart';
@@ -12,6 +13,7 @@ import '../screens/admin/admin_settings_page.dart';
 import '../screens/messages/messages_page.dart';
 import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
+import '../widgets/logo.dart';
 
 class AdminLayout extends ConsumerStatefulWidget {
   final Widget? child;
@@ -35,6 +37,7 @@ class AdminLayout extends ConsumerStatefulWidget {
 
 class _AdminLayoutState extends ConsumerState<AdminLayout> {
   int _selectedIndex = 0;
+  bool _isTransitioning = false;
 
   final List<Widget> _pages = [
     const AdminHomePage(),
@@ -42,8 +45,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     const AdminReportsPage(),
     const AdminSettingsPage(),
   ];
-
-  final List<String> _titles = ['Dashboard', 'Messages', 'Reports', 'Settings'];
 
   @override
   void initState() {
@@ -70,175 +71,183 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     }
   }
 
+  void _handleNavigation(int index) {
+    if (_selectedIndex != index && !_isTransitioning) {
+      setState(() {
+        _isTransitioning = true;
+      });
+
+      // Clean transition by removing the previous screen first
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Navigate to the appropriate route
+        switch (index) {
+          case 0:
+            context.go('/admin');
+            break;
+          case 1:
+            context.go('/admin/messages');
+            break;
+          case 2:
+            context.go('/admin/reports');
+            break;
+          case 3:
+            context.go('/admin/settings');
+            break;
+          case 4:
+            context.go('/admin/opportunities');
+            break;
+        }
+
+        // Update the state after navigation
+        setState(() {
+          _selectedIndex = index;
+          _isTransitioning = false;
+        });
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600;
     final isDesktop = width >= 1024;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final l10n = AppLocalizations.of(context)!;
     final unreadCount = ref
         .watch(unreadMessagesCountProvider)
         .maybeWhen(data: (count) => count, orElse: () => 0);
 
-    return Container(
-      decoration: BoxDecoration(gradient: AppStyles.mainGradient(context)),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          children: [
-            Scaffold(
-              backgroundColor: Colors.transparent,
-              extendBody: true,
-              extendBodyBehindAppBar: true,
-              appBar:
-                  widget.showBackButton
+    return Scaffold(
+      backgroundColor:
+          isDark ? theme.colorScheme.background : theme.colorScheme.background,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar:
+          widget.showBackButton
+              ? AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                surfaceTintColor: Colors.transparent,
+                toolbarHeight: 80,
+                leading: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: IconButton(
+                    icon: Icon(
+                      CupertinoIcons.chevron_left,
+                      color: AppTheme.foreground,
+                      size: 20,
+                    ),
+                    onPressed:
+                        widget.onBackButtonPressed ??
+                        () {
+                          if (Navigator.canPop(context)) {
+                            context.pop();
+                          } else {
+                            // Fallback to going to admin home if can't pop
+                            context.go('/admin');
+                          }
+                        },
+                  ),
+                ),
+                title: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: LogoWidget(height: 50, darkMode: false),
+                ),
+                centerTitle: true,
+                actions: [],
+              )
+              : (!widget.showNavigation
+                  ? null
+                  : (isSmallScreen
                       ? AppBar(
                         backgroundColor: Colors.transparent,
                         elevation: 0,
                         scrolledUnderElevation: 0,
                         surfaceTintColor: Colors.transparent,
                         toolbarHeight: 80,
-                        leading: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: IconButton(
-                            icon: Icon(
-                              CupertinoIcons.chevron_left,
-                              color: AppTheme.foreground,
-                              size: 20,
-                            ),
-                            onPressed:
-                                widget.onBackButtonPressed ??
-                                () {
-                                  if (Navigator.canPop(context)) {
-                                    context.pop();
-                                  } else {
-                                    // Fallback to going to admin home if can't pop
-                                    context.go('/admin');
-                                  }
-                                },
-                          ),
-                        ),
-                        title: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Image.asset(
-                            'assets/images/twogether_logo_light_br.png',
-                            height: 70,
-                          ),
+                        leading: null,
+                        title: Center(
+                          child: LogoWidget(height: 50, darkMode: false),
                         ),
                         centerTitle: true,
                         actions: [],
                       )
-                      : (!widget.showNavigation
-                          ? null
-                          : (isSmallScreen
-                              ? AppBar(
-                                backgroundColor: Colors.transparent,
-                                elevation: 0,
-                                scrolledUnderElevation: 0,
-                                surfaceTintColor: Colors.transparent,
-                                toolbarHeight: 80,
-                                leading: null,
-                                title: Center(
-                                  child: Image.asset(
-                                    'assets/images/twogether_logo_light_br.png',
-                                    height: 70,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                                centerTitle: true,
-                                actions: [],
-                              )
-                              : null)),
-              body: Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (isDesktop && widget.showNavigation)
-                          _buildCollapsibleSidebar(),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: 24,
-                              right: 24,
-                              top: 24,
-                              bottom:
-                                  isSmallScreen && widget.showNavigation
-                                      ? 84
-                                      : 24,
-                            ),
-                            child: widget.child ?? _pages[_selectedIndex],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (widget.showNavigation && isSmallScreen)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: ClipRRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                    child: Container(
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(20),
-                        border: Border(
-                          top: BorderSide(
-                            color: Colors.white.withAlpha(26),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildTabItem(
-                              icon: CupertinoIcons.home,
-                              selectedIcon: CupertinoIcons.house_fill,
-                              label: 'Dashboard',
-                              index: 0,
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.graph_square,
-                              selectedIcon: CupertinoIcons.graph_square,
-                              label: 'Opportunities',
-                              index: 4,
-                              onTap: () => context.go('/admin/opportunities'),
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.chat_bubble,
-                              selectedIcon: CupertinoIcons.chat_bubble_fill,
-                              label: 'Messages',
-                              index: 1,
-                              badge: unreadCount,
-                            ),
-                            _buildTabItem(
-                              icon: CupertinoIcons.settings,
-                              selectedIcon: CupertinoIcons.settings_solid,
-                              label: 'Settings',
-                              index: 3,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                      : null)),
+      body: Container(
+        decoration: BoxDecoration(color: theme.colorScheme.background),
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              // Main content area
+              _buildMainContent(isSmallScreen),
+
+              // Side Navigation for Desktop
+              if (isDesktop && widget.showNavigation)
+                _buildCollapsibleSidebar(textColor, isDark, l10n),
+
+              // Bottom Navigation for Mobile
+              if (widget.showNavigation && isSmallScreen)
+                _buildMobileNavBar(context, isDark, l10n),
+
+              // This Overlay layer will be used for full-screen modals
+              // It sits above everything else - navigation bars, app bars, etc.
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring:
+                      true, // This will pass touches through unless made visible
+                  child: Container(color: Colors.transparent),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCollapsibleSidebar() {
+  Widget _buildMainContent(bool isSmallScreen) {
+    // Using a key based on the selected index ensures the widget tree is completely rebuilt
+    // during page transitions, preventing any leakage between pages
+    final pageKey = ValueKey('page-${_selectedIndex}');
+
+    return Positioned(
+      top: isSmallScreen ? (widget.showBackButton ? 80 : 0) : 0,
+      left: isSmallScreen ? 0 : AppStyles.sidebarWidth,
+      right: 0,
+      bottom:
+          isSmallScreen && widget.showNavigation ? AppStyles.navBarHeight : 0,
+      child: ClipRect(
+        child:
+            _isTransitioning
+                ? Container(
+                  color: Theme.of(context).colorScheme.background,
+                ) // Show barrier during transition
+                : KeyedSubtree(
+                  key: pageKey,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 24,
+                      bottom: 24,
+                    ),
+                    child: widget.child ?? _pages[_selectedIndex],
+                  ),
+                ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleSidebar(
+    Color textColor,
+    bool isDark,
+    AppLocalizations l10n,
+  ) {
     // Get the current location to highlight the correct item
     final location = GoRouterState.of(context).matchedLocation;
     int currentIndex = _selectedIndex;
@@ -257,94 +266,94 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     }
 
     // Fixed width sidebar
-    const sidebarWidth = 200.0;
+    const sidebarWidth = AppStyles.sidebarWidth;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
 
-    return Container(
+    return Positioned(
+      top: 0,
+      left: 0,
+      bottom: 0,
       width: sidebarWidth,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        border: Border(
-          right: BorderSide(color: Colors.black.withOpacity(0.1), width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 0),
-          ),
-        ],
-      ),
       child: ClipRect(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Column(
-            children: [
-              // Logo section
-              SizedBox(
-                height: 130,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Image.asset(
-                      'assets/images/twogether_logo_light_br.png',
-                      height: 130,
-                      width: 200,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+          filter: AppStyles.standardBlur,
+          child: Container(
+            decoration: BoxDecoration(
+              color:
+                  isDark
+                      ? AppTheme.darkNavBarBackground
+                      : Theme.of(context).colorScheme.surface.withOpacity(0.8),
+              border: Border(
+                right: BorderSide(
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
                 ),
               ),
-
-              // Navigation items
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 12,
-                  ),
-                  children: [
-                    _buildNavItem(
-                      icon: CupertinoIcons.home,
-                      title: 'Dashboard',
-                      isSelected: currentIndex == 0,
-                      onTap: () => _handleNavigation(0),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNavItem(
-                      icon: CupertinoIcons.graph_square,
-                      title: 'Opportunities',
-                      isSelected: currentIndex == 4,
-                      onTap: () => _handleNavigation(4),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNavItem(
-                      icon: CupertinoIcons.chat_bubble,
-                      title: 'Messages',
-                      isSelected: currentIndex == 1,
-                      onTap: () => _handleNavigation(1),
-                      badge: ref
-                          .watch(unreadMessagesCountProvider)
-                          .maybeWhen(data: (count) => count, orElse: () => 0),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNavItem(
-                      icon: CupertinoIcons.chart_bar,
-                      title: 'Reports',
-                      isSelected: currentIndex == 2,
-                      onTap: () => _handleNavigation(2),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildNavItem(
-                      icon: CupertinoIcons.settings,
-                      title: 'Settings',
-                      isSelected: currentIndex == 3,
-                      onTap: () => _handleNavigation(3),
-                    ),
-                  ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                // Logo
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: LogoWidget(height: 50, darkMode: false),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                // Navigation items
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 12,
+                    ),
+                    children: [
+                      _buildNavItem(
+                        icon: CupertinoIcons.house,
+                        title: l10n.adminDashboard,
+                        isSelected: currentIndex == 0,
+                        onTap: () => _handleNavigation(0),
+                        textColor: textColor,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.graph_square,
+                        title: l10n.navOpportunities,
+                        isSelected: currentIndex == 4,
+                        onTap: () => _handleNavigation(4),
+                        textColor: textColor,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.bubble_left,
+                        title: l10n.navMessages,
+                        isSelected: currentIndex == 1,
+                        onTap: () => _handleNavigation(1),
+                        textColor: textColor,
+                        badgeCount: unreadCount,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.chart_bar,
+                        title: l10n.navReports,
+                        isSelected: currentIndex == 2,
+                        onTap: () => _handleNavigation(2),
+                        textColor: textColor,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.settings,
+                        title: l10n.navSettings,
+                        isSelected: currentIndex == 3,
+                        onTap: () => _handleNavigation(3),
+                        textColor: textColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -356,82 +365,157 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     required String title,
     required bool isSelected,
     required VoidCallback onTap,
-    int badge = 0,
+    required Color textColor,
+    int badgeCount = 0,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        hoverColor: Colors.black.withOpacity(0.05),
-        splashColor: Colors.black.withOpacity(0.1),
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          decoration: BoxDecoration(
-            color:
+    // Define the Tulip Tree color with enhanced brightness
+    final Color tulipTreeColor = Color(0xFFffbe45);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      decoration: isSelected ? AppStyles.activeItemHighlight(context) : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
                 isSelected
-                    ? Colors.black.withOpacity(0.05)
-                    : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Stack(
-                children: [
-                  Icon(
-                    icon,
-                    size: 18,
-                    color:
-                        isSelected
-                            ? AppTheme.primary
-                            : Colors.black.withOpacity(0.7),
-                  ),
-                  if (badge > 0)
-                    Positioned(
-                      right: -8,
-                      top: -8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          badge.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                    ? ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (Rect bounds) {
+                        return LinearGradient(
+                          colors: [
+                            tulipTreeColor,
+                            tulipTreeColor.withRed(
+                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: Icon(icon, size: 20),
+                    )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color:
+                          isSelected
+                              ? tulipTreeColor
+                              : textColor.withOpacity(0.7),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      shadows:
+                          isSelected
+                              ? [
+                                Shadow(
+                                  color: tulipTreeColor.withOpacity(0.3),
+                                  blurRadius: 2.0,
+                                ),
+                              ]
+                              : null,
                     ),
-                ],
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color:
-                        isSelected
-                            ? AppTheme.primary
-                            : Colors.black.withOpacity(0.7),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
+                ),
+                if (badgeCount > 0) ...[
+                  Container(
+                    width: AppStyles.badgeSize,
+                    height: AppStyles.badgeSize,
+                    decoration: AppStyles.notificationBadge,
+                    alignment: Alignment.center,
+                    child: Text(
+                      badgeCount.toString(),
+                      style: AppStyles.badgeTextStyle(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileNavBar(
+    BuildContext context,
+    bool isDark,
+    AppLocalizations l10n,
+  ) {
+    final textColor = isDark ? Colors.white : Colors.black;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
+
+    // Calculate width for each tab based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final tabWidth = screenWidth / 4; // 4 tabs
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: AppStyles.standardBlur,
+          child: Container(
+            height: AppStyles.navBarHeight,
+            decoration: BoxDecoration(
+              color:
+                  isDark
+                      ? AppTheme.darkNavBarBackground
+                      : Colors.white.withOpacity(0.8),
+              border: Border(
+                top: BorderSide(
+                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  width: 0.5,
                 ),
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildTabItem(
+                  icon: CupertinoIcons.house,
+                  label: l10n.adminDashboard,
+                  isSelected: _selectedIndex == 0,
+                  onTap: () => _handleNavigation(0),
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.graph_square,
+                  label: l10n.navOpportunities,
+                  isSelected:
+                      _selectedIndex == 4 ||
+                      GoRouterState.of(context).matchedLocation ==
+                          '/admin/opportunities',
+                  onTap: () => _handleNavigation(4),
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.bubble_left,
+                  label: l10n.navMessages,
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => _handleNavigation(1),
+                  badgeCount: unreadCount,
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.settings,
+                  label: l10n.navSettings,
+                  isSelected: _selectedIndex == 3,
+                  onTap: () => _handleNavigation(3),
+                  width: tabWidth,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -440,68 +524,61 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
   Widget _buildTabItem({
     required IconData icon,
-    required IconData selectedIcon,
     required String label,
-    required int index,
-    int badge = 0,
-    VoidCallback? onTap,
+    required bool isSelected,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+    double width = 76,
   }) {
-    final bool isSelected =
-        _selectedIndex == index ||
-        (index == 4 &&
-            GoRouterState.of(context).matchedLocation ==
-                '/admin/opportunities');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    // Define the Tulip Tree color with enhanced brightness
+    final Color tulipTreeColor = Color(0xFFffbe45);
+
+    // Calculate text size based on label length
+    final double fontSize = label.length > 8 ? 10.0 : 12.0;
 
     return GestureDetector(
-      onTap:
-          onTap ??
-          () {
-            // Update the selected index immediately for visual feedback
-            if (!isSelected) {
-              setState(() => _selectedIndex = index);
-              // Then handle actual navigation
-              _handleNavigation(index);
-            }
-          },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      onTap: onTap,
+      behavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        width: width,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(
-                  isSelected ? selectedIcon : icon,
-                  color:
-                      isSelected
-                          ? AppTheme.primary
-                          : AppTheme.foreground.withAlpha(153),
-                  size: 26,
-                ),
-                if (badge > 0)
+                isSelected
+                    ? ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (Rect bounds) {
+                        return LinearGradient(
+                          colors: [
+                            tulipTreeColor,
+                            tulipTreeColor.withRed(
+                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: Icon(icon, size: 24),
+                    )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
+                if (badgeCount > 0)
                   Positioned(
-                    right: -10,
-                    top: -10,
+                    top: -5,
+                    right: -8,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
+                      width: AppStyles.badgeSize,
+                      height: AppStyles.badgeSize,
+                      decoration: AppStyles.notificationBadge,
+                      alignment: Alignment.center,
                       child: Text(
-                        badge.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
+                        badgeCount.toString(),
+                        style: AppStyles.badgeTextStyle(context),
                       ),
                     ),
                   ),
@@ -510,40 +587,27 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
             const SizedBox(height: 4),
             Text(
               label,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.visible,
+              maxLines: 1,
               style: TextStyle(
-                fontFamily: '.SF Pro Text',
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color:
+                color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                fontSize: fontSize,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                shadows:
                     isSelected
-                        ? AppTheme.primary
-                        : AppTheme.foreground.withAlpha(153),
-                letterSpacing: -0.2,
+                        ? [
+                          Shadow(
+                            color: tulipTreeColor.withOpacity(0.3),
+                            blurRadius: 1.5,
+                          ),
+                        ]
+                        : null,
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  void _handleNavigation(int index) {
-    switch (index) {
-      case 0:
-        context.go('/admin');
-        break;
-      case 1:
-        context.go('/admin/messages');
-        break;
-      case 2:
-        context.go('/admin/reports');
-        break;
-      case 3:
-        context.go('/admin/settings');
-        break;
-      case 4:
-        context.go('/admin/opportunities');
-        break;
-    }
   }
 }

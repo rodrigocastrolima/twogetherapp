@@ -15,7 +15,7 @@ import '../../presentation/screens/clients/client_details_page.dart';
 import '../../presentation/screens/clients/proposal_details_page.dart';
 import '../../presentation/screens/clients/document_submission_page.dart';
 import '../../presentation/screens/messages/messages_page.dart';
-import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../presentation/screens/notifications/rejection_details_page.dart';
 import '../../presentation/screens/services/services_page.dart';
 import '../../presentation/screens/services/resubmission_form_page.dart';
@@ -379,6 +379,8 @@ class AppRouter {
       // No redirection needed
       return null;
     },
+    // Ensure transitions are as clean as possible
+    routerNeglect: true, // Avoid unnecessarily rebuilding the navigator
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
@@ -407,7 +409,7 @@ class AppRouter {
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => const ProfilePage(),
+            builder: (context, state) => const SettingsPage(),
           ),
         ],
       ),

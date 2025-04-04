@@ -8,7 +8,7 @@ import '../../core/utils/constants.dart';
 import '../screens/home/reseller_home_page.dart';
 import '../screens/clients/clients_page.dart';
 import '../screens/messages/messages_page.dart';
-import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ui_styles.dart';
@@ -29,6 +29,7 @@ class MainLayout extends ConsumerStatefulWidget {
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
   int _selectedIndex = 0;
+  bool _isTransitioning = false;
 
   @override
   void initState() {
@@ -40,31 +41,43 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   void didUpdateWidget(MainLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
-      _selectedIndex = widget.currentIndex;
+      setState(() {
+        _selectedIndex = widget.currentIndex;
+        _isTransitioning = false; // Reset transition state
+      });
     }
   }
 
   void _handleNavigation(int index) {
-    if (_selectedIndex != index) {
+    if (_selectedIndex != index && !_isTransitioning) {
       setState(() {
-        _selectedIndex = index;
+        _isTransitioning = true; // Mark as transitioning
       });
 
-      // Navigate to the appropriate route
-      switch (index) {
-        case 0:
-          context.go('/');
-          break;
-        case 1:
-          context.go('/clients');
-          break;
-        case 2:
-          context.go('/messages');
-          break;
-        case 3:
-          context.go('/profile');
-          break;
-      }
+      // Clean transition by removing the previous screen first
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Navigate to the appropriate route
+        switch (index) {
+          case 0:
+            context.go('/');
+            break;
+          case 1:
+            context.go('/clients');
+            break;
+          case 2:
+            context.go('/messages');
+            break;
+          case 3:
+            context.go('/profile');
+            break;
+        }
+
+        // Update the state after navigation
+        setState(() {
+          _selectedIndex = index;
+          _isTransitioning = false;
+        });
+      });
     }
   }
 
@@ -84,6 +97,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final isSmallScreen = width < 600;
     final isDesktop = width >= 1024;
 
+    // Check if support is online (between 9am and 6pm)
+    final isOnline = _isBusinessHours();
+
     // Use theme colors for light mode
     final Color lightBackgroundColor = Theme.of(context).colorScheme.background;
 
@@ -95,12 +111,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     return Scaffold(
       backgroundColor: isDark ? darkBackgroundColor : lightBackgroundColor,
       extendBodyBehindAppBar: true,
+      extendBody: true, // Allow body to extend behind bottom nav
       appBar:
           isSmallScreen &&
                   _selectedIndex !=
                       0 // Don't show app bar on home page
               ? PreferredSize(
-                preferredSize: const Size.fromHeight(80),
+                preferredSize: const Size.fromHeight(100),
                 child: ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
@@ -109,13 +126,95 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       elevation: 0,
                       scrolledUnderElevation: 0,
                       surfaceTintColor: Colors.transparent,
-                      toolbarHeight: 80,
-                      leading: null,
-                      title: Container(
-                        height: 80,
-                        alignment: Alignment.center,
-                        child: LogoWidget(height: 80, darkMode: false),
-                      ),
+                      toolbarHeight: 100,
+                      leading: _selectedIndex == 2 ? null : null,
+                      title:
+                          _selectedIndex == 2
+                              // For Messages/Chat page, show iOS style messaging header
+                              ? Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Circular avatar with logo
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.05,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      padding: const EdgeInsets.all(10),
+                                      child: Image.asset(
+                                        'assets/images/twogether_logo_dark_br.png',
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    // Name with online indicator
+                                    Column(
+                                      children: [
+                                        // Support name
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.chatSupportName,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Green dot indicator
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    isOnline
+                                                        ? Colors.green
+                                                        : Colors.grey,
+                                                shape: BoxShape.circle,
+                                                boxShadow:
+                                                    isOnline
+                                                        ? [
+                                                          BoxShadow(
+                                                            color: Colors.green
+                                                                .withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                            blurRadius: 4,
+                                                            spreadRadius: 1,
+                                                          ),
+                                                        ]
+                                                        : null,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                              // For other pages, show the regular logo
+                              : Container(
+                                height: 100,
+                                alignment: Alignment.center,
+                                child: LogoWidget(height: 80, darkMode: false),
+                              ),
                       centerTitle: true,
                       actions: [
                         // No actions needed now
@@ -129,31 +228,58 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.background,
         ),
-        child: Stack(
-          children: [
-            // Main content
-            _buildMainContent(isSmallScreen),
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              // Main content
+              _buildMainContent(isSmallScreen),
 
-            // Bottom Navigation for Mobile
-            if (isSmallScreen) _buildMobileNavBar(context),
+              // Bottom Navigation for Mobile
+              if (isSmallScreen) _buildMobileNavBar(context),
 
-            // Side Navigation for Desktop
-            if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
-          ],
+              // Side Navigation for Desktop
+              if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
+
+              // This Overlay layer will be used for full-screen modals
+              // It sits above everything else - navigation bars, app bars, etc.
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring:
+                      true, // This will pass touches through unless made visible
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildMainContent(bool isSmallScreen) {
+    // Using a key based on the selected index ensures the widget tree is completely rebuilt
+    // during page transitions, preventing any leakage between pages
+    final pageKey = ValueKey('page-${_selectedIndex}');
+
     return Positioned(
-      top: isSmallScreen ? (_selectedIndex == 0 ? 0 : 80) : 0,
+      top: isSmallScreen ? (_selectedIndex == 0 ? 0 : 100) : 0,
       left: isSmallScreen ? 0 : AppStyles.sidebarWidth,
       right: 0,
       bottom: isSmallScreen ? AppStyles.navBarHeight : 0,
-      child: ScrollConfiguration(
-        behavior: const NoScrollbarBehavior(),
-        child: widget.child,
+      child: ClipRect(
+        child:
+            _isTransitioning
+                ? Container(
+                  color: Theme.of(context).colorScheme.background,
+                ) // Show barrier during transition
+                : KeyedSubtree(
+                  key: pageKey,
+                  child: ScrollConfiguration(
+                    behavior: const NoScrollbarBehavior(),
+                    child: widget.child,
+                  ),
+                ),
       ),
     );
   }
@@ -235,8 +361,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         ),
         _buildNavItem(
           context: context,
-          icon: CupertinoIcons.person,
-          label: l10n.navProfile,
+          icon: CupertinoIcons.settings,
+          label: l10n.navSettings,
           isSelected: _selectedIndex == 3,
           onTap: () => _handleNavigation(3),
           textColor: textColor,
@@ -337,6 +463,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         .watch(unreadMessagesCountProvider)
         .maybeWhen(data: (count) => count, orElse: () => 0);
 
+    // Calculate width for each tab based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final tabWidth = screenWidth / 4; // 4 tabs
+
     return Positioned(
       bottom: 0,
       left: 0,
@@ -369,12 +499,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   label: l10n.navHome,
                   isSelected: _selectedIndex == 0,
                   onTap: () => _handleNavigation(0),
+                  width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
                   label: l10n.navClients,
                   isSelected: _selectedIndex == 1,
                   onTap: () => _handleNavigation(1),
+                  width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
@@ -382,12 +514,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   isSelected: _selectedIndex == 2,
                   onTap: () => _handleNavigation(2),
                   badgeCount: unreadCount,
+                  width: tabWidth,
                 ),
                 _buildTabItem(
-                  icon: CupertinoIcons.person,
-                  label: l10n.navProfile,
+                  icon: CupertinoIcons.settings,
+                  label: l10n.navSettings,
                   isSelected: _selectedIndex == 3,
                   onTap: () => _handleNavigation(3),
+                  width: tabWidth,
                 ),
               ],
             ),
@@ -403,17 +537,21 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     required bool isSelected,
     required VoidCallback onTap,
     int badgeCount = 0,
+    double width = 76,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
     // Define the Tulip Tree color with enhanced brightness
     final Color tulipTreeColor = Color(0xFFffbe45);
 
+    // Calculate text size based on label length
+    final double fontSize = label.length > 8 ? 10.0 : 12.0;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.translucent,
       child: SizedBox(
-        width: 76,
+        width: width,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -458,9 +596,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             const SizedBox(height: 4),
             Text(
               label,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.visible,
+              maxLines: 1,
               style: TextStyle(
                 color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
-                fontSize: 12,
+                fontSize: fontSize,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 shadows:
                     isSelected
@@ -477,5 +618,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         ),
       ),
     );
+  }
+
+  // Helper method to check if current time is within business hours (9am-6pm)
+  bool _isBusinessHours() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    return hour >= 9 && hour < 18; // 9am to 6pm
   }
 }

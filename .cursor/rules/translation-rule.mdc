@@ -1,0 +1,82 @@
+---
+description: 
+globs: 
+---
+
+# Cursor Rule: Flutter Localization (l10n)
+
+## Overview & Goal
+All user-facing strings within the Flutter application codebase **must be localized** using the standard Flutter localization (`l10n`) system. This involves utilizing `.arb` files and the `intl` package. The goal is to ensure the application fully supports multiple languages and maintains a consistent user experience across different regions.
+
+---
+
+## Rule: Use `AppLocalizations` for All User-Facing Text
+Hardcoded strings are **strictly prohibited** for any text displayed to the user. Always retrieve strings via the generated `AppLocalizations` class.
+
+---
+
+## ✅ Correct Implementation (DOs)
+
+*   **Access Strings:** Use `AppLocalizations.of(context).yourStringKey` to fetch localized text within your widgets.
+*   **Define Strings:** Define *all* user-facing text strings within the appropriate `lib/l10n/app_xx.arb` files (e.g., `app_en.arb`, `app_pt.arb`).
+*   **Dynamic Content:** Use placeholders (ICU message format) like `{variableName}` in `.arb` files for dynamic values that need to be inserted into strings.
+*   **Workflow for New Strings:**
+    1.  Add the new string key and its translation to **all** relevant `.arb` files.
+    2.  Regenerate the localization delegate files by running `flutter gen-l10n` in the terminal (or rely on automatic generation if configured in `pubspec.yaml`).
+
+### Example Code (Dart)
+dart
+// Simple string
+Text(AppLocalizations.of(context).welcomeMessage),
+// String with a placeholder
+Text(AppLocalizations.of(context).greeting(userName)), // Assuming 'userName' is a variable
+
+### Example `.arb` File (`app_en.arb`)
+arb
+{
+"@@locale": "en",
+"welcomeMessage": "Welcome",
+"@welcomeMessage": {
+"description": "A standard welcome message."
+},
+"greeting": "Hello, {userName}!",
+"@greeting": {
+"description": "A greeting message that includes the user's name.",
+"placeholders": {
+"userName": {
+"type": "String",
+"example": "Alice"
+}
+}
+}
+}
+
+---
+
+## ❌ Incorrect Implementation (DON'Ts)
+
+*   **DO NOT** hardcode user-facing strings directly in Dart code:
+    ```dart
+    // INCORRECT: Hardcoded string
+    Text("Welcome");
+    ```
+*   **DO NOT** add a localization key to one `.arb` file without adding corresponding translations to *all* other supported language `.arb` files.
+*   **DO NOT** forget to run `flutter gen-l10n` after modifying `.arb` files if generation is not automated.
+
+---
+
+## Additional Notes & Best Practices
+
+*   Ensure `generate: true` is set under the `flutter` section in your `pubspec.yaml` to enable automatic code generation during the build process.
+*   Use descriptive and consistent keys in your `.arb` files (e.g., `userProfileSaveButtonLabel` is better than `profile_save_btn` or `sBtn1`).
+*   Handle plurals, genders, and select cases using the appropriate ICU message syntax within the `.arb` files. Refer to the `intl` package documentation for detailed syntax.
+
+---
+
+## Enforcement
+
+If a hardcoded user-facing string is identified during development, code review, or testing:
+
+1.  **Replace:** Immediately replace the hardcoded string with an appropriate `AppLocalizations.of(context).yourNewKey` call.
+2.  **Define & Translate:** Add the `yourNewKey` and its required translations to all supported `.arb` files (e.g., `app_en.arb`, `app_pt.arb`).
+3.  **Generate:** Run `flutter gen-l10n` to update the localization classes.

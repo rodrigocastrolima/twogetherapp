@@ -1,0 +1,84 @@
+---
+description: 
+globs: 
+---
+
+# Cursor Rule: Application Theme & Styling Consistency
+
+## Overview & Goal
+This rule ensures consistent UI styling across the Flutter application by enforcing the use of the centralized theme and style definitions found in the `lib/core/theme/` directory. The primary goal is to leverage Flutter's `ThemeData` system first, supplemented by custom styles and utilities defined in our specific theme files. Avoid hardcoding styles directly in widgets.
+
+---
+
+## Core Principle: Prioritize `ThemeData`
+
+**Always** attempt to use styles and colors provided by the current `ThemeData` *before* resorting to custom definitions.
+
+*   **Colors:** Use `Theme.of(context).colorScheme.*` (e.g., `colorScheme.primary`, `colorScheme.surface`, `colorScheme.onBackground`).
+*   **Text Styles:** Use `Theme.of(context).textTheme.*` (e.g., `textTheme.headlineMedium`, `textTheme.bodyLarge`, `textTheme.labelSmall`).
+*   **Component Styles:** Rely on the default styles applied by `ThemeData` for standard widgets (Buttons, Cards, Inputs, etc.) where possible.
+
+---
+
+## Usage Guide for Theme Files
+
+Use these files when `ThemeData` doesn't cover the specific need:
+
+1.  **`colors.dart` (`AppColors`):**
+    *   Contains the **base color palette**.
+    *   Use for specific named colors not directly mapped in `ColorScheme` (e.g., status colors like `AppColors.success`, `AppColors.warning`) or for accessing specific opacity variants (`AppColors.whiteAlpha70`).
+    *   **Should NOT duplicate colors defined or used within `ThemeData.colorScheme`**.
+
+2.  **`theme.dart` (`AppTheme`):**
+    *   **Defines `ThemeData`** for light/dark modes.
+    *   Configures `colorScheme`, `textTheme`, and default widget themes (Buttons, Inputs, etc.) **using colors from `AppColors`**.
+    *   **Do not call directly** in widgets; access its properties via `Theme.of(context)`.
+
+3.  **`ui_styles.dart` (`AppStyles`):**
+    *   Contains **reusable `BoxDecoration`s**, layout constants (`AppStyles.sidebarWidth`), specific visual effects (gradients via `AppStyles.mainGradient`, blurs via `AppStyles.standardBlur`), and custom component styles (`AppStyles.glassCard`, `AppStyles.notificationBadge`).
+    *   Use when needing predefined complex decorations or shared layout values.
+
+4.  **`responsive.dart` (`Responsive`):**
+    *   Provides **breakpoints and helper functions** for responsive UI (`Responsive.isMobile`, `Responsive.getPadding`, `Responsive.getValueForScreenSize`).
+    *   Use for adapting layout and sizing based on screen dimensions.
+
+5.  **`text_styles.dart` (`AppTextStyles`):**
+    *   **(Use Sparingly):** Should ideally be minimal or empty. Prioritize `Theme.of(context).textTheme`.
+    *   If used, it's ONLY for highly specific, named, reusable `TextStyle`s that cannot be represented by standard `ThemeData.textTheme` properties (e.g., a unique style for a specific branding element).
+
+---
+
+## ✅ Correct Implementation (DOs)
+
+*   Use `Theme.of(context).colorScheme.primary` for primary color.
+*   Use `Theme.of(context).textTheme.bodyLarge` for standard body text.
+*   Use `AppColors.success` for a success status indicator color.
+*   Use `AppStyles.glassCard(context)` for a card's `decoration`.
+*   Use `Responsive.isMobile(context)` to adjust layout.
+*   If a *new* reusable style (color, text style, decoration) is needed, **add it to the appropriate theme file** (`colors.dart`, `theme.dart`'s textTheme, `ui_styles.dart`) first, then use it.
+
+## ❌ Incorrect Implementation (DON'Ts)
+
+*   **DO NOT** hardcode colors directly: `Color(0xFF1976D2)` should be `Theme.of(context).colorScheme.primary` or an `AppColor`.
+*   **DO NOT** hardcode `TextStyle` properties: `TextStyle(fontSize: 16, color: Colors.black)` should be `Theme.of(context).textTheme.bodyLarge` (or similar).
+*   **DO NOT** hardcode padding/margins/sizes that aren't explicitly unique to a single instance: Use `Responsive.getPadding` or constants from `AppStyles` or derive from `ThemeData`.
+*   **DO NOT** define colors/styles in widget files if they are likely to be reused. Add them to the central theme files.
+*   **DO NOT** call `AppTheme.primary` or `AppTextStyles.h2` directly; use the `Theme.of(context)` equivalents.
+
+---
+
+## Workflow for New Styles
+
+1.  **Identify Need:** Determine if a new color, text style, decoration, or layout constant is required.
+2.  **Check Existing:** Verify if a suitable definition already exists in `Theme.of(context)` or the theme files.
+3.  **Add to Theme:** If not, add the new definition to the *most appropriate* theme file (`colors.dart`, `theme.dart` (for textTheme), `ui_styles.dart`).
+4.  **Use:** Reference the new definition from the theme file in your widget code.
+
+---
+
+## Enforcement & Refactoring
+
+*   During development and code reviews, ensure adherence to these rules.
+*   **Refactoring Task:** The theme files require refactoring to address the identified conflicts (color duplication, text style redundancy, gradient duplication). Prioritize consolidating colors into `AppColors` and configuring `textTheme` within `AppTheme`.
+*   **Cursor:** When asked to style widgets or implement UI, prioritize using `Theme.of(context)` properties. Refer to `AppColors`, `AppStyles`, and `Responsive` for supplemental styling and layout needs. If a required style doesn't exist, suggest adding it to the appropriate theme file instead of hardcoding.
+

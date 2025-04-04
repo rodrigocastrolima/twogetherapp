@@ -3,9 +3,12 @@ import 'package:flutter/cupertino.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/providers/theme_provider.dart';
-import '../../../../app/router/app_router.dart';
+import '../../../core/providers/locale_provider.dart';
+import '../../../core/theme/ui_styles.dart';
+import '../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
 
 class AdminSettingsPage extends ConsumerStatefulWidget {
@@ -18,12 +21,16 @@ class AdminSettingsPage extends ConsumerStatefulWidget {
 class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   bool _notificationsEnabled = true;
   bool _securityAlertsEnabled = true;
-  String _selectedLanguage = 'English';
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
+    final currentLocale = ref.watch(localeProvider);
+    final localeNotifier = ref.watch(localeProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.onBackground;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -31,27 +38,36 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Settings',
+            l10n.profileSettings,
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: AppTheme.foreground,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 32),
-          _buildSettingsGroup('System Settings', [
+          _buildSettingsGroup(l10n.commonSettings, [
             _buildToggleSetting(
-              'Dark Mode',
-              'Switch between light and dark themes',
-              CupertinoIcons.moon_fill,
+              l10n.profileTheme,
+              isDarkMode ? l10n.profileThemeDark : l10n.profileThemeLight,
+              isDarkMode
+                  ? CupertinoIcons.moon_fill
+                  : CupertinoIcons.sun_max_fill,
               isDarkMode,
               (value) {
                 ref.read(themeProvider.notifier).toggleTheme();
               },
             ),
+            _buildLanguageSetting(
+              l10n.commonLanguage,
+              l10n.commonLanguageSelection,
+              CupertinoIcons.globe,
+              currentLocale.languageCode,
+              localeNotifier,
+            ),
             _buildToggleSetting(
-              'Notifications',
-              'Enable push notifications',
+              l10n.homeNotifications,
+              l10n.notificationPreferences,
               CupertinoIcons.bell_fill,
               _notificationsEnabled,
               (value) {
@@ -61,8 +77,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               },
             ),
             _buildToggleSetting(
-              'Security Alerts',
-              'Receive alerts about security events',
+              l10n.securityAlerts,
+              l10n.securityAlertsDescription,
               CupertinoIcons.shield_fill,
               _securityAlertsEnabled,
               (value) {
@@ -73,22 +89,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
           ]),
           const SizedBox(height: 24),
-          _buildSettingsGroup('Admin Preferences', [
-            _buildDropdownSetting(
-              'Language',
-              'Change the application language',
-              CupertinoIcons.globe,
-              _selectedLanguage,
-              ['English', 'Portuguese', 'Spanish', 'French', 'German'],
-              (value) {
-                setState(() {
-                  _selectedLanguage = value!;
-                });
-              },
-            ),
+          _buildSettingsGroup(l10n.adminPreferences, [
             _buildActionSetting(
-              'User Management',
-              'Create and manage user accounts',
+              l10n.adminUserManagement,
+              l10n.adminUserManagementDescription,
               CupertinoIcons.person_2_fill,
               () {
                 Navigator.push(
@@ -100,24 +104,24 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               },
             ),
             _buildActionSetting(
-              'System Configuration',
-              'Advanced system settings',
+              l10n.adminSystemConfig,
+              l10n.adminSystemConfigDescription,
               CupertinoIcons.gear_alt_fill,
               () {
                 // Navigate to system configuration
               },
             ),
             _buildActionSetting(
-              'Salesforce Integration',
-              'Connect and configure Salesforce',
+              l10n.profileSalesforceConnect,
+              l10n.salesforceIntegrationDescription,
               CupertinoIcons.cloud,
               () {
                 context.go('/admin/salesforce-setup');
               },
             ),
             _buildActionSetting(
-              'Export Database',
-              'Export a backup of the database',
+              l10n.exportDatabase,
+              l10n.exportDatabaseDescription,
               CupertinoIcons.cloud_download_fill,
               () {
                 _showBackupDialog(context);
@@ -125,31 +129,31 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
           ]),
           const SizedBox(height: 24),
-          _buildSettingsGroup('Account', [
+          _buildSettingsGroup(l10n.account, [
             _buildActionSetting(
-              'Admin Profile',
-              'View and edit your admin profile',
+              l10n.adminProfile,
+              l10n.viewEditProfile,
               CupertinoIcons.person_fill,
               () {
                 // Navigate to admin profile
               },
             ),
             _buildActionSetting(
-              'Security',
-              'Change password and security settings',
+              l10n.security,
+              l10n.changePasswordSettings,
               CupertinoIcons.lock_fill,
               () {
                 // Navigate to security settings
               },
             ),
             _buildActionSetting(
-              'Logout',
-              'Sign out of your account',
+              l10n.profileLogout,
+              l10n.profileEndSession,
               CupertinoIcons.square_arrow_right,
               () {
                 _handleLogout(context);
               },
-              color: Colors.red,
+              color: theme.colorScheme.error,
             ),
           ]),
         ],
@@ -158,6 +162,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   }
 
   Widget _buildSettingsGroup(String title, List<Widget> children) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,22 +173,35 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: AppTheme.foreground,
+            color: theme.colorScheme.onBackground,
           ),
         ),
         const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: AppStyles.standardBlur,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(20),
+                color: theme.colorScheme.surface.withOpacity(0.8),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withAlpha(26),
+                  color:
+                      isDark
+                          ? theme.colorScheme.onSurface.withOpacity(0.05)
+                          : theme.dividerColor.withOpacity(0.1),
                   width: 0.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        isDark
+                            ? theme.colorScheme.shadow.withOpacity(0.2)
+                            : theme.colorScheme.shadow.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Column(children: children),
             ),
@@ -198,6 +218,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     bool value,
     ValueChanged<bool> onChanged,
   ) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -205,10 +227,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(26),
+              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppTheme.foreground, size: 24),
+            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -219,37 +241,38 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.foreground,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: AppTheme.foreground.withAlpha(179),
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
                     fontSize: 14,
                   ),
                 ),
               ],
             ),
           ),
-          CupertinoSwitch(
+          Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeColor: theme.colorScheme.primary,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownSetting(
+  Widget _buildLanguageSetting(
     String title,
     String subtitle,
     IconData icon,
-    String value,
-    List<String> options,
-    ValueChanged<String?> onChanged,
+    String currentLocale,
+    LocaleNotifier localeNotifier,
   ) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -257,10 +280,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(26),
+              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppTheme.foreground, size: 24),
+            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -271,13 +294,13 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.foreground,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: AppTheme.foreground.withAlpha(179),
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
                     fontSize: 14,
                   ),
                 ),
@@ -289,24 +312,48 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(26),
+                color: theme.colorScheme.surface.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withOpacity(0.2),
+                ),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: value,
-                  icon: const Icon(CupertinoIcons.chevron_down, size: 16),
-                  iconEnabledColor: AppTheme.foreground,
-                  dropdownColor: Colors.grey[800],
-                  style: TextStyle(color: AppTheme.foreground),
-                  onChanged: onChanged,
-                  items:
-                      options.map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
+                  value: currentLocale,
+                  icon: Icon(
+                    CupertinoIcons.chevron_down,
+                    size: 16,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  dropdownColor: theme.colorScheme.surface.withOpacity(0.95),
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  onChanged: (String? value) async {
+                    if (value != null) {
+                      print("Changing language to: $value");
+                      try {
+                        // Make sure to await the setLocale call
+                        await localeNotifier.setLocale(value);
+                        print("Language changed successfully to: $value");
+                      } catch (e) {
+                        print("Error changing language: $e");
+                      }
+                    }
+                  },
+                  items: [
+                    DropdownMenuItem<String>(
+                      value: 'pt',
+                      child: Text(localeNotifier.getLanguageNameFromCode('pt')),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'en',
+                      child: Text(localeNotifier.getLanguageNameFromCode('en')),
+                    ),
+                    DropdownMenuItem<String>(
+                      value: 'es',
+                      child: Text(localeNotifier.getLanguageNameFromCode('es')),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -323,6 +370,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     VoidCallback onTap, {
     Color? color,
   }) {
+    final theme = Theme.of(context);
+    final defaultColor = theme.colorScheme.onSurface;
+    final iconColor = color ?? theme.colorScheme.primary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -333,10 +384,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(26),
+                color: iconColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color ?? AppTheme.foreground, size: 24),
+              child: Icon(icon, color: iconColor, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -347,13 +398,13 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: color ?? AppTheme.foreground,
+                      color: color ?? defaultColor,
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: (color ?? AppTheme.foreground).withAlpha(179),
+                      color: (color ?? defaultColor).withOpacity(0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -362,7 +413,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
             Icon(
               CupertinoIcons.chevron_right,
-              color: (color ?? AppTheme.foreground).withAlpha(179),
+              color: (color ?? defaultColor).withOpacity(0.7),
               size: 20,
             ),
           ],
@@ -372,32 +423,45 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   }
 
   void _handleLogout(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
-            backgroundColor: Colors.grey[850],
-            title: const Text('Logout', style: TextStyle(color: Colors.white)),
-            content: const Text(
-              'Are you sure you want to logout?',
-              style: TextStyle(color: Colors.white70),
+            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+            title: Text(
+              l10n.profileLogout,
+              style: TextStyle(color: theme.colorScheme.onSurface),
+            ),
+            content: Text(
+              l10n.profileLogoutConfirm,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                child: const Text('Cancel'),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                ),
+                child: Text(l10n.commonCancel),
               ),
-              TextButton(
+              FilledButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                   // Set authenticated to false and redirect to login
                   AppRouter.authNotifier.setAuthenticated(false);
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Logout'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                child: Text(l10n.profileLogout),
               ),
             ],
           ),
@@ -407,63 +471,82 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   }
 
   void _showBackupDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
-            backgroundColor: Colors.grey[850],
-            title: const Text(
-              'Export Database',
-              style: TextStyle(color: Colors.white),
+            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+            title: Text(
+              l10n.exportDatabase,
+              style: TextStyle(color: theme.colorScheme.onSurface),
             ),
-            content: const Column(
+            content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Select export format:',
-                  style: TextStyle(color: Colors.white70),
+                  l10n.selectExportFormat,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 RadioListTile(
                   value: true,
                   groupValue: true,
-                  title: Text('JSON', style: TextStyle(color: Colors.white70)),
+                  title: Text(
+                    l10n.exportFormatJSON,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
                   onChanged: null,
-                  activeColor: Colors.amber,
+                  activeColor: theme.colorScheme.primary,
                 ),
                 RadioListTile(
                   value: false,
                   groupValue: true,
-                  title: Text('CSV', style: TextStyle(color: Colors.white70)),
+                  title: Text(
+                    l10n.exportFormatCSV,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
                   onChanged: null,
-                  activeColor: Colors.amber,
+                  activeColor: theme.colorScheme.primary,
                 ),
                 RadioListTile(
                   value: false,
                   groupValue: true,
-                  title: Text('SQL', style: TextStyle(color: Colors.white70)),
+                  title: Text(
+                    l10n.exportFormatSQL,
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
                   onChanged: null,
-                  activeColor: Colors.amber,
+                  activeColor: theme.colorScheme.primary,
                 ),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                child: const Text('Cancel'),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                ),
+                child: Text(l10n.commonCancel),
               ),
-              TextButton(
+              FilledButton(
                 onPressed: () {
                   Navigator.of(context).pop();
                   // Show export success dialog
                   _showExportSuccessDialog(context);
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.amber),
-                child: const Text('Export'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                ),
+                child: Text(l10n.export),
               ),
             ],
           ),
@@ -473,32 +556,40 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   }
 
   void _showExportSuccessDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
-            backgroundColor: Colors.grey[850],
-            title: const Row(
+            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 8),
+                Icon(Icons.check_circle, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
                 Text(
-                  'Export Successful',
-                  style: TextStyle(color: Colors.white),
+                  l10n.exportSuccessful,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
                 ),
               ],
             ),
-            content: const Text(
-              'Database has been exported successfully to your downloads folder.',
-              style: TextStyle(color: Colors.white70),
+            content: Text(
+              l10n.exportSuccessfulDescription,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
             actions: [
-              TextButton(
+              FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(foregroundColor: Colors.amber),
-                child: const Text('OK'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                ),
+                child: Text(l10n.ok),
               ),
             ],
           ),
