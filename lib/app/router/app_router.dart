@@ -25,6 +25,7 @@ import '../../presentation/screens/admin/admin_reports_page.dart';
 import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
+import '../../features/user_management/presentation/pages/user_detail_page.dart';
 import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
 import '../../features/admin/presentation/pages/admin_submissions_page.dart';
 import '../../presentation/screens/admin/admin_opportunities_page.dart';
@@ -444,6 +445,21 @@ class AppRouter {
           GoRoute(
             path: '/admin/user-management',
             builder: (context, state) => const UserManagementPage(),
+          ),
+          GoRoute(
+            path: '/admin/users/:userId',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId'];
+              final user = state.extra as AppUser?;
+
+              if (user == null) {
+                // TODO: Handle case where user data is not provided
+                // For now, redirect back to user management page
+                return const UserManagementPage();
+              }
+
+              return UserDetailPage(user: user);
+            },
           ),
           GoRoute(
             path: '/admin/salesforce-setup',

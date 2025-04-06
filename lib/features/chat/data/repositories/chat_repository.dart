@@ -165,9 +165,9 @@ class ChatRepository {
 
         try {
           // Create the conversation document
-        final docRef = await _firestore
+          final docRef = await _firestore
               .collection(_conversationsCollection)
-            .add(conversationData);
+              .add(conversationData);
 
           final conversationId = docRef.id;
 
@@ -254,12 +254,12 @@ class ChatRepository {
     }
 
     try {
-    return _firestore
-        .collection(_conversationsCollection)
-        .doc(conversationId)
-        .collection(_messagesCollection)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
+      return _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .collection(_messagesCollection)
+          .orderBy('timestamp', descending: true)
+          .snapshots()
           .map((snapshot) {
             if (kDebugMode) {
               print(
@@ -382,6 +382,9 @@ class ChatRepository {
         }
       }
 
+      if (kDebugMode) {
+        print('Unread count for admin: $totalUnread');
+      }
       return totalUnread;
     });
   }
@@ -416,6 +419,9 @@ class ChatRepository {
             }
           }
 
+          if (kDebugMode) {
+            print('Unread count for reseller: $totalUnread');
+          }
           return totalUnread;
         });
   }
@@ -530,7 +536,7 @@ class ChatRepository {
       // Legacy fields for backward compatibility
       if (isAdmin) {
         updateData['unreadByAdmin'] = false;
-            updateData['unreadByReseller'] = true;
+        updateData['unreadByReseller'] = true;
         updateData['unreadCount'] =
             (conversationData['unreadCount'] as int? ?? 0) + 1;
       } else {
@@ -1061,7 +1067,7 @@ class ChatRepository {
       // Get current conversation document
       final conversationSnapshot =
           await _firestore
-          .collection(_conversationsCollection)
+              .collection(_conversationsCollection)
               .doc(conversationId)
               .get();
 

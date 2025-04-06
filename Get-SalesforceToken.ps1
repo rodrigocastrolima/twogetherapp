@@ -41,18 +41,14 @@ try {
              return
         }
 
-        # Store in the parent/calling scope variables using Set-Variable
-        Set-Variable -Scope 1 -Name 'salesforceToken' -Value $accessToken -Force
-        Set-Variable -Scope 1 -Name 'salesforceInstanceUrl' -Value $instanceUrl -Force
-
-        # Retrieve the set variables to display confirmation (accessing them directly now works)
-        $tokenFromScope = Get-Variable -Name 'salesforceToken' -Scope 1 -ValueOnly
-        $instanceUrlFromScope = Get-Variable -Name 'salesforceInstanceUrl' -Scope 1 -ValueOnly
+        # Store in global scope variables to avoid scope issues
+        $Global:salesforceToken = $accessToken
+        $Global:salesforceInstanceUrl = $instanceUrl
 
         Write-Host "Successfully obtained token and instance URL." -ForegroundColor Green
-        Write-Host "Instance URL: $instanceUrlFromScope"
-        Write-Host "Access Token: $($tokenFromScope.Substring(0, [System.Math]::Min($tokenFromScope.Length, 10)))...." # Show first few chars safely
-        Write-Host "\nVariables `$salesforceToken` and `$salesforceInstanceUrl` are now set for this session." -ForegroundColor Yellow
+        Write-Host "Instance URL: $Global:salesforceInstanceUrl"
+        Write-Host "Access Token: $($Global:salesforceToken.Substring(0, [System.Math]::Min($Global:salesforceToken.Length, 10)))...." # Show first few chars safely
+        Write-Host "Variables `$salesforceToken` and `$salesforceInstanceUrl` are now set for this session." -ForegroundColor Yellow
 
     } else {
         # Handle cases where the 'result' structure or nested properties are missing

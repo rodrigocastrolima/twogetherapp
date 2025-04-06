@@ -1,0 +1,112 @@
+---
+description: fixing linting errors
+globs: 
+---
+# Common Lint Fix Rules (.mdc)
+
+This file outlines common Flutter lint errors encountered in this project and how to fix them.
+
+## 1. Deprecated Member Usage (`deprecated_member_use`)
+
+### a) `withOpacity`
+
+*   **Problem:** Using the deprecated `.withOpacity(x)` method on `Color`.
+*   **Fix:** Replace `.withOpacity(x)` with `.withAlpha((255 * x).round())`. The `x` value (opacity) should be between 0.0 and 1.0.
+
+    ```diff
+    - color: Colors.blue.withOpacity(0.5)
+    + color: Colors.blue.withAlpha((255 * 0.5).round()) // Opacity 0.5 = Alpha 128
+    ```
+
+### b) Theme Colors (Material 2 -> Material 3)
+
+*   **Problem:** Using deprecated Material 2 `ColorScheme` colors.
+*   **Fix:** Replace with their Material 3 equivalents:
+    *   `Theme.of(context).colorScheme.background` -> `Theme.of(context).colorScheme.surface`
+    *   `Theme.of(context).colorScheme.onBackground` -> `Theme.of(context).colorScheme.onSurface`
+    *   `Theme.of(context).colorScheme.surfaceVariant` -> `Theme.of(context).colorScheme.surfaceContainerHighest` (or other `surfaceContainer` variants depending on context/elevation)
+    *   *(Check the official Flutter documentation for other M2 -> M3 color mappings if needed)*
+
+    ```diff
+    - color: Theme.of(context).colorScheme.background
+    + color: Theme.of(context).colorScheme.surface
+
+    - color: Theme.of(context).colorScheme.onBackground
+    + color: Theme.of(context).colorScheme.onSurface
+    ```
+
+## 2. Child/Children Property Order (`sort_child_properties_last`)
+
+*   **Problem:** The `child:` or `children:` argument in a widget constructor is not the last argument.
+*   **Fix:** Move the `child:` or `children:` argument to the end of the argument list within the widget\'s constructor parentheses.
+
+    ```diff
+    - MyWidget(child: Text('Hello'), padding: EdgeInsets.all(8))
+    + MyWidget(padding: EdgeInsets.all(8), child: Text('Hello'))
+
+    - Row(children: [...], mainAxisAlignment: MainAxisAlignment.center)
+    + Row(mainAxisAlignment: MainAxisAlignment.center, children: [...])
+    ```
+
+## 3. Avoid Print (`avoid_print`)
+
+*   **Problem:** Using `print()` statements, which should not be present in production code.
+*   **Fix:**
+    *   **Remove:** Delete the `print()` statement if it\'s no longer needed for debugging.
+    *   **Comment Out:** Temporarily disable it by commenting it out (`// print(...)`).
+    *   **Debug Guard:** Keep it for debugging only by wrapping it in a `kDebugMode` check (requires importing `package:flutter/foundation.dart`).
+    *   **Logging Framework:** (Recommended for complex apps) Replace `print` with a proper logging solution (e.g., `package:logger`).
+
+    ```diff
+    - print('User data: $data');
+    + // print('User data: $data'); // Commented out
+    + if (kDebugMode) { print('User data: $data'); } // Debug guard
+    ```
+
+## 4. Syntax Errors (e.g., `expected_token`, `extra_positional_arguments_could_be_named`)
+
+*   **Problem:** General syntax mistakes like missing commas, mismatched parentheses/brackets, incorrect function calls. Often caused by a missing comma between widgets in a `children` list or arguments in a constructor.
+*   **Fix:** Carefully examine the code around the line number indicated by the error. Look for:
+    *   Missing commas (`,`) between items in lists (`[]`) or arguments in function calls/constructors (`()`).
+    *   Mismatched parentheses `()` or brackets `[] {}`.
+    *   Incorrectly calling a function or constructor (e.g., providing positional arguments when named arguments are expected).
+
+## 5. Unused Code (`unused_import`, `unused_field`, `unused_local_variable`)
+
+*   **Problem:** Importing libraries, defining fields (class variables), or declaring local variables that are never used.
+*   **Fix:** Remove the unused import statement, field definition, or local variable declaration.
+
+## 6. BuildContexts Across Async Gaps (`use_build_context_synchronously`)
+
+*   **Problem:** Using a `BuildContext` (e.g., for `Navigator`, `ScaffoldMessenger`, `Theme.of`) after an `await` call within an `async` method in a `StatefulWidget`. The widget might have been disposed while waiting.
+*   **Fix:** Before using the `BuildContext` after an `await`, check if the widget is still mounted:
+
+    ```dart
+    await someAsyncOperation();
+    if (!mounted) return; // Add this check
+    Navigator.of(context).pop();
+    ```
+
+## 7. Unnecessary Null-Aware Operators (`invalid_null_aware_operator`)
+
+*   **Problem:** Using null-aware operators (`?.`, `?[]`, `?..`) when the receiver cannot be null.
+*   **Fix:** Replace the null-aware operator with its direct counterpart (`.`, `[]`, `..`). *Exception: Keep `?[]` if accessing map elements where the key might be absent, even if the map itself isn't null.*\
+
+    ```diff
+    - myNonNullObject?.someMethod()
+    + myNonNullObject.someMethod()
+
+    - myNonNullMap?['key'] // Keep if 'key' might be absent
+    + myNonNullMap['key'] // Change if 'key' is guaranteed or null value is acceptable/handled
+    ```
+
+## 8. Private Types in Public API (`library_private_types_in_public_api`)
+
+*   **Problem:** Using a private type (name starting with `_`) in a public API (e.g., a public widget using a private `_State` class).
+*   **Fix:**
+    *   Make the private type public by removing the leading underscore (`_`). Example: `_MyState` -> `MyState`.
+    *   OR, make the API that uses the private type also private (less common for widgets).
+
+---
+
+*Note: This file serves as a guideline. Applying these fixes might require context-specific adjustments.*

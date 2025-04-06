@@ -112,7 +112,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
         title: Text(
           l10n.messagesPageTitle,
           style: theme.textTheme.headlineMedium?.copyWith(
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
           textAlign: TextAlign.left,
@@ -143,7 +143,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           Text(
                             l10n.noRetailUsersFound,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onBackground,
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -260,12 +260,15 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                         ),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: theme.colorScheme.onBackground
-                                      .withOpacity(0.1),
+                                  color: theme.colorScheme.onSurface.withAlpha(
+                                    (255 * 0.1).round(),
+                                  ),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: theme.shadowColor.withOpacity(0.05),
+                                    color: theme.shadowColor.withAlpha(
+                                      (255 * 0.05).round(),
+                                    ),
                                     blurRadius: 3,
                                     offset: const Offset(0, 1),
                                   ),
@@ -274,14 +277,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               child: TextField(
                                 controller: _searchController,
                                 style: TextStyle(
-                                  color: theme.colorScheme.onBackground,
+                                  color: theme.colorScheme.onSurface,
                                   fontSize: 15,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: "Search conversations...",
                                   hintStyle: TextStyle(
-                                    color: theme.colorScheme.onBackground
-                                        .withOpacity(0.5),
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha((255 * 0.5).round()),
                                     fontSize: 15,
                                     fontWeight: FontWeight.w400,
                                   ),
@@ -290,8 +293,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   ),
                                   prefixIcon: Icon(
                                     CupertinoIcons.search,
-                                    color: theme.colorScheme.onBackground
-                                        .withOpacity(0.5),
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha((255 * 0.5).round()),
                                     size: 18,
                                   ),
                                   suffixIcon:
@@ -299,10 +302,10 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                           ? IconButton(
                                             icon: Icon(
                                               CupertinoIcons.clear,
-                                              color: theme
-                                                  .colorScheme
-                                                  .onBackground
-                                                  .withOpacity(0.5),
+                                              color: theme.colorScheme.onSurface
+                                                  .withAlpha(
+                                                    (255 * 0.5).round(),
+                                                  ),
                                               size: 16,
                                             ),
                                             onPressed: () {
@@ -399,10 +402,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                                         _showOnlyActive
                                                             ? const Color(
                                                               0xFF007AFF,
-                                                            ).withOpacity(0.2)
+                                                            ).withAlpha(
+                                                              (255 * 0.2)
+                                                                  .round(),
+                                                            )
                                                             : Colors.black
-                                                                .withOpacity(
-                                                                  0.1,
+                                                                .withAlpha(
+                                                                  (255 * 0.1)
+                                                                      .round(),
                                                                 ),
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -501,10 +508,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                                         !_showOnlyActive
                                                             ? const Color(
                                                               0xFF007AFF,
-                                                            ).withOpacity(0.2)
+                                                            ).withAlpha(
+                                                              (255 * 0.2)
+                                                                  .round(),
+                                                            )
                                                             : Colors.black
-                                                                .withOpacity(
-                                                                  0.1,
+                                                                .withAlpha(
+                                                                  (255 * 0.1)
+                                                                      .round(),
                                                                 ),
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -586,8 +597,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               Text(
                                 l10n.commonLoading,
                                 style: TextStyle(
-                                  color: theme.colorScheme.onBackground
-                                      .withOpacity(0.7),
+                                  color: theme.colorScheme.onSurface.withAlpha(
+                                    (255 * 0.7).round(),
+                                  ),
                                 ),
                               ),
                             ],
@@ -609,7 +621,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                 Text(
                                   l10n.chatErrorLoading,
                                   style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: theme.colorScheme.onBackground,
+                                    color: theme.colorScheme.onSurface,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -618,8 +630,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   error.toString(),
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onBackground
-                                        .withOpacity(0.7),
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha((255 * 0.7).round()),
                                   ),
                                 ),
                               ],
@@ -638,8 +650,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           Text(
                             l10n.commonLoading,
                             style: TextStyle(
-                              color: theme.colorScheme.onBackground.withOpacity(
-                                0.7,
+                              color: theme.colorScheme.onSurface.withAlpha(
+                                (255 * 0.7).round(),
                               ),
                             ),
                           ),
@@ -662,7 +674,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             Text(
                               l10n.chatErrorLoading,
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onBackground,
+                                color: theme.colorScheme.onSurface,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -671,8 +683,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               error.toString(),
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.7),
+                                color: theme.colorScheme.onSurface.withAlpha(
+                                  (255 * 0.7).round(),
+                                ),
                               ),
                             ),
                           ],
@@ -730,13 +743,13 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
         border: Border.all(
           color:
               hasUnreadMessages
-                  ? theme.colorScheme.primary.withOpacity(0.3)
-                  : theme.colorScheme.onBackground.withOpacity(0.1),
+                  ? theme.colorScheme.primary.withAlpha((255 * 0.3).round())
+                  : theme.colorScheme.onSurface.withAlpha((255 * 0.1).round()),
           width: hasUnreadMessages ? 1.0 : 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withOpacity(0.05),
+            color: theme.shadowColor.withAlpha((255 * 0.05).round()),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -765,18 +778,24 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           hasUnreadMessages
                               ? theme.colorScheme.primary.withOpacity(0.15)
                               : isInactive
-                              ? theme.colorScheme.onBackground.withOpacity(0.08)
+                              ? theme.colorScheme.onSurface.withAlpha(
+                                (255 * 0.08).round(),
+                              )
                               : theme.colorScheme.secondary.withOpacity(0.15),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color:
                             hasUnreadMessages
-                                ? theme.colorScheme.primary.withOpacity(0.3)
-                                : isInactive
-                                ? theme.colorScheme.onBackground.withOpacity(
-                                  0.1,
+                                ? theme.colorScheme.primary.withAlpha(
+                                  (255 * 0.3).round(),
                                 )
-                                : theme.colorScheme.secondary.withOpacity(0.3),
+                                : isInactive
+                                ? theme.colorScheme.onSurface.withAlpha(
+                                  (255 * 0.1).round(),
+                                )
+                                : theme.colorScheme.secondary.withAlpha(
+                                  (255 * 0.3).round(),
+                                ),
                         width: 1,
                       ),
                     ),
@@ -790,11 +809,11 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             hasUnreadMessages
                                 ? theme.colorScheme.primary
                                 : isInactive
-                                ? theme.colorScheme.onBackground.withOpacity(
-                                  0.5,
+                                ? theme.colorScheme.onSurface.withAlpha(
+                                  (255 * 0.5).round(),
                                 )
-                                : theme.colorScheme.onBackground.withOpacity(
-                                  0.9,
+                                : theme.colorScheme.onSurface.withAlpha(
+                                  (255 * 0.9).round(),
                                 ),
                       ),
                     ),
@@ -818,12 +837,12 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                           : FontWeight.w500,
                                   color:
                                       hasUnreadMessages
-                                          ? theme.colorScheme.onBackground
+                                          ? theme.colorScheme.onSurface
                                           : isInactive
-                                          ? theme.colorScheme.onBackground
-                                              .withOpacity(0.7)
-                                          : theme.colorScheme.onBackground
-                                              .withOpacity(0.9),
+                                          ? theme.colorScheme.onSurface
+                                              .withAlpha((255 * 0.7).round())
+                                          : theme.colorScheme.onSurface
+                                              .withAlpha((255 * 0.9).round()),
                                   fontSize: 15,
                                 ),
                                 maxLines: 1,
@@ -834,15 +853,15 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               const SizedBox(width: 8),
                               Text(
                                 formattedTime,
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                style: TextStyle(
                                   color:
                                       hasUnreadMessages
                                           ? theme.colorScheme.primary
                                           : isInactive
-                                          ? theme.colorScheme.onBackground
-                                              .withOpacity(0.3)
-                                          : theme.colorScheme.onBackground
-                                              .withOpacity(0.5),
+                                          ? theme.colorScheme.onSurface
+                                              .withAlpha((255 * 0.3).round())
+                                          : theme.colorScheme.onSurface
+                                              .withAlpha((255 * 0.5).round()),
                                   fontSize: 11,
                                 ),
                               ),
@@ -856,8 +875,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               child: Text(
                                 subtitleText,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onBackground
-                                      .withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withAlpha(
+                                    (255 * 0.6).round(),
+                                  ),
                                   fontWeight: FontWeight.normal,
                                   fontStyle:
                                       isInactive
@@ -926,7 +946,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       return PopupMenuButton<String>(
         icon: Icon(
           Icons.more_vert,
-          color: theme.colorScheme.onBackground.withOpacity(0.7),
+          color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
           size: 20,
         ),
         padding: EdgeInsets.zero,
@@ -979,7 +999,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                         Text(
                           'Remove all messages',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withAlpha(
+                              (255 * 0.6).round(),
+                            ),
                             fontSize: 12,
                           ),
                         ),
@@ -1011,7 +1033,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                         Text(
                           'Permanently delete this conversation',
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withAlpha(
+                              (255 * 0.6).round(),
+                            ),
                             fontSize: 12,
                           ),
                         ),
@@ -1036,7 +1060,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       return IconButton(
         icon: Icon(
           Icons.more_vert,
-          color: theme.colorScheme.onBackground.withOpacity(0.7),
+          color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
           size: 20,
         ),
         padding: EdgeInsets.zero,
@@ -1802,7 +1826,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                   ? "No active conversations"
                   : "No inactive conversations",
               style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onBackground,
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1816,7 +1840,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                     ? "Try viewing inactive conversations or start a new one"
                     : "No inactive conversations found",
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onBackground.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 textAlign: TextAlign.center,
               ),

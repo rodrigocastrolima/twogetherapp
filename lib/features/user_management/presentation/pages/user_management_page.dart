@@ -5,39 +5,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../features/auth/domain/models/app_user.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/auth/presentation/providers/cloud_functions_provider.dart';
 import '../widgets/create_user_form.dart';
-import '../../../../core/theme/theme.dart';
 import 'package:flutter/foundation.dart';
 
 class UserManagementPage extends ConsumerStatefulWidget {
   const UserManagementPage({super.key});
 
   @override
-  _UserManagementPageState createState() => _UserManagementPageState();
+  UserManagementPageState createState() => UserManagementPageState();
 }
 
-class _UserManagementPageState extends ConsumerState<UserManagementPage> {
+class UserManagementPageState extends ConsumerState<UserManagementPage> {
   bool _isLoading = true;
   bool _isCreatingUser = false;
   List<AppUser> _users = [];
   String? _errorMessage;
-  bool _usingCloudFunctions = false;
   late final String _currentUserId;
+  TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    _checkCloudFunctions();
     _loadUsers();
-  }
-
-  void _checkCloudFunctions() {
-    // Read from the Cloud Functions provider we set in main.dart
-    _usingCloudFunctions = ref.read(cloudFunctionsAvailableProvider);
   }
 
   Future<void> _loadUsers() async {
@@ -161,6 +156,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     required String password,
     String? displayName,
   }) async {
+    final l10n = AppLocalizations.of(context)!;
+
     setState(() {
       _isCreatingUser = true;
       _errorMessage = null;
@@ -169,8 +166,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     try {
       final authRepository = ref.read(authRepositoryProvider);
 
-      // Create the user
-      final newUser = await authRepository.createUserWithEmailAndPassword(
+      await authRepository.createUserWithEmailAndPassword(
         email: email,
         password: password,
         role: UserRole.reseller,
@@ -182,9 +178,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         Navigator.of(context).pop(); // Close the dialog
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User created successfully!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(l10n.commonSave),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
 
@@ -201,8 +197,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         // First show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating user: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(
               seconds: 10,
             ), // Longer duration for important errors
@@ -224,8 +220,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                 barrierDismissible: false,
                 builder:
                     (context) => AlertDialog(
-                      title: const Text('Session Expired'),
-                      content: const Text(
+                      title: Text(l10n.profileEndSession),
+                      content: Text(
                         'Your admin session has expired while creating the user. '
                         'The user was created successfully, but you need to sign in again.',
                       ),
@@ -238,7 +234,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                             ).popUntil((route) => route.isFirst);
                             context.go('/login');
                           },
-                          child: const Text('GO TO LOGIN'),
+                          child: Text(l10n.loginButton),
                         ),
                       ],
                     ),
@@ -251,6 +247,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   Future<void> _setUserEnabled(String uid, bool enabled) async {
+    final l10n = AppLocalizations.of(context)!;
+
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -266,10 +264,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'User ${enabled ? 'enabled' : 'disabled'} successfully',
-            ),
-            backgroundColor: Colors.green,
+            content: Text(enabled ? l10n.active : l10n.inactive),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
@@ -289,7 +285,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -297,27 +293,31 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   Future<void> _resetPassword(String uid, String email) async {
+    final l10n = AppLocalizations.of(context)!;
+
     try {
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.sendPasswordResetEmail(email);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Password reset email sent to $email'),
-          backgroundColor: Colors.green,
+          content: Text(l10n.profileChangePassword),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to send password reset email: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
   }
 
   Future<void> _deleteUser(String uid) async {
+    final l10n = AppLocalizations.of(context)!;
+
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -332,9 +332,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User deleted successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(l10n.commonDelete),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
         );
       }
@@ -354,7 +354,7 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -375,25 +375,36 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   void _showUserActionMenu(BuildContext context, AppUser user) {
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder:
           (context) => BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: AlertDialog(
-              backgroundColor: Colors.grey[850],
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surface.withAlpha((255 * 0.9).round()),
               title: Text(
-                'Manage ${user.displayName ?? user.email}',
-                style: const TextStyle(color: Colors.white),
+                '${l10n.commonMore}: ${user.displayName ?? user.email}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    leading: Icon(Icons.password, color: AppTheme.primary),
-                    title: const Text(
-                      'Reset Password',
-                      style: TextStyle(color: Colors.white),
+                    leading: Icon(
+                      Icons.password,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    title: Text(
+                      l10n.profileChangePassword,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                      ),
                     ),
                     onTap: () {
                       Navigator.of(context).pop();
@@ -402,34 +413,45 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                   ),
                   ListTile(
                     leading: Icon(
-                      user.additionalData?['isEnabled'] == false
+                      user.additionalData['isEnabled'] == false
                           ? Icons.check_circle
                           : Icons.block,
                       color:
-                          user.additionalData?['isEnabled'] == false
-                              ? Colors.green
-                              : Colors.red,
+                          user.additionalData['isEnabled'] == false
+                              ? Theme.of(context).colorScheme.tertiary
+                              : Theme.of(context).colorScheme.error,
                     ),
                     title: Text(
-                      user.additionalData?['isEnabled'] == false
-                          ? 'Enable User'
-                          : 'Disable User',
-                      style: const TextStyle(color: Colors.white),
+                      user.additionalData['isEnabled'] == false
+                          ? l10n.active
+                          : l10n.inactive,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                      ),
                     ),
                     onTap: () {
                       Navigator.of(context).pop();
                       _setUserEnabled(
                         user.uid,
-                        !(user.additionalData?['isEnabled'] ?? true),
+                        !(user.additionalData['isEnabled'] ?? true),
                       );
                     },
                   ),
-                  const Divider(color: Colors.white24),
+                  Divider(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha((255 * 0.2).round()),
+                  ),
                   ListTile(
-                    leading: const Icon(Icons.delete, color: Colors.red),
-                    title: const Text(
-                      'Delete User',
-                      style: TextStyle(color: Colors.red),
+                    leading: Icon(
+                      Icons.delete,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    title: Text(
+                      l10n.commonDelete,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                     onTap: () {
                       Navigator.of(context).pop();
@@ -441,8 +463,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                  child: const Text('CLOSE'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                  ),
+                  child: Text(l10n.commonCancel),
                 ),
               ],
             ),
@@ -451,34 +477,50 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   void _showDeleteConfirmation(BuildContext context, AppUser user) {
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder:
           (context) => BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: AlertDialog(
-              backgroundColor: Colors.grey[850],
-              title: const Text(
-                'Delete User',
-                style: TextStyle(color: Colors.white),
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surface.withAlpha((255 * 0.9).round()),
+              title: Text(
+                l10n.commonDelete,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                ),
               ),
               content: Text(
                 'Are you sure you want to permanently delete ${user.displayName ?? user.email}? This action cannot be undone.',
-                style: const TextStyle(color: Colors.white70),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                  child: const Text('CANCEL'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                  ),
+                  child: Text(l10n.commonCancel),
                 ),
                 FilledButton(
                   onPressed: () {
                     Navigator.of(context).pop();
                     _deleteUser(user.uid);
                   },
-                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('DELETE'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: Text(l10n.commonDelete),
                 ),
               ],
             ),
@@ -487,6 +529,18 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   Widget _buildUserTable() {
+    final l10n = AppLocalizations.of(context)!;
+    
+    // Filter users based on search query
+    final filteredUsers = searchQuery.isEmpty
+        ? _users
+        : _users.where((user) {
+            final name = user.displayName?.toLowerCase() ?? '';
+            final email = user.email.toLowerCase();
+            final query = searchQuery.toLowerCase();
+            return name.contains(query) || email.contains(query);
+          }).toList();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Check if we're on a small screen (mobile)
@@ -494,63 +548,91 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
 
         if (isSmallScreen) {
           // Mobile-friendly card layout
-          return ListView.builder(
-            itemCount: _users.length,
+          return filteredUsers.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.search_off,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.noRetailUsersFound,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: filteredUsers.length,
             padding: const EdgeInsets.only(bottom: 16),
             itemBuilder: (context, index) {
-              final user = _users[index];
-              final bool isEnabled = user.additionalData?['isEnabled'] ?? true;
+                    final user = filteredUsers[index];
+              final bool isEnabled = user.additionalData['isEnabled'] ?? true;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                color: Colors.black.withOpacity(0.2),
+                color: Theme.of(context).colorScheme.surface.withAlpha((255 * 0.2).round()),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                     width: 0.5,
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // User info row with action button
-                      Row(
-                        children: [
-                          // Avatar
-                          CircleAvatar(
-                            backgroundColor:
-                                user.role == UserRole.admin
-                                    ? Colors.amber
-                                    : AppTheme.primary,
-                            radius: 20,
-                            child: Text(
-                              user.displayName?.isNotEmpty == true
-                                  ? user.displayName![0].toUpperCase()
-                                  : user.email.isNotEmpty
-                                  ? user.email[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                child: InkWell(
+                  onTap: () => _navigateToUserDetailPage(user),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // User info row with action button
+                        Row(
+                          children: [
+                            // Avatar
+                            CircleAvatar(
+                              backgroundColor:
+                                  user.role == UserRole.admin
+                                              ? Theme.of(context).colorScheme.secondary
+                                              : Theme.of(context).colorScheme.primary,
+                              radius: 20,
+                              child: Text(
+                                user.displayName?.isNotEmpty == true
+                                    ? user.displayName![0].toUpperCase()
+                                    : user.email.isNotEmpty
+                                    ? user.email[0].toUpperCase()
+                                            : l10n.userInitialsDefault,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Name and role
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.displayName ?? 'No Name',
-                                  style: TextStyle(
-                                    color: AppTheme.foreground,
+                            const SizedBox(width: 12),
+                            // Name and role
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                            user.displayName ?? l10n.unknownUser,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge?.copyWith(
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
                                     decoration:
                                         !isEnabled
                                             ? TextDecoration.lineThrough
@@ -568,21 +650,30 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: (user.role == UserRole.admin
-                                                ? Colors.amber
-                                                : AppTheme.primary)
-                                            .withOpacity(0.2),
+                                                        ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary
+                                                        : Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary)
+                                            .withAlpha((255 * 0.2).round()),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
                                         user.role == UserRole.admin
                                             ? 'Admin'
                                             : 'Reseller',
-                                        style: TextStyle(
-                                          fontSize: 11,
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.labelSmall?.copyWith(
                                           color:
                                               user.role == UserRole.admin
-                                                  ? Colors.amber
-                                                  : AppTheme.primary,
+                                                          ? Theme.of(
+                                                            context,
+                                                          ).colorScheme.secondary
+                                                          : Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -595,16 +686,22 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.2),
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.error.withAlpha((255 * 0.2).round()),
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
                                         ),
-                                        child: const Text(
-                                          'Disabled',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.red,
+                                                child: Text(
+                                                  l10n.inactive,
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.labelSmall?.copyWith(
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.error,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -614,38 +711,45 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                 ),
                               ],
                             ),
-                          ),
-                          // Action button
-                          IconButton(
-                            icon: const Icon(Icons.more_vert),
-                            color: AppTheme.foreground,
-                            onPressed: () => _showUserActionMenu(context, user),
-                            tooltip: 'User Actions',
-                          ),
-                        ],
-                      ),
-                      const Divider(color: Colors.white24, height: 24),
-                      // Email
-                      _buildInfoRow(
-                        icon: Icons.email_outlined,
-                        label: 'Email',
-                        value: user.email,
-                      ),
-                      const SizedBox(height: 8),
-                      // Created at
-                      _buildInfoRow(
-                        icon: Icons.calendar_today,
-                        label: 'Created',
-                        value: _formatDate(user.additionalData?['createdAt']),
-                      ),
-                      const SizedBox(height: 8),
-                      // Last login
-                      _buildInfoRow(
-                        icon: Icons.login,
-                        label: 'Last Login',
-                        value: _formatDate(user.additionalData?['lastLoginAt']),
-                      ),
-                    ],
+                            // Action button
+                            IconButton(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              onPressed: () => _showUserActionMenu(context, user),
+                              tooltip: l10n.commonMore,
+                            ),
+                          ],
+                        ),
+                        Divider(
+                          color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.2).round()),
+                          height: 24,
+                        ),
+                        // Email
+                        _buildInfoRow(
+                          icon: Icons.email_outlined,
+                          label: 'Email',
+                          value: user.email.isEmpty
+                              ? l10n.noEmailProvided
+                              : user.email,
+                        ),
+                        const SizedBox(height: 8),
+                        // Created at
+                        _buildInfoRow(
+                          icon: Icons.calendar_today,
+                          label: l10n.commonDate,
+                          value: _formatDate(user.additionalData['createdAt']),
+                        ),
+                        const SizedBox(height: 8),
+                        // Last login
+                        _buildInfoRow(
+                          icon: Icons.login,
+                          label: 'Last Login',
+                          value: _formatDate(user.additionalData['lastLoginAt']),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -657,7 +761,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
             borderRadius: BorderRadius.circular(12),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surface.withAlpha((255 * 0.2).round()),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -669,10 +775,14 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                       horizontal: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withAlpha((255 * 0.3).round()),
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                           width: 1,
                         ),
                       ),
@@ -682,10 +792,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                         Expanded(
                           flex: 3,
                           child: Text(
-                            'User',
-                            style: TextStyle(
+                            l10n.adminUserManagement,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -693,9 +805,11 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           flex: 2,
                           child: Text(
                             'Email',
-                            style: TextStyle(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -703,19 +817,23 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           flex: 1,
                           child: Text(
                             'Role',
-                            style: TextStyle(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
                         Expanded(
                           flex: 2,
                           child: Text(
-                            'Created',
-                            style: TextStyle(
+                            l10n.commonDate,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -723,9 +841,11 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           flex: 2,
                           child: Text(
                             'Last Login',
-                            style: TextStyle(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -736,26 +856,52 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
 
                   // Table content
                   Expanded(
-                    child: ListView.separated(
-                      itemCount: _users.length,
+                    child: filteredUsers.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 64,
+                                  color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  l10n.noRetailUsersFound,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filteredUsers.length,
                       padding: EdgeInsets.zero,
                       separatorBuilder:
                           (context, index) => Divider(
-                            color: Colors.white.withOpacity(0.1),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                             height: 1,
                             indent: 16,
                             endIndent: 16,
                           ),
                       itemBuilder: (context, index) {
-                        final user = _users[index];
+                              final user = filteredUsers[index];
                         final bool isEnabled =
-                            user.additionalData?['isEnabled'] ?? true;
+                            user.additionalData['isEnabled'] ?? true;
 
-                        return Container(
+                              return InkWell(
+                                onTap: () => _navigateToUserDetailPage(user),
+                                child: Container(
                           color:
                               index % 2 == 0
                                   ? Colors.transparent
-                                  : Colors.white.withOpacity(0.05),
+                                          : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface.withAlpha((255 * 0.05).round()),
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 8,
@@ -771,8 +917,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                       CircleAvatar(
                                         backgroundColor:
                                             user.role == UserRole.admin
-                                                ? Colors.amber
-                                                : AppTheme.primary,
+                                                        ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary
+                                                        : Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary,
                                         radius: 16,
                                         child: Text(
                                           user.displayName?.isNotEmpty == true
@@ -780,11 +930,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                                   .toUpperCase()
                                               : user.email.isNotEmpty
                                               ? user.email[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                                      : l10n.userInitialsDefault,
+                                                  style: Theme.of(
+                                                    context,
+                                                  ).textTheme.bodyMedium?.copyWith(
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.onPrimary,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 14,
                                           ),
                                         ),
                                       ),
@@ -795,9 +949,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              user.displayName ?? 'No Name',
-                                              style: TextStyle(
-                                                color: AppTheme.foreground,
+                                                      user.displayName ??
+                                                          l10n.unknownUser,
+                                                      style: Theme.of(
+                                                        context,
+                                                      ).textTheme.bodyMedium?.copyWith(
+                                                        color:
+                                                            Theme.of(
+                                                              context,
+                                                            ).colorScheme.onSurface,
                                                 fontWeight: FontWeight.w500,
                                                 decoration:
                                                     !isEnabled
@@ -809,10 +969,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                             ),
                                             if (!isEnabled)
                                               Text(
-                                                'Disabled',
-                                                style: TextStyle(
-                                                  color: Colors.red,
-                                                  fontSize: 12,
+                                                        l10n.inactive,
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .labelSmall
+                                                            ?.copyWith(
+                                                              color:
+                                                                  Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.error,
                                                 ),
                                               ),
                                           ],
@@ -826,11 +991,16 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    user.email,
-                                    style: TextStyle(
-                                      color: AppTheme.foreground.withOpacity(
-                                        0.8,
-                                      ),
+                                            user.email.isEmpty
+                                                ? l10n.noEmailProvided
+                                                : user.email,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withAlpha((255 * 0.8).round()),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -846,21 +1016,30 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: (user.role == UserRole.admin
-                                              ? Colors.amber
-                                              : AppTheme.primary)
-                                          .withOpacity(0.2),
+                                                      ? Theme.of(
+                                                        context,
+                                                      ).colorScheme.secondary
+                                                      : Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary)
+                                          .withAlpha((255 * 0.2).round()),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
                                       user.role == UserRole.admin
                                           ? 'Admin'
                                           : 'Reseller',
-                                      style: TextStyle(
-                                        fontSize: 12,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.labelSmall?.copyWith(
                                         color:
                                             user.role == UserRole.admin
-                                                ? Colors.amber
-                                                : AppTheme.primary,
+                                                        ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary
+                                                        : Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       textAlign: TextAlign.center,
@@ -873,13 +1052,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                   flex: 2,
                                   child: Text(
                                     _formatDate(
-                                      user.additionalData?['createdAt'],
+                                      user.additionalData['createdAt'],
                                     ),
-                                    style: TextStyle(
-                                      color: AppTheme.foreground.withOpacity(
-                                        0.8,
-                                      ),
-                                      fontSize: 13,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withAlpha((255 * 0.8).round()),
                                     ),
                                   ),
                                 ),
@@ -889,13 +1070,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                   flex: 2,
                                   child: Text(
                                     _formatDate(
-                                      user.additionalData?['lastLoginAt'],
+                                      user.additionalData['lastLoginAt'],
                                     ),
-                                    style: TextStyle(
-                                      color: AppTheme.foreground.withOpacity(
-                                        0.8,
-                                      ),
-                                      fontSize: 13,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withAlpha((255 * 0.8).round()),
                                     ),
                                   ),
                                 ),
@@ -904,15 +1087,16 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                                 SizedBox(
                                   width: 60,
                                   child: IconButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    color: AppTheme.foreground,
-                                    onPressed:
-                                        () =>
-                                            _showUserActionMenu(context, user),
-                                    tooltip: 'User Actions',
+                                    icon: Icon(
+                                      Icons.more_vert,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                    onPressed: () => _showUserActionMenu(context, user),
+                                    tooltip: l10n.commonMore,
                                   ),
                                 ),
                               ],
+                                    ),
                             ),
                           ),
                         );
@@ -937,19 +1121,24 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppTheme.foreground.withOpacity(0.7)),
+        Icon(
+          icon,
+          size: 16,
+          color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+        ),
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppTheme.foreground.withOpacity(0.7),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: TextStyle(fontSize: 13, color: AppTheme.foreground),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
         ),
       ],
@@ -958,12 +1147,10 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Update cloud functions status whenever the widget rebuilds
-    _usingCloudFunctions = ref.watch(cloudFunctionsAvailableProvider);
-
     // Get screen size to determine layout
     final Size screenSize = MediaQuery.of(context).size;
     final bool isSmallScreen = screenSize.width < 700;
+    final l10n = AppLocalizations.of(context)!;
 
     return Padding(
       padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
@@ -974,46 +1161,76 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
           if (isSmallScreen) ...[
             // Mobile layout - stacked vertically
             Text(
-              'User Management',
-                  style: TextStyle(
-                fontSize: 24,
+              l10n.adminUserManagement,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: AppTheme.foreground,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Create and manage reseller accounts',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.foreground.withOpacity(0.7),
+              l10n.adminUserManagementDescription,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
               ),
             ),
             const SizedBox(height: 16),
+            // Search filter
+            TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: l10n.commonSearch,
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                filled: true,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value.trim();
+                });
+              },
+            ),
+            const SizedBox(height: 12),
             // Action buttons
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create User'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: _showCreateUserDialog,
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  onPressed: _loadUsers,
+                  tooltip: l10n.refresh,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                   ),
                 ),
                 const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  color: AppTheme.foreground,
-                  onPressed: _loadUsers,
-                  tooltip: 'Refresh user list',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.1),
+                FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: Text(l10n.clientsPageAddClient),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
                   ),
+                  onPressed: _showCreateUserDialog,
                 ),
               ],
             ),
@@ -1026,19 +1243,21 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'User Management',
-                      style: TextStyle(
-                        fontSize: 28,
+                      l10n.adminUserManagement,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.foreground,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Create and manage reseller accounts',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.foreground.withOpacity(0.7),
+                      l10n.adminUserManagementDescription,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                       ),
                     ),
                   ],
@@ -1047,20 +1266,23 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.refresh),
-                      color: AppTheme.foreground,
+                      color: Theme.of(context).colorScheme.onSurface,
                       onPressed: _loadUsers,
-                      tooltip: 'Refresh user list',
+                      tooltip: l10n.refresh,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     FilledButton.icon(
                       icon: const Icon(Icons.add),
-                      label: const Text('Create User'),
+                      label: Text(l10n.clientsPageAddClient),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.black,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
@@ -1071,6 +1293,32 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                   ],
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            // Search filter
+            TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: l10n.commonSearch,
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                filled: true,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value.trim();
+                });
+              },
             ),
           ],
 
@@ -1086,14 +1334,18 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                         children: [
                           CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppTheme.primary,
+                              Theme.of(context).colorScheme.primary,
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Loading users...',
-                            style: TextStyle(
-                              color: AppTheme.foreground.withOpacity(0.7),
+                            l10n.commonLoading,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                             ),
                           ),
                         ],
@@ -1107,13 +1359,19 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           Icon(
                             Icons.error_outline,
                             size: 64,
-                            color: Colors.red.withOpacity(0.8),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.error.withAlpha((255 * 0.8).round()),
                           ),
                           const SizedBox(height: 16),
                           Text(
                   _errorMessage!,
-                            style: TextStyle(
-                              color: Colors.red.withOpacity(0.9),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.error.withAlpha((255 * 0.9).round()),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -1121,10 +1379,12 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           FilledButton.icon(
                             onPressed: _loadUsers,
                             icon: const Icon(Icons.refresh),
-                            label: const Text('Try Again'),
+                            label: Text(l10n.tryAgain),
                             style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: Colors.black,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary,
                             ),
                           ),
                         ],
@@ -1138,24 +1398,31 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                           Icon(
                             Icons.people_outline,
                             size: 64,
-                            color: AppTheme.foreground.withOpacity(0.5),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No users found',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: AppTheme.foreground.withOpacity(0.7),
+                            l10n.noRetailUsersFound,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                             ),
                           ),
                           const SizedBox(height: 24),
                           FilledButton.icon(
         onPressed: _showCreateUserDialog,
                             icon: const Icon(Icons.person_add),
-                            label: const Text('Create First User'),
+                            label: Text(l10n.clientsPageAddClient),
                             style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: Colors.black,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 12,
@@ -1173,6 +1440,8 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   void _showCreateUserDialog() {
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1199,10 +1468,14 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withAlpha((255 * 0.8).round()),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withAlpha((255 * 0.2).round()),
                       width: 1.5,
                     ),
                   ),
@@ -1221,33 +1494,46 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                         ),
                   child: Row(
                     children: [
-                            Icon(Icons.person_add, color: AppTheme.primary),
+                            Icon(
+                              Icons.person_add,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             const SizedBox(width: 12),
                             Text(
-                        'Create New User',
-                        style: TextStyle(
-                          color: Colors.white,
-                                fontSize: isSmallScreen ? 18 : 20,
+                              l10n.clientsPageAddClient,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleLarge?.copyWith(
+                                color:
+                                    Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const Spacer(),
                       IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.close,
-                                color: Colors.white70,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                               ),
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
                               style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withOpacity(0.1),
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
                               ),
                       ),
                     ],
                   ),
                 ),
-                      Divider(color: Colors.white.withOpacity(0.2)),
+                      Divider(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha((255 * 0.2).round()),
+                      ),
                       // Form content
                 Flexible(
                   child: SingleChildScrollView(
@@ -1274,5 +1560,15 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         );
       },
     );
+  }
+
+  // Navigate to user details page when a user is clicked
+  void _navigateToUserDetailPage(AppUser user) {
+    if (kDebugMode) {
+      print('Navigating to user detail page for user ID: ${user.uid}');
+    }
+    
+    // Navigate to user detail page with the user data
+    context.push('/admin/users/${user.uid}', extra: user);
   }
 }

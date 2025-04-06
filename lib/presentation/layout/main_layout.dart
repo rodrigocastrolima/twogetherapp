@@ -42,7 +42,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
       setState(() {
-        _selectedIndex = widget.currentIndex;
+      _selectedIndex = widget.currentIndex;
         _isTransitioning = false; // Reset transition state
       });
     }
@@ -56,21 +56,21 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
       // Clean transition by removing the previous screen first
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Navigate to the appropriate route
-        switch (index) {
-          case 0:
-            context.go('/');
-            break;
-          case 1:
-            context.go('/clients');
-            break;
-          case 2:
-            context.go('/messages');
-            break;
-          case 3:
-            context.go('/profile');
-            break;
-        }
+      // Navigate to the appropriate route
+      switch (index) {
+        case 0:
+          context.go('/');
+          break;
+        case 1:
+          context.go('/clients');
+          break;
+        case 2:
+          context.go('/messages');
+          break;
+        case 3:
+          context.go('/profile');
+          break;
+      }
 
         // Update the state after navigation
         setState(() {
@@ -212,9 +212,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                               // For other pages, show the regular logo
                               : Container(
                                 height: 100,
-                                alignment: Alignment.center,
-                                child: LogoWidget(height: 80, darkMode: false),
-                              ),
+                        alignment: Alignment.center,
+                        child: LogoWidget(height: 80, darkMode: false),
+                      ),
                       centerTitle: true,
                       actions: [
                         // No actions needed now
@@ -230,16 +230,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         ),
         child: Material(
           color: Colors.transparent,
-          child: Stack(
-            children: [
-              // Main content
-              _buildMainContent(isSmallScreen),
+        child: Stack(
+          children: [
+            // Main content
+            _buildMainContent(isSmallScreen),
 
-              // Bottom Navigation for Mobile
-              if (isSmallScreen) _buildMobileNavBar(context),
+            // Bottom Navigation for Mobile
+            if (isSmallScreen) _buildMobileNavBar(context),
 
-              // Side Navigation for Desktop
-              if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
+            // Side Navigation for Desktop
+            if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
 
               // This Overlay layer will be used for full-screen modals
               // It sits above everything else - navigation bars, app bars, etc.
@@ -250,7 +250,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   child: Container(color: Colors.transparent),
                 ),
               ),
-            ],
+          ],
           ),
         ),
       ),
@@ -275,9 +275,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 ) // Show barrier during transition
                 : KeyedSubtree(
                   key: pageKey,
-                  child: ScrollConfiguration(
-                    behavior: const NoScrollbarBehavior(),
-                    child: widget.child,
+      child: ScrollConfiguration(
+        behavior: const NoScrollbarBehavior(),
+        child: widget.child,
                   ),
                 ),
       ),
