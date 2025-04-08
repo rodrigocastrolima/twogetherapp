@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../../../features/salesforce/data/services/salesforce_user_sync_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -14,6 +21,12 @@ class AdminHomePage extends StatefulWidget {
 
 class _AdminHomePageState extends State<AdminHomePage> {
   bool _isRunningMigration = false;
+  bool _isRunningSalesforceSync = false;
+  bool _isSalesforceDryRun = true;
+  Map<String, dynamic>? _lastSyncResult;
+
+  final SalesforceUserSyncService _salesforceService =
+      SalesforceUserSyncService();
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +47,8 @@ class _AdminHomePageState extends State<AdminHomePage> {
           _buildSystemStatus(),
           const SizedBox(height: 32),
           _buildTemporaryMigrationSection(),
+          const SizedBox(height: 32),
+          _buildSalesforceIntegrationSection(context),
         ],
       ),
     );
@@ -371,10 +386,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                                 ),
                               ),
                             )
-                            : const Icon(
-                              CupertinoIcons.arrow_clockwise,
-                              size: 18,
-                            ),
+                            : const Icon(Icons.hourglass_empty, size: 18),
                     label: Text(
                       _isRunningMigration
                           ? 'Running...'
@@ -489,5 +501,486 @@ class _AdminHomePageState extends State<AdminHomePage> {
             ],
           ),
     );
+  }
+
+  Widget _buildSalesforceIntegrationSection(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    // State for this section
+    bool isRunning = false;
+    bool isDryRun = true;
+    String? resultMessage;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and description
+                Text(
+                  'Salesforce Integration',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.salesforceIntegrationDescription,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+
+                // Platform info
+                if (!Platform.isWindows)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "PowerShell scripts run on Windows. On this platform, we'll use direct API calls instead.",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 16),
+
+                // Check Available Fields Button
+                TextButton.icon(
+                  onPressed:
+                      isRunning
+                          ? null
+                          : () async {
+                            setState(() {
+                              isRunning = true;
+                              resultMessage = null;
+                            });
+
+                            try {
+                              // Show a progress indicator
+                              if (context.mounted) {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext ctx) {
+                                    return AlertDialog(
+                                      title: const Text(
+                                        'Checking Salesforce Fields',
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const CircularProgressIndicator(),
+                                          const SizedBox(height: 16),
+                                          const Text(
+                                            'Retrieving available fields from Salesforce...',
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+
+                              // Get available fields
+                              final salesforceService =
+                                  SalesforceUserSyncService();
+                              if (!await salesforceService.initialize()) {
+                                throw Exception(
+                                  'Failed to initialize Salesforce connection',
+                                );
+                              }
+
+                              final fields =
+                                  await salesforceService
+                                      .getFieldInfoForUserObject();
+
+                              // Close the dialog
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+
+                              if (fields == null) {
+                                throw Exception(
+                                  'Failed to retrieve field information',
+                                );
+                              }
+
+                              // Display the fields
+                              if (context.mounted) {
+                                final standardFields =
+                                    fields
+                                        .where((f) => !(f['custom'] as bool))
+                                        .map((f) => f['name'] as String)
+                                        .toList()
+                                      ..sort();
+                                final customFields =
+                                    fields
+                                        .where((f) => f['custom'] as bool)
+                                        .map((f) => f['name'] as String)
+                                        .toList()
+                                      ..sort();
+
+                                setState(() {
+                                  resultMessage =
+                                      'Available Salesforce Fields:\n\n'
+                                      'Standard Fields:\n${standardFields.join(', ')}\n\n'
+                                      'Custom Fields:\n${customFields.join(', ')}';
+                                });
+                              }
+                            } catch (e) {
+                              // Close the dialog if it's open
+                              if (context.mounted) {
+                                try {
+                                  Navigator.pop(context);
+                                } catch (_) {
+                                  // Dialog might not be open
+                                }
+                              }
+
+                              if (context.mounted) {
+                                setState(() {
+                                  resultMessage = 'Error checking fields: $e';
+                                });
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  isRunning = false;
+                                });
+                              }
+                            }
+                          },
+                  icon: const Icon(Icons.list),
+                  label: const Text('Check Available Salesforce Fields'),
+                ),
+                const SizedBox(height: 16),
+
+                // Dry Run Switch
+                Row(
+                  children: [
+                    Text(
+                      'Dry Run Mode (Preview Only)',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const Spacer(),
+                    Switch(
+                      value: isDryRun,
+                      onChanged:
+                          isRunning
+                              ? null
+                              : (value) {
+                                setState(() {
+                                  isDryRun = value;
+                                });
+                              },
+                    ),
+                  ],
+                ),
+
+                // Run Button
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed:
+                      isRunning
+                          ? null
+                          : () async {
+                            setState(() {
+                              isRunning = true;
+                              resultMessage = null;
+                            });
+
+                            // Dialog context to safely dismiss dialogs
+                            BuildContext? dialogContext;
+
+                            try {
+                              // Show a progress dialog
+                              if (context.mounted) {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext ctx) {
+                                    dialogContext = ctx;
+                                    return AlertDialog(
+                                      title: const Text(
+                                        'Syncing Salesforce Data',
+                                      ),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const CircularProgressIndicator(),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            isDryRun
+                                                ? 'Running in Dry Run mode - no changes will be made'
+                                                : 'Syncing user data from Salesforce...',
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+
+                              // Different implementations based on platform
+                              if (Platform.isWindows) {
+                                // Windows implementation using PowerShell
+                                final scriptPath = path.join(
+                                  Directory.current.path,
+                                  'lib',
+                                  'scripts',
+                                  'Sync-SalesforceUserToFirebase.ps1',
+                                );
+
+                                // Prepare the PowerShell command
+                                final command = 'powershell.exe';
+                                final args = [
+                                  '-ExecutionPolicy',
+                                  'Bypass',
+                                  '-File',
+                                  scriptPath,
+                                  '-All',
+                                  '-FieldsOnly',
+                                  'Revendedor_Retail__c',
+                                  if (isDryRun) '-DryRun',
+                                ];
+
+                                if (kDebugMode) {
+                                  print(
+                                    'Running command: $command ${args.join(' ')}',
+                                  );
+                                }
+
+                                // Run the PowerShell script
+                                final process = await Process.run(
+                                  command,
+                                  args,
+                                  workingDirectory: Directory.current.path,
+                                  runInShell: true,
+                                );
+
+                                // Close the progress dialog
+                                if (dialogContext != null && context.mounted) {
+                                  Navigator.of(dialogContext!).pop();
+                                }
+
+                                // Check result
+                                if (process.exitCode == 0) {
+                                  setState(() {
+                                    resultMessage =
+                                        'Sync completed successfully.\n\n'
+                                        'Output:\n${process.stdout}';
+                                  });
+                                } else {
+                                  setState(() {
+                                    resultMessage =
+                                        'Error during sync.\n\n'
+                                        'Error output:\n${process.stderr}\n\n'
+                                        'Standard output:\n${process.stdout}';
+                                  });
+                                }
+                              } else {
+                                // Mobile/other platforms implementation using direct API calls
+                                Map<String, dynamic>? result;
+                                Exception? syncException;
+
+                                try {
+                                  // We do the actual work inside a separate try-catch
+                                  result = await _syncUsersDirectly(isDryRun);
+                                } catch (e) {
+                                  syncException = Exception(
+                                    'Error during sync: $e',
+                                  );
+                                }
+
+                                // Close the progress dialog - do this regardless of success or failure
+                                if (dialogContext != null && context.mounted) {
+                                  Navigator.of(dialogContext!).pop();
+                                }
+
+                                // Update the state only after the dialog is closed
+                                if (context.mounted) {
+                                  setState(() {
+                                    if (syncException != null) {
+                                      resultMessage = syncException.toString();
+                                    } else if (result != null) {
+                                      resultMessage =
+                                          'Sync completed successfully.\n\n'
+                                          'Results:\n'
+                                          '- Users processed: ${result['usersProcessed']}\n'
+                                          '- Successful syncs: ${result['successCount']}\n'
+                                          '- Failed syncs: ${result['failCount']}\n\n'
+                                          '${isDryRun ? "(Dry run - no changes were made)" : ""}';
+                                    } else {
+                                      resultMessage =
+                                          'Unknown error occurred during sync';
+                                    }
+                                  });
+                                }
+                              }
+                            } catch (e) {
+                              // Close the progress dialog if it's still open
+                              if (dialogContext != null && context.mounted) {
+                                try {
+                                  Navigator.of(dialogContext!).pop();
+                                } catch (_) {
+                                  // Ignore if dialog is not open
+                                }
+                              }
+
+                              if (context.mounted) {
+                                setState(() {
+                                  resultMessage = 'Exception running sync: $e';
+                                });
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  isRunning = false;
+                                });
+                              }
+                            }
+                          },
+                  icon: Icon(isRunning ? Icons.hourglass_empty : Icons.sync),
+                  label: Text(
+                    isRunning
+                        ? 'Running...'
+                        : isDryRun
+                        ? 'Run Sync (Preview Only)'
+                        : 'Run Sync',
+                  ),
+                ),
+
+                // Result display
+                if (resultMessage != null) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Result:',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    width: double.infinity,
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        resultMessage!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Direct implementation of user sync functionality for mobile platforms
+  // This method only handles the data operations - UI updates are done in the calling method
+  Future<Map<String, dynamic>> _syncUsersDirectly(bool dryRun) async {
+    int usersProcessed = 0;
+    int successCount = 0;
+    int failCount = 0;
+
+    // Initialize SalesforceUserSyncService
+    final salesforceService = SalesforceUserSyncService();
+    final initialized = await salesforceService.initialize();
+
+    if (!initialized) {
+      throw Exception("Failed to initialize Salesforce connection");
+    }
+
+    if (kDebugMode) {
+      print('Salesforce service initialized successfully');
+    }
+
+    // Find users with Salesforce IDs that need syncing
+    final usersToSync =
+        await salesforceService.findUsersNeedingSalesforceSync();
+    usersProcessed = usersToSync.length;
+
+    if (kDebugMode) {
+      print('Found $usersProcessed users that need syncing');
+    }
+
+    if (usersToSync.isEmpty) {
+      return {
+        'usersProcessed': 0,
+        'successCount': 0,
+        'failCount': 0,
+        'message': 'No users found that need syncing',
+      };
+    }
+
+    // If this is a dry run, just return the count
+    if (dryRun) {
+      return {
+        'usersProcessed': usersProcessed,
+        'successCount': 0,
+        'failCount': 0,
+        'message':
+            'Dry run completed. Found $usersProcessed users that would be synced.',
+      };
+    }
+
+    // Otherwise, perform the actual sync
+    for (final user in usersToSync) {
+      try {
+        final firebaseUserId = user['firebaseUserId'];
+        final salesforceId = user['salesforceId'];
+
+        if (firebaseUserId == null || salesforceId == null) {
+          failCount++;
+          continue;
+        }
+
+        final success = await salesforceService.syncSalesforceUserToFirebase(
+          firebaseUserId,
+          salesforceId,
+        );
+
+        if (success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        failCount++;
+        if (kDebugMode) {
+          print('Error syncing user: $e');
+        }
+      }
+    }
+
+    return {
+      'usersProcessed': usersProcessed,
+      'successCount': successCount,
+      'failCount': failCount,
+      'message': 'Sync completed.',
+    };
   }
 }

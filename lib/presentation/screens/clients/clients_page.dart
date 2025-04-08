@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
+import '../../../features/services/data/repositories/service_submission_repository.dart';
+import '../../../features/services/presentation/providers/service_submission_provider.dart';
+import '../../../core/models/service_submission.dart';
+import '../../../core/models/service_types.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:intl/intl.dart';
 
-class ClientsPage extends StatefulWidget {
+class ClientsPage extends ConsumerStatefulWidget {
   const ClientsPage({super.key});
 
   @override
-  State<ClientsPage> createState() => _ClientsPageState();
+  ConsumerState<ClientsPage> createState() => _ClientsPageState();
 }
 
-class _ClientsPageState extends State<ClientsPage> {
+class _ClientsPageState extends ConsumerState<ClientsPage> {
   final _searchController = TextEditingController();
-  String _selectedView = 'action';
+  String _selectedView = 'pending_review';
   String _searchQuery = '';
 
   // Status constants
-  static const String STATUS_ACTION_REQUIRED = 'Ação Necessária';
-  static const String STATUS_PENDING = 'Pendente';
-  static const String STATUS_ACTIVE = 'Ativo';
+  static const String STATUS_PENDING_REVIEW = 'pending_review';
+  static const String STATUS_APPROVED = 'approved';
+  static const String STATUS_REJECTED = 'rejected';
 
   @override
   void initState() {
@@ -37,76 +46,10 @@ class _ClientsPageState extends State<ClientsPage> {
     super.dispose();
   }
 
-  // Temporary client data
-  final List<Map<String, dynamic>> _clients = [
-    {
-      'id': '1',
-      'name': 'Ana Silva',
-      'type': 'residential',
-      'service': 'Energia',
-      'status': STATUS_ACTION_REQUIRED,
-      'stage': 'Contrato',
-    },
-    {
-      'id': '2',
-      'name': 'Marcos Oliveira',
-      'type': 'residential',
-      'service': 'Telecomunicações',
-      'status': STATUS_PENDING,
-      'stage': 'Proposta',
-    },
-    {
-      'id': '3',
-      'name': 'Tech Solutions LTDA',
-      'type': 'commercial',
-      'service': 'Energia',
-      'status': STATUS_ACTIVE,
-      'stage': 'Ativo',
-    },
-    {
-      'id': '4',
-      'name': 'Maria Santos',
-      'type': 'residential',
-      'service': 'Seguros',
-      'status': STATUS_PENDING,
-      'stage': 'Documento',
-    },
-    {
-      'id': '5',
-      'name': 'JS Consultoria',
-      'type': 'commercial',
-      'service': 'Telecomunicações',
-      'status': STATUS_ACTION_REQUIRED,
-      'stage': 'Contrato',
-    },
-  ];
-
-  // Filtered list based on search and selected view
-  List<Map<String, dynamic>> get filteredClients {
-    return _clients.where((client) {
-      // Filter by search
-      if (_searchQuery.isNotEmpty &&
-          !client['name'].toString().toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          )) {
-        return false;
-      }
-
-      // Filter by selected view
-      if (_selectedView == 'action') {
-        return client['status'] == STATUS_ACTION_REQUIRED;
-      } else if (_selectedView == 'pending') {
-        return client['status'] == STATUS_PENDING;
-      } else if (_selectedView == 'active') {
-        return client['status'] == STATUS_ACTIVE;
-      }
-
-      return true;
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final submissionsStream = ref.watch(userSubmissionsProvider);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -121,7 +64,7 @@ class _ClientsPageState extends State<ClientsPage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
-                    'Clientes',
+                    'Minhas Submissões',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
@@ -149,33 +92,92 @@ class _ClientsPageState extends State<ClientsPage> {
               color: CupertinoColors.systemGrey4.withAlpha(128),
             ),
 
-            // Client list
+            // Submissions list
             Expanded(
-              child:
-                  filteredClients.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                        padding: const EdgeInsets.only(top: 6),
-                        itemCount: filteredClients.length,
-                        separatorBuilder:
-                            (context, index) => Container(
-                              margin: const EdgeInsets.only(left: 72),
-                              height: 0.5,
-                              color: CupertinoColors.systemGrey5.withAlpha(128),
-                            ),
-                        itemBuilder: (context, index) {
-                          final client = filteredClients[index];
-                          return _buildClientCard(
-                            client,
-                            key: ValueKey(client['name']),
-                          );
-                        },
+              child: submissionsStream.when(
+                data: (submissions) {
+                  final filteredSubmissions = _filterSubmissions(
+                    submissions,
+                    _selectedView,
+                    _searchQuery,
+                  );
+
+                  if (filteredSubmissions.isEmpty) {
+                    return _buildEmptyState();
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.only(top: 6),
+                    itemCount: filteredSubmissions.length,
+                    separatorBuilder:
+                        (context, index) => Container(
+                          margin: const EdgeInsets.only(left: 72),
+                          height: 0.5,
+                          color: CupertinoColors.systemGrey5.withAlpha(128),
+                        ),
+                    itemBuilder: (context, index) {
+                      final submission = filteredSubmissions[index];
+                      return _buildSubmissionCard(
+                        submission,
+                        key: ValueKey(submission.id),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (error, stackTrace) => Center(
+                      child: Text(
+                        'Erro ao carregar submissões: $error',
+                        style: const TextStyle(color: Colors.red),
                       ),
+                    ),
+              ),
             ),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppTheme.primary,
+        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: () {
+          context.push('/services');
+        },
+      ),
     );
+  }
+
+  List<ServiceSubmission> _filterSubmissions(
+    List<ServiceSubmission> submissions,
+    String selectedView,
+    String searchQuery,
+  ) {
+    return submissions.where((submission) {
+      // Filter by search (check client name or email)
+      if (searchQuery.isNotEmpty) {
+        final nameMatch = submission.responsibleName.toLowerCase().contains(
+          searchQuery,
+        );
+        final emailMatch = submission.email.toLowerCase().contains(searchQuery);
+        final nifMatch = submission.nif.toLowerCase().contains(searchQuery);
+
+        if (!nameMatch && !emailMatch && !nifMatch) {
+          return false;
+        }
+      }
+
+      // Filter by selected view/status
+      switch (selectedView) {
+        case STATUS_PENDING_REVIEW:
+          return submission.status == STATUS_PENDING_REVIEW;
+        case STATUS_APPROVED:
+          return submission.status == STATUS_APPROVED;
+        case STATUS_REJECTED:
+          return submission.status == STATUS_REJECTED;
+        default:
+          return true;
+      }
+    }).toList();
   }
 
   Widget _buildSearchBar() {
@@ -187,7 +189,7 @@ class _ClientsPageState extends State<ClientsPage> {
       ),
       child: CupertinoTextField(
         controller: _searchController,
-        placeholder: 'Buscar',
+        placeholder: 'Buscar por nome, email ou NIF',
         placeholderStyle: const TextStyle(
           color: CupertinoColors.systemGrey,
           fontSize: 14,
@@ -225,8 +227,6 @@ class _ClientsPageState extends State<ClientsPage> {
   }
 
   Widget _buildSegmentedControl() {
-    final l10n = AppLocalizations.of(context)!;
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withAlpha(20),
@@ -239,11 +239,7 @@ class _ClientsPageState extends State<ClientsPage> {
           child: Row(
             children: [
               Expanded(
-                child: _buildCustomSegment(
-                  'action',
-                  l10n.clientsFilterAction,
-                  _getActionCount(),
-                ),
+                child: _buildCustomSegment(STATUS_PENDING_REVIEW, 'Em Revisão'),
               ),
               Container(
                 width: 1,
@@ -251,11 +247,7 @@ class _ClientsPageState extends State<ClientsPage> {
                 color: Colors.white.withAlpha(26),
               ),
               Expanded(
-                child: _buildCustomSegment(
-                  'pending',
-                  l10n.clientsFilterPending,
-                  _getPendingCount(),
-                ),
+                child: _buildCustomSegment(STATUS_APPROVED, 'Aprovados'),
               ),
               Container(
                 width: 1,
@@ -263,10 +255,7 @@ class _ClientsPageState extends State<ClientsPage> {
                 color: Colors.white.withAlpha(26),
               ),
               Expanded(
-                child: _buildCustomSegment(
-                  'active',
-                  l10n.clientsFilterCompleted,
-                ),
+                child: _buildCustomSegment(STATUS_REJECTED, 'Rejeitados'),
               ),
             ],
           ),
@@ -324,20 +313,34 @@ class _ClientsPageState extends State<ClientsPage> {
   }
 
   Widget _buildEmptyState() {
-    final l10n = AppLocalizations.of(context)!;
+    String message;
+
+    switch (_selectedView) {
+      case STATUS_PENDING_REVIEW:
+        message = 'Nenhuma submissão em revisão';
+        break;
+      case STATUS_APPROVED:
+        message = 'Nenhuma submissão aprovada';
+        break;
+      case STATUS_REJECTED:
+        message = 'Nenhuma submissão rejeitada';
+        break;
+      default:
+        message = 'Nenhuma submissão encontrada';
+    }
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            CupertinoIcons.person_2,
+            CupertinoIcons.doc_text,
             size: 48,
             color: CupertinoColors.systemGrey,
           ),
           const SizedBox(height: 12),
           Text(
-            l10n.clientsEmptyStateTitle,
+            message,
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -345,34 +348,36 @@ class _ClientsPageState extends State<ClientsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            l10n.clientsEmptyStateMessage,
-            style: const TextStyle(
-              fontSize: 15,
-              color: CupertinoColors.systemGrey,
-            ),
+          const Text(
+            'Crie uma nova submissão usando o botão +',
+            style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildClientCard(Map<String, dynamic> client, {Key? key}) {
+  Widget _buildSubmissionCard(ServiceSubmission submission, {Key? key}) {
+    // Format date
+    final formattedDate = DateFormat(
+      'dd/MM/yyyy',
+    ).format(submission.submissionDate);
+
     return GestureDetector(
       key: key,
-      onTap: () => context.push('/client-details', extra: client),
+      onTap: () => _showSubmissionDetails(submission),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            _buildClientIcon(client),
+            _buildSubmissionIcon(submission),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    client['name'],
+                    submission.responsibleName,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -384,14 +389,14 @@ class _ClientsPageState extends State<ClientsPage> {
                   Row(
                     children: [
                       Text(
-                        client['service'],
+                        '${submission.serviceCategory.displayName} • $formattedDate',
                         style: const TextStyle(
                           fontSize: 13,
                           color: CupertinoColors.systemGrey,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      _buildStatusIndicator(client['status']),
+                      _buildStatusIndicator(submission.status),
                     ],
                   ),
                 ],
@@ -409,27 +414,25 @@ class _ClientsPageState extends State<ClientsPage> {
   }
 
   Widget _buildStatusIndicator(String status) {
-    final l10n = AppLocalizations.of(context)!;
-
     Color color;
-    String localizedStatus;
+    String displayStatus;
 
     switch (status) {
-      case STATUS_ACTION_REQUIRED:
-        color = CupertinoColors.systemRed;
-        localizedStatus = l10n.clientsStatusActionRequired;
-        break;
-      case STATUS_PENDING:
+      case STATUS_PENDING_REVIEW:
         color = CupertinoColors.systemOrange;
-        localizedStatus = l10n.clientsStatusPending;
+        displayStatus = 'Em Revisão';
         break;
-      case STATUS_ACTIVE:
+      case STATUS_APPROVED:
         color = CupertinoColors.systemGreen;
-        localizedStatus = l10n.clientsStatusActive;
+        displayStatus = 'Aprovado';
+        break;
+      case STATUS_REJECTED:
+        color = CupertinoColors.systemRed;
+        displayStatus = 'Rejeitado';
         break;
       default:
         color = CupertinoColors.systemGrey;
-        localizedStatus = status;
+        displayStatus = status;
     }
 
     return Row(
@@ -441,7 +444,7 @@ class _ClientsPageState extends State<ClientsPage> {
         ),
         const SizedBox(width: 4),
         Text(
-          localizedStatus,
+          displayStatus,
           style: TextStyle(
             fontSize: 13,
             color: color,
@@ -452,8 +455,8 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildClientIcon(Map<String, dynamic> client) {
-    final bool isResidential = client['type'] == 'residential';
+  Widget _buildSubmissionIcon(ServiceSubmission submission) {
+    final bool isResidential = submission.clientType == ClientType.residential;
 
     return Container(
       width: 44,
@@ -480,11 +483,284 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  int _getActionCount() {
-    return _clients.where((c) => c['status'] == STATUS_ACTION_REQUIRED).length;
+  void _showSubmissionDetails(ServiceSubmission submission) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SubmissionDetailsSheet(submission: submission),
+    );
+  }
+}
+
+class _SubmissionDetailsSheet extends StatelessWidget {
+  final ServiceSubmission submission;
+
+  const _SubmissionDetailsSheet({required this.submission});
+
+  @override
+  Widget build(BuildContext context) {
+    // Format date
+    final formattedDate = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(submission.submissionDate);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Detalhes da Submissão',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Enviado em $formattedDate',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.foreground.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildStatusBadge(submission.status),
+              ],
+            ),
+          ),
+
+          // Content - Scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Client Information Section
+                  _buildSectionTitle('Informações do Cliente'),
+                  _buildInfoItem('Nome', submission.responsibleName),
+                  if (submission.clientType == ClientType.commercial &&
+                      submission.companyName != null)
+                    _buildInfoItem('Empresa', submission.companyName!),
+                  _buildInfoItem(
+                    'Tipo de Cliente',
+                    submission.clientType.displayName,
+                  ),
+                  _buildInfoItem('NIF', submission.nif),
+                  _buildInfoItem('Email', submission.email),
+                  _buildInfoItem('Telefone', submission.phone),
+                  const SizedBox(height: 20),
+
+                  // Service Information Section
+                  _buildSectionTitle('Informações do Serviço'),
+                  _buildInfoItem(
+                    'Categoria',
+                    submission.serviceCategory.displayName,
+                  ),
+                  if (submission.energyType != null)
+                    _buildInfoItem(
+                      'Tipo de Energia',
+                      submission.energyType!.displayName,
+                    ),
+                  _buildInfoItem('Fornecedor', submission.provider.displayName),
+                  const SizedBox(height: 20),
+
+                  // Invoice Section
+                  _buildSectionTitle('Fatura'),
+                  if (submission.invoicePhoto != null)
+                    _buildInvoiceImage(submission.invoicePhoto!.storagePath),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+
+          // Close button
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Fechar'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  int _getPendingCount() {
-    return _clients.where((c) => c['status'] == STATUS_PENDING).length;
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.foreground,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label + ':',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.foreground.withOpacity(0.7),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 14, color: AppTheme.foreground),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    String displayStatus;
+
+    switch (status) {
+      case 'pending_review':
+        color = Colors.orange;
+        displayStatus = 'Em Revisão';
+        break;
+      case 'approved':
+        color = Colors.green;
+        displayStatus = 'Aprovado';
+        break;
+      case 'rejected':
+        color = Colors.red;
+        displayStatus = 'Rejeitado';
+        break;
+      default:
+        color = Colors.grey;
+        displayStatus = status;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        displayStatus,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w500,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInvoiceImage(String storagePath) {
+    return GestureDetector(
+      onTap: () {
+        // TODO: Show fullscreen image viewer
+      },
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: FutureBuilder<String>(
+          future: FirebaseStorage.instance.ref(storagePath).getDownloadURL(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red[300], size: 40),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Erro ao carregar imagem',
+                      style: TextStyle(color: Colors.red[300]),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return CachedNetworkImage(
+              imageUrl: snapshot.data!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              placeholder:
+                  (context, url) =>
+                      const Center(child: CircularProgressIndicator()),
+              errorWidget:
+                  (context, url, error) =>
+                      const Center(child: Icon(Icons.error)),
+            );
+          },
+        ),
+      ),
+    );
   }
 }

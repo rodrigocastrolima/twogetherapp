@@ -83,8 +83,8 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     });
 
     // Update the form state
-    final formNotifier = ref.read(serviceFormProvider.notifier);
-    formNotifier.setCategory(category);
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    formNotifier.updateFormField('serviceCategory', category.name);
   }
 
   void _handleEnergyTypeSelection(EnergyType type) {
@@ -97,8 +97,8 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     });
 
     // Update the form state
-    final formNotifier = ref.read(serviceFormProvider.notifier);
-    formNotifier.setEnergyType(type);
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    formNotifier.updateFormField('energyType', type.name);
   }
 
   void _handleClientTypeSelection(ClientType type) {
@@ -116,9 +116,9 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     });
 
     // Update the form state
-    final formNotifier = ref.read(serviceFormProvider.notifier);
-    formNotifier.setClientType(type);
-    formNotifier.setProvider(_selectedProvider!);
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    formNotifier.updateFormField('clientType', type.name);
+    formNotifier.updateFormField('provider', _selectedProvider!.name);
   }
 
   void _clearForm() {
@@ -129,16 +129,14 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     _phoneController.clear();
 
     // Reset form state
-    final formNotifier = ref.read(serviceFormProvider.notifier);
-    formNotifier.reset();
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    formNotifier.resetForm();
   }
 
   bool _isFormValid() {
-    // Get the current form state
-    final formState = ref.read(serviceFormProvider);
-
-    // Check if images have been selected
-    bool hasImages = formState.selectedImages.isNotEmpty;
+    // Check if invoice file has been selected
+    final formState = ref.read(serviceSubmissionProvider);
+    bool hasInvoiceFile = formState.selectedInvoiceFile != null;
 
     if (_selectedClientType == ClientType.commercial) {
       return _companyNameController.text.isNotEmpty &&
@@ -146,13 +144,13 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _phoneController.text.isNotEmpty &&
-          hasImages;
+          hasInvoiceFile;
     } else {
       return _responsibleNameController.text.isNotEmpty &&
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
           _phoneController.text.isNotEmpty &&
-          hasImages;
+          hasInvoiceFile;
     }
   }
 
@@ -166,33 +164,50 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
 
     try {
       // Make sure all selections from the UI are set in the form state
-      final formNotifier = ref.read(serviceFormProvider.notifier);
+      final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+
+      // Update form fields with the text controller values
+      final formData = {
+        'companyName': _companyNameController.text,
+        'responsibleName': _responsibleNameController.text,
+        'nif': _nifController.text,
+        'email': _emailController.text,
+        'phone': _phoneController.text,
+      };
 
       // Explicitly set the selections from UI state
       if (_selectedCategory != null) {
-        formNotifier.setCategory(_selectedCategory!);
+        formData['serviceCategory'] = _selectedCategory!.name;
       }
 
       if (_selectedEnergyType != null) {
-        formNotifier.setEnergyType(_selectedEnergyType!);
+        formData['energyType'] = _selectedEnergyType!.name;
       }
 
       if (_selectedClientType != null) {
-        formNotifier.setClientType(_selectedClientType!);
+        formData['clientType'] = _selectedClientType!.name;
       }
 
       if (_selectedProvider != null) {
-        formNotifier.setProvider(_selectedProvider!);
+        formData['provider'] = _selectedProvider!.name;
       }
 
-      // Now submit with the updated form state
-      final success = await formNotifier.submitForm(
-        companyName: _companyNameController.text,
-        responsibleName: _responsibleNameController.text,
-        nif: _nifController.text,
-        email: _emailController.text,
-        phone: _phoneController.text,
-        ignoreInitialValidation: true,
+      // Update all form fields at once
+      formNotifier.updateFormFields(formData);
+
+      // Get current user info
+      final user =
+          await ref
+              .read(serviceSubmissionRepositoryProvider)
+              .getCurrentUserData();
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Now submit the form
+      final success = await formNotifier.submitServiceRequest(
+        resellerId: user['uid'] ?? '',
+        resellerName: user['displayName'] ?? user['email'] ?? 'Unknown',
       );
 
       if (success && mounted) {
@@ -213,7 +228,7 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
           _clearForm();
         });
       } else {
-        final formState = ref.read(serviceFormProvider);
+        final formState = ref.read(serviceSubmissionProvider);
         setState(() {
           _errorMessage = formState.errorMessage ?? 'Error submitting form';
         });
@@ -244,11 +259,6 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
             break;
           case 1:
             _selectedEnergyType = null;
-            _selectedClientType = null;
-            _selectedProvider = null;
-            _clearForm();
-            break;
-          case 2:
             _selectedClientType = null;
             _selectedProvider = null;
             _clearForm();
@@ -599,7 +609,7 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
   }
 
   Widget _buildFormStep() {
-    final formState = ref.watch(serviceFormProvider);
+    final formState = ref.watch(serviceSubmissionProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppConstants.spacing16),

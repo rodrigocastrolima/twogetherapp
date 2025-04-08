@@ -17,7 +17,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _rememberMe = false;
   bool _isLoading = false;
 
   void _handleLogin() async {
@@ -34,11 +33,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // Use Firebase Authentication
-      await AppRouter.authNotifier.signInWithEmailAndPassword(
-        email,
-        password,
-        rememberMe: _rememberMe,
-      );
+      await AppRouter.authNotifier.signInWithEmailAndPassword(email, password);
 
       // No need to navigate manually - the router redirect will handle it
     } catch (e) {
@@ -266,44 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                                     onSubmitted: (_) => _handleLogin(),
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-
-                                // Remember me checkbox
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Row(
-                                    children: [
-                                      Transform.scale(
-                                        scale: 0.75,
-                                        child: Checkbox(
-                                          value: _rememberMe,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _rememberMe = value ?? false;
-                                            });
-                                          },
-                                          activeColor: AppTheme.primary,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              3,
-                                            ),
-                                          ),
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                      ),
-                                      Text(
-                                        l10n.loginRememberMe,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.black87,
-                                          fontWeight: FontWeight.w400,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                SizedBox(height: isSmallScreen ? 26 : 34),
 
                                 // Login button
                                 SizedBox(

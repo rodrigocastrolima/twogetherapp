@@ -20,6 +20,7 @@
     "adminSystemConfigDescription": "Advanced system settings",
     "adminProfile": "Admin Profile",
     "adminPreferences": "Admin Preferences",
+    "newReseller": "New Reseller",
     
     "@_HOME": {},
     "homeWelcome": "Welcome",
@@ -198,5 +199,7 @@
     "unknownUser": "Unknown User",
     "noEmailProvided": "No email provided",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "adminRole": "Admin",
+    "resellerRole": "Reseller"
 } 

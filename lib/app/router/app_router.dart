@@ -26,6 +26,7 @@ import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
+import '../../features/user_management/presentation/pages/reseller_detail_page.dart';
 import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
 import '../../features/admin/presentation/pages/admin_submissions_page.dart';
 import '../../presentation/screens/admin/admin_opportunities_page.dart';
@@ -125,17 +126,11 @@ class AuthNotifier extends ChangeNotifier {
   }
 
   // Sign in with email and password
-  Future<void> signInWithEmailAndPassword(
-    String email,
-    String password, {
-    bool rememberMe = false,
-  }) async {
+  Future<void> signInWithEmailAndPassword(String email, String password) async {
     try {
-      // Set persistence based on rememberMe flag only on web platforms
+      // For web platforms, always use local persistence
       if (kIsWeb) {
-        await FirebaseAuth.instance.setPersistence(
-          rememberMe ? Persistence.LOCAL : Persistence.SESSION,
-        );
+        await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
       }
 
       final userCredential = await _auth.signInWithEmailAndPassword(
@@ -147,13 +142,6 @@ class AuthNotifier extends ChangeNotifier {
       // Force refresh the user data from Firestore to ensure correct role detection
       if (user != null) {
         try {
-          // Save the rememberMe preference if needed
-          if (rememberMe) {
-            // Store rememberMe preference to local storage if needed
-            // This is just for reference in case you need it later
-            await _storeRememberMePreference(user.uid, rememberMe);
-          }
-
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
             final roleData = doc.data()?['role'];
@@ -293,29 +281,6 @@ class AuthNotifier extends ChangeNotifier {
         print('Error checking admin status: $e');
       }
       return false;
-    }
-  }
-
-  // Add this private method to store rememberMe preference
-  Future<void> _storeRememberMePreference(
-    String userId,
-    bool rememberMe,
-  ) async {
-    try {
-      // Store the preference in Firestore (optional)
-      await _firestore.collection('users').doc(userId).update({
-        'rememberMe': rememberMe,
-        'lastLogin': FieldValue.serverTimestamp(),
-      });
-
-      if (kDebugMode) {
-        print('RememberMe preference stored: $rememberMe');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Failed to store rememberMe preference: $e');
-      }
-      // Non-critical error, so just log it and continue
     }
   }
 }
@@ -462,6 +427,21 @@ class AppRouter {
             },
           ),
           GoRoute(
+            path: '/admin/resellers/:userId',
+            builder: (context, state) {
+              final userId = state.pathParameters['userId'];
+              final reseller = state.extra as AppUser?;
+
+              if (reseller == null) {
+                // Handle case where reseller data is not provided
+                // Redirect back to user management page
+                return const UserManagementPage();
+              }
+
+              return ResellerDetailPage(reseller: reseller);
+            },
+          ),
+          GoRoute(
             path: '/admin/salesforce-setup',
             builder: (context, state) => const SalesforceSetupPage(),
           ),
@@ -472,6 +452,10 @@ class AppRouter {
           GoRoute(
             path: '/admin/opportunities',
             builder: (context, state) => const AdminOpportunitiesPage(),
+          ),
+          GoRoute(
+            path: '/admin/services',
+            builder: (context, state) => const AdminSubmissionsPage(),
           ),
         ],
       ),

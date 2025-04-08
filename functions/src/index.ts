@@ -12,10 +12,14 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { cleanupExpiredMessages } from './messageCleanup';
 import { onNewMessageNotification } from './notifications';
+import { removeRememberMeField } from './removeRememberMeField';
 import * as jwt from "jsonwebtoken"; // For JWT generation
 import axios from "axios"; // For HTTP requests
 // Import v2 Firestore triggers
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+
+// Export the removeRememberMeField function
+export { removeRememberMeField };
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript

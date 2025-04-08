@@ -81,3 +81,43 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Firebase service account key
+service-account-key.json
+**/service-account-key.json
+
+# Firebase configurations
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# Local environment configuration
+.env
+.env.local
+
+# Build and dependency directories
+node_modules/
+build/
+dist/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+
+# Editor-specific files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# Test logs and reports
+test_results/
+logs/
+coverage/
+
+# Personal notes
+notes.md

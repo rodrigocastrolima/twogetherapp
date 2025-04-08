@@ -50,8 +50,19 @@ service cloud.firestore {
       }
     }
     
-    // Service submissions collection
+    // Service submissions collection - snake_case version (keeping for backward compatibility)
     match /service_submissions/{submissionId} {
+      // Allow authenticated users to create service submissions
+      // Allow users to read and write their own submissions
+      // Allow admins to read all submissions
+      allow create: if isAuthenticated();
+      allow read, update: if isAuthenticated() && 
+        (resource.data.resellerId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // Service submissions collection - camelCase version (matches your code)
+    match /serviceSubmissions/{submissionId} {
       // Allow authenticated users to create service submissions
       // Allow users to read and write their own submissions
       // Allow admins to read all submissions

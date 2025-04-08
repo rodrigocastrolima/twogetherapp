@@ -68,6 +68,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       setState(() => _selectedIndex = 3);
     } else if (location == '/admin/opportunities') {
       setState(() => _selectedIndex = 4);
+    } else if (location == '/admin/services') {
+      setState(() => _selectedIndex = 5);
     }
   }
 
@@ -95,6 +97,9 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
             break;
           case 4:
             context.go('/admin/opportunities');
+            break;
+          case 5:
+            context.go('/admin/services');
             break;
         }
 
@@ -186,8 +191,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               // Main content area
               _buildMainContent(isSmallScreen),
 
-              // Side Navigation for Desktop
-              if (isDesktop && widget.showNavigation)
+              // Side Navigation for Desktop/Tablet
+              if (!isSmallScreen && widget.showNavigation)
                 _buildCollapsibleSidebar(textColor, isDark, l10n),
 
               // Bottom Navigation for Mobile
@@ -263,6 +268,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       currentIndex = 3;
     } else if (location == '/admin/opportunities') {
       currentIndex = 4;
+    } else if (location == '/admin/services') {
+      currentIndex = 5;
     }
 
     // Fixed width sidebar
@@ -339,6 +346,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         title: l10n.navReports,
                         isSelected: currentIndex == 2,
                         onTap: () => _handleNavigation(2),
+                        textColor: textColor,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.doc_text,
+                        title: 'Services',
+                        isSelected: currentIndex == 5,
+                        onTap: () => _handleNavigation(5),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
@@ -456,7 +471,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
     // Calculate width for each tab based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
-    final tabWidth = screenWidth / 4; // 4 tabs
+    final tabWidth = screenWidth / 5; // Changed from 4 to 5 tabs
 
     return Positioned(
       bottom: 0,
@@ -490,6 +505,21 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                   width: tabWidth,
                 ),
                 _buildTabItem(
+                  icon: CupertinoIcons.bubble_left,
+                  label: l10n.navMessages,
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => _handleNavigation(1),
+                  badgeCount: unreadCount,
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.doc_text,
+                  label: 'Services',
+                  isSelected: _selectedIndex == 5,
+                  onTap: () => _handleNavigation(5),
+                  width: tabWidth,
+                ),
+                _buildTabItem(
                   icon: CupertinoIcons.graph_square,
                   label: l10n.navOpportunities,
                   isSelected:
@@ -497,14 +527,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       GoRouterState.of(context).matchedLocation ==
                           '/admin/opportunities',
                   onTap: () => _handleNavigation(4),
-                  width: tabWidth,
-                ),
-                _buildTabItem(
-                  icon: CupertinoIcons.bubble_left,
-                  label: l10n.navMessages,
-                  isSelected: _selectedIndex == 1,
-                  onTap: () => _handleNavigation(1),
-                  badgeCount: unreadCount,
                   width: tabWidth,
                 ),
                 _buildTabItem(

@@ -3,6 +3,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/app_user.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
+import 'dart:async';
 
 /// Service for interacting with Firebase Cloud Functions for user management
 class FirebaseFunctionsService {
@@ -13,6 +15,12 @@ class FirebaseFunctionsService {
   FirebaseFunctionsService() {
     _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
     _functionsAvailable = true; // Assume available until proven otherwise
+
+    if (kDebugMode) {
+      print('FirebaseFunctionsService initialized with region: us-central1');
+      // Try to ping the server on initialization (don't wait for it though)
+      _pingServer();
+    }
   }
 
   /// Creates a new user with the given email, password, and role
@@ -25,6 +33,9 @@ class FirebaseFunctionsService {
   }) async {
     // If functions are not available, fail early
     if (!_functionsAvailable) {
+      if (kDebugMode) {
+        print('Firebase Functions not available - bailing early');
+      }
       throw Exception(
         'Cloud Functions are not available or have reached usage limits. Please try again later or contact the administrator.',
       );
@@ -32,6 +43,9 @@ class FirebaseFunctionsService {
 
     // Validate password
     if (password.length < 6) {
+      if (kDebugMode) {
+        print('Password too short: ${password.length} characters');
+      }
       throw Exception('Password must be at least 6 characters long');
     }
 
@@ -39,43 +53,172 @@ class FirebaseFunctionsService {
       // Verify the current Firebase user is signed in
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
+        if (kDebugMode) {
+          print('No user logged in, cannot create new user');
+        }
         throw Exception('You must be logged in to create users');
+      }
+
+      if (kDebugMode) {
+        print('Current user: ${user.email} (${user.uid})');
       }
 
       // Verify admin status
       final isAdmin = await verifyCurrentUserIsAdmin();
+      if (kDebugMode) {
+        print('Current user is admin: $isAdmin');
+      }
+
       if (!isAdmin) {
         throw Exception('Only admins can create users');
       }
 
       // Force token refresh to ensure the admin has a fresh token
       final token = await user.getIdToken(true);
+      if (kDebugMode && token != null) {
+        print(
+          'Got fresh token for admin: ${token.substring(0, min(20, token.length))}${token.length > 20 ? '...' : ''}',
+        );
+      }
 
       // Simplify the data we're sending
       final simplifiedRole = _getRoleString(role);
+      if (kDebugMode) {
+        print('Creating user with role: $simplifiedRole');
+        print('Parameters for Cloud Function:');
+        print('- Email: $email');
+        print('- Display Name: $displayName');
+        print('- Role: $simplifiedRole');
+        print('- Password length: ${password.length}');
+      }
 
       // Call the createUser Cloud Function
-      final callable = _functions.httpsCallable('createUser');
-      final result = await callable.call({
-        'email': email,
-        'password': password,
-        'role': simplifiedRole,
-        'displayName': displayName,
-      });
+      if (kDebugMode) {
+        print('Using _functions instance to call createUser...');
+        // List available functions
+        print('Attempting to call createUser Cloud Function...');
+      }
 
-      final userData = result.data as Map<String, dynamic>;
+      try {
+        // Use the _functions instance initialized in the constructor
+        final callable = _functions.httpsCallable('createUser');
 
-      // Create an AppUser from the Cloud Function response
-      return AppUser(
-        uid: userData['uid'],
-        email: userData['email'],
-        role: _mapStringToUserRole(userData['role']),
-        displayName: userData['displayName'],
-        additionalData: userData,
-      );
+        if (kDebugMode) {
+          print(
+            'Calling createUser Cloud Function with timeout of 60 seconds...',
+          );
+        }
+
+        // Set up a timeout to prevent hanging indefinitely
+        final resultFuture = callable.call({
+          'email': email,
+          'password': password,
+          'role': simplifiedRole,
+          'displayName': displayName,
+        });
+
+        final timeoutFuture = Future.delayed(const Duration(seconds: 60), () {
+          throw TimeoutException(
+            'Cloud function call timed out after 60 seconds',
+          );
+        });
+
+        final result = await Future.any([resultFuture, timeoutFuture]);
+
+        if (kDebugMode) {
+          print('Cloud Function call successful');
+          print('Response data type: ${result.data.runtimeType}');
+          if (result.data == null) {
+            print('Warning: result.data is null');
+          }
+        }
+
+        // Ensure the data is a Map
+        if (result.data == null || result.data is! Map<String, dynamic>) {
+          if (kDebugMode) {
+            print('Error: Invalid response from createUser function');
+            print('Response: ${result.data}');
+          }
+          throw Exception('Invalid response from server when creating user');
+        }
+
+        final userData = result.data as Map<String, dynamic>;
+
+        if (kDebugMode) {
+          print('Response contains these keys: ${userData.keys.join(', ')}');
+          // Check if uid is present
+          if (!userData.containsKey('uid')) {
+            print('Error: Response does not contain uid');
+          }
+        }
+
+        // Verify required fields exist in the response
+        if (!userData.containsKey('uid') || !userData.containsKey('email')) {
+          throw Exception('Invalid user data returned from server');
+        }
+
+        if (kDebugMode) {
+          print('New user created: ${userData['uid']}');
+          print('Response fields:');
+          userData.forEach((key, value) {
+            if (value != null) {
+              print(
+                '- $key: ${value.toString().substring(0, min(50, value.toString().length))}${value.toString().length > 50 ? '...' : ''}',
+              );
+            } else {
+              print('- $key: null');
+            }
+          });
+        }
+
+        // Create an AppUser from the Cloud Function response
+        return AppUser(
+          uid: userData['uid'],
+          email: userData['email'],
+          role: _mapStringToUserRole(userData['role'] ?? simplifiedRole),
+          displayName: userData['displayName'] ?? displayName,
+          additionalData: userData,
+        );
+      } on TimeoutException catch (e) {
+        if (kDebugMode) {
+          print('Timeout exception when calling createUser: $e');
+        }
+        throw Exception('The operation timed out. Please try again later.');
+      } on FirebaseFunctionsException catch (e) {
+        if (kDebugMode) {
+          print('Firebase Functions Exception:');
+          print('- Code: ${e.code}');
+          print('- Message: ${e.message}');
+          print('- Details: ${e.details}');
+        }
+
+        // For debugging, try to get more information about available functions
+        try {
+          if (kDebugMode) {
+            print('Attempting to call ping function for diagnostics...');
+            final pingCallable = _functions.httpsCallable('ping');
+            final pingResult = await pingCallable.call();
+            print('Ping result: $pingResult');
+          }
+        } catch (pingError) {
+          if (kDebugMode) {
+            print('Ping diagnostic failed: $pingError');
+          }
+        }
+
+        rethrow;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error during createUser Cloud Function call: $e');
+          print('Error type: ${e.runtimeType}');
+          print('Stack trace: ${StackTrace.current}');
+        }
+        rethrow;
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error calling createUser Cloud Function: $e');
+        print('Error in FirebaseFunctionsService.createUser: $e');
+        print('Error type: ${e.runtimeType}');
       }
 
       if (e is FirebaseFunctionsException) {
@@ -103,10 +246,26 @@ class FirebaseFunctionsService {
             throw Exception(
               'You must be logged in as an admin to create users. Please log out and log back in.',
             );
+          case 'not-found':
+            _functionsAvailable = false;
+            throw Exception(
+              'The createUser function was not found. It may not be deployed yet or might have a different name.',
+            );
+          case 'internal':
+            throw Exception(
+              'An internal server error occurred. Please try again later or contact the administrator.',
+            );
           default:
             throw Exception('Failed to create user: ${e.message}');
         }
       }
+
+      if (e is TimeoutException) {
+        throw Exception(
+          'The operation timed out. The server might be busy or the function might not be deployed properly.',
+        );
+      }
+
       throw Exception('Failed to create user: $e');
     }
   }
@@ -377,6 +536,36 @@ class FirebaseFunctionsService {
         }
       }
       throw Exception('Failed to delete user: $e');
+    }
+  }
+
+  // Helper method to ping the server and test connectivity
+  Future<void> _pingServer() async {
+    try {
+      if (kDebugMode) {
+        print('Attempting to ping Firebase Functions...');
+      }
+
+      final pingCallable = _functions.httpsCallable('ping');
+      final result = await pingCallable.call();
+
+      if (kDebugMode) {
+        print('Ping successful: ${result.data}');
+      }
+
+      _functionsAvailable = true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Ping failed: $e');
+        if (e is FirebaseFunctionsException) {
+          print('Firebase Functions Exception:');
+          print('- Code: ${e.code}');
+          print('- Message: ${e.message}');
+          print('- Details: ${e.details}');
+        }
+      }
+
+      // Don't update _functionsAvailable here as this is just a diagnostic ping
     }
   }
 }

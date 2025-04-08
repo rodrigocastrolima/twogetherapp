@@ -8,15 +8,25 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 
 class ServiceSubmissionRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseStorage _storage;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ImagePicker _imagePicker;
+
+  ServiceSubmissionRepository({
+    required FirebaseFirestore firestore,
+    required FirebaseStorage storage,
+    required ImagePicker imagePicker,
+  }) : _firestore = firestore,
+       _storage = storage,
+       _imagePicker = imagePicker;
 
   // Collection references
   final CollectionReference _submissionsCollection = FirebaseFirestore.instance
-      .collection('service_submissions');
+      .collection('serviceSubmissions');
   final CollectionReference _usersCollection = FirebaseFirestore.instance
       .collection('users');
 
@@ -139,7 +149,7 @@ class ServiceSubmissionRepository {
 
     return _submissionsCollection
         .where('resellerId', isEqualTo: currentUserId)
-        .orderBy('submissionDate', descending: true)
+        .orderBy('submissionTimestamp', descending: true)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -151,7 +161,7 @@ class ServiceSubmissionRepository {
   // Get all submissions (for admin users)
   Stream<List<ServiceSubmission>> getAllSubmissions() {
     return _submissionsCollection
-        .orderBy('submissionDate', descending: true)
+        .orderBy('submissionTimestamp', descending: true)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -229,4 +239,163 @@ class ServiceSubmissionRepository {
       return false;
     }
   }
+
+  // Method to pick an image file from the device
+  Future<File?> pickImageFile({
+    ImageSource source = ImageSource.gallery,
+  }) async {
+    final pickedFile = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1200,
+    );
+
+    if (pickedFile != null) {
+      return File(pickedFile.path);
+    }
+    return null;
+  }
+
+  // Convenience method to pick from camera
+  Future<File?> pickImageFromCamera() async {
+    return pickImageFile(source: ImageSource.camera);
+  }
+
+  // Convenience method to pick from gallery
+  Future<File?> pickImageFromGallery() async {
+    return pickImageFile(source: ImageSource.gallery);
+  }
+
+  // Get download URL for a storage path
+  Future<String> getDownloadUrlForPath(String storagePath) async {
+    try {
+      // Get storage reference from the path
+      final ref = _storage.ref(storagePath);
+
+      // Get the download URL
+      final downloadUrl = await ref.getDownloadURL();
+
+      print("Generated download URL: $downloadUrl");
+      return downloadUrl;
+    } catch (e) {
+      print("Error getting download URL: $e");
+      throw Exception("Failed to get download URL: $e");
+    }
+  }
+
+  // Submit a service request with client details and invoice file
+  Future<String> submitServiceRequest({
+    required Map<String, dynamic> clientDetails,
+    required File invoiceFile,
+    required String resellerId,
+    required String resellerName,
+  }) async {
+    // 1. Generate a new document reference to get the submission ID
+    final docRef = _firestore.collection('serviceSubmissions').doc();
+    final submissionId = docRef.id;
+
+    // 2. Define the storage path for the invoice file
+    final fileExtension = invoiceFile.path.split('.').last;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final fileName = 'invoice_${timestamp}.$fileExtension';
+    final storagePath = 'submissions/$submissionId/$fileName';
+
+    // 3. Upload the file to Firebase Storage
+    final storageRef = _storage.ref(storagePath);
+    final uploadTask = storageRef.putFile(invoiceFile);
+
+    // Wait for the upload to complete
+    await uploadTask;
+
+    // 4. Get file metadata and download URL
+    final metadata = await storageRef.getMetadata();
+    final downloadUrl = await storageRef.getDownloadURL();
+
+    // 5. Create the invoice photo metadata
+    final invoicePhoto = InvoicePhoto(
+      storagePath: storagePath,
+      fileName: fileName,
+      contentType:
+          metadata.contentType ??
+          'image/jpeg', // Default to jpeg if not detected
+      uploadedTimestamp: Timestamp.now(),
+      uploadedBy: resellerId,
+    );
+
+    // 6. Create the service submission object
+    // Extract standard fields from clientDetails if they exist
+    final serviceCategory = _getEnumValueFromString(
+      ServiceCategory.values,
+      clientDetails['serviceCategory'] ?? '',
+    );
+
+    final energyType =
+        clientDetails['energyType'] != null
+            ? _getEnumValueFromString(
+              EnergyType.values,
+              clientDetails['energyType'],
+            )
+            : null;
+
+    final clientType = _getEnumValueFromString(
+      ClientType.values,
+      clientDetails['clientType'] ?? '',
+    );
+
+    final serviceProvider = _getEnumValueFromString(
+      Provider.values,
+      clientDetails['provider'] ?? '',
+    );
+
+    final submission = ServiceSubmission(
+      id: submissionId,
+      resellerId: resellerId,
+      resellerName: resellerName,
+      serviceCategory:
+          serviceCategory ?? ServiceCategory.energy, // Default if not provided
+      energyType: energyType,
+      clientType:
+          clientType ?? ClientType.residential, // Default if not provided
+      provider: serviceProvider ?? Provider.repsol, // Default if not provided
+      companyName: clientDetails['companyName'],
+      responsibleName: clientDetails['responsibleName'] ?? '',
+      nif: clientDetails['nif'] ?? '',
+      email: clientDetails['email'] ?? '',
+      phone: clientDetails['phone'] ?? '',
+      invoicePhoto: invoicePhoto,
+      submissionTimestamp: Timestamp.now(),
+      status: 'pending_review',
+      documentUrls: [downloadUrl], // Add the download URL to documentUrls
+    );
+
+    // 7. Write to Firestore
+    await docRef.set(submission.toFirestore());
+
+    // 8. Return the submission ID
+    return submissionId;
+  }
+
+  // Helper method to get enum value from string
+  T? _getEnumValueFromString<T>(List<T> enumValues, String value) {
+    for (final enumValue in enumValues) {
+      if (enumValue.toString().split('.').last == value) {
+        return enumValue;
+      }
+    }
+    return null;
+  }
 }
+
+// Provider for the repository
+final serviceSubmissionRepositoryProvider =
+    riverpod.Provider<ServiceSubmissionRepository>((ref) {
+      final firestore = FirebaseFirestore.instance;
+      final storage = FirebaseStorage.instance;
+      final imagePicker = ImagePicker();
+
+      return ServiceSubmissionRepository(
+        firestore: firestore,
+        storage: storage,
+        imagePicker: imagePicker,
+      );
+    });

@@ -55,6 +55,7 @@ This document tracks pending issues, bugs, and future enhancements for the Twoge
 
 - [ ] **Sensitive data handling**: Review how sensitive user data is stored and processed
 - [ ] **Firebase security rules**: Audit and enhance security rules
+- [ ] **Role-based routing**: Enhance role-based routing to ensure admins cannot access reseller pages and vice versa, possibly by implementing additional server-side validation
 
 ## Accessibility
 

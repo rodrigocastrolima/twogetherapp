@@ -11,12 +11,12 @@ import '../../../../core/theme/ui_styles.dart';
 import '../providers/service_submission_provider.dart';
 
 class ImageUploadWidget extends ConsumerWidget {
-  const ImageUploadWidget({Key? key}) : super(key: key);
+  const ImageUploadWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final formState = ref.watch(serviceFormProvider);
-    final formNotifier = ref.read(serviceFormProvider.notifier);
+    final formState = ref.watch(serviceSubmissionProvider);
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,7 +35,9 @@ class ImageUploadWidget extends ConsumerWidget {
           'Upload photos of the invoice or any other relevant documents',
           style: TextStyle(
             fontSize: 14,
-            color: AppTheme.foreground.withOpacity(0.7),
+            color: AppTheme.foreground.withAlpha(
+              (0.7 * 255).round(),
+            ), // Updated from withOpacity
           ),
         ),
         const SizedBox(height: 16),
@@ -44,40 +46,41 @@ class ImageUploadWidget extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withAlpha(
+              (0.1 * 255).round(),
+            ), // Updated from withOpacity
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(
+              color: Colors.white.withAlpha((0.2 * 255).round()),
+            ), // Updated from withOpacity
           ),
           child: Column(
             children: [
-              // Show images if there are any
-              if (formState.selectedImages.isNotEmpty)
+              // Show selected invoice file if available
+              if (formState.selectedInvoiceFile != null)
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                    crossAxisCount: 1,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     childAspectRatio: 1.0,
                   ),
-                  itemCount: formState.selectedImages.length,
+                  itemCount: 1,
                   itemBuilder: (context, index) {
                     return _buildImagePreview(
                       context,
-                      formState.selectedImages[index],
-                      onDelete: () => formNotifier.removeImage(index),
+                      formState.selectedInvoiceFile,
+                      onDelete: () => formNotifier.clearInvoiceFile(),
                     );
                   },
                 ),
 
               // Show add button
-              if (formState.selectedImages.isEmpty ||
-                  formState.selectedImages.length < 5)
+              if (formState.selectedInvoiceFile == null)
                 Padding(
-                  padding: EdgeInsets.only(
-                    top: formState.selectedImages.isNotEmpty ? 16 : 0,
-                  ),
+                  padding: const EdgeInsets.only(top: 0),
                   child: _buildAddButton(context, formNotifier),
                 ),
             ],
@@ -86,7 +89,7 @@ class ImageUploadWidget extends ConsumerWidget {
 
         // Error message
         if (formState.errorMessage != null &&
-            formState.errorMessage!.contains('image')) ...[
+            formState.errorMessage!.contains('file')) ...[
           const SizedBox(height: 8),
           Text(
             formState.errorMessage!,
@@ -99,7 +102,7 @@ class ImageUploadWidget extends ConsumerWidget {
 
   Widget _buildAddButton(
     BuildContext context,
-    ServiceFormNotifier formNotifier,
+    ServiceSubmissionNotifier formNotifier,
   ) {
     return InkWell(
       onTap: () => _showImageSourceDialog(context, formNotifier),
@@ -107,9 +110,14 @@ class ImageUploadWidget extends ConsumerWidget {
       child: Container(
         height: 80,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withAlpha(
+            (0.05 * 255).round(),
+          ), // Updated from withOpacity
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+          border: Border.all(
+            color: Colors.white.withAlpha((0.3 * 255).round()),
+            width: 1,
+          ), // Updated from withOpacity
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -132,7 +140,7 @@ class ImageUploadWidget extends ConsumerWidget {
 
   void _showImageSourceDialog(
     BuildContext context,
-    ServiceFormNotifier formNotifier,
+    ServiceSubmissionNotifier formNotifier,
   ) {
     showModalBottomSheet(
       context: context,
@@ -141,7 +149,9 @@ class ImageUploadWidget extends ConsumerWidget {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: AppTheme.background.withOpacity(0.95),
+            color: AppTheme.background.withAlpha(
+              (0.95 * 255).round(),
+            ), // Updated from withOpacity
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(16),
               topRight: Radius.circular(16),
@@ -155,7 +165,7 @@ class ImageUploadWidget extends ConsumerWidget {
                 title: const Text('Take Photo'),
                 onTap: () {
                   Navigator.pop(context);
-                  formNotifier.pickImage(source: ImageSource.camera);
+                  formNotifier.pickInvoiceFromCamera();
                 },
               ),
               ListTile(
@@ -163,7 +173,7 @@ class ImageUploadWidget extends ConsumerWidget {
                 title: const Text('Choose from Gallery'),
                 onTap: () {
                   Navigator.pop(context);
-                  formNotifier.pickImage(source: ImageSource.gallery);
+                  formNotifier.pickInvoiceFile();
                 },
               ),
               const SizedBox(height: 8),
@@ -206,7 +216,9 @@ class ImageUploadWidget extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withAlpha(
+                  (0.7 * 255).round(),
+                ), // Updated from withOpacity
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.close, size: 14, color: Colors.white),
