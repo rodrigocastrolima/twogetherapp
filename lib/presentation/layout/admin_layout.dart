@@ -101,6 +101,9 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
           case 5:
             context.go('/admin/services');
             break;
+          case 6:
+            context.go('/admin/user-management');
+            break;
         }
 
         // Update the state after navigation
@@ -270,6 +273,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       currentIndex = 4;
     } else if (location == '/admin/services') {
       currentIndex = 5;
+    } else if (location == '/admin/user-management') {
+      currentIndex = 6;
     }
 
     // Fixed width sidebar
@@ -354,6 +359,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         title: 'Services',
                         isSelected: currentIndex == 5,
                         onTap: () => _handleNavigation(5),
+                        textColor: textColor,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildNavItem(
+                        icon: CupertinoIcons.person_2,
+                        title: 'Resellers',
+                        isSelected: currentIndex == 6,
+                        onTap: () => _handleNavigation(6),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
@@ -471,7 +484,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
     // Calculate width for each tab based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
-    final tabWidth = screenWidth / 5; // Changed from 4 to 5 tabs
+    final tabWidth = screenWidth / 6; // Now using 6 tabs
 
     return Positioned(
       bottom: 0,
@@ -517,6 +530,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                   label: 'Services',
                   isSelected: _selectedIndex == 5,
                   onTap: () => _handleNavigation(5),
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.person_2,
+                  label: 'Resellers',
+                  isSelected: _selectedIndex == 6,
+                  onTap: () => _handleNavigation(6),
                   width: tabWidth,
                 ),
                 _buildTabItem(

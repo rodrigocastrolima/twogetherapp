@@ -9,7 +9,8 @@ import '../../../../core/theme/ui_styles.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
-import '../widgets/submission_details_dialog.dart';
+import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 class AdminSubmissionsPage extends ConsumerStatefulWidget {
   const AdminSubmissionsPage({super.key});
@@ -342,30 +343,21 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
               submissionDoc as DocumentSnapshot<Map<String, dynamic>>,
             );
 
-            return _buildSubmissionItem(submission);
+            return _buildSubmissionItem(context, submission);
           },
         );
       },
     );
   }
 
-  Widget _buildSubmissionItem(ServiceSubmission submission) {
-    // Get status color
-    Color statusColor;
-    switch (submission.status) {
-      case 'approved':
-        statusColor = Colors.green.shade300;
-        break;
-      case 'rejected':
-        statusColor = Colors.red.shade300;
-        break;
-      default:
-        statusColor = Colors.amber;
-    }
-
-    // Format date
-    final formattedDate =
-        '${submission.submissionTimestamp.toDate().day}/${submission.submissionTimestamp.toDate().month}/${submission.submissionTimestamp.toDate().year}';
+  Widget _buildSubmissionItem(
+    BuildContext context,
+    ServiceSubmission submission,
+  ) {
+    final statusColor = _getStatusColor(submission.status);
+    final formattedDate = DateFormat(
+      'dd/MM/yyyy',
+    ).format(submission.submissionTimestamp.toDate());
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -378,13 +370,8 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                // Show submission details
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) =>
-                          SubmissionDetailsDialog(submission: submission),
-                );
+                // Navigate to submission detail page
+                context.push('/admin/submissions/${submission.id}');
               },
               borderRadius: BorderRadius.circular(16),
               splashColor: AppColors.whiteAlpha10,
@@ -554,6 +541,17 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
         return CupertinoIcons.shield_fill;
       case ServiceCategory.telecommunications:
         return CupertinoIcons.phone_fill;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green.shade300;
+      case 'rejected':
+        return Colors.red.shade300;
+      default:
+        return Colors.amber;
     }
   }
 }

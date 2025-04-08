@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
+import '../../../notifications/data/repositories/notification_repository.dart';
 
 class ServiceSubmissionRepository {
   final FirebaseFirestore _firestore;
@@ -173,13 +174,50 @@ class ServiceSubmissionRepository {
   // Update submission status
   Future<void> updateSubmissionStatus(
     String submissionId,
-    String status,
+    String newStatus,
   ) async {
     try {
-      await _submissionsCollection.doc(submissionId).update({'status': status});
+      final submissionDoc =
+          await _firestore
+              .collection('serviceSubmissions')
+              .doc(submissionId)
+              .get();
+
+      if (!submissionDoc.exists) {
+        throw Exception('Submission not found');
+      }
+
+      final data = submissionDoc.data() as Map<String, dynamic>;
+      final oldStatus = data['status'] as String? ?? 'unknown';
+      final resellerId = data['resellerId'] as String? ?? '';
+      final clientName =
+          data['clientDetails']?['responsibleName'] as String? ?? 'Client';
+
+      // Update the status
+      await _firestore
+          .collection('serviceSubmissions')
+          .doc(submissionId)
+          .update({
+            'status': newStatus,
+            'statusUpdatedAt': FieldValue.serverTimestamp(),
+          });
+
+      // Create a notification for the reseller
+      if (resellerId.isNotEmpty && oldStatus != newStatus) {
+        final notificationRepo = NotificationRepository();
+        await notificationRepo.createStatusChangeNotification(
+          userId: resellerId,
+          submissionId: submissionId,
+          oldStatus: oldStatus,
+          newStatus: newStatus,
+          clientName: clientName,
+        );
+      }
     } catch (e) {
-      debugPrint('Error updating submission status: $e');
-      throw Exception('Failed to update submission status: $e');
+      if (kDebugMode) {
+        print('Error updating submission status: $e');
+      }
+      rethrow;
     }
   }
 
@@ -383,6 +421,22 @@ class ServiceSubmissionRepository {
       }
     }
     return null;
+  }
+
+  // Get a specific submission by ID
+  Future<ServiceSubmission?> getSubmissionById(String submissionId) async {
+    try {
+      final doc = await _submissionsCollection.doc(submissionId).get();
+
+      if (!doc.exists) {
+        return null;
+      }
+
+      return ServiceSubmission.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('Error getting submission by ID: $e');
+      throw Exception('Failed to get submission: $e');
+    }
   }
 }
 

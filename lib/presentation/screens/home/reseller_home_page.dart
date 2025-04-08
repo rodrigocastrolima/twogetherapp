@@ -10,6 +10,10 @@ import 'package:go_router/go_router.dart';
 import '../../widgets/logo.dart';
 import 'dart:math';
 import '../../../core/theme/ui_styles.dart';
+import '../../../features/notifications/presentation/providers/notification_provider.dart';
+import '../../../core/models/notification.dart';
+import '../../../features/notifications/presentation/services/notification_service.dart';
+import 'package:intl/intl.dart';
 
 class ResellerHomePage extends ConsumerStatefulWidget {
   const ResellerHomePage({super.key});
@@ -436,298 +440,406 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withOpacity(0.3),
-                    blurRadius: 4,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Text(
-                  '4',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+
+            // Use the unread count provider for the badge
+            Consumer(
+              builder: (context, ref, child) {
+                final unreadCountStream = ref.watch(
+                  unreadNotificationsCountProvider,
+                );
+
+                return unreadCountStream.when(
+                  data: (count) {
+                    if (count <= 0) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.3),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          count > 99 ? '99+' : count.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox(width: 24, height: 24),
+                  error: (_, __) => const SizedBox.shrink(),
+                );
+              },
             ),
           ],
         ),
         const SizedBox(height: 16),
 
-        // Pendentes section
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color:
-                    theme.brightness == Brightness.dark
-                        ? theme.colorScheme.shadow.withOpacity(0.3)
-                        : theme.colorScheme.shadow.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-                spreadRadius: 0,
-              ),
-            ],
-            border: Border.all(
-              color:
-                  theme.brightness == Brightness.dark
-                      ? theme.colorScheme.onSurface.withOpacity(0.05)
-                      : Colors.transparent,
-              width: theme.brightness == Brightness.dark ? 1 : 0,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Pendentes',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '-6,42',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red,
+        // Pendentes section with total pending amount
+        Consumer(
+          builder: (context, ref, child) {
+            final notificationsStream = ref.watch(userNotificationsProvider);
+
+            return notificationsStream.when(
+              data: (notifications) {
+                // Calculate total monetary values from rejection notifications
+                double pendingAmount = 0.0;
+                for (final notification in notifications) {
+                  if (notification.type == NotificationType.rejection) {
+                    final amount = notification.metadata['amount'];
+                    if (amount != null) {
+                      pendingAmount += (amount is double) ? amount : 0.0;
+                    }
+                  }
+                }
+
+                // Show Pendentes card if there are pending amounts
+                if (pendingAmount > 0) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              theme.brightness == Brightness.dark
+                                  ? theme.colorScheme.shadow.withOpacity(0.3)
+                                  : theme.colorScheme.shadow.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                          spreadRadius: 0,
+                        ),
+                      ],
+                      border: Border.all(
+                        color:
+                            theme.brightness == Brightness.dark
+                                ? theme.colorScheme.onSurface.withOpacity(0.05)
+                                : Colors.transparent,
+                        width: theme.brightness == Brightness.dark ? 1 : 0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Pendentes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '-${pendingAmount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+              },
+              loading:
+                  () => const Center(
+                    child: SizedBox(
+                      height: 50,
+                      child: CircularProgressIndicator(),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
+              error:
+                  (_, __) => Center(
+                    child: Text(
+                      'Failed to load notifications',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+            );
+          },
         ),
 
         const SizedBox(height: 16),
 
-        // Notification items
-        ..._buildNotificationItems(l10n),
+        // List of notifications
+        Consumer(
+          builder: (context, ref, child) {
+            final notificationsStream = ref.watch(userNotificationsProvider);
+            final notificationActions = ref.read(notificationActionsProvider);
+
+            return notificationsStream.when(
+              data: (notifications) {
+                if (notifications.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            CupertinoIcons.bell_slash,
+                            size: 48,
+                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No notifications',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.7,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children:
+                      notifications.map((notification) {
+                        return _buildNotificationItem(
+                          notification: notification,
+                          onTap: () {
+                            _handleNotificationTap(
+                              notification,
+                              notificationActions,
+                            );
+                          },
+                        );
+                      }).toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error:
+                  (_, __) => Center(
+                    child: Text(
+                      'Failed to load notifications',
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                  ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  List<Widget> _buildNotificationItems(AppLocalizations l10n) {
-    final theme = Theme.of(context);
-    final notifications = [
-      {
-        'title': l10n.homeNotificationExamplePurchaseTitle(8110),
-        'amount': '-10,00',
-        'date': '31 mar',
-        'type': 'payment',
-      },
-      {
-        'title': l10n.homeNotificationExampleRejectionTitle,
-        'description': l10n.homeNotificationExampleRejectionDesc('TR003_0001'),
-        'type': 'rejection',
-        'data': {
-          'submissionId': 'TR003_0001',
-          'rejectionReason': 'The invoice image is not clear enough.',
-          'rejectionDate': DateTime.now(),
-          'isPermanentRejection': false,
-        },
-      },
-    ];
+  // Helper method to handle notification tap
+  void _handleNotificationTap(
+    UserNotification notification,
+    NotificationActions actions,
+  ) async {
+    // Mark notification as read
+    await actions.markAsRead(notification.id);
 
-    return notifications.map((notification) {
-      if (notification['type'] == 'payment') {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.shadow.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  CupertinoIcons.phone_fill,
-                  color: Colors.orange,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      notification['date'] as String,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      notification['title'] as String,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                notification['amount'] as String,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        return _buildNotificationItem(
-          icon: CupertinoIcons.exclamationmark_triangle_fill,
-          title: notification['title'] as String,
-          description: notification['description'] as String,
-          iconColor: theme.colorScheme.error,
-          onTap: () {
-            final data = notification['data'] as Map<String, dynamic>;
-            context.go('/notifications/${data['submissionId']}');
-          },
-        );
-      }
-    }).toList();
+    // Navigate based on notification type and metadata
+    switch (notification.type) {
+      case NotificationType.statusChange:
+        if (notification.metadata.containsKey('submissionId')) {
+          final submissionId = notification.metadata['submissionId'];
+          context.push('/submissions/$submissionId');
+        }
+        break;
+      case NotificationType.rejection:
+        if (notification.metadata.containsKey('submissionId')) {
+          final submissionId = notification.metadata['submissionId'];
+          context.push('/notifications/$submissionId');
+        }
+        break;
+      case NotificationType.payment:
+        // Navigate to payment details or dashboard
+        context.push('/dashboard');
+        break;
+      case NotificationType.system:
+      default:
+        // For system notifications, just mark as read but don't navigate
+        break;
+    }
   }
 
+  // New method to build a notification item
   Widget _buildNotificationItem({
-    required IconData icon,
-    required String title,
-    required String description,
-    VoidCallback? onTap,
-    Color? iconColor,
+    required UserNotification notification,
+    required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color:
-                  theme.brightness == Brightness.dark
-                      ? theme.colorScheme.shadow.withOpacity(0.2)
-                      : theme.colorScheme.shadow.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-              spreadRadius: 0,
-            ),
-          ],
-          border: Border.all(
+    IconData icon;
+    Color iconColor;
+
+    // Set icon and color based on notification type
+    switch (notification.type) {
+      case NotificationType.statusChange:
+        icon = CupertinoIcons.arrow_right_arrow_left_circle;
+        final status = notification.metadata['newStatus'] as String? ?? '';
+        if (status == 'approved') {
+          iconColor = Colors.green;
+        } else if (status == 'rejected') {
+          iconColor = Colors.red;
+        } else {
+          iconColor = Colors.amber;
+        }
+        break;
+      case NotificationType.rejection:
+        icon = CupertinoIcons.exclamationmark_triangle_fill;
+        iconColor = Colors.red;
+        break;
+      case NotificationType.payment:
+        icon = CupertinoIcons.money_dollar_circle;
+        iconColor = Colors.orange;
+        break;
+      case NotificationType.system:
+      default:
+        icon = CupertinoIcons.bell_fill;
+        iconColor = theme.colorScheme.primary;
+    }
+
+    // Format date
+    final formatter = DateFormat('dd MMM');
+    final timeFormatter = DateFormat('HH:mm');
+    final formattedDate = formatter.format(notification.createdAt);
+    final formattedTime = timeFormatter.format(notification.createdAt);
+    final dateString =
+        notification.createdAt.day == DateTime.now().day
+            ? 'Today, ${formattedTime}'
+            : formattedDate;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
             color:
                 theme.brightness == Brightness.dark
-                    ? theme.colorScheme.onSurface.withOpacity(0.05)
-                    : Colors.transparent,
-            width: theme.brightness == Brightness.dark ? 1 : 0,
+                    ? theme.colorScheme.shadow.withOpacity(0.2)
+                    : theme.colorScheme.shadow.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
           ),
+        ],
+        border: Border.all(
+          color:
+              theme.brightness == Brightness.dark
+                  ? theme.colorScheme.onSurface.withOpacity(0.05)
+                  : Colors.transparent,
+          width: theme.brightness == Brightness.dark ? 1 : 0,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (iconColor ?? theme.colorScheme.primary).withOpacity(
-                  0.1,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Notification icon
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: iconColor, size: 18),
                 ),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(
-                      0.1,
-                    ),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                const SizedBox(width: 16),
+
+                // Notification content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            dateString,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.7,
+                              ),
+                            ),
+                          ),
+                          if (!notification.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.message,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: iconColor ?? theme.colorScheme.primary,
-                size: 18,
-              ),
+                ),
+
+                // Arrow icon
+                Icon(
+                  CupertinoIcons.chevron_right,
+                  size: 14,
+                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                CupertinoIcons.chevron_right,
-                size: 12,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -958,7 +1070,3 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     );
   }
 }
-
-
-
-

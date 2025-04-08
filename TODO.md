@@ -20,6 +20,17 @@ This document tracks pending issues, bugs, and future enhancements for the Twoge
   - Current implementation still shows web popup in mobile view
   - Review the platform detection logic in `_buildActionsButton` method
   - Ensure proper UI handling based on screen size and platform
+- [ ] **Service submission document rendering**: Fix document display in service submissions
+  - The `documentUrls` field is not being populated with uploaded invoice URLs
+  - Improve the image URL handling between Firebase Storage and Firestore
+  - Consider updating the service submission repository to properly set document URLs upon upload
+  - Add consistent error handling for image loading failures
+- [x] **Real-time notifications in reseller home page**: Implement functional notifications for service submissions status changes
+  - Created notification data model and repository
+  - Added UI integration to display real-time notifications in the home page
+  - Implemented notification badges and status change tracking
+  - Added ability to navigate to relevant screens when tapping notifications
+  - Notifications are now marked as read when viewed
 
 ## UI Improvements
 
@@ -38,6 +49,22 @@ This document tracks pending issues, bugs, and future enhancements for the Twoge
 - [ ] **Improve offline image support**: Enhance caching for better offline experience
 - [ ] **Message search functionality**: Add ability to search messages within conversations
 - [ ] **Group conversations**: Support for multi-user conversations
+- [x] **Notification system implementation**: Real-time notification system for service status changes
+  - Created notification data model and repository for Firestore integration
+  - Implemented UI components to display notifications in the reseller home page
+  - Added notification badges and status change tracking
+  - Created Cloud Function to generate notifications on submission status updates
+  - Implemented notification actions (mark as read, navigate to related content)
+- [ ] **Complete push notification integration**: Finalize the push notification system for the reseller home page
+  - Add Firebase Cloud Messaging (FCM) dependencies to pubspec.yaml
+  - Configure platform-specific files (AndroidManifest.xml, Info.plist)
+  - Create a notification service to handle FCM tokens and messages
+  - Store FCM tokens in Firestore when users log in
+  - Update the Cloud Function to send push notifications through FCM
+  - Add notification permission handling for iOS devices
+  - Implement foreground notification handling
+  - Add deep linking support for notification taps
+  - Test notification delivery across different device states (foreground, background, terminated)
 
 ## Performance Improvements
 

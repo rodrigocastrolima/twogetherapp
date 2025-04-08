@@ -91,19 +91,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           const SizedBox(height: 24),
           _buildSettingsGroup(l10n.adminPreferences, [
             _buildActionSetting(
-              l10n.adminUserManagement,
-              l10n.adminUserManagementDescription,
-              CupertinoIcons.person_2_fill,
-              () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const UserManagementPage(),
-                  ),
-                );
-              },
-            ),
-            _buildActionSetting(
               l10n.adminSystemConfig,
               l10n.adminSystemConfigDescription,
               CupertinoIcons.gear_alt_fill,

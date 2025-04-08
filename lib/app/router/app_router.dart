@@ -26,11 +26,11 @@ import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
-import '../../features/user_management/presentation/pages/reseller_detail_page.dart';
 import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
 import '../../features/admin/presentation/pages/admin_submissions_page.dart';
 import '../../presentation/screens/admin/admin_opportunities_page.dart';
 import '../../features/chat/data/repositories/chat_repository.dart';
+import '../../features/services/presentation/pages/submission_detail_page.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -380,6 +380,19 @@ class AppRouter {
         ],
       ),
 
+      // Add a new route for resellers to view submission details
+      GoRoute(
+        path: '/submissions/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final submissionId = state.pathParameters['id'] ?? '';
+          return MainLayout(
+            child: SubmissionDetailPage(submissionId: submissionId),
+            currentIndex: 0,
+          );
+        },
+      ),
+
       // Admin routes
       ShellRoute(
         navigatorKey: _adminShellNavigatorKey,
@@ -427,27 +440,19 @@ class AppRouter {
             },
           ),
           GoRoute(
-            path: '/admin/resellers/:userId',
-            builder: (context, state) {
-              final userId = state.pathParameters['userId'];
-              final reseller = state.extra as AppUser?;
-
-              if (reseller == null) {
-                // Handle case where reseller data is not provided
-                // Redirect back to user management page
-                return const UserManagementPage();
-              }
-
-              return ResellerDetailPage(reseller: reseller);
-            },
-          ),
-          GoRoute(
             path: '/admin/salesforce-setup',
             builder: (context, state) => const SalesforceSetupPage(),
           ),
           GoRoute(
             path: '/admin/submissions',
             builder: (context, state) => const AdminSubmissionsPage(),
+          ),
+          GoRoute(
+            path: '/admin/submissions/:id',
+            builder: (context, state) {
+              final submissionId = state.pathParameters['id'] ?? '';
+              return SubmissionDetailPage(submissionId: submissionId);
+            },
           ),
           GoRoute(
             path: '/admin/opportunities',

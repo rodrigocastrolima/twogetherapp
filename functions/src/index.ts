@@ -17,6 +17,7 @@ import * as jwt from "jsonwebtoken"; // For JWT generation
 import axios from "axios"; // For HTTP requests
 // Import v2 Firestore triggers
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import * as functions from 'firebase-functions';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -1270,3 +1271,77 @@ export {
   cleanupExpiredMessages,
   onNewMessageNotification,
 };
+
+// Firestore trigger for service submission status changes
+exports.onSubmissionStatusChange = functions.firestore
+  .document('serviceSubmissions/{submissionId}')
+  .onUpdate(async (change, context) => {
+    const submissionId = context.params.submissionId;
+    
+    // Get before and after data
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+    
+    // Check if status was changed
+    if (beforeData.status === afterData.status) {
+      // Status didn't change, exit early
+      return null;
+    }
+    
+    const resellerId = afterData.resellerId;
+    const oldStatus = beforeData.status;
+    const newStatus = afterData.status;
+    const clientName = afterData.clientDetails?.responsibleName || 'Client';
+    
+    // Create notification object
+    let title = 'Submission Status Changed';
+    let message = `Your submission for ${clientName} has been updated to ${newStatus}.`;
+    
+    // Customize notification based on status
+    switch (newStatus) {
+      case 'approved':
+        title = 'Submission Approved';
+        message = `Your submission for ${clientName} has been approved.`;
+        break;
+      case 'rejected':
+        title = 'Submission Rejected';
+        message = `Your submission for ${clientName} has been rejected.`;
+        break;
+      case 'pending_review':
+        title = 'Submission Pending Review';
+        message = `Your submission for ${clientName} is pending review.`;
+        break;
+    }
+    
+    // Create notification document
+    const notificationData = {
+      userId: resellerId,
+      title: title,
+      message: message,
+      type: 'statusChange',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      isRead: false,
+      metadata: {
+        submissionId: submissionId,
+        oldStatus: oldStatus,
+        newStatus: newStatus,
+      },
+    };
+    
+    try {
+      // Add to notifications collection
+      const notificationRef = await admin.firestore()
+        .collection('notifications')
+        .add(notificationData);
+      
+      console.log(`Created notification ${notificationRef.id} for submission ${submissionId}`);
+      
+      // TODO: Send push notification using FCM (Firebase Cloud Messaging)
+      // This requires device tokens to be stored for the user
+      
+      return { success: true, notificationId: notificationRef.id };
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      return { success: false, error: error };
+    }
+  });
