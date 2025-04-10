@@ -145,9 +145,28 @@
     "navHome": "Início",
     "navClients": "Clientes",
     "navMessages": "Mensagens",
-    "navSettings": "Config.",
+    "navSettings": "Configurações",
     "navReports": "Relatórios",
     "navOpportunities": "Oportunidades",
+    
+    "@_SUBMISSIONS": {},
+    "serviceSubmissions": "Envios de Serviços",
+    "submissionsFromReseller": "Envios de {resellerName}",
+    "searchResellerSubmissions": "Pesquisar envios do revendedor...",
+    "searchAllSubmissions": "Pesquisar todos os envios...",
+    "allStatus": "Todos os Status",
+    "statusPending": "Pendente",
+    "statusApproved": "Aprovado",
+    "statusRejected": "Rejeitado",
+    "errorLoadingSubmissions": "Erro ao carregar envios",
+    "noSubmissionsForReseller": "Nenhum envio encontrado para este revendedor",
+    "noServiceSubmissionsFound": "Nenhum envio de serviço encontrado",
+    "noSubmissionsMatchSearch": "Nenhum envio corresponde à sua pesquisa",
+    "nifAndEmail": "NIF: {nif} • {email}",
+    "documents": "Docs",
+    "categoryEnergy": "Energia",
+    "categoryInsurance": "Seguro", 
+    "categoryTelecommunications": "Telecomunicações",
     
     "@_COMMON": {},
     "commonSave": "Salvar",
@@ -195,5 +214,12 @@
     "unknownUser": "Usuário Desconocido",
     "noEmailProvided": "Email não fornecido",
     "active": "Ativo",
-    "inactive": "Inativo"
+    "inactive": "Inativo",
+
+    "navMessages": "Mensagens",
+    "navSettings": "Configurações",
+    "navReports": "Relatórios",
+    "navOpportunities": "Oportunidades",
+    "navSubmissions": "Envios",
+    "navResellers": "Revendedores"
 } 

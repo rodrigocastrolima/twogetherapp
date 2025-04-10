@@ -68,8 +68,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       setState(() => _selectedIndex = 3);
     } else if (location == '/admin/opportunities') {
       setState(() => _selectedIndex = 4);
-    } else if (location == '/admin/services') {
+    } else if (location == '/admin/submissions') {
       setState(() => _selectedIndex = 5);
+    } else if (location == '/admin/user-management') {
+      setState(() => _selectedIndex = 6);
     }
   }
 
@@ -99,7 +101,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
             context.go('/admin/opportunities');
             break;
           case 5:
-            context.go('/admin/services');
+            context.go('/admin/submissions');
             break;
           case 6:
             context.go('/admin/user-management');
@@ -179,7 +181,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         toolbarHeight: 80,
                         leading: null,
                         title: Center(
-                          child: LogoWidget(height: 50, darkMode: false),
+                          child: Text(
+                            widget.pageTitle,
+                            style: TextStyle(
+                              color: AppTheme.foreground,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                         centerTitle: true,
                         actions: [],
@@ -244,7 +252,17 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       top: 24,
                       bottom: 24,
                     ),
-                    child: widget.child ?? _pages[_selectedIndex],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Main content
+                        Expanded(
+                          child: Container(
+                            child: widget.child ?? _pages[_selectedIndex],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
       ),
@@ -271,7 +289,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
       currentIndex = 3;
     } else if (location == '/admin/opportunities') {
       currentIndex = 4;
-    } else if (location == '/admin/services') {
+    } else if (location == '/admin/submissions') {
       currentIndex = 5;
     } else if (location == '/admin/user-management') {
       currentIndex = 6;
@@ -307,10 +325,18 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
-                // Logo
+                // Logo removed, add page title or spacing
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: LogoWidget(height: 50, darkMode: false),
+                  child: Text(
+                    'Admin Panel',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 // Navigation items
@@ -356,7 +382,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       const SizedBox(height: 12),
                       _buildNavItem(
                         icon: CupertinoIcons.doc_text,
-                        title: 'Services',
+                        title: l10n.navSubmissions,
                         isSelected: currentIndex == 5,
                         onTap: () => _handleNavigation(5),
                         textColor: textColor,
@@ -364,7 +390,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       const SizedBox(height: 12),
                       _buildNavItem(
                         icon: CupertinoIcons.person_2,
-                        title: 'Resellers',
+                        title: l10n.navResellers,
                         isSelected: currentIndex == 6,
                         onTap: () => _handleNavigation(6),
                         textColor: textColor,
@@ -527,14 +553,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.doc_text,
-                  label: 'Services',
+                  label: l10n.navSubmissions,
                   isSelected: _selectedIndex == 5,
                   onTap: () => _handleNavigation(5),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
-                  label: 'Resellers',
+                  label: l10n.navResellers,
                   isSelected: _selectedIndex == 6,
                   onTap: () => _handleNavigation(6),
                   width: tabWidth,

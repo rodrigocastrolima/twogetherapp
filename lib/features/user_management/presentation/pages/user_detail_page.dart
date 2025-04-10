@@ -772,7 +772,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       child: InkWell(
         onTap: () {
           // Navigate to SubmissionDetailPage instead of showing a dialog
-          context.push('/submissions/${submission.id}');
+          context.push('/admin/submissions/${submission.id}');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

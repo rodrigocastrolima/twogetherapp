@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Basic user authentication check
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Notifications collection - allow authenticated users to read/write
+    match /notifications/{notificationId} {
+      // Anyone authenticated can read notifications
+      allow read: if isAuthenticated();
+      
+      // Anyone authenticated can create notifications
+      allow create: if isAuthenticated() 
+                    && request.resource.data.keys().hasAll(['userId', 'title', 'message', 'type', 'createdAt'])
+                    && request.resource.data.createdAt is timestamp;
+                    
+      // Users can only update their own notifications or system notifications
+      allow update: if isAuthenticated() 
+                    && (resource.data.userId == request.auth.uid || resource.data.userId == 'system');
+                    
+      // Users can only delete their own notifications
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // Service submissions collection - secure access
+    match /serviceSubmissions/{submissionId} {
+      // Resellers can create submissions
+      allow create: if isAuthenticated();
+      
+      // Resellers can read their own submissions
+      allow read: if isAuthenticated() 
+                 && (resource.data.resellerId == request.auth.uid);
+                 
+      // Add additional rules for admin access as needed
+    }
+    
+    // Users collection - basic secure rules
+    match /users/{userId} {
+      // Users can read/write their own data
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+  }
+} 

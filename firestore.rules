@@ -52,15 +52,26 @@ service cloud.firestore {
     
     // Notifications collection
     match /notifications/{notificationId} {
-      // Allow users to read their own notifications
-      // Allow admin to read and write all notifications
+      // Allow users to read their own notifications, system notifications, or if they're admin
       allow read: if isAuthenticated() && 
-        (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAuthenticated() && isAdmin();
+        (resource.data.userId == request.auth.uid || resource.data.userId == 'system' || isAdmin());
+      
+      // Allow creation of notifications by any authenticated user
+      allow create: if isAuthenticated() && (
+        // Allow users to create their own notifications
+        request.resource.data.userId == request.auth.uid ||
+        // Allow creating system notifications (for admin dashboard)
+        request.resource.data.userId == 'system'
+      );
+      
+      // Allow admins to write all notifications
+      allow update, delete: if isAuthenticated() && isAdmin();
+      
       // Allow users to mark their own notifications as read
       allow update: if isAuthenticated() && 
         resource.data.userId == request.auth.uid && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      
       // Allow users to delete their own notifications
       allow delete: if isAuthenticated() && 
         resource.data.userId == request.auth.uid;

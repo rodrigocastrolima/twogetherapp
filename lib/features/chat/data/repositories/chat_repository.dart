@@ -1,7 +1,5 @@
 import 'dart:io' as io;
-import 'dart:typed_data';
 import 'dart:convert';
-import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -267,85 +265,76 @@ class ChatRepository {
               );
             }
 
-            // Convert docs to ChatMessage objects
-            final messages =
-                snapshot.docs
-                    .map((doc) {
-                      try {
-                        return ChatMessage.fromFirestore(doc);
-                      } catch (e) {
-                        // Log the error but don't crash
-                        if (kDebugMode) {
-                          print('Error parsing message ${doc.id}: $e');
-                          print('Document data: ${doc.data()}');
-                        }
-                        // Return null for messages that couldn't be parsed
-                        return null;
-                      }
-                    })
-                    // Filter out null messages
-                    .where((message) => message != null)
-                    .cast<ChatMessage>()
-                    .toList();
-
-            // Even if there's an error in data conversion, always return a valid list
-            return messages;
+            return snapshot.docs.map((doc) {
+              try {
+                return ChatMessage.fromFirestore(doc);
+              } catch (e) {
+                if (kDebugMode) {
+                  print('Error parsing message ${doc.id}: $e');
+                  print('Document data: ${doc.data()}');
+                }
+                // Return a placeholder message if something went wrong
+                return ChatMessage(
+                  id: doc.id,
+                  senderId: 'system',
+                  senderName: 'System',
+                  content: '[Error loading message]',
+                  type: MessageType.text,
+                  timestamp: DateTime.now(),
+                  isAdmin: true,
+                );
+              }
+            }).toList();
           })
-          // Handle stream errors by returning an empty list rather than crashing
           .handleError((error) {
             if (kDebugMode) {
               print('Error in messages stream for $conversationId: $error');
             }
-            // Return empty list on error
-            return <ChatMessage>[];
+            // Return an empty list on error
+            return [];
           });
     } catch (e) {
-      // For any initialization errors, return an empty stream
       if (kDebugMode) {
         print('Error initializing messages stream for $conversationId: $e');
       }
-      return Stream.value(<ChatMessage>[]);
+      // Return an empty stream
+      return Stream.value([]);
     }
   }
 
-  // Mark messages as read for the current user
-  Future<void> markConversationAsRead(String conversationId) async {
-    if (currentUserId == null) return;
+  // Mark conversation as read by participant
+  Future<void> markConversationAsRead(
+    String conversationId,
+    bool isAdmin,
+  ) async {
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
 
     try {
-      // Check if user is admin
-      final cachedIsAdmin = await isCurrentUserAdmin();
+      // Update the conversation document
+      final Map<String, dynamic> updateData = {};
 
-      // The userId to mark as read is 'admin' for admins, or the user's ID for resellers
-      final userIdToMarkAsRead = cachedIsAdmin ? 'admin' : currentUserId!;
-
-      // Create the update data for the unreadCounts map
-      final updateData = {'unreadCounts.$userIdToMarkAsRead': 0};
-
-      // For backward compatibility, update the boolean flag fields separately
-      final Map<String, dynamic> legacyUpdate = {};
-      if (cachedIsAdmin) {
-        legacyUpdate['unreadByAdmin'] = false;
+      if (isAdmin) {
+        // If admin, mark admin's unread count as 0
+        updateData['unreadCounts.admin'] = 0;
+        updateData['unreadByAdmin'] = false;
       } else {
-        legacyUpdate['unreadByReseller'] = false;
+        // If reseller, mark their unread count as 0
+        updateData['unreadCounts.$currentUserId'] = 0;
+        updateData['unreadByReseller'] = false;
       }
 
-      // First, update the unreadCounts map
+      // Update the document
       await _firestore
           .collection(_conversationsCollection)
           .doc(conversationId)
           .update(updateData);
-
-      // Then, update the legacy fields separately
-      await _firestore
-          .collection(_conversationsCollection)
-          .doc(conversationId)
-          .update(legacyUpdate);
     } catch (e) {
       if (kDebugMode) {
         print('Error marking conversation as read: $e');
       }
-      // Don't throw the error to prevent UI disruption
+      throw Exception('Failed to mark conversation as read: $e');
     }
   }
 
@@ -356,74 +345,83 @@ class ChatRepository {
     // For analytics or future features
   }
 
-  // Get unread messages count for admin
-  Stream<int> getAdminUnreadMessagesCount() {
-    if (currentUserId == null) {
-      return Stream.value(0);
-    }
+  // Get total unread count for admin
+  Future<int> getAdminUnreadCount() async {
+    try {
+      // Query all conversations
+      final querySnapshot =
+          await _firestore.collection(_conversationsCollection).get();
 
-    // Query for all conversations
-    return _firestore.collection(_conversationsCollection).snapshots().map((
-      snapshot,
-    ) {
+      // Calculate total unread count for admin
       int totalUnread = 0;
-
-      for (final doc in snapshot.docs) {
+      for (final doc in querySnapshot.docs) {
         final data = doc.data();
 
-        // Check for the new unreadCounts field first
-        if (data['unreadCounts'] != null) {
-          final unreadCounts = data['unreadCounts'] as Map<String, dynamic>;
-          totalUnread += (unreadCounts['admin'] as int? ?? 0);
+        // First try to get from the unreadCounts map (newer format)
+        if (data.containsKey('unreadCounts')) {
+          final unreadCounts = data['unreadCounts'] as Map<String, dynamic>?;
+          if (unreadCounts != null && unreadCounts.containsKey('admin')) {
+            totalUnread += (unreadCounts['admin'] as num).toInt();
+          }
         }
-        // Fall back to the old field for backward compatibility
-        else if (data['unreadByAdmin'] == true) {
-          totalUnread += (data['unreadCount'] as int? ?? 0);
+        // Fallback to the old flag-based system
+        else if (data.containsKey('unreadByAdmin') &&
+            data['unreadByAdmin'] == true) {
+          totalUnread += 1;
         }
       }
 
       if (kDebugMode) {
         print('Unread count for admin: $totalUnread');
       }
+
       return totalUnread;
-    });
+    } catch (e) {
+      // On error, return 0 to avoid blocking UI
+      return 0;
+    }
   }
 
-  // Get unread messages count for reseller
-  Stream<int> getResellerUnreadMessagesCount() {
-    if (currentUserId == null) {
-      return Stream.value(0);
+  // Get total unread count for current reseller
+  Future<int> getResellerUnreadCount() async {
+    if (currentUserId == null) return 0;
+
+    try {
+      // Query conversations for this reseller
+      final querySnapshot =
+          await _firestore
+              .collection(_conversationsCollection)
+              .where('resellerId', isEqualTo: currentUserId)
+              .get();
+
+      // Calculate total unread count for reseller
+      int totalUnread = 0;
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data();
+
+        // First try to get from the unreadCounts map (newer format)
+        if (data.containsKey('unreadCounts')) {
+          final unreadCounts = data['unreadCounts'] as Map<String, dynamic>?;
+          if (unreadCounts != null && unreadCounts.containsKey(currentUserId)) {
+            totalUnread += (unreadCounts[currentUserId] as num).toInt();
+          }
+        }
+        // Fallback to the old flag-based system
+        else if (data.containsKey('unreadByReseller') &&
+            data['unreadByReseller'] == true) {
+          totalUnread += 1;
+        }
+      }
+
+      if (kDebugMode) {
+        print('Unread count for reseller: $totalUnread');
+      }
+
+      return totalUnread;
+    } catch (e) {
+      // On error, return 0 to avoid blocking UI
+      return 0;
     }
-
-    // Get unread count from the conversation for this reseller
-    return _firestore
-        .collection(_conversationsCollection)
-        .where('resellerId', isEqualTo: currentUserId)
-        .snapshots()
-        .map((snapshot) {
-          if (snapshot.docs.isEmpty) return 0;
-
-          int totalUnread = 0;
-
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-
-            // Check for the new unreadCounts field first
-            if (data['unreadCounts'] != null) {
-              final unreadCounts = data['unreadCounts'] as Map<String, dynamic>;
-              totalUnread += (unreadCounts[currentUserId] as int? ?? 0);
-            }
-            // Fall back to the old field for backward compatibility
-            else if (data['unreadByReseller'] == true) {
-              totalUnread += (data['unreadCount'] as int? ?? 0);
-            }
-          }
-
-          if (kDebugMode) {
-            print('Unread count for reseller: $totalUnread');
-          }
-          return totalUnread;
-        });
   }
 
   // Get unread messages count for the current user (admin or reseller)
@@ -431,9 +429,11 @@ class ChatRepository {
     final isAdmin = await isCurrentUserAdmin();
 
     if (isAdmin) {
-      yield* getAdminUnreadMessagesCount();
+      // Convert Future<int> to Stream<int>
+      yield await getAdminUnreadCount();
     } else {
-      yield* getResellerUnreadMessagesCount();
+      // Convert Future<int> to Stream<int>
+      yield await getResellerUnreadCount();
     }
   }
 
@@ -443,7 +443,11 @@ class ChatRepository {
       throw Exception('User not authenticated');
     }
 
-    // Enforce message size limit
+    // Validate content length
+    if (content.isEmpty) {
+      throw Exception('Message cannot be empty');
+    }
+
     if (content.length > _maxMessageLength) {
       throw Exception(
         'Message exceeds maximum length of $_maxMessageLength characters',
@@ -457,26 +461,26 @@ class ChatRepository {
       );
     }
 
-    final isAdmin = await isCurrentUserAdmin();
-    final userName = await getCurrentUserName();
-
-    // Create the message
-    final message = ChatMessage(
-      id: '', // Will be set by Firestore
-      senderId: currentUserId!,
-      senderName: userName,
-      content: content,
-      timestamp: DateTime.now(), // Will be overwritten by server timestamp
-      isAdmin: isAdmin,
-      // This is a real message, not a default UI message
-      isDefault: false,
-    );
-
-    // Record this message send time for rate limiting
-    _recordMessageSend(currentUserId!);
-
     try {
-      // Get the conversation first to check if the receiver is active in it
+      // Get user admin status and name
+      final isAdmin = await isCurrentUserAdmin();
+      final userName = await getCurrentUserName();
+
+      // Create the message
+      final message = ChatMessage(
+        id: '', // Will be set by Firestore
+        senderId: currentUserId!,
+        senderName: userName,
+        content: content,
+        type: MessageType.text,
+        timestamp: DateTime.now(), // Will be overwritten by server timestamp
+        isAdmin: isAdmin,
+      );
+
+      // Record this message send time for rate limiting
+      _recordMessageSend(currentUserId!);
+
+      // Get conversation info
       final conversationDoc =
           await _firestore
               .collection(_conversationsCollection)
@@ -511,40 +515,39 @@ class ChatRepository {
           .doc(conversationId);
 
       final updateData = <String, dynamic>{
-        'lastMessageContent': content,
+        'lastMessageContent':
+            content.length > 50
+                ? '${content.substring(0, 50)}...'
+                : content, // Truncate long messages in conversation list
         'lastMessageTime': FieldValue.serverTimestamp(),
         'lastMessageIsFromAdmin': isAdmin,
-        // Explicitly mark conversation as active when a message is sent
-        'active': true,
       };
 
       // Determine recipient(s) to mark as having unread messages
       final String senderId = isAdmin ? 'admin' : currentUserId!;
 
-      // For each participant, update their unread count if they're not the sender
+      // Update unread counts for all participants except the sender
       for (final participantId in participants) {
+        // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
-          // Get the current unread count for this recipient
-          final currentUnreadCount =
-              (conversationData['unreadCounts']
-                  as Map<String, dynamic>?)?[participantId] ??
-              0;
-          updateData['unreadCounts.$participantId'] = currentUnreadCount + 1;
+          // Add to the unreadCounts map
+          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
+
+          // Also update old fields for backward compatibility
+          if (participantId == 'admin') {
+            updateData['unreadByAdmin'] = true;
+          } else {
+            updateData['unreadByReseller'] = true;
+          }
         }
       }
 
-      // Legacy fields for backward compatibility
-      if (isAdmin) {
-        updateData['unreadByAdmin'] = false;
-        updateData['unreadByReseller'] = true;
-        updateData['unreadCount'] =
-            (conversationData['unreadCount'] as int? ?? 0) + 1;
-      } else {
-        updateData['unreadByAdmin'] = true;
-        updateData['unreadByReseller'] = false;
-        updateData['unreadCount'] =
-            (conversationData['unreadCount'] as int? ?? 0) + 1;
-      }
+      // Always mark conversation as active when sending a message
+      // This ensures it will appear in the admin's list
+      updateData['active'] = true;
+
+      // Update the total unread count for backward compatibility
+      updateData['unreadCount'] = FieldValue.increment(1);
 
       batch.update(conversationRef, updateData);
 
@@ -611,8 +614,10 @@ class ChatRepository {
               print('Successfully read ${bytes.length} bytes from XFile');
             }
           } catch (e, stackTrace) {
-            print('Error reading XFile bytes on web: $e');
-            print(stackTrace);
+            if (kDebugMode) {
+              print('Error reading XFile bytes on web: $e');
+              print(stackTrace);
+            }
             throw Exception('Failed to read image from XFile on web: $e');
           }
         } else if (imageFile is io.File) {
@@ -623,8 +628,10 @@ class ChatRepository {
             // Try to read as bytes from File for web compatibility
             bytes = await imageFile.readAsBytes();
           } catch (e, stackTrace) {
-            print('Error reading File bytes on web: $e');
-            print(stackTrace);
+            if (kDebugMode) {
+              print('Error reading File bytes on web: $e');
+              print(stackTrace);
+            }
             throw Exception('Unable to read image file on web: $e');
           }
         } else if (imageFile is Uint8List) {
@@ -634,15 +641,17 @@ class ChatRepository {
           // If bytes are already provided
           bytes = imageFile;
         } else {
-          print('Unsupported image type: ${imageFile.runtimeType}');
+          if (kDebugMode) {
+            print('Unsupported image type: ${imageFile.runtimeType}');
+          }
           throw Exception(
             'Unsupported image file format for web: ${imageFile.runtimeType}',
           );
         }
 
         // Ensure we have valid bytes before proceeding
-        if (bytes == null || bytes.isEmpty) {
-          throw Exception('Failed to read image data: Empty or null bytes');
+        if (bytes.isEmpty) {
+          throw Exception('Failed to read image data: Empty bytes');
         }
 
         // Create a base64 version for web fallback
@@ -687,14 +696,18 @@ class ChatRepository {
               // Send the message with URL only
               await _sendImageMessageToFirestore(conversationId, imageUrl);
             } else {
-              print('File does not exist at path: ${file.path}');
+              if (kDebugMode) {
+                print('File does not exist at path: ${file.path}');
+              }
               throw Exception(
                 'Image file does not exist at path: ${imageFile.path}',
               );
             }
           } catch (e, stackTrace) {
-            print('Error converting XFile to File: $e');
-            print(stackTrace);
+            if (kDebugMode) {
+              print('Error converting XFile to File: $e');
+              print(stackTrace);
+            }
             throw Exception('Failed to process XFile on mobile: $e');
           }
         } else if (imageFile is io.File) {
@@ -707,13 +720,17 @@ class ChatRepository {
             // Send the message with URL only
             await _sendImageMessageToFirestore(conversationId, imageUrl);
           } else {
-            print('File does not exist at path: ${imageFile.path}');
+            if (kDebugMode) {
+              print('File does not exist at path: ${imageFile.path}');
+            }
             throw Exception(
               'Image file does not exist at path: ${imageFile.path}',
             );
           }
         } else {
-          print('Unsupported image type: ${imageFile.runtimeType}');
+          if (kDebugMode) {
+            print('Unsupported image type: ${imageFile.runtimeType}');
+          }
           throw Exception(
             'Unsupported image file format: ${imageFile.runtimeType}',
           );

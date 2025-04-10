@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/services/loading_service.dart';
+import '../../../../app/router/app_router.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/utils/constants.dart';
 import '../../../../core/theme/ui_styles.dart';
-import '../../../../app/router/app_router.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 
-class SettingsPage extends ConsumerWidget {
-  const SettingsPage({super.key});
+class SettingsPage extends ConsumerStatefulWidget {
+  const SettingsPage({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  @override
+  Widget build(BuildContext context) {
     final localeNotifier = ref.watch(localeProvider.notifier);
     final currentLocale = ref.watch(localeProvider);
     final currentTheme = ref.watch(themeProvider);
@@ -109,8 +116,17 @@ class SettingsPage extends ConsumerWidget {
     );
 
     if (shouldLogout == true) {
-      // Set authentication to false which will trigger the router to redirect to login
-      await AppRouter.authNotifier.setAuthenticated(false);
+      // Show loading overlay during sign out
+      final loadingService = ref.read(loadingServiceProvider);
+      loadingService.show(context, message: 'Signing out...', showLogo: true);
+
+      try {
+        // Set authentication to false which will trigger the router to redirect to login
+        await AppRouter.authNotifier.setAuthenticated(false);
+      } finally {
+        // Hide loading overlay
+        loadingService.hide();
+      }
     }
   }
 

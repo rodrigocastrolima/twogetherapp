@@ -153,6 +153,47 @@
     "navReports": "Reports",
     "navOpportunities": "Opportunities",
     
+    "@_SUBMISSIONS": {},
+    "serviceSubmissions": "Service Submissions",
+    "submissionsFromReseller": "Submissions from {resellerName}",
+    "@submissionsFromReseller": {
+        "description": "Title for submissions from a specific reseller",
+        "placeholders": {
+            "resellerName": {
+                "type": "String",
+                "example": "John Doe"
+            }
+        }
+    },
+    "searchResellerSubmissions": "Search reseller submissions...",
+    "searchAllSubmissions": "Search all submissions...",
+    "allStatus": "All Status",
+    "statusPending": "Pending",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "errorLoadingSubmissions": "Error loading submissions",
+    "noSubmissionsForReseller": "No submissions found for this reseller",
+    "noServiceSubmissionsFound": "No service submissions found",
+    "noSubmissionsMatchSearch": "No submissions match your search",
+    "nifAndEmail": "NIF: {nif} • {email}",
+    "@nifAndEmail": {
+        "description": "Format for displaying NIF and email",
+        "placeholders": {
+            "nif": {
+                "type": "String",
+                "example": "123456789"
+            },
+            "email": {
+                "type": "String",
+                "example": "user@example.com"
+            }
+        }
+    },
+    "documents": "Docs",
+    "categoryEnergy": "Energy",
+    "categoryInsurance": "Insurance", 
+    "categoryTelecommunications": "Telecommunications",
+    
     "@_COMMON": {},
     "commonSave": "Save",
     "commonCancel": "Cancel",
@@ -201,5 +242,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "adminRole": "Admin",
-    "resellerRole": "Reseller"
+    "resellerRole": "Reseller",
+
+    "navSubmissions": "Submissions",
+    "navResellers": "Resellers"
 } 

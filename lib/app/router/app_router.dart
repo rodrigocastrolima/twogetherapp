@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../presentation/layout/main_layout.dart';
 import '../../presentation/layout/admin_layout.dart';
@@ -31,6 +30,7 @@ import '../../features/admin/presentation/pages/admin_submissions_page.dart';
 import '../../presentation/screens/admin/admin_opportunities_page.dart';
 import '../../features/chat/data/repositories/chat_repository.dart';
 import '../../features/services/presentation/pages/submission_detail_page.dart';
+import '../../features/opportunity/presentation/pages/opportunity_verification_page.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -164,8 +164,6 @@ class AuthNotifier extends ChangeNotifier {
             _isAdmin = normalizedRole == 'admin';
             _isAuthenticated = true;
             _isFirstLogin = doc.data()?['isFirstLogin'] as bool? ?? false;
-
-            notifyListeners();
 
             // Ensure a reseller user has a conversation
             if (normalizedRole == 'reseller') {
@@ -358,7 +356,7 @@ class AppRouter {
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return MainLayout(child: child, currentIndex: 0);
+          return MainLayout(currentIndex: 0, child: child);
         },
         routes: [
           GoRoute(
@@ -378,19 +376,6 @@ class AppRouter {
             builder: (context, state) => const SettingsPage(),
           ),
         ],
-      ),
-
-      // Add a new route for resellers to view submission details
-      GoRoute(
-        path: '/submissions/:id',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          final submissionId = state.pathParameters['id'] ?? '';
-          return MainLayout(
-            child: SubmissionDetailPage(submissionId: submissionId),
-            currentIndex: 0,
-          );
-        },
       ),
 
       // Admin routes
@@ -427,7 +412,6 @@ class AppRouter {
           GoRoute(
             path: '/admin/users/:userId',
             builder: (context, state) {
-              final userId = state.pathParameters['userId'];
               final user = state.extra as AppUser?;
 
               if (user == null) {
@@ -437,6 +421,21 @@ class AppRouter {
               }
 
               return UserDetailPage(user: user);
+            },
+          ),
+          GoRoute(
+            path: '/admin/resellers/:userId',
+            builder: (context, state) {
+              final reseller = state.extra as AppUser?;
+
+              if (reseller == null) {
+                // Handle case where reseller data is not provided
+                // Redirect back to user management page
+                return const UserManagementPage();
+              }
+
+              // Remove the ResellerDetailPage route since it's been deleted
+              return const UserManagementPage();
             },
           ),
           GoRoute(
@@ -455,12 +454,21 @@ class AppRouter {
             },
           ),
           GoRoute(
-            path: '/admin/opportunities',
-            builder: (context, state) => const AdminOpportunitiesPage(),
+            path: '/admin/home',
+            pageBuilder:
+                (context, state) => const NoTransitionPage(
+                  child: AdminLayout(
+                    child: AdminHomePage(),
+                    pageTitle: 'Admin Dashboard',
+                  ),
+                ),
           ),
           GoRoute(
-            path: '/admin/services',
-            builder: (context, state) => const AdminSubmissionsPage(),
+            path: '/admin/opportunities',
+            pageBuilder:
+                (context, state) => const NoTransitionPage(
+                  child: OpportunityVerificationPage(),
+                ),
           ),
         ],
       ),
@@ -472,8 +480,8 @@ class AppRouter {
         builder: (context, state) {
           final clientData = state.extra as Map<String, dynamic>;
           return MainLayout(
-            child: ClientDetailsPage(clientData: clientData),
             currentIndex: 0,
+            child: ClientDetailsPage(clientData: clientData),
           );
         },
       ),
@@ -484,11 +492,11 @@ class AppRouter {
           final servicesPageKey = GlobalKey<ServicesPageState>();
 
           return MainLayout(
+            currentIndex: 1,
             child: ServicesPage(
               key: servicesPageKey,
               preFilledData: preFilledData,
             ),
-            currentIndex: 1,
           );
         },
       ),
@@ -498,8 +506,8 @@ class AppRouter {
         builder: (context, state) {
           final proposalData = state.extra as Map<String, dynamic>;
           return MainLayout(
-            child: ProposalDetailsPage(proposalData: proposalData),
             currentIndex: 0,
+            child: ProposalDetailsPage(proposalData: proposalData),
           );
         },
       ),
@@ -508,8 +516,8 @@ class AppRouter {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           return MainLayout(
-            child: const DocumentSubmissionPage(),
             currentIndex: 2,
+            child: const DocumentSubmissionPage(),
           );
         },
       ),
@@ -519,13 +527,13 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return MainLayout(
+            currentIndex: 0,
             child: RejectionDetailsPage(
               submissionId: id,
               rejectionReason: 'Missing document information',
               rejectionDate: DateTime.now(),
               isPermanentRejection: false,
             ),
-            currentIndex: 0,
           );
         },
       ),
@@ -535,8 +543,8 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return MainLayout(
-            child: ResubmissionFormPage(submissionId: id),
             currentIndex: 1,
+            child: ResubmissionFormPage(submissionId: id),
           );
         },
       ),
@@ -544,7 +552,7 @@ class AppRouter {
         path: '/dashboard',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
-          return MainLayout(child: const DashboardPage(), currentIndex: 3);
+          return MainLayout(currentIndex: 3, child: const DashboardPage());
         },
       ),
       GoRoute(
@@ -552,9 +560,17 @@ class AppRouter {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           return MainLayout(
-            child: const SalesforceSetupPage(),
             currentIndex: 3,
+            child: const SalesforceSetupPage(),
           );
+        },
+      ),
+      GoRoute(
+        path: '/submissions/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final submissionId = state.pathParameters['id'] ?? '';
+          return SubmissionDetailPage(submissionId: submissionId);
         },
       ),
     ],

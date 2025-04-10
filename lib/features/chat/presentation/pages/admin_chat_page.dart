@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +7,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'dart:async';
 import '../../../../core/theme/theme.dart';
-import '../../../../core/theme/text_styles.dart';
 import '../../../../core/theme/ui_styles.dart';
-import '../../../../core/theme/colors.dart';
 import '../../domain/models/chat_conversation.dart';
 import '../providers/chat_provider.dart';
 import 'chat_page.dart';
@@ -47,8 +44,6 @@ class AdminChatPage extends ConsumerStatefulWidget {
 class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   // State variable to track if we're showing only active conversations
   bool _showOnlyActive = true;
-  double _dragPosition = 0; // 0 = Active tab, 1 = All tab
-  bool _isDragging = false;
 
   // Search query
   final TextEditingController _searchController = TextEditingController();
@@ -87,12 +82,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     });
   }
 
-  void _toggleActiveFilter() {
-    setState(() {
-      _showOnlyActive = !_showOnlyActive;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -111,10 +100,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
         titleSpacing: 24,
         title: Text(
           l10n.messagesPageTitle,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
+          style: theme.textTheme.titleLarge,
           textAlign: TextAlign.left,
         ),
       ),
@@ -1049,7 +1035,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
         },
         onSelected: (String value) {
           if (value == 'clear') {
-            _showResetConfirmation(context, conversation, reseller['name']);
+            _showClearConfirmation(context, conversation, reseller['name']);
           } else if (value == 'delete') {
             _showDeleteConfirmation(context, conversation, reseller['name']);
           }
@@ -1159,7 +1145,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               Navigator.of(
                                 context,
                               ).pop(); // Close the modal first
-                              _showResetConfirmation(
+                              _showClearConfirmation(
                                 context,
                                 conversation,
                                 reseller['name'],
@@ -1244,34 +1230,34 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   }
 
   // Update the confirmation dialogs to match the style
-  void _showResetConfirmation(
+  void _showClearConfirmation(
     BuildContext context,
     ChatConversation? conversation,
     String resellerName,
   ) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             backgroundColor: Colors.white,
-            title: Text(
+            title: const Text(
               'Clear Conversation',
               style: TextStyle(color: Colors.black87),
             ),
             content: Text(
-              'Are you sure you want to clear all messages with ${resellerName}?',
-              style: TextStyle(color: Colors.black54),
+              'Are you sure you want to clear all messages with $resellerName?',
+              style: const TextStyle(color: Colors.black54),
             ),
             actions: [
               TextButton(
-                child: Text('Cancel'),
+                child: const Text('Cancel'),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               TextButton(
-                child: Text('Clear', style: TextStyle(color: Colors.blue)),
+                child: const Text(
+                  'Clear',
+                  style: TextStyle(color: Colors.blue),
+                ),
                 onPressed: () {
                   Navigator.of(context).pop();
                   _resetConversation(context, conversation?.id, resellerName);
@@ -1288,29 +1274,29 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     ChatConversation? conversation,
     String resellerName,
   ) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
     showDialog(
       context: context,
       builder:
           (context) => AlertDialog(
             backgroundColor: Colors.white,
-            title: Text(
+            title: const Text(
               'Delete Conversation',
               style: TextStyle(color: Colors.black87),
             ),
             content: Text(
-              'Are you sure you want to permanently delete your conversation with ${resellerName}?',
-              style: TextStyle(color: Colors.black54),
+              'Are you sure you want to permanently delete your conversation with $resellerName?',
+              style: const TextStyle(color: Colors.black54),
             ),
             actions: [
               TextButton(
-                child: Text('Cancel'),
+                child: const Text('Cancel'),
                 onPressed: () => Navigator.of(context).pop(),
               ),
               TextButton(
-                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onPressed: () {
                   Navigator.of(context).pop();
                   _deleteConversation(context, conversation?.id, resellerName);
@@ -1380,7 +1366,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error resetting conversation: ${e.toString()}'),
+            content: Text('Error resetting conversation: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1446,7 +1432,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting conversation: ${e.toString()}'),
+            content: Text('Error deleting conversation: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1625,6 +1611,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                   conversationId: conversationId,
                   title: reseller['name'] ?? 'Chat',
                   isAdminView: true,
+                  showAppBar: true,
                 ),
           ),
         );
@@ -1637,10 +1624,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       // Show error message if context is still valid
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }

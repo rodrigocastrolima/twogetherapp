@@ -1,0 +1,96 @@
+---
+description: 
+globs: 
+---
+🚩 Implementation Plan for Opportunity Submission Workflow
+
+Overview:
+We’re implementing a structured submission workflow for Salesforce Opportunity creation, involving two main roles: Resellers and Backoffice.
+
+✅ Overall Workflow:
+
+Reseller Submission
+
+Resellers fill out a simplified submission form:
+
+Entity Name
+
+NIF
+
+Invoice (PDF/Image)
+
+The submission is temporarily stored in Firebase with the following structure:
+
+{
+  "companyName": "Entity Name",
+  "nif": "NIF Number",
+  "invoicePhotoUrl": "URL to Firebase Storage File",
+  "resellerId": "Reseller Firebase ID",
+  "resellerName": "Reseller Name",
+  "status": "pending_review",
+  "submissionTimestamp": "Timestamp"
+}
+
+Backoffice Verification Page
+
+Backoffice accesses a verification page showing a form identical to Salesforce's "Retail Opportunity" form.
+
+The form fields need to be exactly as displayed on the Salesforce Opportunity page (Claude must replicate the Salesforce UI fields precisely).
+
+Auto-filled fields (from reseller submission & current date):
+
+Opportunity Name ([Entity Name]_[Submission Timestamp])
+
+Entity Name
+
+NIF
+
+Creation Date (current date)
+
+Retail Agent (linked to resellerId/resellerName)
+
+Invoice preview (clickable link to the Firebase Storage URL)
+
+Backoffice admins must fill or confirm all remaining required fields. All fields should remain editable, including auto-filled ones.
+
+Salesforce Submission
+
+After verification and completion of required fields by the backoffice, the opportunity data and invoice file are submitted to Salesforce through API integration.
+
+Opportunity creation via Salesforce API (Oportunidade__c).
+
+Invoice file uploaded to Salesforce Files and linked to the newly created Opportunity.
+
+Finalization
+
+Upon successful submission to Salesforce:
+
+Delete the submission data from Firebase.
+
+Optionally, store the Salesforce Opportunity ID for tracking purposes.
+
+📌 Technical Implementation Notes (Claude 3.7):
+
+Frontend (Flutter):
+
+Create the Backoffice verification UI mirroring Salesforce's Opportunity page layout exactly.
+
+Ensure dynamic autofill capabilities and manual field overrides.
+
+Backend (Firebase Cloud Functions):
+
+Implement API calls to Salesforce:
+
+Verify existing Account with NIF via SOQL.
+
+Submit Opportunity (Oportunidade__c) creation.
+
+Handle file upload (ContentVersion and ContentDocumentLink).
+
+Robust error handling and logging are mandatory.
+
+Firebase Management:
+
+Delete verified submissions from Firebase after successful Salesforce upload.
+
+This structured approach ensures a clean separation of concerns, robust workflow management, and seamless integration between resellers, backoffice, and Salesforce.

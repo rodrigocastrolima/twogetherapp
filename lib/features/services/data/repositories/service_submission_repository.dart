@@ -10,8 +10,15 @@ import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import '../../../notifications/data/repositories/notification_repository.dart';
+import '../../../../core/models/notification.dart';
+
+// Callback type for notification creation
+typedef NotificationCreationCallback = void Function();
 
 class ServiceSubmissionRepository {
+  // Static callback that can be set to refresh notifications when created
+  static NotificationCreationCallback? onNotificationCreated;
+
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -53,10 +60,20 @@ class ServiceSubmissionRepository {
   // Save a new service submission
   Future<String> saveSubmission(ServiceSubmission submission) async {
     try {
+      if (kDebugMode) {
+        print('Starting submission save process...');
+      }
+
       // Ensure we have the current user data
       final userData = await getCurrentUserData();
       if (userData == null) {
         throw Exception('User data not found');
+      }
+
+      if (kDebugMode) {
+        print(
+          'Got user data, user: ${userData['displayName']}, role: ${userData['role']}',
+        );
       }
 
       // Create a submission with the current user's data
@@ -65,15 +82,38 @@ class ServiceSubmissionRepository {
         resellerName: userData['displayName'] ?? 'Unknown Reseller',
       );
 
+      if (kDebugMode) {
+        print('Saving submission to Firestore...');
+      }
+
       // Save to Firestore
       final docRef = await _submissionsCollection.add(
         updatedSubmission.toFirestore(),
       );
 
+      // Get the new document ID
+      final submissionId = docRef.id;
+
+      if (kDebugMode) {
+        print('Submission created with ID: $submissionId');
+        print('Creating admin notification for submission...');
+      }
+
+      // Create notification for admins about the new submission
+      await _createSubmissionNotification(
+        submissionId,
+        updatedSubmission.resellerName,
+        updatedSubmission.responsibleName,
+        updatedSubmission.serviceCategory.displayName,
+      );
+
       // Return the new document ID
-      return docRef.id;
+      return submissionId;
     } catch (e) {
-      debugPrint('Error saving submission: $e');
+      if (kDebugMode) {
+        print('Error saving submission: $e');
+        print('Stack trace: ${StackTrace.current}');
+      }
       throw Exception('Failed to save submission: $e');
     }
   }
@@ -409,6 +449,14 @@ class ServiceSubmissionRepository {
     // 7. Write to Firestore
     await docRef.set(submission.toFirestore());
 
+    // Create notification for admins about the new submission
+    await _createSubmissionNotification(
+      submissionId,
+      resellerName,
+      submission.responsibleName,
+      submission.serviceCategory.displayName,
+    );
+
     // 8. Return the submission ID
     return submissionId;
   }
@@ -436,6 +484,147 @@ class ServiceSubmissionRepository {
     } catch (e) {
       debugPrint('Error getting submission by ID: $e');
       throw Exception('Failed to get submission: $e');
+    }
+  }
+
+  // Create a helper method to ensure notification creation works consistently
+  Future<void> _createSubmissionNotification(
+    String submissionId,
+    String resellerName,
+    String clientName,
+    String serviceType,
+  ) async {
+    if (kDebugMode) {
+      print('========== NOTIFICATION CREATION START ==========');
+      print('Creating admin notification for submission: $submissionId');
+      print(
+        'Notification details: resellerName=$resellerName, clientName=$clientName, serviceType=$serviceType',
+      );
+    }
+
+    try {
+      // Ensure we have the current user data to use as the resellerId
+      final resellerId = currentUserId;
+
+      if (resellerId == null) {
+        if (kDebugMode) {
+          print('ERROR: Current user ID is null, cannot create notification');
+        }
+        return;
+      }
+
+      if (kDebugMode) {
+        print('Using resellerId for notification: $resellerId');
+        print('Creating NotificationRepository instance');
+      }
+
+      final notificationRepo = NotificationRepository();
+
+      if (kDebugMode) {
+        print('Calling createNewSubmissionNotification on repository');
+        print(
+          'Parameters: submissionId=$submissionId, resellerName=$resellerName, clientName=$clientName, serviceType=$serviceType',
+        );
+        // Verify NotificationType.newSubmission exists
+        print(
+          'NotificationType.newSubmission = ${NotificationType.newSubmission.toString()}',
+        );
+        print(
+          'Which translates to string value: ${NotificationType.newSubmission.toString().split('.').last}',
+        );
+      }
+
+      final notificationId = await notificationRepo
+          .createNewSubmissionNotification(
+            submissionId: submissionId,
+            resellerName: resellerName,
+            clientName: clientName,
+            serviceType: serviceType,
+          );
+
+      if (notificationId.isEmpty) {
+        if (kDebugMode) {
+          print(
+            'WARNING: Notification creation returned empty ID, possible permission issue',
+          );
+          print(
+            'The submission was created successfully, but the notification may have failed',
+          );
+          print(
+            'You can manually check the admin dashboard for the submission',
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print('SUCCESSFULLY created notification with ID: $notificationId');
+          // Add diagnostic information for troubleshooting
+          print(
+            'DEBUG: Notification created successfully. Please check the admin dashboard',
+          );
+          print('DEBUG: For the notification to appear properly, ensure:');
+          print(
+            'DEBUG: 1. NotificationType.newSubmission is set correctly (${NotificationType.newSubmission})',
+          );
+          print(
+            'DEBUG: 2. Admin users are properly set up with role="admin" in Firestore',
+          );
+          print(
+            'DEBUG: 3. getAdminSubmissionNotifications() is querying correctly',
+          );
+
+          // Verify a notification exists in Firestore with this type
+          try {
+            final snapshot =
+                await _firestore
+                    .collection('notifications')
+                    .where('type', isEqualTo: 'newSubmission')
+                    .limit(1)
+                    .get();
+
+            print(
+              'DEBUG: Verification query found ${snapshot.docs.length} matching notifications',
+            );
+            if (snapshot.docs.isNotEmpty) {
+              print(
+                'DEBUG: Sample notification data: ${snapshot.docs.first.data()}',
+              );
+            }
+          } catch (e) {
+            print('DEBUG: Verification query failed: $e');
+          }
+        }
+      }
+
+      // Trigger the onNotificationCreated callback if set
+      if (onNotificationCreated != null) {
+        if (kDebugMode) {
+          print('Triggering notification refresh callback');
+        }
+        onNotificationCreated!();
+      }
+    } catch (e) {
+      // Don't fail the submission creation if notification fails
+      if (kDebugMode) {
+        print('ERROR creating notification: $e');
+        print('Exception type: ${e.runtimeType}');
+        print('Stack trace: ${StackTrace.current}');
+
+        if (e.toString().contains('permission')) {
+          print(
+            'PERMISSION ERROR: This is likely a Firestore security rule issue.',
+          );
+          print(
+            'The notification could not be created due to permission restrictions.',
+          );
+          print(
+            'Ensure your security rules allow system notifications to be created.',
+          );
+        }
+      }
+    } finally {
+      if (kDebugMode) {
+        print('========== NOTIFICATION CREATION END ==========');
+      }
     }
   }
 }

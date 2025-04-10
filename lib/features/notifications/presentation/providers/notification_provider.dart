@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/models/notification.dart';
 import '../../data/repositories/notification_repository.dart';
 
@@ -17,6 +18,42 @@ final userNotificationsProvider = StreamProvider<List<UserNotification>>((ref) {
 final unreadNotificationsCountProvider = StreamProvider<int>((ref) {
   final repository = ref.watch(notificationRepositoryProvider);
   return repository.getUnreadNotificationsCount();
+});
+
+// Counter for generating refresh tokens
+final _notificationRefreshCounterProvider = StateProvider<int>((ref) => 0);
+
+// Stream provider for admin's submission notifications with manual refresh capability
+final adminSubmissionNotificationsProvider =
+    StreamProvider.family<List<UserNotification>, int>((ref, refreshToken) {
+      final repository = ref.watch(notificationRepositoryProvider);
+      if (kDebugMode) {
+        print('Fetching admin notifications with refresh token: $refreshToken');
+      }
+      return repository.getAdminSubmissionNotifications();
+    });
+
+// Auto-refreshable version of the admin submission notifications provider
+final refreshableAdminSubmissionsProvider =
+    Provider<AsyncValue<List<UserNotification>>>((ref) {
+      final refreshToken = ref.watch(_notificationRefreshCounterProvider);
+      return ref.watch(adminSubmissionNotificationsProvider(refreshToken));
+    });
+
+// Method to trigger a refresh of admin notifications
+void refreshAdminNotifications(WidgetRef ref) {
+  ref.read(_notificationRefreshCounterProvider.notifier).state++;
+  if (kDebugMode) {
+    print('Admin notifications refresh triggered');
+  }
+}
+
+// Stream provider for unread admin submission notifications count
+final unreadAdminSubmissionsCountProvider = StreamProvider<int>((ref) {
+  final repository = ref.watch(notificationRepositoryProvider);
+  return repository.getAdminSubmissionNotifications().map(
+    (notifications) => notifications.where((n) => !n.isRead).length,
+  );
 });
 
 // Provider functions for notification actions

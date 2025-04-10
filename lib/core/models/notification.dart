@@ -1,6 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
-enum NotificationType { statusChange, rejection, payment, system }
+enum NotificationType {
+  statusChange,
+  rejection,
+  payment,
+  system,
+  newSubmission,
+}
 
 class UserNotification {
   final String id;
@@ -61,11 +68,19 @@ class UserNotification {
 
   // Convert to Firestore data
   Map<String, dynamic> toFirestore() {
+    final typeString = type.toString().split('.').last;
+
+    if (kDebugMode) {
+      print(
+        'Converting notification type to string: ${type.toString()} -> $typeString',
+      );
+    }
+
     return {
       'userId': userId,
       'title': title,
       'message': message,
-      'type': type.toString().split('.').last,
+      'type': typeString,
       'createdAt': FieldValue.serverTimestamp(),
       'isRead': isRead,
       'metadata': metadata,

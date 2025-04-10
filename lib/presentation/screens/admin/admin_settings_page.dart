@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../../core/providers/locale_provider.dart';
 import '../../../core/theme/ui_styles.dart';
 import '../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
+import '../../../core/services/loading_service.dart';
 
 class AdminSettingsPage extends ConsumerStatefulWidget {
   const AdminSettingsPage({super.key});
@@ -30,7 +32,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     final localeNotifier = ref.watch(localeProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onBackground;
+    final textColor = theme.colorScheme.onSurface;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -138,9 +140,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               l10n.profileEndSession,
               CupertinoIcons.square_arrow_right,
               () {
-                _handleLogout(context);
+                _handleLogout(context, ref);
               },
-              color: theme.colorScheme.error,
+              color: Theme.of(context).colorScheme.error,
             ),
           ]),
         ],
@@ -160,7 +162,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 16),
@@ -317,13 +319,19 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   style: TextStyle(color: theme.colorScheme.onSurface),
                   onChanged: (String? value) async {
                     if (value != null) {
-                      print("Changing language to: $value");
+                      if (kDebugMode) {
+                        print("Changing language to: $value");
+                      }
                       try {
                         // Make sure to await the setLocale call
                         await localeNotifier.setLocale(value);
-                        print("Language changed successfully to: $value");
+                        if (kDebugMode) {
+                          print("Language changed successfully to: $value");
+                        }
                       } catch (e) {
-                        print("Error changing language: $e");
+                        if (kDebugMode) {
+                          print("Error changing language: $e");
+                        }
                       }
                     }
                   },
@@ -409,13 +417,13 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     );
   }
 
-  void _handleLogout(BuildContext context) {
+  void _handleLogout(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
@@ -432,7 +440,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 style: TextButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,
                 ),
@@ -440,9 +448,37 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               ),
               FilledButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
+
+                  // Show loading overlay during sign out
+                  final loadingService = ref.read(loadingServiceProvider);
+                  loadingService.show(
+                    context,
+                    message: 'Signing out...',
+                    showLogo: true,
+                  );
+
                   // Set authenticated to false and redirect to login
-                  AppRouter.authNotifier.setAuthenticated(false);
+                  AppRouter.authNotifier
+                      .setAuthenticated(false)
+                      .then((_) {
+                        // Hide loading overlay only if widget is still mounted
+                        if (mounted) {
+                          loadingService.hide();
+                        }
+                      })
+                      .catchError((error) {
+                        // Hide on error only if widget is still mounted
+                        if (mounted) {
+                          loadingService.hide();
+                          // Show error message
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error signing out: $error'),
+                            ),
+                          );
+                        }
+                      });
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.error,
@@ -463,7 +499,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
@@ -517,7 +553,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 style: TextButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,
                 ),
@@ -525,9 +561,11 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               ),
               FilledButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(dialogContext).pop();
                   // Show export success dialog
-                  _showExportSuccessDialog(context);
+                  if (mounted) {
+                    _showExportSuccessDialog(context);
+                  }
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
@@ -548,7 +586,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
@@ -571,7 +609,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
             actions: [
               FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: theme.colorScheme.onPrimary,

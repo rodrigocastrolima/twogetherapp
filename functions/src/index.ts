@@ -13,11 +13,12 @@ import * as admin from "firebase-admin";
 import { cleanupExpiredMessages } from './messageCleanup';
 import { onNewMessageNotification } from './notifications';
 import { removeRememberMeField } from './removeRememberMeField';
-import * as jwt from "jsonwebtoken"; // For JWT generation
-import axios from "axios"; // For HTTP requests
+import * as jwt from 'jsonwebtoken'; // Added for JWT generation
+import axios from 'axios'; // Added for HTTP requests
 // Import v2 Firestore triggers
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import * as functions from 'firebase-functions';
+import * as jsforce from 'jsforce'; // For Salesforce connection
+// import { Storage } from "@google-cloud/storage"; // Not needed if using admin.storage()
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -607,113 +608,326 @@ export const deleteUser = onCall({
   }
 });
 
+// Define the expected input data structure from Flutter
+interface OpportunityInputData {
+  Name: string;
+  NIF__c: string;
+  Segmento_de_Cliente__c: string;
+  Solu_o__c: string;
+  Data_de_Previs_o_de_Fecho__c: string; // Expecting 'YYYY-MM-DD' format
+  agenteRetailSalesforceId: string; // Expecting the User ID
+  tipoOportunidadeValue: string; // 'Angariada Energia' or 'Angariada Solar'
+  originalSubmissionId: string;
+  invoiceStoragePath?: string; // Optional
+}
+
+// Define the expected return structure (Moved Before Usage & Renamed)
+interface OpportunityCreationResult {
+  success: boolean;
+  opportunityId?: string;
+  error?: string;
+  errorCode?: string; // Optional Salesforce error code
+}
+
 // Callable function triggered by your Flutter app
-export const getSalesforceAccessToken = onCall(
+export const createSalesforceOpportunity = onCall(
   {
     // Optional: Enforce authentication if only logged-in users should trigger this
     // enforceAppCheck: true, // Recommended for production
+    region: "us-central1", // Specify region consistently
   },
-  async (request: any) => {
-    // --- 1. Try to access environment variables directly ---
-    // Log all environment variables to see what's available
-    logger.info("Environment variables available:");
-    for (const key in process.env) {
-      if (key.includes('SALESFORCE') || key.includes('salesforce')) {
-        logger.info(`Found key: ${key}`);
-      }
+  async (request): Promise<OpportunityCreationResult> => { // Update return type annotation
+
+    const data = request.data as OpportunityInputData; // Assert type here after checks
+    const contextAuth = request.auth; // Use context for auth info
+
+    // --- 1. Authentication/Authorization Check --- 
+    // Simplified check - implement proper role check later
+    if (!contextAuth) {
+      logger.error("Unauthenticated call");
+      throw new HttpsError(
+        "unauthenticated",
+        "The function must be called while authenticated."
+      );
+    }
+    // TODO: Add check if the caller is a 'backoffice' user
+    logger.info(`Function called by UID: ${contextAuth.uid}`);
+    logger.info("Received data:", data);
+
+    // --- 2. Input Validation ---
+    // (Validation logic remains the same)
+    if (!data.Name || !data.NIF__c || !data.Segmento_de_Cliente__c ||
+        !data.Solu_o__c || !data.Data_de_Previs_o_de_Fecho__c ||
+        !data.agenteRetailSalesforceId || !data.tipoOportunidadeValue ||
+        !data.originalSubmissionId) {
+      logger.error("Missing required input data.", data);
+      throw new HttpsError(
+        "invalid-argument",
+        "Missing required fields in the input data."
+      );
     }
 
-    // Try different ways to access the Salesforce config
-    const privateKey1 = process.env.SALESFORCE_PRIVATE_KEY;
-    const privateKey2 = process.env.salesforce_private_key;
-    
-    // Log what we found
-    logger.info(`SALESFORCE_PRIVATE_KEY: ${Boolean(privateKey1)}`);
-    logger.info(`salesforce_private_key: ${Boolean(privateKey2)}`);
+    // --- 3. Salesforce Connection and Login --- 
+    // Using OAuth 2.0 JWT Bearer Flow with hardcoded credentials
 
-    // For now, use the directly configured values since we're troubleshooting
+    // Hardcoded JWT configuration (Restored by User)
     const privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDI5faWzetIZTsj\n74D39O/H+uVKmV/yJFrbfG2wFAPFMFhB/C4pA7wQHTx+NPk+I3HOd48ZCj/sy5tp\nRqaVYD76U+lZ/HYS8G5ziyuPmWnHaAgUM3N+eo4cgRn1CYEyxSwZtS9y8ZMqZT6X\nCWXwlc8wW/OWIzazz6HajQf0ZmPM0hLEa85eLcUe6msLMT/FGdk3fw9va3Sa9Uvy\nf+TtolRiIpF9kKedoqLoJ7vR69WoTxF83rqNdI3n5M0UDRLQn+0LmT9IEday8wCh\nXxgD5mvcK1/GhZppYeDB5BJfuEF/UNgZuFEDZ7qbiS4zZd3d0gR6t3wVqJ7/ZAy0\nTeyRhfQ7AgMBAAECggEADJf2/0tlSv3v2SWz1fvxnTSFc7dtpAZAiq7pSVuOshc3\nvtsus+HI6IiMpocAvEVRr55ENLzHds17ifvt0WbLcHHRmG7Jolkoqjhvd3y6M2Io\nHTU2w/KtrDV6d14sTlfh4CBliMddug9+I4WycV/lDMkEkOmye08f6gQ+9o28mP8b\nbYkQXPIAZW5OZr8fls3zZzEbbnZmTVfoZKbUlmBqrgPDMZirEXwMQ/R4wjjvfBPi\nol7AFOfONg5L5Sj2rzjUTyvvI7TRmjCyBHYOMzDzFAp4PLPkvcgxx3RBtEUNA1D6\nPekWZ1N67cCsVKtleiiZs/r5tR1uD49as7mTQcwZ4QKBgQD3zLAz+0tpiIH6B0rm\npRCihClHA0QLIwzD1dJaS8p52hWGEt6oXITeoKgdSPC5drP7nqY6de880GyL2wT1\n2vV1PjEd5J8ybmjTZNzTOqQZICKD+S+yItlxLK3eS/0Mjh5DOm3xxdcBZYllMmjQ\nj2kms0Vop+7g6HFoS9M0qZyQmQKBgQDPi++mVP4MShfNDGLdSWw5o15zOQg5wKi9\nT3L6oax9NoSTKCdM1WMy9wh3wDonVEX5i0+5URZZAVNsAODrQgDGLKRAiCTYx4Da\nN3dCqTrPnpRsMEfXZmWRYOJh6B5UTqr2XRSDkeitBw7FTlhOCGaGXLScMPrCfydp\n+u74Evcr8wKBgQDDWzCy2nN6kK7/wc4QBaQWq6CrJmz3ZruCjMjYfRX0eLUtTSUS\nkFYD+Z5v7/gwDuAYB9w/DIj+Zcadf57qgKOwucYZLgs/xAGKXuMk9/80+7uaVdJ/\nWrAYZEPyk++8fTJoh+DzkahOppDqIhK2EcmxQ/X9ax+NWlNGCTlKNEmFSQKBgBmJ\nnnNZAemBNGyGmaOg5TAyaezDl7+DdT/WBs/QFOlTS/zPdAaAOzSKMQCLJpywQevy\nuFyVHarV/u3LLeHEvVOlKpDGL8J8yd4P9Ry+tf3WBW1Kg4x9jQHWagSiCxlUlLS7\nv0pxKbAgrjCY80Smw/bEcXTGkhRckPz5Y24i50cBAoGAH2rR6CrP8VrbASBznlZR\nnG6OdGobipwixhd/Tsfk2btnoMzd3JDjBZ+lV+Euk8ly/yH/nlj2qqpUPIwxeP/b\nOuQiu2bYNtJbNLczJy7Kpty6Gs8Xd5nMiLQ/pwd/gSw7Bu8q5h6Xwl2++kDm78BW\nb6q2Af1snitBZO0xbv6mOtA=\n-----END PRIVATE KEY-----";
     const consumerKey = "3MVG9T46ZAw5GTfWlGzpUr1bL14rAr48fglmDfgf4oWyIBerrrJBQz21SWPWmYoRGJqBzULovmWZ2ROgCyixB";
     const salesforceUsername = "integration@twogetherretail.com";
     const tokenEndpoint = "https://login.salesforce.com/services/oauth2/token";
     const audience = "https://login.salesforce.com";
 
-    logger.info("Using hardcoded configuration for testing.");
+    // Define connection variable here, to be initialized after auth
+    let conn: jsforce.Connection;
 
-    // --- 2. Generate JWT ---
-    const expiry = Math.floor(Date.now() / 1000) + 3 * 60; // Expires in 3 minutes
-    const claims = {
-      iss: consumerKey,
-      sub: salesforceUsername,
-      aud: audience,
-      exp: expiry,
-    };
-
-    let signedJwt: string;
     try {
-      // Need to replace literal newlines if stored in simple env var
-      const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
-      signedJwt = jwt.sign(claims, formattedPrivateKey, {algorithm: "RS256"});
-      logger.info("JWT generated successfully.");
-    } catch (error) {
-      logger.error("Error signing JWT:", error);
-      // Log the specific error message if available
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error("JWT Signing Error Detail:", errorMessage);
-      // Check if the error is related to key format
-      if (errorMessage.includes("PEM routines") || errorMessage.includes("bad base64 decode")) {
-           logger.error("Potential issue with private key format. Ensure it includes headers/footers and correct line breaks.");
-      }
-      throw new HttpsError(
-        "internal",
-        "Failed to generate authentication token. Check function logs."
-      );
-    }
+      // Generate JWT
+      logger.info('Generating JWT for Salesforce...');
+      const claim = {
+        iss: consumerKey,
+        sub: salesforceUsername,
+        aud: audience,
+        exp: Math.floor(Date.now() / 1000) + (3 * 60) // Expires in 3 minutes
+      };
+      const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
 
-    // --- 3. Exchange JWT for Access Token ---
-    try {
-      const params = new URLSearchParams();
-      params.append("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer");
-      params.append("assertion", signedJwt);
-
-      logger.info(`Sending request to token endpoint: ${tokenEndpoint}`);
-      
-      const response = await axios.post(tokenEndpoint, params, {
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+      // Request Access Token from Salesforce
+      logger.info('Requesting Salesforce access token using JWT...');
+      const tokenResponse = await axios.post(tokenEndpoint, new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion: token
+      }).toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
 
-      if (response.status === 200 && response.data.access_token) {
-        logger.info("Salesforce access token obtained successfully.");
-        // !!! TEMPORARY DEBUG LOGGING - REMOVE BEFORE PRODUCTION !!!
-        logger.info(`DEBUG: Salesforce Access Token: ${response.data.access_token}`);
-        // !!! END TEMPORARY DEBUG LOGGING !!!
-        
-        // Return only necessary info to the client
+      const { access_token, instance_url } = tokenResponse.data;
+
+      if (!access_token || !instance_url) {
+        logger.error('Failed to retrieve access token or instance URL from Salesforce.', tokenResponse.data);
+        throw new HttpsError('internal', 'Salesforce JWT authentication failed: Missing token/URL.');
+      }
+
+      logger.info('Salesforce JWT authentication successful. Instance URL:', instance_url);
+
+      // Initialize jsforce connection with the obtained token and URL
+      conn = new jsforce.Connection({
+        instanceUrl: instance_url,
+        accessToken: access_token
+      });
+
+      // --- Rest of the function using the authenticated 'conn' object ---
+
+      // 4. Fetch Required Salesforce IDs
+      let retailRecordTypeId: string | null = null;
+      let accountId: string | null = null;
+      // Get Integration User ID from environment variable (still needed for OwnerId)
+      // const sfIntegrationUserId = process.env.SALESFORCE_INTEGRATION_USER_ID;
+      // if (!sfIntegrationUserId) {
+      //   logger.error('Environment variable SALESFORCE_INTEGRATION_USER_ID is missing.');
+      //   return {
+      //     success: false,
+      //     error: 'Internal Server Error: Salesforce Integration User ID configuration missing.',
+      //   };
+      // }
+      // Use hardcoded ID for now (as requested)
+      const integrationUserId = "005MI00000T7DFxYAN";
+
+      // Get Retail Record Type ID
+      try {
+        logger.info("Fetching Retail Record Type ID...");
+        const rtQuery = `SELECT Id FROM RecordType WHERE SobjectType = 'Oportunidade__c' AND DeveloperName = 'Retail' LIMIT 1`;
+        const rtResult = await conn.query<{ Id: string }>(rtQuery);
+        if (rtResult.records && rtResult.records.length > 0) {
+          retailRecordTypeId = rtResult.records[0].Id;
+          logger.info("Found Retail Record Type ID:", retailRecordTypeId);
+        } else {
+          logger.error("Retail Record Type not found for Oportunidade__c.");
+          return {success: false, error: "Salesforce Config Error: Retail Record Type not found."};
+        }
+      } catch (err: any) {
+        logger.error("Error fetching Record Type ID:", err);
+        return {success: false, error: `Failed to fetch Record Type ID: ${err.message || err}`};
+      }
+
+      // Get Account ID based on NIF
+      try {
+        logger.info(`Fetching Account ID for NIF: ${data.NIF__c}...`);
+        // Refined Type: jsforce returns Records which might have undefined fields
+        // Try using "Accounts" based on user feedback/error message nuance
+        const accResult = await conn.sobject("Accounts")
+            .find({ NIF__c: data.NIF__c }, 'Id') // Select only Id field
+            .limit(1)
+            .execute(); // Returns Array<Record>, where Record fields can be undefined
+
+        // Check if results exist and the first record has a valid Id
+        if (accResult && accResult.length > 0 && typeof accResult[0].Id === 'string' && accResult[0].Id) {
+          accountId = accResult[0].Id;
+          logger.info("Found existing Account ID:", accountId);
+        } else {
+          logger.warn(`Account not found for NIF: ${data.NIF__c} or Id was invalid. Opportunity creation halted.`);
+          return {
+             success: false,
+             error: `No Account found in Salesforce with NIF: ${data.NIF__c}. Please create or verify the Account first.`,
+             errorCode: "ACCOUNT_NOT_FOUND", 
+           };
+        }
+      } catch (err: any) {
+        logger.error("Error fetching Account ID:", err);
+        return {success: false, error: `Failed to fetch Account ID: ${err.message || err}`};
+      }
+
+      logger.info("Successfully fetched all required IDs:", { retailRecordTypeId, accountId, integrationUserId });
+
+      // 5. Prepare Opportunity Payload
+      const currentDate = new Date().toISOString().split('T')[0]; 
+      const opportunityPayload = {
+        Name: data.Name,
+        AccountId: accountId, 
+        RecordTypeId: retailRecordTypeId, 
+        OwnerId: integrationUserId, 
+        NIF__c: data.NIF__c,
+        Fase__c: "0 - Oportunidade Identificada", 
+        Tipo_de_Oportunidade__c: data.tipoOportunidadeValue,
+        Segmento_de_Cliente__c: data.Segmento_de_Cliente__c,
+        Agente_Retail__c: data.agenteRetailSalesforceId,
+        Solu_o__c: data.Solu_o__c,
+        Data_de_Previs_o_de_Fecho__c: data.Data_de_Previs_o_de_Fecho__c,
+        Data_de_Cria_o_da_Oportunidade__c: currentDate,
+        Data_da_ltima_actualiza_o_de_Fase__c: currentDate,
+      };
+      logger.info("Prepared Opportunity Payload:", opportunityPayload);
+
+      // 6. Create Opportunity Record
+      let newOpportunityId: string | null = null;
+      try {
+        logger.info("Attempting to create Opportunity record...");
+        const createResult = await conn.sobject('Oportunidade__c').create(opportunityPayload);
+        if (createResult.success) {
+          newOpportunityId = createResult.id;
+          logger.info("Successfully created Opportunity record, ID:", newOpportunityId);
+        } else {
+          const errors = (createResult as any).errors?.join("; ") || "Unknown creation error";
+          logger.error("Failed to create Opportunity record:", errors);
+          return {
+             success: false,
+             error: `Salesforce Error: Failed to create Opportunity - ${errors}`,
+             errorCode: "SF_CREATE_FAILED",
+           };
+        }
+      } catch (err: any) {
+        logger.error("Error during Opportunity creation:", err);
+        let sfErrorMessage = err.message || "Unknown error";
+        let sfErrorCode = err.errorCode || "SF_CREATE_EXCEPTION";
+        if (err.name && err.fields) {
+            sfErrorMessage = `${err.name} on fields: ${err.fields.join(", ")} - ${err.message}`;
+        }
         return {
-          access_token: response.data.access_token,
-          instance_url: response.data.instance_url,
+          success: false,
+          error: `Failed to create Opportunity: ${sfErrorMessage}`,
+          errorCode: sfErrorCode,
         };
+      }
+
+      if (!newOpportunityId) {
+         logger.error("Opportunity ID null after creation attempt.");
+         return { success: false, error: "Internal Error: Failed to get Opportunity ID after creation." };
+      }
+
+      // 7. --- Download Invoice & Upload to Salesforce ---
+      if (data.invoiceStoragePath) {
+          logger.info(`Invoice found at path: ${data.invoiceStoragePath}. Attempting download and upload...`);
+          try {
+              // 7.1 Download file from Firebase Storage
+              const bucket = admin.storage().bucket(); // Default bucket
+              const file = bucket.file(data.invoiceStoragePath);
+              const [fileBuffer] = await file.download(); // Returns a Promise<[Buffer]> 
+              logger.info(`Successfully downloaded invoice file buffer (${fileBuffer.length} bytes).`);
+
+              // Extract filename for Salesforce
+              const pathParts = data.invoiceStoragePath.split('/');
+              const filename = pathParts[pathParts.length - 1] || `Invoice_${Date.now()}`;
+
+              // 7.2 Upload ContentVersion to Salesforce
+              logger.info(`Uploading ContentVersion with Title: ${filename}`);
+              const cvResult = await conn.sobject('ContentVersion').create({
+                  Title: filename,
+                  PathOnClient: filename,
+                  VersionData: fileBuffer.toString('base64'), // Base64 encode the buffer
+                  // FirstPublishLocationId: newOpportunityId // Optional: Link immediately if API allows
+              });
+
+              if (!cvResult.success) {
+                  const errors = (cvResult as any).errors?.join("; ") || "ContentVersion upload failed";
+                  logger.error("Failed to upload ContentVersion:", errors);
+                  // Decide if this is a critical failure or just a warning
+                  return { success: false, error: `Opportunity created, but failed to upload invoice: ${errors}`, errorCode: "SF_UPLOAD_CV_FAILED" };
+              }
+              const contentVersionId = cvResult.id;
+              logger.info("Successfully uploaded ContentVersion, ID:", contentVersionId);
+
+              // 7.3 Get ContentDocumentId
+              const cvQuery = `SELECT ContentDocumentId FROM ContentVersion WHERE Id = '${contentVersionId}' LIMIT 1`;
+              const cvQueryResult = await conn.query<{ ContentDocumentId: string }>(cvQuery);
+
+              if (!cvQueryResult.records || cvQueryResult.records.length === 0 || !cvQueryResult.records[0].ContentDocumentId) {
+                  logger.error("Could not retrieve ContentDocumentId for ContentVersion:", contentVersionId);
+                  // Decide if this is a critical failure or just a warning
+                  return { success: false, error: "Opportunity created, but failed to link invoice (missing ContentDocumentId).", errorCode: "SF_LINK_CDID_MISSING" };
+              }
+              const contentDocumentId = cvQueryResult.records[0].ContentDocumentId;
+              logger.info("Retrieved ContentDocumentId:", contentDocumentId);
+
+              // 7.4 Create ContentDocumentLink to link file to Opportunity
+              logger.info(`Linking ContentDocument ${contentDocumentId} to Opportunity ${newOpportunityId}`);
+              const cdlResult = await conn.sobject('ContentDocumentLink').create({
+                  ContentDocumentId: contentDocumentId,
+                  LinkedEntityId: newOpportunityId,
+                  ShareType: 'V', // 'V'iewer access
+                  // Visibility: 'AllUsers' // Or 'InternalUsers' if appropriate
+              });
+
+              if (!cdlResult.success) {
+                  const errors = (cdlResult as any).errors?.join("; ") || "ContentDocumentLink creation failed";
+                  logger.error("Failed to create ContentDocumentLink:", errors);
+                  // Decide if this is a critical failure or just a warning
+                  return { success: false, error: `Opportunity created, but failed to link invoice: ${errors}`, errorCode: "SF_LINK_CDL_FAILED" };
+              }
+              logger.info("Successfully created ContentDocumentLink.");
+
+          } catch (err: any) {
+              logger.error("Error during invoice download/upload:", err);
+              // Decide if this is a critical failure or just a warning
+              return {
+                success: false,
+                error: `Opportunity created, but failed during invoice processing: ${err.message || err}`,
+                errorCode: "FILE_PROCESSING_FAILED",
+              };
+          }
       } else {
-        logger.error(`Salesforce token exchange failed: Status ${response.status}`, response.data);
-        throw new HttpsError(
-          "internal", // Or map SF errors if needed
-          `Salesforce authentication failed: ${response.data?.error_description || "Unknown error during token exchange"}`
-        );
+          logger.info("No invoice path provided, skipping file upload.");
       }
-    } catch (error: any) {
-      logger.error("Error exchanging JWT for Salesforce token:", error);
-      // Check if it's an axios error to get more details
-      if (axios.isAxiosError(error) && error.response) {
-        logger.error("Salesforce error response:", error.response.data);
-        throw new HttpsError(
-          "internal",
-          `Salesforce authentication failed: ${error.response?.data?.error_description || "Network or connection error with Salesforce"}`
-        );
+
+      // 8. --- Respond --- (Success, No Deletion Yet)
+      logger.info(`Process completed successfully for Opportunity ID: ${newOpportunityId}`);
+      return {success: true, opportunityId: newOpportunityId};
+
+    // --- End of main try block --- 
+    } catch (err: any) {
+      // This outer catch handles errors during login or initial setup
+      logger.error("Salesforce operation failed at login or initial setup:", err);
+      let errorMessage = "An unknown error occurred during Salesforce operation.";
+      let errorCode = "UNKNOWN";
+      if (err.name && err.message) {
+         errorMessage = `${err.name}: ${err.message}`;
+         errorCode = err.errorCode || err.name; 
+      } else if (typeof err === 'string') {
+         errorMessage = err;
       }
-      throw new HttpsError(
-        "internal",
-        "Failed to connect to Salesforce for token exchange."
-      );
+      return {
+        success: false,
+        error: errorMessage,
+        errorCode: errorCode,
+      };
     }
   }
 );
@@ -1271,77 +1485,3 @@ export {
   cleanupExpiredMessages,
   onNewMessageNotification,
 };
-
-// Firestore trigger for service submission status changes
-exports.onSubmissionStatusChange = functions.firestore
-  .document('serviceSubmissions/{submissionId}')
-  .onUpdate(async (change, context) => {
-    const submissionId = context.params.submissionId;
-    
-    // Get before and after data
-    const beforeData = change.before.data();
-    const afterData = change.after.data();
-    
-    // Check if status was changed
-    if (beforeData.status === afterData.status) {
-      // Status didn't change, exit early
-      return null;
-    }
-    
-    const resellerId = afterData.resellerId;
-    const oldStatus = beforeData.status;
-    const newStatus = afterData.status;
-    const clientName = afterData.clientDetails?.responsibleName || 'Client';
-    
-    // Create notification object
-    let title = 'Submission Status Changed';
-    let message = `Your submission for ${clientName} has been updated to ${newStatus}.`;
-    
-    // Customize notification based on status
-    switch (newStatus) {
-      case 'approved':
-        title = 'Submission Approved';
-        message = `Your submission for ${clientName} has been approved.`;
-        break;
-      case 'rejected':
-        title = 'Submission Rejected';
-        message = `Your submission for ${clientName} has been rejected.`;
-        break;
-      case 'pending_review':
-        title = 'Submission Pending Review';
-        message = `Your submission for ${clientName} is pending review.`;
-        break;
-    }
-    
-    // Create notification document
-    const notificationData = {
-      userId: resellerId,
-      title: title,
-      message: message,
-      type: 'statusChange',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isRead: false,
-      metadata: {
-        submissionId: submissionId,
-        oldStatus: oldStatus,
-        newStatus: newStatus,
-      },
-    };
-    
-    try {
-      // Add to notifications collection
-      const notificationRef = await admin.firestore()
-        .collection('notifications')
-        .add(notificationData);
-      
-      console.log(`Created notification ${notificationRef.id} for submission ${submissionId}`);
-      
-      // TODO: Send push notification using FCM (Firebase Cloud Messaging)
-      // This requires device tokens to be stored for the user
-      
-      return { success: true, notificationId: notificationRef.id };
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      return { success: false, error: error };
-    }
-  });

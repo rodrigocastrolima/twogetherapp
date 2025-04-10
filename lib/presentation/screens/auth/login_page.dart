@@ -2,26 +2,25 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
 import '../../../app/router/app_router.dart';
 import '../../../core/theme/ui_styles.dart';
+import '../../../core/services/loading_service.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
 
   void _handleLogin() async {
-    setState(() => _isLoading = true);
-
     try {
       // Validate the login credentials
       final email = _emailController.text.trim();
@@ -32,8 +31,20 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception('Please enter email and password');
       }
 
-      // Use Firebase Authentication
-      await AppRouter.authNotifier.signInWithEmailAndPassword(email, password);
+      // Use loading service to show loading overlay
+      final loadingService = ref.read(loadingServiceProvider);
+      loadingService.show(context, message: 'Logging in...', showLogo: true);
+
+      try {
+        // Attempt login
+        await AppRouter.authNotifier.signInWithEmailAndPassword(
+          email,
+          password,
+        );
+      } finally {
+        // Always hide loading overlay
+        loadingService.hide();
+      }
 
       // No need to navigate manually - the router redirect will handle it
     } catch (e) {
@@ -42,10 +53,6 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: ${e.toString()}')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
   }
@@ -268,7 +275,7 @@ class _LoginPageState extends State<LoginPage> {
                                   width: double.infinity,
                                   height: 38,
                                   child: FilledButton(
-                                    onPressed: _isLoading ? null : _handleLogin,
+                                    onPressed: _handleLogin,
                                     style: FilledButton.styleFrom(
                                       backgroundColor: AppTheme.primary,
                                       foregroundColor:
@@ -278,26 +285,13 @@ class _LoginPageState extends State<LoginPage> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child:
-                                        _isLoading
-                                            ? SizedBox(
-                                              height: 16,
-                                              width: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(Colors.white),
-                                              ),
-                                            )
-                                            : Text(
-                                              l10n.loginButton,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
+                                    child: Text(
+                                      l10n.loginButton,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],

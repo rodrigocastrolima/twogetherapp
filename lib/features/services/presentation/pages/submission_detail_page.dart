@@ -159,10 +159,7 @@ class _SubmissionDetailPageState extends ConsumerState<SubmissionDetailPage> {
           children: [
             Icon(Icons.error_outline, color: theme.colorScheme.error, size: 48),
             const SizedBox(height: 16),
-            Text(
-              'Error',
-              style: theme.textTheme.headlineMedium,
-            ),
+            Text('Error', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -183,9 +180,7 @@ class _SubmissionDetailPageState extends ConsumerState<SubmissionDetailPage> {
     }
 
     if (submission == null) {
-      return const Center(
-        child: Text('Submission not found'),
-      );
+      return const Center(child: Text('Submission not found'));
     }
 
     // Main content with minimal wrapping

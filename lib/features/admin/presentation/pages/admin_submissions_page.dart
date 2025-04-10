@@ -11,6 +11,7 @@ import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AdminSubmissionsPage extends ConsumerStatefulWidget {
   const AdminSubmissionsPage({super.key});
@@ -37,6 +38,9 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -44,9 +48,9 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
         elevation: 0,
         title: Text(
           selectedResellerId != null
-              ? 'Submissions from $selectedResellerName'
-              : 'Service Submissions',
-          style: AppTextStyles.h3.copyWith(color: Colors.white),
+              ? l10n.submissionsFromReseller(selectedResellerName ?? '')
+              : l10n.serviceSubmissions,
+          style: theme.textTheme.titleLarge,
         ),
         centerTitle: true,
         leading:
@@ -62,21 +66,19 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                 )
                 : null,
       ),
-      body: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-          clipBehavior: Clip.antiAlias,
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: BackdropFilter(
-            filter: AppStyles.standardBlur,
-            child: Container(
-              decoration: AppStyles.glassCard(context),
-              child: Column(
-                children: [
-                  _buildFilters(),
-                  Expanded(child: _buildSubmissionsList()),
-                ],
-              ),
+      body: Container(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        child: BackdropFilter(
+          filter: AppStyles.standardBlur,
+          child: Container(
+            decoration: AppStyles.glassCard(context),
+            child: Column(
+              children: [
+                _buildFilters(l10n),
+                Expanded(child: _buildSubmissionsList(l10n)),
+              ],
             ),
           ),
         ),
@@ -84,7 +86,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFilters(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -103,19 +105,21 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                         searchQuery = value.trim();
                       });
                     },
-                    style: AppTextStyles.body2.copyWith(color: Colors.white),
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppTheme.foreground,
+                    ),
                     decoration: InputDecoration(
                       hintText:
                           selectedResellerId != null
-                              ? 'Search reseller submissions...'
-                              : 'Search all submissions...',
+                              ? l10n.searchResellerSubmissions
+                              : l10n.searchAllSubmissions,
                       hintStyle: AppTextStyles.body2.copyWith(
-                        color: AppColors.whiteAlpha50,
+                        color: AppTheme.mutedForeground,
                       ),
                       border: InputBorder.none,
                       prefixIcon: Icon(
                         CupertinoIcons.search,
-                        color: AppColors.whiteAlpha70,
+                        color: AppTheme.mutedForeground,
                         size: 20,
                       ),
                     ),
@@ -132,48 +136,52 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: filterStatus,
-                    dropdownColor: AppColors.blackAlpha70,
-                    style: AppTextStyles.body2.copyWith(color: Colors.white),
+                    dropdownColor: Theme.of(
+                      context,
+                    ).colorScheme.surface.withOpacity(0.9),
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppTheme.foreground,
+                    ),
                     icon: Icon(
                       CupertinoIcons.chevron_down,
                       size: 16,
-                      color: AppColors.whiteAlpha70,
+                      color: AppTheme.mutedForeground,
                     ),
                     borderRadius: BorderRadius.circular(12),
                     items: [
                       DropdownMenuItem(
                         value: 'all',
                         child: Text(
-                          'All Status',
+                          l10n.allStatus,
                           style: AppTextStyles.body2.copyWith(
-                            color: Colors.white,
+                            color: AppTheme.foreground,
                           ),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'pending',
                         child: Text(
-                          'Pending',
+                          l10n.statusPending,
                           style: AppTextStyles.body2.copyWith(
-                            color: Colors.white,
+                            color: AppTheme.foreground,
                           ),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'approved',
                         child: Text(
-                          'Approved',
+                          l10n.statusApproved,
                           style: AppTextStyles.body2.copyWith(
-                            color: Colors.white,
+                            color: AppTheme.foreground,
                           ),
                         ),
                       ),
                       DropdownMenuItem(
                         value: 'rejected',
                         child: Text(
-                          'Rejected',
+                          l10n.statusRejected,
                           style: AppTextStyles.body2.copyWith(
-                            color: Colors.white,
+                            color: AppTheme.foreground,
                           ),
                         ),
                       ),
@@ -195,7 +203,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
     );
   }
 
-  Widget _buildSubmissionsList() {
+  Widget _buildSubmissionsList(AppLocalizations l10n) {
     // Create query based on filters
     Query query = firestore.collection('serviceSubmissions');
 
@@ -237,9 +245,9 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Error loading submissions',
+                    l10n.errorLoadingSubmissions,
                     style: AppTextStyles.body1.copyWith(
-                      color: Colors.white,
+                      color: AppTheme.foreground,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -248,7 +256,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                     snapshot.error.toString(),
                     textAlign: TextAlign.center,
                     style: AppTextStyles.body2.copyWith(
-                      color: AppColors.whiteAlpha70,
+                      color: AppTheme.mutedForeground,
                     ),
                   ),
                 ],
@@ -265,15 +273,15 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                 Icon(
                   CupertinoIcons.doc_text,
                   size: 48,
-                  color: AppColors.whiteAlpha50,
+                  color: AppTheme.mutedForeground,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   selectedResellerId != null
-                      ? 'No submissions found for this reseller'
-                      : 'No service submissions found',
+                      ? l10n.noSubmissionsForReseller
+                      : l10n.noServiceSubmissionsFound,
                   style: AppTextStyles.body1.copyWith(
-                    color: AppColors.whiteAlpha70,
+                    color: AppTheme.mutedForeground,
                   ),
                 ),
               ],
@@ -317,13 +325,13 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                 Icon(
                   CupertinoIcons.search,
                   size: 48,
-                  color: AppColors.whiteAlpha50,
+                  color: AppTheme.mutedForeground,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No submissions match your search',
+                  l10n.noSubmissionsMatchSearch,
                   style: AppTextStyles.body1.copyWith(
-                    color: AppColors.whiteAlpha70,
+                    color: AppTheme.mutedForeground,
                   ),
                 ),
               ],
@@ -343,7 +351,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
               submissionDoc as DocumentSnapshot<Map<String, dynamic>>,
             );
 
-            return _buildSubmissionItem(context, submission);
+            return _buildSubmissionItem(context, submission, l10n);
           },
         );
       },
@@ -353,6 +361,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
   Widget _buildSubmissionItem(
     BuildContext context,
     ServiceSubmission submission,
+    AppLocalizations l10n,
   ) {
     final statusColor = _getStatusColor(submission.status);
     final formattedDate = DateFormat(
@@ -374,8 +383,8 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                 context.push('/admin/submissions/${submission.id}');
               },
               borderRadius: BorderRadius.circular(16),
-              splashColor: AppColors.whiteAlpha10,
-              highlightColor: AppColors.whiteAlpha10,
+              splashColor: Theme.of(context).splashColor,
+              highlightColor: Theme.of(context).highlightColor,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -414,7 +423,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                                   submission.responsibleName,
                                   style: AppTextStyles.body1.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                    color: AppTheme.foreground,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -434,7 +443,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                                   vertical: 4,
                                 ),
                                 child: Text(
-                                  "${submission.status[0].toUpperCase()}${submission.status.substring(1)}",
+                                  _getLocalizedStatus(submission.status, l10n),
                                   style: AppTextStyles.caption.copyWith(
                                     color: statusColor,
                                     fontWeight: FontWeight.w500,
@@ -445,9 +454,9 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'NIF: ${submission.nif} • ${submission.email}',
+                            l10n.nifAndEmail(submission.nif, submission.email),
                             style: AppTextStyles.body2.copyWith(
-                              color: AppColors.whiteAlpha70,
+                              color: AppTheme.mutedForeground,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -465,7 +474,9 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                                   vertical: 4,
                                 ),
                                 child: Text(
-                                  submission.serviceCategory.displayName,
+                                  submission.serviceCategory.getLocalizedName(
+                                    context,
+                                  ),
                                   style: AppTextStyles.caption.copyWith(
                                     color: AppTheme.primary,
                                     fontWeight: FontWeight.w500,
@@ -485,7 +496,7 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                                 child: Text(
                                   formattedDate,
                                   style: AppTextStyles.caption.copyWith(
-                                    color: AppColors.whiteAlpha70,
+                                    color: AppTheme.mutedForeground,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -503,22 +514,24 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.whiteAlpha10,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.secondary.withOpacity(0.2),
                             shape: BoxShape.circle,
                           ),
                           child: Text(
                             (submission.documentUrls?.length ?? 0).toString(),
                             style: AppTextStyles.body2.copyWith(
-                              color: Colors.white,
+                              color: AppTheme.foreground,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Docs',
+                          l10n.documents,
                           style: AppTextStyles.caption.copyWith(
-                            color: AppColors.whiteAlpha70,
+                            color: AppTheme.mutedForeground,
                           ),
                         ),
                       ],
@@ -552,6 +565,33 @@ class _AdminSubmissionsPageState extends ConsumerState<AdminSubmissionsPage> {
         return Colors.red.shade300;
       default:
         return Colors.amber;
+    }
+  }
+
+  String _getLocalizedStatus(String status, AppLocalizations l10n) {
+    switch (status) {
+      case 'approved':
+        return l10n.statusApproved;
+      case 'rejected':
+        return l10n.statusRejected;
+      case 'pending':
+        return l10n.statusPending;
+      default:
+        return status.capitalize();
+    }
+  }
+
+  String _getLocalizedCategory(
+    ServiceCategory category,
+    AppLocalizations l10n,
+  ) {
+    switch (category) {
+      case ServiceCategory.energy:
+        return l10n.categoryEnergy;
+      case ServiceCategory.insurance:
+        return l10n.categoryInsurance;
+      case ServiceCategory.telecommunications:
+        return l10n.categoryTelecommunications;
     }
   }
 }

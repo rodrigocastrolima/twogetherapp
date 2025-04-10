@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
@@ -83,7 +81,9 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
 
   Future<void> markConversationAsRead(String conversationId) async {
     try {
-      await _repository.markConversationAsRead(conversationId);
+      // Check if current user is admin
+      final isAdmin = await _repository.isCurrentUserAdmin();
+      await _repository.markConversationAsRead(conversationId, isAdmin);
     } catch (e) {
       if (kDebugMode) {
         print('Error marking as read: $e');

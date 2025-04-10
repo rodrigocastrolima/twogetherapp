@@ -319,41 +319,35 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 title: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Support avatar with enhanced styling
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primary.withOpacity(0.8),
-                            Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
-                                AppTheme.primary,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    // User avatar with circle
+                    CircleAvatar(
+                      backgroundColor:
+                          theme.brightness == Brightness.dark
+                              ? theme.colorScheme.surface
+                              : theme.colorScheme.primary.withOpacity(0.8),
+                      radius: 20,
+                      child: Text(
+                        (widget.title?.isNotEmpty == true)
+                            ? widget.title![0].toUpperCase()
+                            : 'S',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              theme.brightness == Brightness.dark
+                                  ? theme.colorScheme.onSurface
+                                  : Colors.white,
                         ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primary.withOpacity(0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        CupertinoIcons.person_badge_plus_fill,
-                        size: 18,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    // User name with online indicator
+                    Row(
                       children: [
+                        // Name
                         Text(
                           widget.title ?? l10n.chatSupportTitle,
                           style: const TextStyle(
@@ -361,63 +355,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            // Enhanced online indicator with animated gradient border when online
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: isOnline ? Colors.green : Colors.grey,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color:
-                                      isOnline
-                                          ? Colors.white.withOpacity(0.5)
-                                          : Colors.transparent,
-                                  width: 1.5,
-                                ),
-                                boxShadow:
-                                    isOnline
-                                        ? [
-                                          BoxShadow(
-                                            color: Colors.green.withOpacity(
-                                              0.4,
-                                            ),
-                                            blurRadius: 4,
-                                            spreadRadius: 1,
-                                          ),
-                                        ]
-                                        : null,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            // Online status text with better styling
-                            Text(
-                              isOnline
-                                  ? 'Available now'
-                                  : 'Offline - responses may be delayed',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    isOnline
-                                        ? Colors.green.withOpacity(0.8)
-                                        : theme.colorScheme.onBackground
-                                            .withOpacity(0.6),
-                                fontWeight:
-                                    isOnline
-                                        ? FontWeight.w500
-                                        : FontWeight.normal,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        // Simple online indicator
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: isOnline ? Colors.green : Colors.grey,
+                            shape: BoxShape.circle,
+                            boxShadow:
+                                isOnline
+                                    ? [
+                                      BoxShadow(
+                                        color: Colors.green.withOpacity(0.4),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                    : null,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
                 centerTitle: true,
+                // Left-aligned back button
                 leading: IconButton(
                   icon: const Icon(CupertinoIcons.back),
                   onPressed: () => Navigator.of(context).pop(),
@@ -656,7 +619,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   ) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final isFromMe = message.isFromUser && !widget.isAdminView;
+
+    // Fix alignment logic:
+    // If in admin view, align admin messages (isFromAdmin) to the right
+    // If in user view, align user messages (isFromUser) to the right
+    final isFromMe =
+        widget.isAdminView ? message.isFromAdmin : message.isFromUser;
+
     final isFromAdmin = message.isFromAdmin;
     final isImage = message.isImage;
 
@@ -691,7 +660,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment:
             isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,

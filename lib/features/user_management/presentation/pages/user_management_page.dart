@@ -5,21 +5,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
-import 'dart:convert';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../features/auth/domain/models/app_user.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../features/salesforce/data/services/salesforce_user_sync_service.dart';
-import '../../../../features/auth/data/services/firebase_functions_service.dart';
-import '../widgets/create_user_form.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:math';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:intl/intl.dart';
+import '../providers/user_creation_provider.dart';
 
 /// Extension on AppUser to safely access Salesforce-related fields
 extension SalesforceUserExtension on AppUser {
@@ -35,7 +28,6 @@ class UserManagementPage extends ConsumerStatefulWidget {
 
 class UserManagementPageState extends ConsumerState<UserManagementPage> {
   bool _isLoading = true;
-  bool _isCreatingUser = false;
   List<AppUser> _users = [];
   String? _errorMessage;
   late final String _currentUserId;
@@ -43,12 +35,25 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   String searchQuery = '';
   AppUser? _selectedUser;
   String _loadingMessage = '';
+  bool _isDialogShowing = false; // Flag to prevent duplicate dialogs
+
+  // State for inline form
+  bool _isCreatingUserMode = false;
+  final _createUserFormKey = GlobalKey<FormState>();
+  final _salesforceIdController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _salesforceIdController.dispose(); // Dispose controller
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -124,161 +129,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
           _isLoading = false;
         });
       }
-    }
-  }
-
-  void _createUser({
-    required String email,
-    required String password,
-    required String displayName,
-    String? salesforceId,
-  }) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    setState(() {
-      _isCreatingUser = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authRepository = ref.read(authRepositoryProvider);
-
-      // Create the user with Firebase Auth
-      final newUser = await authRepository.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-        role: UserRole.reseller,
-        displayName: displayName,
-      );
-
-      // If Salesforce ID is provided, sync with Salesforce data
-      if (salesforceId != null && salesforceId.isNotEmpty) {
-        await _syncUserWithSalesforce(newUser.uid, salesforceId);
-      }
-
-      // Show success message and close the dialog
-      if (mounted) {
-        Navigator.of(context).pop(); // Close the dialog
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.commonSave),
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-          ),
-        );
-
-        // Refresh the user list
-        await _loadUsers();
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isCreatingUser = false;
-          _errorMessage = e.toString();
-        });
-
-        // First show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(
-              seconds: 10,
-            ), // Longer duration for important errors
-          ),
-        );
-
-        // If the error message indicates admin was logged out, handle this specially
-        if (e.toString().toLowerCase().contains('logged out') ||
-            e.toString().toLowerCase().contains('sign in')) {
-          // Close the dialog
-          Navigator.of(context).pop();
-
-          // Wait a moment to let the user see the error message
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) {
-              // Show a more direct message to the user
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder:
-                    (context) => AlertDialog(
-                      title: Text(l10n.profileEndSession),
-                      content: Text(
-                        'Your admin session has expired while creating the user. '
-                        'The user was created successfully, but you need to sign in again.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            // Navigate to login page
-                            Navigator.of(
-                              context,
-                            ).popUntil((route) => route.isFirst);
-                            context.go('/login');
-                          },
-                          child: Text(l10n.loginButton),
-                        ),
-                      ],
-                    ),
-              );
-            }
-          });
-        }
-      }
-    }
-  }
-
-  // Sync a user with Salesforce data using the provided Salesforce ID
-  Future<void> _syncUserWithSalesforce(String uid, String salesforceId) async {
-    if (kDebugMode) {
-      print('Syncing user $uid with Salesforce ID $salesforceId');
-    }
-
-    try {
-      // Update user's Salesforce ID in Firestore
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'salesforceId': salesforceId,
-      });
-
-      // Initialize the Salesforce User Sync Service and sync the user
-      final syncService = SalesforceUserSyncService();
-      final success = await syncService.syncSalesforceUserToFirebase(
-        uid,
-        salesforceId,
-      );
-
-      if (kDebugMode) {
-        print('Salesforce sync ${success ? 'successful' : 'failed'}');
-      }
-
-      // Check if widget is still mounted before using BuildContext
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'User synced with Salesforce successfully'
-                : 'Failed to sync user with Salesforce, but created user anyway',
-          ),
-          backgroundColor: success ? Colors.green : Colors.orange,
-        ),
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error syncing user with Salesforce: $e');
-      }
-
-      // Check if widget is still mounted before using BuildContext
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error syncing with Salesforce: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -1169,25 +1019,190 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen size to determine layout
     final Size screenSize = MediaQuery.of(context).size;
     final bool isSmallScreen = screenSize.width < 700;
     final l10n = AppLocalizations.of(context)!;
+    final userCreationState = ref.watch(userCreationProvider);
+
+    // Listener with revised logic
+    ref.listen<UserCreationState>(userCreationProvider, (previous, next) {
+      // Log the state details for debugging
+      if (kDebugMode) {
+        print("[UserManagementPage Listener] State change detected.");
+        print("  Previous State: ${previous?.toString()}");
+        print("  Next State    : ${next.toString()}");
+        print("  _isDialogShowing (before checks): $_isDialogShowing");
+        print(
+          "  VERIFY_CHECK: next.showVerificationDialog (${next.showVerificationDialog}) && !_isDialogShowing (${!_isDialogShowing})",
+        );
+        print(
+          "  SUCCESS_CHECK: next.showSuccessDialog (${next.showSuccessDialog}) && !_isDialogShowing (${!_isDialogShowing})",
+        );
+        print(
+          "  ERROR_CHECK: next.showErrorDialog (${next.showErrorDialog}) && !_isDialogShowing (${!_isDialogShowing})",
+        );
+      }
+
+      // Use addPostFrameCallback for dialogs
+      // Check if verification dialog should be shown
+      if (next.showVerificationDialog && !_isDialogShowing) {
+        print(
+          "[UserManagementPage Listener] CONDITION MET for showVerificationDialog.",
+        );
+        if (next.verificationData != null) {
+          setState(() {
+            _isDialogShowing = true; // Set flag before showing
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              print(
+                "[UserManagementPage Listener] Calling _showVerificationDialogFromState.",
+              );
+              _showVerificationDialogFromState(next.verificationData!)
+                  .then((_) {
+                    // Reset flag when dialog is dismissed (or state changes)
+                    // Note: This might reset too early if another dialog should show immediately.
+                    // Consider resetting only when the corresponding state flag becomes false.
+                    // if (mounted && !ref.read(userCreationProvider).showVerificationDialog) {
+                    //   setState(() => _isDialogShowing = false);
+                    // }
+                  });
+            } else {
+              print(
+                "[UserManagementPage Listener] Verification NOT shown - page not mounted. Resetting flag.",
+              );
+              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+            }
+          });
+        } else {
+          print(
+            "[UserManagementPage Listener] Verification NOT shown - verificationData is null.",
+          );
+        }
+      }
+      // Check if success dialog should be shown
+      else if (next.showSuccessDialog && !_isDialogShowing) {
+        print(
+          "[UserManagementPage Listener] CONDITION MET for showSuccessDialog.",
+        );
+        if (next.successData != null) {
+          setState(() {
+            _isDialogShowing = true; // Set flag before showing
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              print(
+                "[UserManagementPage Listener] Calling _showSuccessDialogFromState.",
+              );
+              _showSuccessDialogFromState(next.successData!).then((_) {
+                // Reset flag when dialog is dismissed (or state changes)
+                // if (mounted && !ref.read(userCreationProvider).showSuccessDialog) {
+                //   setState(() => _isDialogShowing = false);
+                // }
+              });
+            } else {
+              print(
+                "[UserManagementPage Listener] Success NOT shown - page not mounted. Resetting flag.",
+              );
+              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+            }
+          });
+        } else {
+          print(
+            "[UserManagementPage Listener] Success NOT shown - successData is null.",
+          );
+        }
+      }
+      // Check if error dialog should be shown
+      else if (next.showErrorDialog && !_isDialogShowing) {
+        print(
+          "[UserManagementPage Listener] CONDITION MET for showErrorDialog.",
+        );
+        if (next.errorMessage != null) {
+          setState(() {
+            _isDialogShowing = true; // Set flag before showing
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              print(
+                "[UserManagementPage Listener] Calling _showErrorDialogFromState.",
+              );
+              _showErrorDialogFromState(next.errorMessage!).then((_) {
+                // Reset flag when dialog is dismissed (or state changes)
+                // if (mounted && !ref.read(userCreationProvider).showErrorDialog) {
+                //   setState(() => _isDialogShowing = false);
+                // }
+              });
+            } else {
+              print(
+                "[UserManagementPage Listener] Error NOT shown - page not mounted. Resetting flag.",
+              );
+              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+            }
+          });
+        } else {
+          print(
+            "[UserManagementPage Listener] Error NOT shown - errorMessage is null.",
+          );
+        }
+      }
+
+      // Reset the flag if no dialogs are supposed to be showing according to the state
+      // This handles cases where the provider resets the flags (e.g., on new loading state)
+      if (!next.showVerificationDialog &&
+          !next.showSuccessDialog &&
+          !next.showErrorDialog) {
+        if (_isDialogShowing) {
+          print(
+            "[UserManagementPage Listener] Resetting _isDialogShowing flag as no dialogs are active in state.",
+          );
+          // Use WidgetsBinding to avoid calling setState during build/listen phase directly
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             if(mounted) {
+               setState(() => _isDialogShowing = false);
+             }
+           });
+        }
+      }
+    });
 
     return Padding(
       padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header - responsive layout
-          if (isSmallScreen) ...[
-            // Mobile layout - stacked vertically
+          // Header - Conditionally hide search/add when form is shown?
+          if (!_isCreatingUserMode) _buildHeader(context, isSmallScreen, l10n),
+          if (!_isCreatingUserMode) const SizedBox(height: 16),
+
+          // Content Area
+          Expanded(
+            child:
+                _isCreatingUserMode
+                    ? _buildCreateUserForm(context, l10n, userCreationState)
+                    : _buildUserListContent(context, l10n, userCreationState),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Extracted Header build method
+  Widget _buildHeader(
+    BuildContext context,
+    bool isSmallScreen,
+    AppLocalizations l10n,
+  ) {
+    return isSmallScreen
+        ? Column(
+          // Mobile header...
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
               l10n.resellerRole,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1199,8 +1214,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Search filter
             TextField(
               controller: searchController,
               decoration: InputDecoration(
@@ -1214,20 +1227,14 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value.trim();
-                });
-              },
+              onChanged: (value) => setState(() => searchQuery = value.trim()),
             ),
             const SizedBox(height: 12),
-            // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  color: Theme.of(context).colorScheme.onSurface,
                   onPressed: _loadUsers,
                   tooltip: l10n.refresh,
                   style: IconButton.styleFrom(
@@ -1240,21 +1247,14 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                 FilledButton.icon(
                   icon: const Icon(Icons.add),
                   label: Text(l10n.newReseller),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
-                  ),
-                  onPressed: _showCreateUserDialog,
+                  onPressed: () => setState(() => _isCreatingUserMode = true),
                 ),
               ],
             ),
-          ] else ...[
-            // Desktop layout - side by side with desktop-specific widgets
-            Row(
+          ],
+        )
+        : Row(
+          // Desktop header...
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
@@ -1262,11 +1262,8 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                   children: [
                     Text(
                       l10n.resellerRole,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineMedium?.copyWith(
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1280,23 +1277,19 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     ),
                   ],
                 ),
-                // Use our new desktop action buttons
-                _buildDesktopActionButtons(),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-            // Use our new desktop search field
-            _buildDesktopSearchField(),
+            _buildDesktopActionButtons(), // Contains the "New Reseller" button
           ],
+        );
+  }
 
-          const SizedBox(height: 16),
-
-          // Content
-          Expanded(
-            child:
-                _isLoading
-                    ? Center(
+  // Extracted User List/Loading/Error build method
+  Widget _buildUserListContent(
+    BuildContext context,
+    AppLocalizations l10n,
+    UserCreationState userCreationState,
+  ) {
+    if (_isLoading) {
+      return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1308,18 +1301,17 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           const SizedBox(height: 16),
                           Text(
                             l10n.commonLoading,
-                            style: Theme.of(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(
                               context,
-                            ).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface
-                                  .withAlpha((255 * 0.7).round()),
+                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                             ),
                           ),
                         ],
                       ),
-                    )
-                    : _errorMessage != null
-                    ? Center(
+      );
+    } else if (_errorMessage != null) {
+      return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -1333,11 +1325,10 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           const SizedBox(height: 16),
                           Text(
                             _errorMessage!,
-                            style: Theme.of(
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(
                               context,
-                            ).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.error
-                                  .withAlpha((255 * 0.9).round()),
+                ).colorScheme.error.withAlpha((255 * 0.9).round()),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -1346,108 +1337,467 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                             onPressed: _loadUsers,
                             icon: const Icon(Icons.refresh),
                             label: Text(l10n.tryAgain),
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.onPrimary,
-                            ),
                           ),
                         ],
                       ),
-                    )
-                    : _users.isEmpty
-                    ? Center(
+      );
+    } else if (_users.isEmpty) {
+      return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.people_outline,
                             size: 64,
-                            color: Theme.of(context).colorScheme.onSurface
-                                .withAlpha((255 * 0.5).round()),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             l10n.noRetailUsersFound,
-                            style: Theme.of(
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(
                               context,
-                            ).textTheme.titleLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface
-                                  .withAlpha((255 * 0.7).round()),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: _showCreateUserDialog,
-                            icon: const Icon(Icons.person_add),
-                            label: Text(l10n.newReseller),
-                            style: FilledButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.onPrimary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    : _buildUserTable(),
-          ),
+                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+              ),
+            ),
+            // Optionally add the "New Reseller" button here too?
         ],
       ),
     );
+    } else {
+      return _buildUserTable(); // Assumes _buildUserTable is defined elsewhere
+    }
   }
 
-  void _showCreateUserDialog() {
-    final l10n = AppLocalizations.of(context)!;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => Dialog(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 500),
-              padding: const EdgeInsets.all(24),
+  // New method to build the inline creation form
+  Widget _buildCreateUserForm(
+    BuildContext context,
+    AppLocalizations l10n,
+    UserCreationState userCreationState,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+      child: Form(
+        key: _createUserFormKey,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     l10n.newReseller,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 24),
-                  SalesforceUserCreationForm(
-                    onSubmit: ({required String salesforceId}) {
-                      Navigator.of(context).pop();
-                      _verifySalesforceUser(salesforceId);
-                    },
-                    onCancel: () => Navigator.of(context).pop(),
-                    isLoading: _isCreatingUser,
-                  ),
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              'Enter the Salesforce User ID to fetch details and create a new reseller account.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-    );
+            const SizedBox(height: 24),
+            TextFormField(
+              controller: _salesforceIdController,
+              decoration: const InputDecoration(
+                labelText: 'Salesforce User ID',
+                hintText: 'Enter the 18-character Salesforce ID',
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a Salesforce User ID';
+                }
+                if (value.trim().length != 18) {
+                  return 'Salesforce ID must be 18 characters long';
+                }
+                return null;
+              },
+              enabled: !userCreationState.isLoading, // Disable when loading
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed:
+                      userCreationState.isLoading
+                          ? null
+                          : () {
+                            setState(() => _isCreatingUserMode = false);
+                            _salesforceIdController.clear();
+                            // Optionally reset provider state if needed
+                          },
+                  child: Text(l10n.commonCancel),
+                ),
+                const SizedBox(width: 8),
+        FilledButton.icon(
+                  icon:
+                      userCreationState.isLoading
+                          ? Container(
+                            width: 16,
+                            height: 16,
+                            margin: const EdgeInsets.only(right: 8),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          )
+                          : const Icon(Icons.cloud_sync, size: 16),
+                  label: Text(
+                    userCreationState.isLoading
+                        ? (userCreationState.loadingMessage ??
+                            l10n.commonLoading)
+                        : 'Verify User',
+                  ),
+                  onPressed:
+                      userCreationState.isLoading
+                          ? null
+                          : () {
+                            if (_createUserFormKey.currentState?.validate() ==
+                                true) {
+                              ref
+                                  .read(userCreationProvider.notifier)
+                                  .verifySalesforceUser(
+                                    _salesforceIdController.text.trim(),
+                                  );
+                            }
+                          },
+                ),
+              ],
+            ),
+          ],
+        ),
+                ),
+          );
+        }
+
+  // --- Dialog methods called by the listener (Keep these) ---
+  Future<void> _showVerificationDialogFromState(
+    Map<String, dynamic> data,
+  ) async {
+    final String? name = data['name'] as String?;
+    final String? email = data['email'] as String?;
+    final String password = data['password'] as String; // Should be present
+
+    // Ensure context is still valid before showing dialog
+      if (!mounted) return;
+
+    await showDialog<bool>(
+            context: context,
+      barrierDismissible: false, // Prevent accidental dismiss
+            builder:
+          (dialogContext) => Dialog(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Verify Salesforce User',
+                    style: Theme.of(dialogContext).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 24),
+                  // User info...
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                      color: Theme.of(dialogContext)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withAlpha((255 * 0.5).round()),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text('Name: ${name ?? 'Not provided'}'),
+                            const SizedBox(height: 8),
+                        Text('Email: ${email ?? 'Not provided'}'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                    'Create user with credentials?',
+                    style: Theme.of(dialogContext).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                  // Credentials...
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                      color: Theme.of(dialogContext).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                        color:
+                            Theme.of(dialogContext).colorScheme.outlineVariant,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text('Email: ${email ?? 'Not available'}'),
+                            const SizedBox(height: 12),
+                        const Text('Role: Reseller'),
+                            const SizedBox(height: 12),
+                        Text('Initial Password: $password'),
+                            const SizedBox(height: 4),
+                            const Text(
+                          'User must change password on first login.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                    padding: const EdgeInsets.only(top: 24.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                          onPressed: ref.read(userCreationProvider).isLoading
+                              ? null
+                              : () {
+                                // Reset the flag when canceling
+                                if (mounted) setState(() => _isDialogShowing = false);
+                                Navigator.of(dialogContext).pop();
+                              },
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton(
+                          onPressed: ref.read(userCreationProvider).isLoading
+                              ? null
+                              : () {
+                                Navigator.of(dialogContext).pop();
+                                // Call provider to confirm and create user
+                                ref
+                                    .read(userCreationProvider.notifier)
+                                    .confirmAndCreateUser();
+                              },
+                          child: Text(
+                            ref.read(userCreationProvider).isLoading
+                                ? 'Creating...'
+                                : 'Create User',
+                          ), // Update button text while loading
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        );
+      }
+
+  Future<void> _showSuccessDialogFromState(Map<String, dynamic> data) async {
+    final String displayName = data['displayName'] as String;
+    final String email = data['email'] as String;
+    final String password = data['password'] as String;
+
+    // Ensure context is still valid
+    if (!mounted) return;
+
+    await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder:
+          (dialogContext) => Dialog(
+                child: Container(
+                  width: double.maxFinite,
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'User Created Successfully',
+                    style: Theme.of(dialogContext).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                      color: Colors.green.withAlpha((255 * 0.1).round()),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                        color: Colors.green.withAlpha((255 * 0.3).round()),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                            'Account for $displayName created and synced.',
+                                style: TextStyle(fontSize: 15),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Login Credentials',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                    'Please securely share these credentials:',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                      color: Theme.of(dialogContext).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                        color:
+                            Theme.of(dialogContext).colorScheme.outlineVariant,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                'Email:',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Text(email)),
+                          ],
+                        ),
+                            const SizedBox(height: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Password:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                color:
+                                    Theme.of(
+                                      dialogContext,
+                                    ).colorScheme.surfaceContainerLowest,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                  color:
+                                      Theme.of(
+                                        dialogContext,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                    child: SelectableText(
+                                          password,
+                                          style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                    icon: const Icon(Icons.copy, size: 18),
+                                    tooltip: 'Copy Password',
+                                        onPressed: () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(text: password),
+                                          );
+                                      if (!dialogContext.mounted) return;
+                                          ScaffoldMessenger.of(
+                                        dialogContext,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                          content: Text('Password copied'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                  Text(
+                    'User must change password on first login.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color:
+                          Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: () {
+                         // Reset the flag when closing
+                         if (mounted) setState(() => _isDialogShowing = false);
+                         Navigator.of(dialogContext).pop();
+                          },
+                          child: const Text('Close'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        );
+    // Refresh user list after successful creation
+    _loadUsers();
   }
 
-  // Navigate to user details page when a user is clicked
+  Future<void> _showErrorDialogFromState(String errorMessage) async {
+    // Ensure context is still valid
+    if (!mounted) return;
+
+    await showDialog(
+          context: context,
+          builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Error'), // Generic title for errors
+            content: Text(errorMessage),
+                actions: [
+                  TextButton(
+                onPressed: () {
+                  // Reset the flag when closing
+                  if (mounted) setState(() => _isDialogShowing = false);
+                  Navigator.of(dialogContext).pop();
+                },
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+        );
+  }
+
   void _navigateToUserDetailPage(AppUser user) {
     if (kDebugMode) {
       print('Navigating to user detail page for user ID: ${user.uid}');
@@ -1512,7 +1862,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     ),
                     onPressed: () {
                       searchController.clear();
-                      setState(() {
+    setState(() {
                         searchQuery = '';
                       });
                     },
@@ -1537,808 +1887,28 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   // Desktop-specific refresh and add buttons
   Widget _buildDesktopActionButtons() {
     final l10n = AppLocalizations.of(context)!;
-
+    // Watch loading state from the list loading, NOT creation loading
+    final bool isListLoading = _isLoading;
     return Row(
       children: [
-        // Refresh button with better desktop styling
         OutlinedButton.icon(
           icon: const Icon(Icons.refresh, size: 16),
           label: Text(l10n.refresh),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            side: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.outline.withAlpha((255 * 0.5).round()),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          onPressed: _loadUsers,
+          // Disable refresh if list is loading
+          onPressed: isListLoading ? null : _loadUsers,
         ),
         const SizedBox(width: 12),
-        // Add client button
         FilledButton.icon(
           icon: const Icon(Icons.add, size: 16),
           label: Text(l10n.newReseller),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          onPressed: _showCreateUserDialog,
+          // Disable if list is loading, set mode on press
+          onPressed:
+              isListLoading
+                  ? null
+                  : () => setState(() => _isCreatingUserMode = true),
         ),
       ],
     );
-  }
-
-  // Add this new method for verifying a Salesforce user before creating
-  Future<void> _verifySalesforceUser(String salesforceId) async {
-    if (!mounted) return;
-
-    if (kDebugMode) {
-      print('Starting Salesforce user verification for ID: $salesforceId');
-    }
-
-    setState(() {
-      _isCreatingUser = true;
-      _errorMessage = null;
-    });
-
-    // Show loading dialog
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (context) => const AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Fetching user data from Salesforce...'),
-                ],
-              ),
-            ),
-      );
-    }
-
-    try {
-      final salesforceService = SalesforceUserSyncService();
-
-      // Initialize the service
-      final initialized = await salesforceService.initialize();
-      if (kDebugMode) {
-        print('Salesforce service initialized: $initialized');
-      }
-
-      if (!mounted) return;
-
-      if (!initialized) {
-        // Close loading dialog
-        Navigator.of(context).pop();
-
-        // Show error dialog
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: const Text('Connection Error'),
-                  content: const Text(
-                    'Failed to connect to Salesforce. Please try again later.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-          );
-        }
-
-        setState(() {
-          _isCreatingUser = false;
-        });
-        return;
-      }
-
-      // Get Salesforce user data
-      final userData = await salesforceService.getSalesforceUserById(
-        salesforceId,
-      );
-      if (kDebugMode) {
-        print('Salesforce user data retrieved: ${userData != null}');
-        if (userData != null) {
-          print('User email: ${userData['Email']}');
-          print('User name: ${userData['Name']}');
-        }
-      }
-
-      if (!mounted) return;
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      if (userData == null || userData.isEmpty) {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: const Text('User Not Found'),
-                  content: Text(
-                    'No user found with Salesforce ID: $salesforceId',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-          );
-        }
-
-        setState(() {
-          _isCreatingUser = false;
-        });
-        return;
-      }
-
-      // Check if a user with this Salesforce ID already exists
-      final existingUsers =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('salesforceId', isEqualTo: salesforceId)
-              .limit(1)
-              .get();
-
-      if (!mounted) return;
-
-      if (existingUsers.docs.isNotEmpty) {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder:
-                (context) => AlertDialog(
-                  title: const Text('User Already Exists'),
-                  content: const Text(
-                    'A user with this Salesforce ID already exists in the system.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-          );
-        }
-
-        setState(() {
-          _isCreatingUser = false;
-        });
-        return;
-      }
-
-      // Generate a random password
-      const chars =
-          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()';
-      final random = Random.secure();
-
-      // Generate a secure password with at least one uppercase, one lowercase, one number, and one special character
-      String password = '';
-      password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[random.nextInt(26)];
-      password += 'abcdefghijklmnopqrstuvwxyz'[random.nextInt(26)];
-      password += '0123456789'[random.nextInt(10)];
-      password += '!@#\$%^&*()'[random.nextInt(10)];
-
-      // Add more characters to reach desired length
-      while (password.length < 12) {
-        password += chars[random.nextInt(chars.length)];
-      }
-
-      // Extract user data from Salesforce
-      final email = userData['Email'] as String?;
-      final name = userData['Name'] as String?;
-
-      if (kDebugMode) {
-        print('Showing user verification dialog with:');
-        print('- Email: $email');
-        print('- Name: $name');
-        print('- Generated password: $password');
-      }
-
-      // Show verification dialog
-      bool? result;
-      if (mounted) {
-        result = await showDialog<bool>(
-          context: context,
-          builder:
-              (context) => Dialog(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Verify Salesforce User',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 24),
-                      // User information
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Name: ${name ?? 'Not provided'}',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Email: ${email ?? 'Not provided'}',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            if (email == null || email.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Warning: No email found for this user in Salesforce',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Would you like to create this user with the following credentials?',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Email: ${email ?? 'Not available'}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                                color:
-                                    email == null
-                                        ? Theme.of(context).colorScheme.error
-                                        : null,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Role: Reseller',
-                              style: TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Initial Password: $password',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'The user will be prompted to change their password on first login.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                if (kDebugMode) {
-                                  print('User verification canceled');
-                                }
-                                Navigator.of(context).pop(false);
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                              onPressed:
-                                  email != null && email.isNotEmpty
-                                      ? () {
-                                        if (kDebugMode) {
-                                          print('Create User button clicked');
-                                        }
-                                        Navigator.of(context).pop(true);
-                                      }
-                                      : null,
-                              child: const Text('Create User'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        );
-      }
-
-      if (kDebugMode) {
-        print('Dialog result: $result');
-      }
-
-      if (result == true && mounted) {
-        if (kDebugMode) {
-          print('Starting user creation with Salesforce data');
-          print('Email: $email');
-          print('Name: $name');
-        }
-
-        if (email != null) {
-          await _createUserFromSalesforce(
-            email: email,
-            displayName: name ?? email,
-            salesforceId: salesforceId,
-            password: password,
-          );
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cannot create user: Email is required'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else {
-        if (kDebugMode) {
-          print('User creation canceled by admin');
-        }
-      }
-
-      setState(() {
-        _isCreatingUser = false;
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error in _verifySalesforceUser: $e');
-        print('Stack trace: ${StackTrace.current}');
-      }
-
-      if (mounted) {
-        // Close loading dialog if it's still open
-        Navigator.of(context).pop();
-
-        setState(() {
-          _isCreatingUser = false;
-          _errorMessage = e.toString();
-        });
-
-        // Show error dialog
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Error'),
-                content: Text(
-                  'Failed to verify Salesforce user: ${e.toString()}',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      }
-    }
-  }
-
-  // This method is called when the user creation is confirmed
-  Future<void> _createUserFromSalesforce({
-    required String email,
-    required String password,
-    required String displayName,
-    required String salesforceId,
-  }) async {
-    if (!mounted) return;
-
-    final l10n = AppLocalizations.of(context)!;
-
-    if (kDebugMode) {
-      print('_createUserFromSalesforce started with:');
-      print('- Email: $email');
-      print('- Display Name: $displayName');
-      print('- Salesforce ID: $salesforceId');
-      print('- Password length: ${password.length}');
-    }
-
-    try {
-      // Step 1: Check if the cloud functions are available
-      final functionsService = FirebaseFunctionsService();
-      final functionsAvailable = await functionsService.checkAvailability();
-
-      if (kDebugMode) {
-        print('Cloud Functions available: $functionsAvailable');
-      }
-
-      if (!functionsAvailable) {
-        throw Exception(
-          'Cloud Functions are not available. Please check your network connection and try again.',
-        );
-      }
-
-      // Step 2: Check if user already exists in Firestore with this Salesforce ID
-      final existingUsers =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('salesforceId', isEqualTo: salesforceId)
-              .limit(1)
-              .get();
-
-      if (existingUsers.docs.isNotEmpty) {
-        throw Exception(
-          'User with this Salesforce ID already exists in the system',
-        );
-      }
-
-      // Step 3: Fetch Salesforce user data again to ensure we have the latest
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => const AlertDialog(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Getting latest data from Salesforce...'),
-                  ],
-                ),
-              ),
-        );
-      }
-
-      final salesforceService = SalesforceUserSyncService();
-      final initialized = await salesforceService.initialize();
-
-      if (!initialized) {
-        // Close progress dialog
-        if (mounted) Navigator.of(context).pop();
-        throw Exception(
-          'Failed to connect to Salesforce. Please try again later.',
-        );
-      }
-
-      final salesforceData = await salesforceService.getSalesforceUserById(
-        salesforceId,
-      );
-
-      // Close progress dialog
-      if (mounted) Navigator.of(context).pop();
-
-      if (salesforceData == null || salesforceData.isEmpty) {
-        throw Exception('Failed to retrieve user data from Salesforce');
-      }
-
-      if (kDebugMode) {
-        print(
-          'Retrieved Salesforce data: ${salesforceData.toString().substring(0, min(100, salesforceData.toString().length))}...',
-        );
-      }
-
-      // Step 4: Create the user with Firebase Auth through our Cloud Function
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => const AlertDialog(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Creating user account...'),
-                  ],
-                ),
-              ),
-        );
-      }
-
-      final authRepository = ref.read(authRepositoryProvider);
-
-      // Call the repository method that internally uses the Firebase Functions service
-      final newUser = await authRepository.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-        role: UserRole.reseller,
-        displayName: displayName,
-      );
-
-      // Close the progress dialog
-      if (mounted) Navigator.of(context).pop();
-
-      if (kDebugMode) {
-        print('User created successfully: ${newUser.uid}');
-      }
-
-      // Step 5: Update the user document with Salesforce data
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => const AlertDialog(
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Synchronizing with Salesforce...'),
-                  ],
-                ),
-              ),
-        );
-      }
-
-      // Use the existing _syncUserWithSalesforce method to sync the user data
-      await _syncUserWithSalesforce(newUser.uid, salesforceId);
-
-      // Close the progress dialog
-      if (mounted) Navigator.of(context).pop();
-
-      if (kDebugMode) {
-        print('Salesforce sync completed');
-      }
-
-      // Show success message and dialog with password
-      if (mounted) {
-        if (kDebugMode) {
-          print('Showing success dialog');
-        }
-
-        // Show success dialog with password
-        showDialog(
-          context: context,
-          builder:
-              (context) => Dialog(
-                child: Container(
-                  width: double.maxFinite,
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User Created Successfully',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // User created confirmation
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.green.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'The user account for $displayName has been created and synchronized with Salesforce.',
-                                style: TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Login Credentials',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Please securely share these credentials with the user:',
-                        style: TextStyle(fontSize: 14),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Display login details
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSalesforceInfoRow('Email', email),
-                            const SizedBox(height: 12),
-
-                            // Password display
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Password:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Theme.of(context).dividerColor,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          password,
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.copy),
-                                        tooltip: 'Copy to clipboard',
-                                        onPressed: () async {
-                                          await Clipboard.setData(
-                                            ClipboardData(text: password),
-                                          );
-                                          if (!context.mounted) return;
-
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Password copied to clipboard',
-                                              ),
-                                              duration: Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-                      const Text(
-                        'The user will be prompted to change their password after their first login.',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton(
-                          onPressed: () {
-                            if (kDebugMode) {
-                              print('Success dialog closed');
-                            }
-
-                            Navigator.of(context).pop();
-                            setState(() {
-                              _isCreatingUser = false;
-                            });
-                            // Refresh the user list
-                            _loadUsers();
-                          },
-                          child: const Text('Close'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error in _createUserFromSalesforce: $e');
-        print('Error type: ${e.runtimeType}');
-        print('Stack trace: ${StackTrace.current}');
-      }
-
-      // Close any open progress dialogs
-      if (mounted) {
-        // Check if there's a dialog showing and close it
-        Navigator.of(
-          context,
-        ).popUntil((route) => route.isFirst || !route.isCurrent);
-
-        setState(() {
-          _isCreatingUser = false;
-          _errorMessage = e.toString();
-        });
-
-        // Show error dialog
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Error'),
-                content: Text('Failed to create user: ${e.toString()}'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      }
-    }
   }
 
   // Helper method to build info rows for Salesforce user info
@@ -2359,292 +1929,5 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
         ],
       ),
     );
-  }
-
-  // Add a helper method to directly test the createUser Cloud Function
-  Future<void> _testCreateUserFunction({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    if (kDebugMode) {
-      print('Testing createUser Cloud Function directly');
-      print('- Email: $email');
-      print('- Display Name: $displayName');
-      print('- Password length: ${password.length}');
-    }
-
-    try {
-      // Show progress dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder:
-            (context) => const AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Testing direct connection to createUser function...'),
-                ],
-              ),
-            ),
-      );
-
-      // Get the Firebase Functions instance for the US region
-      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-
-      // Create a reference to the 'createUser' Cloud Function
-      final createUserFunction = functions.httpsCallable('createUser');
-
-      if (kDebugMode) {
-        print('Got reference to createUser function');
-      }
-
-      // Call the function with test parameters
-      final result = await createUserFunction.call({
-        'email': email,
-        'password': password,
-        'displayName': displayName,
-        'role': 'reseller',
-      });
-
-      // Close progress dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      if (kDebugMode) {
-        print('Cloud Function result type: ${result.data.runtimeType}');
-        if (result.data is Map) {
-          print('Result data: ${result.data}');
-          final resultMap = result.data as Map;
-          print('User ID: ${resultMap['uid']}');
-          print('Email: ${resultMap['email']}');
-        } else {
-          print('Result data (not a map): ${result.data}');
-        }
-      }
-
-      // Show success dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Direct Function Test Successful'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'The createUser function was called successfully!',
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Response: ${result.data.toString()}'),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      }
-    } catch (e) {
-      // Close progress dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-
-      if (kDebugMode) {
-        print('Error testing createUser function: $e');
-        if (e is FirebaseFunctionsException) {
-          print('Firebase Functions Exception:');
-          print('- Code: ${e.code}');
-          print('- Message: ${e.message ?? "No message"}');
-          print('- Details: ${e.details}');
-        }
-      }
-
-      // Show error dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Direct Function Test Failed'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Error: ${e.toString()}'),
-                    const SizedBox(height: 16),
-                    if (e is FirebaseFunctionsException) ...[
-                      Text('Code: ${e.code}'),
-                      Text('Message: ${e.message ?? "No message"}'),
-                      if (e.details != null) Text('Details: ${e.details}'),
-                    ],
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Suggestions:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const Text(
-                      '• Check if the createUser function is deployed',
-                    ),
-                    const Text('• Verify your admin permissions'),
-                    const Text('• Check the Firebase console for logs'),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                ],
-              ),
-        );
-      }
-    }
-  }
-
-  /// Tests Firebase Functions connectivity and displays diagnostic information
-  Future<void> _testFirebaseFunctionsConnectivity() async {
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = true;
-      _loadingMessage = 'Testing Firebase Functions connectivity...';
-    });
-
-    try {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext dialogContext) {
-            return AlertDialog(
-              title: const Text('Firebase Functions Diagnostics'),
-              content: SingleChildScrollView(
-                child: StatefulBuilder(
-                  builder: (context, setStateDialog) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [Text(_loadingMessage)],
-                    );
-                  },
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Close'),
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      }
-
-      // Update state to show real-time progress
-      setState(() {
-        _loadingMessage = 'Step 1: Testing Firebase initialization...';
-      });
-
-      // Check Firebase initialization
-      final firebaseApp = Firebase.app();
-      final options = firebaseApp.options;
-
-      setState(() {
-        _loadingMessage =
-            '$_loadingMessage\n✓ Firebase initialized: ${options.projectId}';
-      });
-
-      // Step 2: Check Functions instance
-      setState(() {
-        _loadingMessage =
-            '$_loadingMessage\n\nStep 2: Testing Firebase Functions...';
-      });
-
-      try {
-        final functions = FirebaseFunctions.instance;
-
-        setState(() {
-          _loadingMessage =
-              '$_loadingMessage\n✓ Firebase Functions instance created';
-        });
-
-        // Test ping function
-        setState(() {
-          _loadingMessage =
-              '$_loadingMessage\n\nStep 3: Testing ping function...';
-        });
-
-        try {
-          final pingCallable = functions.httpsCallable('ping');
-          final result = await pingCallable.call();
-
-          setState(() {
-            _loadingMessage =
-                '$_loadingMessage\n✓ Ping successful: ${result.data}';
-          });
-        } catch (e) {
-          setState(() {
-            _loadingMessage = '$_loadingMessage\n✗ Ping failed: $e';
-            if (e is FirebaseFunctionsException) {
-              _loadingMessage =
-                  '$_loadingMessage\n  Code: ${e.code}\n  Message: ${e.message}\n  Details: ${e.details}';
-            }
-          });
-        }
-
-        // Test createUser function existence
-        setState(() {
-          _loadingMessage =
-              '$_loadingMessage\n\nStep 4: Checking createUser function...';
-        });
-
-        try {
-          final createUserCallable = functions.httpsCallable('createUser');
-
-          setState(() {
-            _loadingMessage = '$_loadingMessage\n✓ createUser function exists';
-          });
-        } catch (e) {
-          setState(() {
-            _loadingMessage =
-                '$_loadingMessage\n✗ createUser function check failed: $e';
-          });
-        }
-      } catch (e) {
-        setState(() {
-          _loadingMessage =
-              '$_loadingMessage\n✗ Firebase Functions test failed: $e';
-        });
-      }
-
-      setState(() {
-        _loadingMessage = '$_loadingMessage\n\nDiagnostics complete.';
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _loadingMessage = 'Error testing Firebase Functions: $e';
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
   }
 }

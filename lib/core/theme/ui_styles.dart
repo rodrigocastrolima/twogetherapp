@@ -73,14 +73,14 @@ class AppStyles {
     return BoxDecoration(
       color:
           isDark
-              ? Colors.black.withOpacity(0.3)
-              : Colors.white.withOpacity(0.3),
+              ? Colors.black.withAlpha((255 * 0.3).round())
+              : Colors.white.withAlpha((255 * 0.3).round()),
       border: Border(
         right: BorderSide(
           color:
               isDark
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.1),
+                  ? Colors.white.withAlpha((255 * 0.05).round())
+                  : Colors.black.withAlpha((255 * 0.1).round()),
           width: 1,
         ),
       ),
@@ -88,8 +88,8 @@ class AppStyles {
         BoxShadow(
           color:
               isDark
-                  ? Colors.black.withOpacity(0.2)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.black.withAlpha((255 * 0.2).round())
+                  : Colors.black.withAlpha((255 * 0.05).round()),
           blurRadius: 10,
           offset: const Offset(0, 0),
         ),
@@ -149,8 +149,8 @@ class AppStyles {
     return BoxDecoration(
       color:
           isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.black.withOpacity(0.05),
+              ? Colors.white.withAlpha((255 * 0.05).round())
+              : Colors.black.withAlpha((255 * 0.05).round()),
       borderRadius: BorderRadius.circular(8),
     );
   }
@@ -161,7 +161,10 @@ class AppStyles {
   static const double navBarHeight = 84.0;
 
   // Common paddings
-  static const EdgeInsets standardCardPadding = EdgeInsets.all(16.0);
+  static const EdgeInsets standardCardPadding = EdgeInsets.symmetric(
+    horizontal: 16.0,
+    vertical: 12.0,
+  );
   static const EdgeInsets contentPadding = EdgeInsets.all(24.0);
 
   /// Container styles for input fields

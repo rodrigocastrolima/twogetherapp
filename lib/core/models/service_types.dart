@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
 enum ServiceCategory {
   energy,
   insurance,
@@ -11,6 +14,18 @@ enum ServiceCategory {
         return 'Insurance';
       case ServiceCategory.telecommunications:
         return 'Telecommunications';
+    }
+  }
+
+  String getLocalizedName(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (this) {
+      case ServiceCategory.energy:
+        return l10n.categoryEnergy;
+      case ServiceCategory.insurance:
+        return l10n.categoryInsurance;
+      case ServiceCategory.telecommunications:
+        return l10n.categoryTelecommunications;
     }
   }
 

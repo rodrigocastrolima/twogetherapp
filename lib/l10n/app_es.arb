@@ -194,5 +194,31 @@
     "unknownUser": "Usuario Desconocido",
     "noEmailProvided": "Email no proporcionado",
     "active": "Activo",
-    "inactive": "Inactivo"
+    "inactive": "Inactivo",
+
+    "@_SUBMISSIONS": {},
+    "serviceSubmissions": "Envíos de Servicios",
+    "submissionsFromReseller": "Envíos de {resellerName}",
+    "searchResellerSubmissions": "Buscar envíos del revendedor...",
+    "searchAllSubmissions": "Buscar todos los envíos...",
+    "allStatus": "Todos los Estados",
+    "statusPending": "Pendiente",
+    "statusApproved": "Aprobado",
+    "statusRejected": "Rechazado",
+    "errorLoadingSubmissions": "Error al cargar envíos",
+    "noSubmissionsForReseller": "No se encontraron envíos para este revendedor",
+    "noServiceSubmissionsFound": "No se encontraron envíos de servicios",
+    "noSubmissionsMatchSearch": "Ningún envío coincide con tu búsqueda",
+    "nifAndEmail": "NIF: {nif} • {email}",
+    "documents": "Docs",
+    "categoryEnergy": "Energía",
+    "categoryInsurance": "Seguro", 
+    "categoryTelecommunications": "Telecomunicaciones",
+
+    "navMessages": "Mensajes",
+    "navSettings": "Ajustes",
+    "navReports": "Informes",
+    "navOpportunities": "Oportunidades",
+    "navSubmissions": "Envíos",
+    "navResellers": "Revendedores"
 } 

@@ -6,6 +6,7 @@ import '../../data/repositories/service_submission_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 
 // Provider for the repository
 final serviceSubmissionRepositoryProvider =
@@ -162,6 +163,12 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
     );
 
     try {
+      if (kDebugMode) {
+        print('Starting service submission request');
+        print('Reseller data: id=$resellerId, name=$resellerName');
+        print('Form data: $formData');
+      }
+
       // Call repository to submit the request
       final submissionId = await _repository.submitServiceRequest(
         clientDetails: formData,
@@ -169,6 +176,10 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
         resellerId: resellerId,
         resellerName: resellerName,
       );
+
+      if (kDebugMode) {
+        print('Service submission created with ID: $submissionId');
+      }
 
       // Update state with success
       state = state.copyWith(
@@ -181,6 +192,10 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
       );
       return true;
     } catch (e) {
+      if (kDebugMode) {
+        print('Error submitting service request: $e');
+        print('Stack trace: ${StackTrace.current}');
+      }
       // Update state with error
       state = state.copyWith(
         isLoading: false,

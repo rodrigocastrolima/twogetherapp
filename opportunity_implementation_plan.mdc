@@ -1,0 +1,135 @@
+---
+description: 
+globs: 
+---
+---
+description: Detailed plan for implementing the Salesforce Opportunity creation workflow via Backoffice.
+globs: []
+---
+
+# Implementation Plan: Salesforce Opportunity Creation via Backoffice
+
+This plan outlines the steps to implement a workflow where service submissions (originating from `service_submission_page.dart`) are reviewed and completed by a backoffice user before being created as a specific "Retail Opportunity" (`Oportunidade__c`) record in Salesforce.
+
+## Phase 1: Identifying Opportunity Submissions & Firestore Setup
+
+1.  **Identify Opportunity Trigger:**
+    *   **Task:** Determine the criteria within the existing `service_submission_page.dart` data (saved to Firestore, likely in `service_submissions` or similar collection) that identifies a submission as a potential "Retail Opportunity" for Salesforce.
+    *   **Examples:** This might be a specific `ServiceCategory`, `ClientType`, `Provider`, or a combination.
+    *   **Action:** Document this logic clearly for use in the Backoffice query.
+
+2.  **Firestore Collection & Data:**
+    *   **Collection:** Confirm the Firestore collection used by `service_submission_page.dart`.
+    *   **Data Structure:** Verify the exact fields being saved (e.g., `responsibleName`, `companyName`, `nif`, `email`, `phone`, `invoicePhotoUrl`, category/type enums, `resellerId`, `resellerName`, `submissionTimestamp`, etc.).
+    *   **Status Field:** Ensure there's a `status` field (e.g., initialized to `pending_backoffice_review`) or add one to track the workflow state.
+
+3.  **Firestore Security Rules:**
+    *   **Task:** Review and update `firestore.rules` for the relevant collection.
+    *   **Details:**
+        *   Allow authenticated "resellers" to `create`.
+        *   Allow authenticated "backoffice" users to `read` and potentially `update` the status field.
+        *   Restrict client-side `delete`.
+
+## Phase 2: Backoffice Verification Page (Flutter)
+
+1.  **Create Backoffice Opportunity Verification UI:**
+    *   **File:** Create a new Flutter page/widget (e.g., `lib/features/opportunity/presentation/pages/opportunity_verification_page.dart`).
+    *   **Part 1 - List View:**
+        *   Query the Firestore collection (from Phase 1) for submissions matching the "Opportunity Trigger" criteria and having a status like `pending_backoffice_review`.
+        *   Display key info (e.g., Company Name, NIF, Reseller Name, Timestamp) in a list.
+    *   **Part 2 - Detail Form View:**
+        *   On list item selection, navigate to a detailed view.
+        *   **Crucially:** This view MUST replicate the **exact layout and fields** of the Salesforce "Retail Opportunity" (`Oportunidade__c`) creation page for the 'Retail' record type.
+        *   Reference `Create-RetailOportunidade.ps1` and potentially Salesforce metadata (via API or Describe calls) to ensure all necessary fields are included.
+    *   **Dependencies:** Flutter SDK, `cloud_firestore`, state management.
+
+2.  **Implement Data Fetching, Autofill & Mapping:**
+    *   **Task:** Fetch the full Firestore document for the selected submission.
+    *   **Details:**
+        *   **Autofill:** Populate the Salesforce replica form with data from Firestore:
+            *   `Opportunity Name`: Construct from Firestore data (e.g., `[companyName]_[submissionTimestamp]`).
+            *   `NIF__c`: Map from Firestore `nif`.
+            *   `Data_de_Cria_o_da_Oportunidade__c`: Use current date (or `submissionTimestamp` if preferred).
+            *   `Agente_Retail__c`: Map from Firestore `resellerId` (verify this maps to a Salesforce User ID).
+            *   Display the `companyName`, `responsibleName`, `email`, `phone` for reference.
+            *   Provide a clickable link to `invoicePhotoUrl` for preview (`url_launcher`).
+        *   **Editable:** Ensure ALL fields on the form (including auto-filled ones) remain editable by the backoffice user.
+        *   **Manual Fields:** Include all other required fields from Salesforce `Oportunidade__c` (Retail type) like `Fase__c`, `Tipo_de_Oportunidade__c`, `Segmento_de_Cliente__c`, `Solu_o__c`, `Data_de_Previs_o_de_Fecho__c`, etc.
+        *   **Picklist Handling:** Implement dropdowns for Salesforce picklist fields (`Fase__c`, `Tipo_de_Oportunidade__c`, etc.). Values might need to be hardcoded initially or fetched dynamically from Salesforce metadata if required.
+    *   **Dependencies:** `cloud_firestore`, `url_launcher`, knowledge of `Oportunidade__c` fields and picklist values.
+
+3.  **Implement Form Validation & Submission Trigger:**
+    *   **Task:** Add validation logic to the Flutter form.
+    *   **Details:**
+        *   Ensure all fields marked as **required** in Salesforce (based on `Create-RetailOportunidade.ps1` or metadata) are filled.
+        *   Add an "Approve & Create Opportunity" button.
+        *   On button press (post-validation): Collect the **entire dataset** from the form fields.
+        *   Call the Firebase Cloud Function (Phase 3), passing the complete Opportunity data payload and the original Firestore document ID.
+    *   **Dependencies:** Flutter Forms API, `cloud_functions`.
+
+## Phase 3: Salesforce Submission (Firebase Cloud Function - Node.js)
+
+1.  **Create Cloud Function (`createSalesforceOpportunity`):**
+    *   **File:** Add a new HTTPS Callable function in `functions/index.js` (or a separate file).
+    *   **Trigger:** Called by the Flutter Backoffice page.
+    *   **Input:** Receives the complete Opportunity data object and the Firestore `submissionId`.
+    *   **Dependencies:** `firebase-functions`, `firebase-admin`.
+
+2.  **Implement Salesforce Authentication:**
+    *   **Task:** Authenticate with the Salesforce API.
+    *   **Details:** Use `jsforce`. Leverage secure configuration for credentials (e.g., Firebase environment variables). Reuse existing auth logic if available.
+    *   **Dependencies:** `jsforce`, Firebase Function config.
+
+3.  **Fetch Salesforce Metadata (Record Type ID):**
+    *   **Task:** Query Salesforce to get the `Id` of the `RecordType` where `SobjectType = 'Oportunidade__c'` and `DeveloperName = 'Retail'`.
+    *   **Dependencies:** `jsforce`.
+
+4.  **Prepare Opportunity Payload:**
+    *   **Task:** Construct the data object to be sent to the Salesforce API for creating the `Oportunidade__c` record.
+    *   **Details:**
+        *   Map fields received from Flutter to the correct Salesforce API names (e.g., `nif` -> `NIF__c`).
+        *   Include the fetched `RecordTypeId`.
+        *   Set `OwnerId` to the specific Integration User ID: `005MI00000T7DFxYAN`.
+        *   Set `Data_de_Cria_o_da_Oportunidade__c` and `Data_da_ltima_actualiza_o_de_Fase__c` (likely to current date/time or submission time).
+        *   Ensure all required fields (`Name`, `Fase__c`, `Tipo_de_Oportunidade__c`, etc.) are present and correctly formatted.
+    *   **Dependencies:** Knowledge of `Oportunidade__c` API field names.
+
+5.  **Create Salesforce Opportunity Record:**
+    *   **Task:** Use `jsforce` (`conn.sobject('Oportunidade__c').create(...)`) to create the record.
+    *   **Details:** Handle potential API errors gracefully (validation rules, connection issues). Store the returned Salesforce `OpportunityId` on success.
+    *   **Dependencies:** `jsforce`.
+
+6.  **Download Invoice from Firebase Storage:**
+    *   **Task:** Use the `invoicePhotoUrl` (received from Flutter) to download the invoice file content.
+    *   **Details:** Use `admin.storage().bucket().file(filePath).download()`.
+    *   **Dependencies:** `firebase-admin`, `@google-cloud/storage`.
+
+7.  **Upload Invoice to Salesforce Files & Link:**
+    *   **Task:** Upload the invoice file and link it to the new Opportunity.
+    *   **Details:**
+        *   Use `jsforce` or direct REST API calls.
+        *   Create `ContentVersion`: Provide file content (Base64 encoded), `Title`, `PathOnClient`.
+        *   Get `ContentDocumentId` from the `ContentVersion` result.
+        *   Create `ContentDocumentLink`: Link `ContentDocumentId` to the Salesforce `OpportunityId` (`LinkedEntityId`).
+    *   **Dependencies:** `jsforce`, Node.js `Buffer`.
+
+## Phase 4: Finalization & Cleanup
+
+1.  **Delete Firestore Submission:**
+    *   **Task:** If Salesforce record creation and file upload (Phase 3) were successful, delete the original submission document from Firestore.
+    *   **Where:** Within the Cloud Function, after successful Salesforce operations.
+    *   **Details:** Use `admin.firestore().collection(...).doc(submissionId).delete()`.
+    *   **Dependencies:** `firebase-admin`.
+
+2.  **Return Status from Cloud Function:**
+    *   **Task:** Return a meaningful response to the calling Flutter app.
+    *   **Details:** Indicate success (optionally return the new Salesforce Opportunity ID) or failure (include an error message/code).
+    *   **Logging:** Implement robust logging within the Cloud Function for debugging.
+
+3.  **Update Flutter Backoffice UI:**
+    *   **Task:** Handle the Cloud Function's response in the Flutter Backoffice page.
+    *   **Details:**
+        *   Show a success message (e.g., Snackbar, dialog) and potentially navigate back or refresh the list.
+        *   Show an error message if the process failed.
+        *   Update UI state (e.g., hide loading indicator).
+    *   **Dependencies:** State management. 

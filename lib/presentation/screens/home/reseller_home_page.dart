@@ -95,175 +95,154 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    final currentUser = ref.watch(authStateChangesProvider);
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final screenSize = MediaQuery.of(context).size;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    // Set background to 1/3 of screen height
-    final backgroundHeight = screenSize.height * 0.33;
+    // Calculate the height of the top section (1/3 of screen)
+    final topSectionHeight = screenSize.height * 0.33;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      body: ClipRect(
-        child: Stack(
-          children: [
-            // Fixed background image (with no parallax effect)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: backgroundHeight,
-              child: Stack(
-                children: [
-                  // Background image
-                  Image.asset(
-                    'assets/images/backgrounds/homepage.png',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                  // Optional: Add a subtle gradient overlay for better text contrast
-                  Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.1),
-                          Colors.black.withOpacity(0.3),
-                        ],
-                        stops: const [0.0, 1.0],
+      backgroundColor: Colors.transparent, // Make scaffold transparent
+      body: RefreshIndicator(
+        displacement: 40,
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
+              // Top transparent section - background image will show through from MainLayout
+              Container(
+                height: topSectionHeight,
+                width: double.infinity,
+                // No background color to keep it transparent
+                child: SafeArea(
+                  bottom: false,
+                  child: Stack(
+                    children: [
+                      // Gradient overlay to improve text contrast
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.3),
+                                Colors.black.withOpacity(0.1),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
-            // Main scrollable content
-            RefreshIndicator(
-              key: _refreshIndicatorKey,
-              onRefresh: _onRefresh,
-              backgroundColor: theme.colorScheme.surface,
-              color: theme.colorScheme.primary,
-              strokeWidth: 2.5,
-              displacement: statusBarHeight + 40,
-              edgeOffset: 0,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    // Top section with transparent background (since image is behind)
-                    Container(
-                      height: backgroundHeight,
-                      width: double.infinity,
-                      child: Column(
+                      // Content
+                      Column(
                         children: [
-                          // Empty space for the status bar
-                          SizedBox(height: statusBarHeight + 20),
+                          SizedBox(height: 20),
 
                           // Top row with profile and action icons
                           Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
+                              horizontal: 20.0,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 // Profile icon with user's initials
-                                currentUser.when(
-                                  data:
-                                      (user) => GestureDetector(
-                                        onTap: () => context.go('/profile'),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.surface
-                                                .withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: Center(
-                                              child: Text(
-                                                _getUserInitials(
-                                                  l10n,
-                                                  user?.displayName,
-                                                  user?.email,
+                                ref
+                                    .watch(authStateChangesProvider)
+                                    .when(
+                                      data:
+                                          (user) => GestureDetector(
+                                            onTap: () => context.go('/profile'),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme.surface
+                                                    .withOpacity(0.2),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child: Center(
+                                                  child: Text(
+                                                    _getUserInitials(
+                                                      l10n,
+                                                      user?.displayName,
+                                                      user?.email,
+                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelLarge
+                                                        ?.copyWith(
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                  ),
                                                 ),
-                                                style: theme
-                                                    .textTheme
-                                                    .labelLarge
-                                                    ?.copyWith(
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                  loading:
-                                      () => Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.surface
-                                              .withOpacity(0.2),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: Center(
+                                      loading:
+                                          () => Container(
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.surface
+                                                  .withOpacity(0.2),
+                                              shape: BoxShape.circle,
+                                            ),
                                             child: SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                color: Colors.white,
-                                                strokeWidth: 2,
+                                              width: 22,
+                                              height: 22,
+                                              child: Center(
+                                                child: SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        color: Colors.white,
+                                                        strokeWidth: 2,
+                                                      ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                  error:
-                                      (_, __) => GestureDetector(
-                                        onTap: () => context.go('/profile'),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.surface
-                                                .withOpacity(0.2),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: Center(
-                                              child: Text(
-                                                l10n.userInitialsDefault,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelLarge
-                                                    ?.copyWith(
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
+                                      error:
+                                          (_, __) => GestureDetector(
+                                            onTap: () => context.go('/profile'),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(10),
+                                              decoration: BoxDecoration(
+                                                color: theme.colorScheme.surface
+                                                    .withOpacity(0.2),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child: Center(
+                                                  child: Text(
+                                                    l10n.userInitialsDefault,
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelLarge
+                                                        ?.copyWith(
+                                                          color: Colors.white,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                ),
+                                    ),
 
                                 // Action icons row
                                 Row(
@@ -298,28 +277,34 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                           ),
                         ],
                       ),
-                    ),
+                    ],
+                  ),
+                ),
+              ),
 
-                    // White content area
-                    Container(
-                      width: double.infinity,
-                      color: theme.colorScheme.background,
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 60),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildQuickActionsSection(l10n),
-                          const SizedBox(height: 30),
-                          _buildNotificationsSection(l10n),
-                          const SizedBox(height: 40),
-                        ],
-                      ),
+              // White content area below the top section
+              Container(
+                width: double.infinity,
+                color: theme.colorScheme.background,
+                padding: const EdgeInsets.only(top: 20, bottom: 60),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildQuickActionsSection(l10n),
                     ),
+                    const SizedBox(height: 30),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildNotificationsSection(l10n),
+                    ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
