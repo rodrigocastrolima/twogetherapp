@@ -156,7 +156,7 @@ class AppStyles {
   }
 
   // Common constraints
-  static const double sidebarWidth = 200.0;
+  static const double sidebarWidth = 250.0;
   static const double badgeSize = 16.0;
   static const double navBarHeight = 84.0;
 

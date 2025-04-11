@@ -1058,20 +1058,24 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
               print(
                 "[UserManagementPage Listener] Calling _showVerificationDialogFromState.",
               );
-              _showVerificationDialogFromState(next.verificationData!)
-                  .then((_) {
-                    // Reset flag when dialog is dismissed (or state changes)
-                    // Note: This might reset too early if another dialog should show immediately.
-                    // Consider resetting only when the corresponding state flag becomes false.
-                    // if (mounted && !ref.read(userCreationProvider).showVerificationDialog) {
-                    //   setState(() => _isDialogShowing = false);
-                    // }
-                  });
+              _showVerificationDialogFromState(next.verificationData!).then((
+                _,
+              ) {
+                // Reset flag when dialog is dismissed (or state changes)
+                // Note: This might reset too early if another dialog should show immediately.
+                // Consider resetting only when the corresponding state flag becomes false.
+                // if (mounted && !ref.read(userCreationProvider).showVerificationDialog) {
+                //   setState(() => _isDialogShowing = false);
+                // }
+              });
             } else {
               print(
                 "[UserManagementPage Listener] Verification NOT shown - page not mounted. Resetting flag.",
               );
-              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+              if (mounted)
+                setState(
+                  () => _isDialogShowing = false,
+                ); // Reset if showing failed
             }
           });
         } else {
@@ -1104,7 +1108,10 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
               print(
                 "[UserManagementPage Listener] Success NOT shown - page not mounted. Resetting flag.",
               );
-              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+              if (mounted)
+                setState(
+                  () => _isDialogShowing = false,
+                ); // Reset if showing failed
             }
           });
         } else {
@@ -1137,7 +1144,10 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
               print(
                 "[UserManagementPage Listener] Error NOT shown - page not mounted. Resetting flag.",
               );
-              if (mounted) setState(() => _isDialogShowing = false); // Reset if showing failed
+              if (mounted)
+                setState(
+                  () => _isDialogShowing = false,
+                ); // Reset if showing failed
             }
           });
         } else {
@@ -1157,11 +1167,11 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
             "[UserManagementPage Listener] Resetting _isDialogShowing flag as no dialogs are active in state.",
           );
           // Use WidgetsBinding to avoid calling setState during build/listen phase directly
-           WidgetsBinding.instance.addPostFrameCallback((_) {
-             if(mounted) {
-               setState(() => _isDialogShowing = false);
-             }
-           });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() => _isDialogShowing = false);
+            }
+          });
         }
       }
     });
@@ -1255,28 +1265,28 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
         )
         : Row(
           // Desktop header...
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.resellerRole,
+                Text(
+                  l10n.resellerRole,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.adminUserManagementDescription,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-                      ),
-                    ),
-                  ],
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.adminUserManagementDescription,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                  ),
+                ),
+              ],
+            ),
             _buildDesktopActionButtons(), // Contains the "New Reseller" button
           ],
         );
@@ -1290,82 +1300,82 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   ) {
     if (_isLoading) {
       return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            l10n.commonLoading,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.commonLoading,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(
-                              context,
+                  context,
                 ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-                            ),
-                          ),
-                        ],
-                      ),
+              ),
+            ),
+          ],
+        ),
       );
     } else if (_errorMessage != null) {
       return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.error.withAlpha((255 * 0.8).round()),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(
+                context,
+              ).colorScheme.error.withAlpha((255 * 0.8).round()),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(
-                              context,
+                  context,
                 ).colorScheme.error.withAlpha((255 * 0.9).round()),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          FilledButton.icon(
-                            onPressed: _loadUsers,
-                            icon: const Icon(Icons.refresh),
-                            label: Text(l10n.tryAgain),
-                          ),
-                        ],
-                      ),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _loadUsers,
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.tryAgain),
+            ),
+          ],
+        ),
       );
     } else if (_users.isEmpty) {
       return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.people_outline,
-                            size: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
               color: Theme.of(
                 context,
               ).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            l10n.noRetailUsersFound,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.noRetailUsersFound,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Theme.of(
-                              context,
+                  context,
                 ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
               ),
             ),
             // Optionally add the "New Reseller" button here too?
-        ],
-      ),
-    );
+          ],
+        ),
+      );
     } else {
       return _buildUserTable(); // Assumes _buildUserTable is defined elsewhere
     }
@@ -1381,13 +1391,13 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
       child: Form(
         key: _createUserFormKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.newReseller,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.newReseller,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             Text(
               'Enter the Salesforce User ID to fetch details and create a new reseller account.',
@@ -1430,7 +1440,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                   child: Text(l10n.commonCancel),
                 ),
                 const SizedBox(width: 8),
-        FilledButton.icon(
+                FilledButton.icon(
                   icon:
                       userCreationState.isLoading
                           ? Container(
@@ -1467,9 +1477,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
             ),
           ],
         ),
-                ),
-          );
-        }
+      ),
+    );
+  }
 
   // --- Dialog methods called by the listener (Keep these) ---
   Future<void> _showVerificationDialogFromState(
@@ -1480,121 +1490,124 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     final String password = data['password'] as String; // Should be present
 
     // Ensure context is still valid before showing dialog
-      if (!mounted) return;
+    if (!mounted) return;
 
     await showDialog<bool>(
-            context: context,
+      context: context,
       barrierDismissible: false, // Prevent accidental dismiss
-            builder:
+      builder:
           (dialogContext) => Dialog(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Verify Salesforce User',
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 500),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Verify Salesforce User',
                     style: Theme.of(dialogContext).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 24),
                   // User info...
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
                       color: Theme.of(dialogContext)
                           .colorScheme
                           .surfaceContainerHighest
                           .withAlpha((255 * 0.5).round()),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text('Name: ${name ?? 'Not provided'}'),
-                            const SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text('Email: ${email ?? 'Not provided'}'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
                     'Create user with credentials?',
                     style: Theme.of(dialogContext).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
                   // Credentials...
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
                       color: Theme.of(dialogContext).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color:
                             Theme.of(dialogContext).colorScheme.outlineVariant,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Email: ${email ?? 'Not available'}'),
+                        const SizedBox(height: 12),
+                        const Text('Role: Reseller'),
+                        const SizedBox(height: 12),
+                        Text('Initial Password: $password'),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'User must change password on first login.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text('Email: ${email ?? 'Not available'}'),
-                            const SizedBox(height: 12),
-                        const Text('Role: Reseller'),
-                            const SizedBox(height: 12),
-                        Text('Initial Password: $password'),
-                            const SizedBox(height: 4),
-                            const Text(
-                          'User must change password on first login.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
+                      ],
+                    ),
+                  ),
+                  Padding(
                     padding: const EdgeInsets.only(top: 24.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                          onPressed: ref.read(userCreationProvider).isLoading
-                              ? null
-                              : () {
-                                // Reset the flag when canceling
-                                if (mounted) setState(() => _isDialogShowing = false);
-                                Navigator.of(dialogContext).pop();
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton(
-                          onPressed: ref.read(userCreationProvider).isLoading
-                              ? null
-                              : () {
-                                Navigator.of(dialogContext).pop();
-                                // Call provider to confirm and create user
-                                ref
-                                    .read(userCreationProvider.notifier)
-                                    .confirmAndCreateUser();
-                              },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed:
+                              ref.read(userCreationProvider).isLoading
+                                  ? null
+                                  : () {
+                                    // Reset the flag when canceling
+                                    if (mounted)
+                                      setState(() => _isDialogShowing = false);
+                                    Navigator.of(dialogContext).pop();
+                                  },
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed:
+                              ref.read(userCreationProvider).isLoading
+                                  ? null
+                                  : () {
+                                    Navigator.of(dialogContext).pop();
+                                    // Call provider to confirm and create user
+                                    ref
+                                        .read(userCreationProvider.notifier)
+                                        .confirmAndCreateUser();
+                                  },
                           child: Text(
                             ref.read(userCreationProvider).isLoading
                                 ? 'Creating...'
                                 : 'Create User',
                           ), // Update button text while loading
-                            ),
-                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
-        );
-      }
+            ),
+          ),
+    );
+  }
 
   Future<void> _showSuccessDialogFromState(Map<String, dynamic> data) async {
     final String displayName = data['displayName'] as String;
@@ -1605,69 +1618,69 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     if (!mounted) return;
 
     await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder:
+      context: context,
+      barrierDismissible: false,
+      builder:
           (dialogContext) => Dialog(
-                child: Container(
-                  width: double.maxFinite,
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User Created Successfully',
+            child: Container(
+              width: double.maxFinite,
+              constraints: const BoxConstraints(maxWidth: 500),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'User Created Successfully',
                     style: Theme.of(dialogContext).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
                       color: Colors.green.withAlpha((255 * 0.1).round()),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color: Colors.green.withAlpha((255 * 0.3).round()),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Account for $displayName created and synced.',
+                            style: TextStyle(fontSize: 15),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 24),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                            'Account for $displayName created and synced.',
-                                style: TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Login Credentials',
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Login Credentials',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
                     'Please securely share these credentials:',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
                       color: Theme.of(dialogContext).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color:
                             Theme.of(dialogContext).colorScheme.outlineVariant,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
                           children: [
                             SizedBox(
@@ -1682,69 +1695,69 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                             Expanded(child: Text(email)),
                           ],
                         ),
-                            const SizedBox(height: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Password:',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Password:',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
                                 color:
                                     Theme.of(
                                       dialogContext,
                                     ).colorScheme.surfaceContainerLowest,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
                                   color:
                                       Theme.of(
                                         dialogContext,
                                       ).colorScheme.outlineVariant,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: SelectableText(
+                                      password,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                    child: SelectableText(
-                                          password,
-                                          style: const TextStyle(
-                                            fontFamily: 'monospace',
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
+                                  IconButton(
                                     icon: const Icon(Icons.copy, size: 18),
                                     tooltip: 'Copy Password',
-                                        onPressed: () async {
-                                          await Clipboard.setData(
-                                            ClipboardData(text: password),
-                                          );
+                                    onPressed: () async {
+                                      await Clipboard.setData(
+                                        ClipboardData(text: password),
+                                      );
                                       if (!dialogContext.mounted) return;
-                                          ScaffoldMessenger.of(
+                                      ScaffoldMessenger.of(
                                         dialogContext,
-                                          ).showSnackBar(
-                                            const SnackBar(
+                                      ).showSnackBar(
+                                        const SnackBar(
                                           content: Text('Password copied'),
-                                              duration: Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'User must change password on first login.',
                     style: TextStyle(
@@ -1753,23 +1766,23 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           Theme.of(dialogContext).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                      const SizedBox(height: 24),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton(
-                          onPressed: () {
-                         // Reset the flag when closing
-                         if (mounted) setState(() => _isDialogShowing = false);
-                         Navigator.of(dialogContext).pop();
-                          },
-                          child: const Text('Close'),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () {
+                        // Reset the flag when closing
+                        if (mounted) setState(() => _isDialogShowing = false);
+                        Navigator.of(dialogContext).pop();
+                      },
+                      child: const Text('Close'),
+                    ),
                   ),
-                ),
+                ],
               ),
-        );
+            ),
+          ),
+    );
     // Refresh user list after successful creation
     _loadUsers();
   }
@@ -1779,23 +1792,23 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     if (!mounted) return;
 
     await showDialog(
-          context: context,
-          builder:
+      context: context,
+      builder:
           (dialogContext) => AlertDialog(
             title: const Text('Error'), // Generic title for errors
             content: Text(errorMessage),
-                actions: [
-                  TextButton(
+            actions: [
+              TextButton(
                 onPressed: () {
                   // Reset the flag when closing
                   if (mounted) setState(() => _isDialogShowing = false);
                   Navigator.of(dialogContext).pop();
                 },
-                    child: const Text('Close'),
-                  ),
-                ],
+                child: const Text('Close'),
               ),
-        );
+            ],
+          ),
+    );
   }
 
   void _navigateToUserDetailPage(AppUser user) {
@@ -1862,7 +1875,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     ),
                     onPressed: () {
                       searchController.clear();
-    setState(() {
+                      setState(() {
                         searchQuery = '';
                       });
                     },

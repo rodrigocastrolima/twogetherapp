@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../presentation/layout/main_layout.dart';
 import '../../presentation/layout/admin_layout.dart';
@@ -25,12 +26,11 @@ import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
-import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
-import '../../features/admin/presentation/pages/admin_submissions_page.dart';
 import '../../presentation/screens/admin/admin_opportunities_page.dart';
 import '../../features/chat/data/repositories/chat_repository.dart';
-import '../../features/services/presentation/pages/submission_detail_page.dart';
 import '../../features/opportunity/presentation/pages/opportunity_verification_page.dart';
+import '../../core/services/salesforce_auth_service.dart';
+import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -303,45 +303,147 @@ class AppRouter {
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
     redirect: (context, state) {
-      // Skip redirection for non-main routes
-      if (state.fullPath?.startsWith('/resources/') == true) {
-        return null;
-      }
+      try {
+        final container = ProviderScope.containerOf(context);
+        final salesforceAuthNotifier = container.read(
+          salesforceAuthProvider.notifier,
+        );
+        final salesforceAuthState = container.read(salesforceAuthProvider);
 
-      // Get authentication state from the notifier
-      final isAuthenticated = authNotifier.isAuthenticated;
-      final isAdmin = authNotifier.isAdmin;
-      final isFirstLogin = authNotifier.isFirstLogin;
+        // Get current auth states
+        final isAuthenticated = authNotifier.isAuthenticated;
+        final isAdmin = authNotifier.isAdmin;
+        final isFirstLogin = authNotifier.isFirstLogin;
+        final currentRoute = state.matchedLocation;
+        final isLoginPage = currentRoute == '/login';
+        final isChangePasswordPage = currentRoute == '/change-password';
 
-      // Don't redirect if we're already going to the login page
-      final isLoggingIn = state.matchedLocation == '/login';
-      final isChangingPassword = state.matchedLocation == '/change-password';
+        // --- 1. User Not Authenticated ---
+        if (!isAuthenticated) {
+          return isLoginPage ? null : '/login';
+        }
 
-      // Collect redirect info (for debugging only, can be removed in production)
-      // Redirect logic based on auth state
-      if (!isAuthenticated) {
-        // If not authenticated, redirect to login
-        if (!isLoggingIn) {
+        // --- User IS Authenticated ---
+
+        // --- 2. Handle First Login ---
+        if (isFirstLogin) {
+          // If it's the first login, must go to change password.
+          // If already there, stay. Otherwise, redirect.
+          return isChangePasswordPage ? null : '/change-password';
+        }
+
+        // --- User IS Authenticated & NOT First Login ---
+
+        // --- 3. Redirect AWAY from Login/ChangePassword page ---
+        if (isLoginPage || isChangePasswordPage) {
+          if (kDebugMode) {
+            print(
+              '[Redirect] Authenticated, not first login. Redirecting from $currentRoute...',
+            );
+          }
+          // Redirect to the appropriate home page based on role.
+          return isAdmin ? '/admin' : '/';
+        }
+
+        // --- 4. Apply Role-Based Routing & Salesforce Checks (User is Authenticated, NOT First Login, and NOT on Login/ChangePassword) ---
+        if (isAdmin) {
+          // --- Admin Flow (already on an internal page) ---
+
+          // Ensure admin stays within /admin routes. Redirect if they somehow land outside.
+          if (!currentRoute.startsWith('/admin')) {
+            if (kDebugMode) {
+              print(
+                '[Redirect] Admin detected outside /admin routes. Forcing to /admin.',
+              );
+            }
+            return '/admin';
+          }
+
+          // Check Salesforce State (only relevant now we are on an admin page)
+          switch (salesforceAuthState) {
+            case SalesforceAuthState.unknown:
+            case SalesforceAuthState.authenticating:
+              if (kDebugMode)
+                print(
+                  '[Redirect] Admin: SF State $salesforceAuthState. Waiting on current page ($currentRoute).',
+                );
+              // Stay on the current admin page, UI should show loading based on state.
+              return null;
+
+            case SalesforceAuthState.unauthenticated:
+            case SalesforceAuthState.error:
+              // Check if we've already tried the automatic sign-in this session
+              final alreadyAttempted =
+                  salesforceAuthNotifier.initialSignInAttempted;
+
+              if (kDebugMode)
+                print(
+                  '[Redirect] Admin: SF State $salesforceAuthState on page $currentRoute. Initial attempt done: $alreadyAttempted',
+                );
+
+              // Trigger automatic sign-in ONLY if it hasn't been attempted yet
+              if (!alreadyAttempted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  // Double-check state and flag inside callback
+                  if ((container.read(salesforceAuthProvider) ==
+                              SalesforceAuthState.unauthenticated ||
+                          container.read(salesforceAuthProvider) ==
+                              SalesforceAuthState.error) &&
+                      !container
+                          .read(salesforceAuthProvider.notifier)
+                          .initialSignInAttempted) {
+                    // Mark as attempted BEFORE calling signIn
+                    salesforceAuthNotifier.markInitialSignInAttempted();
+
+                    salesforceAuthNotifier.signIn().catchError((e) {
+                      if (kDebugMode)
+                        print("Error triggering signIn from redirect: $e");
+                    });
+                  }
+                });
+              }
+
+              // Allow navigation to proceed regardless of the trigger attempt
+              return null; // Stay on current admin page
+
+            case SalesforceAuthState.authenticated:
+              if (kDebugMode)
+                print(
+                  '[Redirect] Admin: SF State Authenticated on page $currentRoute.',
+                );
+              // Already authenticated, stay on current admin page.
+              return null;
+          }
+        } else {
+          // --- Reseller Flow (already on an internal page) ---
+
+          // Ensure reseller does not access admin routes.
+          if (currentRoute.startsWith('/admin')) {
+            if (kDebugMode) {
+              print(
+                '[Redirect] Reseller detected on admin route. Forcing to /.',
+              );
+            }
+            return '/';
+          }
+          // Allow reseller to stay on any non-admin page.
+          return null;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print(
+            "[Redirect] Error accessing ProviderScope or reading providers: $e",
+          );
+          print("[Redirect] Ensure GoRouter is created within ProviderScope.");
+        }
+        // Fallback: redirect to login if providers can't be read.
+        // Avoid infinite loop if error happens repeatedly on login page.
+        if (state.matchedLocation != '/login') {
           return '/login';
+        } else {
+          return null; // Stay on login if error happens there
         }
-      } else if (isFirstLogin) {
-        // If it's the first login, redirect to change password page
-        if (!isChangingPassword) {
-          return '/change-password';
-        }
-      } else if (isLoggingIn || isChangingPassword) {
-        // If authenticated and on login/change-password, redirect to appropriate home
-        return isAdmin ? '/admin' : '/';
-      } else if (isAdmin && !state.matchedLocation.startsWith('/admin')) {
-        // Admin trying to access non-admin pages, redirect to admin home
-        return '/admin';
-      } else if (!isAdmin && state.matchedLocation.startsWith('/admin')) {
-        // Non-admin trying to access admin pages, redirect to user home
-        return '/';
       }
-
-      // No redirection needed
-      return null;
     },
     // Ensure transitions are as clean as possible
     routerNeglect: true, // Avoid unnecessarily rebuilding the navigator
@@ -441,17 +543,6 @@ class AppRouter {
           GoRoute(
             path: '/admin/salesforce-setup',
             builder: (context, state) => const SalesforceSetupPage(),
-          ),
-          GoRoute(
-            path: '/admin/submissions',
-            builder: (context, state) => const AdminSubmissionsPage(),
-          ),
-          GoRoute(
-            path: '/admin/submissions/:id',
-            builder: (context, state) {
-              final submissionId = state.pathParameters['id'] ?? '';
-              return SubmissionDetailPage(submissionId: submissionId);
-            },
           ),
           GoRoute(
             path: '/admin/home',
@@ -563,14 +654,6 @@ class AppRouter {
             currentIndex: 3,
             child: const SalesforceSetupPage(),
           );
-        },
-      ),
-      GoRoute(
-        path: '/submissions/:id',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          final submissionId = state.pathParameters['id'] ?? '';
-          return SubmissionDetailPage(submissionId: submissionId);
         },
       ),
     ],

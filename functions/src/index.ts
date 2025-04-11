@@ -684,9 +684,9 @@ export const createSalesforceOpportunity = onCall(
       // Generate JWT
       logger.info('Generating JWT for Salesforce...');
       const claim = {
-        iss: consumerKey,
-        sub: salesforceUsername,
-        aud: audience,
+      iss: consumerKey,
+      sub: salesforceUsername,
+      aud: audience,
         exp: Math.floor(Date.now() / 1000) + (3 * 60) // Expires in 3 minutes
       };
       const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
@@ -897,11 +897,11 @@ export const createSalesforceOpportunity = onCall(
           } catch (err: any) {
               logger.error("Error during invoice download/upload:", err);
               // Decide if this is a critical failure or just a warning
-              return {
+        return {
                 success: false,
                 error: `Opportunity created, but failed during invoice processing: ${err.message || err}`,
                 errorCode: "FILE_PROCESSING_FAILED",
-              };
+        };
           }
       } else {
           logger.info("No invoice path provided, skipping file upload.");
