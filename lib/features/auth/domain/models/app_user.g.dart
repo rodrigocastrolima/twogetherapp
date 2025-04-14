@@ -13,6 +13,7 @@ _$AppUserImpl _$$AppUserImplFromJson(Map<String, dynamic> json) =>
       role: $enumDecode(_$UserRoleEnumMap, json['role']),
       displayName: json['displayName'] as String?,
       photoURL: json['photoURL'] as String?,
+      salesforceId: json['salesforceId'] as String?,
       isFirstLogin: json['isFirstLogin'] as bool? ?? false,
       isEmailVerified: json['isEmailVerified'] as bool? ?? false,
       additionalData:
@@ -26,6 +27,7 @@ Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
       'role': _$UserRoleEnumMap[instance.role]!,
       'displayName': instance.displayName,
       'photoURL': instance.photoURL,
+      'salesforceId': instance.salesforceId,
       'isFirstLogin': instance.isFirstLogin,
       'isEmailVerified': instance.isEmailVerified,
       'additionalData': instance.additionalData,

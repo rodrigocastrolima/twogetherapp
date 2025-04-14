@@ -14,6 +14,7 @@ class AppUser with _$AppUser {
     required UserRole role,
     String? displayName,
     String? photoURL,
+    String? salesforceId,
     @Default(false) bool isFirstLogin,
     @Default(false) bool isEmailVerified,
     @Default({}) Map<String, dynamic> additionalData,
@@ -27,6 +28,7 @@ class AppUser with _$AppUser {
   factory AppUser.fromFirebaseUser(
     User user, {
     UserRole role = UserRole.unknown,
+    String? salesforceId,
   }) {
     return AppUser(
       uid: user.uid,
@@ -35,6 +37,7 @@ class AppUser with _$AppUser {
       photoURL: user.photoURL,
       isEmailVerified: user.emailVerified,
       role: role,
+      salesforceId: salesforceId,
     );
   }
 }

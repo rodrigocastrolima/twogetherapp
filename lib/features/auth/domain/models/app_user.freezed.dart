@@ -26,6 +26,7 @@ mixin _$AppUser {
   UserRole get role => throw _privateConstructorUsedError;
   String? get displayName => throw _privateConstructorUsedError;
   String? get photoURL => throw _privateConstructorUsedError;
+  String? get salesforceId => throw _privateConstructorUsedError;
   bool get isFirstLogin => throw _privateConstructorUsedError;
   bool get isEmailVerified => throw _privateConstructorUsedError;
   Map<String, dynamic> get additionalData => throw _privateConstructorUsedError;
@@ -50,6 +51,7 @@ abstract class $AppUserCopyWith<$Res> {
     UserRole role,
     String? displayName,
     String? photoURL,
+    String? salesforceId,
     bool isFirstLogin,
     bool isEmailVerified,
     Map<String, dynamic> additionalData,
@@ -76,6 +78,7 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? role = null,
     Object? displayName = freezed,
     Object? photoURL = freezed,
+    Object? salesforceId = freezed,
     Object? isFirstLogin = null,
     Object? isEmailVerified = null,
     Object? additionalData = null,
@@ -106,6 +109,11 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
                 freezed == photoURL
                     ? _value.photoURL
                     : photoURL // ignore: cast_nullable_to_non_nullable
+                        as String?,
+            salesforceId:
+                freezed == salesforceId
+                    ? _value.salesforceId
+                    : salesforceId // ignore: cast_nullable_to_non_nullable
                         as String?,
             isFirstLogin:
                 null == isFirstLogin
@@ -142,6 +150,7 @@ abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
     UserRole role,
     String? displayName,
     String? photoURL,
+    String? salesforceId,
     bool isFirstLogin,
     bool isEmailVerified,
     Map<String, dynamic> additionalData,
@@ -167,6 +176,7 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? role = null,
     Object? displayName = freezed,
     Object? photoURL = freezed,
+    Object? salesforceId = freezed,
     Object? isFirstLogin = null,
     Object? isEmailVerified = null,
     Object? additionalData = null,
@@ -198,6 +208,11 @@ class __$$AppUserImplCopyWithImpl<$Res>
                 ? _value.photoURL
                 : photoURL // ignore: cast_nullable_to_non_nullable
                     as String?,
+        salesforceId:
+            freezed == salesforceId
+                ? _value.salesforceId
+                : salesforceId // ignore: cast_nullable_to_non_nullable
+                    as String?,
         isFirstLogin:
             null == isFirstLogin
                 ? _value.isFirstLogin
@@ -227,6 +242,7 @@ class _$AppUserImpl implements _AppUser {
     required this.role,
     this.displayName,
     this.photoURL,
+    this.salesforceId,
     this.isFirstLogin = false,
     this.isEmailVerified = false,
     final Map<String, dynamic> additionalData = const {},
@@ -246,6 +262,8 @@ class _$AppUserImpl implements _AppUser {
   @override
   final String? photoURL;
   @override
+  final String? salesforceId;
+  @override
   @JsonKey()
   final bool isFirstLogin;
   @override
@@ -262,7 +280,7 @@ class _$AppUserImpl implements _AppUser {
 
   @override
   String toString() {
-    return 'AppUser(uid: $uid, email: $email, role: $role, displayName: $displayName, photoURL: $photoURL, isFirstLogin: $isFirstLogin, isEmailVerified: $isEmailVerified, additionalData: $additionalData)';
+    return 'AppUser(uid: $uid, email: $email, role: $role, displayName: $displayName, photoURL: $photoURL, salesforceId: $salesforceId, isFirstLogin: $isFirstLogin, isEmailVerified: $isEmailVerified, additionalData: $additionalData)';
   }
 
   @override
@@ -277,6 +295,8 @@ class _$AppUserImpl implements _AppUser {
                 other.displayName == displayName) &&
             (identical(other.photoURL, photoURL) ||
                 other.photoURL == photoURL) &&
+            (identical(other.salesforceId, salesforceId) ||
+                other.salesforceId == salesforceId) &&
             (identical(other.isFirstLogin, isFirstLogin) ||
                 other.isFirstLogin == isFirstLogin) &&
             (identical(other.isEmailVerified, isEmailVerified) ||
@@ -296,6 +316,7 @@ class _$AppUserImpl implements _AppUser {
     role,
     displayName,
     photoURL,
+    salesforceId,
     isFirstLogin,
     isEmailVerified,
     const DeepCollectionEquality().hash(_additionalData),
@@ -322,6 +343,7 @@ abstract class _AppUser implements AppUser {
     required final UserRole role,
     final String? displayName,
     final String? photoURL,
+    final String? salesforceId,
     final bool isFirstLogin,
     final bool isEmailVerified,
     final Map<String, dynamic> additionalData,
@@ -339,6 +361,8 @@ abstract class _AppUser implements AppUser {
   String? get displayName;
   @override
   String? get photoURL;
+  @override
+  String? get salesforceId;
   @override
   bool get isFirstLogin;
   @override

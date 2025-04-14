@@ -68,7 +68,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             context.go('/messages');
             break;
           case 3:
-            context.go('/profile');
+            context.go('/settings');
             break;
         }
 
@@ -271,7 +271,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       pageTitle = AppLocalizations.of(context)!.clientsPageTitle;
     } else if (location == '/messages') {
       pageTitle = AppLocalizations.of(context)!.messagesPageTitle;
-    } else if (location == '/profile') {
+    } else if (location == '/settings') {
       pageTitle = AppLocalizations.of(context)!.profileTitle;
     }
 

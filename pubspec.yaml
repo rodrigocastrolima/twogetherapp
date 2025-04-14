@@ -75,6 +75,7 @@ dependencies:
 
   # --- Added for Salesforce OAuth ---
   flutter_web_auth_2:
+  file_picker: ^5.2.10
   # -------------------------------
 
 dev_dependencies:

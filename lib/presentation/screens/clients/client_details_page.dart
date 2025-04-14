@@ -6,6 +6,7 @@ import '../../../core/theme/theme.dart';
 import '../../../core/models/service_types.dart';
 import '../services/services_page.dart';
 import '../../../core/theme/ui_styles.dart';
+import '../../../core/utils/constants.dart'; // Import constants
 
 class ClientDetailsPage extends StatefulWidget {
   final Map<String, dynamic> clientData;
@@ -111,11 +112,15 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
   }
 
   void _handleNewService() {
-    // Create ServicesPage with prefilled data
-    final servicesPage = ServicesPage(
-      preFilledData: {
-        'companyName': widget.clientData['name'],
-        'responsibleName': widget.clientData['responsibleName'] ?? '',
+    // Create prefilled data map
+    final preFilledData = {
+      'companyName':
+          widget.clientData['type'] != 'residential'
+              ? widget.clientData['name']
+              : null,
+      'responsibleName':
+          widget.clientData['responsibleName'] ??
+          widget.clientData['name'], // Use client name if no responsible name
         'nif': widget.clientData['nif'],
         'email': widget.clientData['email'],
         'phone': widget.clientData['phone'],
@@ -124,17 +129,39 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
             widget.clientData['type'] == 'residential'
                 ? ClientType.residential
                 : ClientType.commercial,
-      },
-    );
+    };
 
-    // Use GoRouter to navigate
-    context.push('/services', extra: servicesPage.preFilledData);
+    // Use GoRouter to navigate, pushing the new route
+    context.push('/services', extra: preFilledData);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final theme = Theme.of(context);
+    // Wrap content in Scaffold and AppBar
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.chevron_left),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(widget.clientData['name'] ?? 'Detalhes do Cliente'),
+        centerTitle: true,
+      ),
+      body: _buildClientDetailsContent(theme),
+    );
+  }
+
+  Widget _buildClientDetailsContent(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(
+        bottom: AppConstants.spacing16,
+      ), // Add bottom padding
+      child: Column(
       children: [
+          const SizedBox(height: 16), // Add top padding
         // Client Info Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -185,7 +212,10 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                 decoration: BoxDecoration(
                   color: _getStatusColor(
                     widget.clientData['status'],
@@ -248,14 +278,20 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
                             size: 16,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Novo Serviço',
+                          const SizedBox(width: 16),
+                          const Expanded(
+                            child: Text(
+                              'Adicionar Novo Serviço',
                           style: TextStyle(
-                            fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.foreground,
+                                fontSize: 15,
+                              ),
+                            ),
                           ),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 16,
+                            color: AppTheme.foreground.withAlpha(128),
                         ),
                       ],
                     ),
@@ -265,83 +301,88 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: NoScrollbarBehavior.noScrollbars(
-            context,
-            SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildClientInfoCard(),
-                  const SizedBox(height: 16),
-                  if (widget.clientData['service'] == 'Energy') ...[
-                    _buildCPESelector(),
-                    const SizedBox(height: 16),
-                    if (selectedCPE != null) _buildProcessTimeline(),
-                    const SizedBox(height: 16),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildClientInfoCard() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 24),
+
+          // Client Details Section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildSection(
+            context,
+              title: 'Detalhes do Cliente',
               children: [
-                Text(
-                  'Informações do Cliente',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.foreground.withAlpha(230),
-                  ),
+                _buildDetailItem(
+                  'NIF',
+                  widget.clientData['nif'] ?? '-',
+                  icon: Icons.badge_outlined,
                 ),
-                const SizedBox(height: 24),
-                _buildInfoRow(
+                _buildDetailItem(
                   'Email',
-                  widget.clientData['email'] ?? 'client@example.com',
+                  widget.clientData['email'] ?? '-',
+                  icon: Icons.email_outlined,
                 ),
-                _buildInfoRow(
+                _buildDetailItem(
                   'Telefone',
-                  widget.clientData['phone'] ?? '+351 123 456 789',
+                  widget.clientData['phone'] ?? '-',
+                  icon: Icons.phone_outlined,
                 ),
-                _buildInfoRow('NIF', widget.clientData['nif'] ?? '123456789'),
-                _buildInfoRow(
-                  'Morada',
-                  widget.clientData['address'] ??
-                      'Rua Principal 123, 4000-123 Porto',
+                _buildDetailItem(
+                  'Endereço',
+                  widget.clientData['address'] ?? '-',
+                  icon: Icons.location_on_outlined,
+                ),
+                if (widget.clientData['responsibleName'] != null &&
+                    widget.clientData['responsibleName'].isNotEmpty)
+                  _buildDetailItem(
+                    'Responsável',
+                    widget.clientData['responsibleName'],
+                    icon: Icons.person_pin_outlined,
                 ),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 24),
+
+          // CPE Selection Dropdown (if applicable)
+          if (cpeData.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Contratos / Serviços (CPE)',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDropdown(),
+                ],
+              ),
+            ),
+
+          // Progress Steps (if CPE is selected)
+          if (selectedCPE != null && cpeData[selectedCPE!] != null)
+            _buildProgressSteps(cpeData[selectedCPE!]!['steps']),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  // Helper to build detail items
+  Widget _buildDetailItem(
+    String label,
+    String value, {
+    required IconData icon,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppTheme.mutedForeground),
+          const SizedBox(width: 12),
+          Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -349,15 +390,20 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: AppTheme.foreground.withAlpha(178),
+                    color: AppTheme.mutedForeground,
             ),
           ),
-          const SizedBox(height: 4),
+                const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
+                  style: const TextStyle(
               fontSize: 14,
-              color: AppTheme.foreground.withAlpha(230),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ],
             ),
           ),
         ],
@@ -365,290 +411,186 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
     );
   }
 
-  Widget _buildCPESelector() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    selectedCPE ?? 'Selecione um CPE',
-                    style: TextStyle(
-                      color:
-                          selectedCPE != null
-                              ? AppTheme.foreground.withAlpha(230)
-                              : AppTheme.foreground.withAlpha(89),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.expand_more,
-                    color: AppTheme.foreground.withAlpha(179),
-                  ),
-                  color: Colors.white,
-                  elevation: 8,
-                  position: PopupMenuPosition.under,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder:
-                      (context) => [
-                        for (final cpe in cpeData.keys)
-                          PopupMenuItem(
-                            value: cpe,
-                            child: Text(
-                              cpe,
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                      ],
-                  onSelected: (value) {
-                    setState(() => selectedCPE = value);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProcessTimeline() {
-    final currentCPE = cpeData[selectedCPE];
-    if (currentCPE == null) return const SizedBox.shrink();
-
-    final contractCompleted = currentCPE['steps']['contract']['completed'];
-    final contractNeedsAction =
-        currentCPE['steps']['contract']['needsAction'] ?? false;
-    final documentsNeedsAction =
-        currentCPE['steps']['documents']['needsAction'] ?? false;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Processo',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.foreground.withAlpha(230),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildTimelineStep(
-                  step: 1,
-                  title: 'Fatura',
-                  isCompleted: currentCPE['steps']['invoice']['completed'],
-                  message: currentCPE['steps']['invoice']['message'],
-                  showButton: false,
-                ),
-                _buildTimelineStep(
-                  step: 2,
-                  title: 'Proposta e Contrato',
-                  isCompleted: contractCompleted,
-                  needsAction: contractNeedsAction,
-                  message: currentCPE['steps']['contract']['message'],
-                  showButton: true,
-                  buttonLabel: 'Ver Detalhes',
-                  onButtonPressed: () {
-                    context.push(
-                      '/proposal-details',
-                      extra: {
-                        'commission': '2.500,00',
-                        'expiryDate': '31/12/2023',
-                      },
-                    );
-                  },
-                ),
-                _buildTimelineStep(
-                  step: 3,
-                  title: 'Documentação',
-                  isCompleted: currentCPE['steps']['documents']['completed'],
-                  needsAction: documentsNeedsAction,
-                  message: currentCPE['steps']['documents']['message'],
-                  showButton: contractCompleted,
-                  buttonLabel: 'Submeter Documentos',
-                  onButtonPressed:
-                      contractCompleted
-                          ? () {
-                            context.push('/document-submission');
-                          }
-                          : null,
-                ),
-                _buildTimelineStep(
-                  step: 4,
-                  title: 'Aprovação Final',
-                  isCompleted: currentCPE['steps']['approval']['completed'],
-                  message: currentCPE['steps']['approval']['message'],
-                  showButton: false,
-                  isLast: true,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimelineStep({
-    required int step,
+  // Helper to build section containers
+  Widget _buildSection(
+    BuildContext context, {
     required String title,
-    required bool isCompleted,
-    required String message,
-    bool showButton = false,
-    String? buttonLabel,
-    VoidCallback? onButtonPressed,
-    bool isLast = false,
-    bool needsAction = false,
+    required List<Widget> children,
   }) {
+    return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+          padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+            color: Colors.white.withAlpha(15),
+              borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withAlpha(30), width: 0.5),
+            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              ...children,
+              ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper to build CPE dropdown
+  Widget _buildDropdown() {
+    return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(20),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withAlpha(38), width: 0.5),
+            ),
+          child: DropdownButton<String>(
+            value: selectedCPE,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            icon: Icon(
+              CupertinoIcons.chevron_down,
+              color: AppTheme.mutedForeground,
+              size: 16,
+                ),
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppTheme.foreground,
+            ), // Ensure dropdown text color matches
+            dropdownColor: AppTheme.popoverBackground, // Use popover background
+            items:
+                cpeData.keys.map((String cpe) {
+                  return DropdownMenuItem<String>(
+                    value: cpe,
+                    child: Text(
+                      cpe, // Display full CPE string (includes address)
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  selectedCPE = newValue;
+                });
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper to build progress steps
+  Widget _buildProgressSteps(Map<String, dynamic> stepsData) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Progresso do Serviço',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          _buildStepItem('Fatura', stepsData['invoice'], isFirst: true),
+          _buildStepItem('Contrato', stepsData['contract']),
+          _buildStepItem('Documentos', stepsData['documents']),
+          _buildStepItem(
+            'Aprovação Final',
+            stepsData['approval'],
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper to build individual step item
+  Widget _buildStepItem(
+    String title,
+    Map<String, dynamic> stepInfo, {
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    final bool completed = stepInfo['completed'] ?? false;
+    final bool needsAction = stepInfo['needsAction'] ?? false;
+    final String message = stepInfo['message'] ?? '';
+    final Color activeColor = needsAction ? AppTheme.warning : AppTheme.success;
+    final Color color = completed ? activeColor : AppTheme.muted;
+
     return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 24,
-            child: Column(
+          // Vertical line and icon column
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
               children: [
+              // Top line (unless first)
+              if (!isFirst) Container(width: 1, height: 10, color: color),
+              // Icon
                 Container(
-                  width: 24,
-                  height: 24,
+                padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color:
-                        isCompleted
-                            ? const Color(0xFF40C057).withAlpha(77)
-                            : needsAction
-                            ? const Color(0xFF0A84FF).withAlpha(77)
-                            : Colors.white.withAlpha(20),
-                    border: Border.all(
-                      color:
-                          isCompleted
-                              ? const Color(0xFF40C057).withAlpha(77)
-                              : needsAction
-                              ? const Color(0xFF0A84FF).withAlpha(77)
-                              : Colors.white.withAlpha(38),
-                      width: 0.5,
-                    ),
+                  border: Border.all(color: color, width: 1),
+                  color: completed ? color.withAlpha(51) : Colors.transparent,
                   ),
-                  child: Center(
-                    child:
-                        isCompleted
-                            ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 16,
-                            )
-                            : needsAction
-                            ? const Icon(
-                              Icons.priority_high,
-                              color: Colors.white,
-                              size: 16,
-                            )
-                            : Text(
-                              step.toString(),
-                              style: TextStyle(
-                                color: AppTheme.foreground.withAlpha(179),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                  ),
+                child: Icon(
+                  completed ? Icons.check : Icons.circle_outlined,
+                  size: 12,
+                  color: completed ? color : AppTheme.mutedForeground,
                 ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color:
-                          isCompleted
-                              ? const Color(0xFF40C057).withAlpha(77)
-                              : Colors.white.withAlpha(38),
-                    ),
-                  ),
+              ),
+              // Bottom line (unless last)
+              if (!isLast) Expanded(child: Container(width: 1, color: color)),
               ],
-            ),
           ),
           const SizedBox(width: 16),
+          // Text content column
           Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   title,
                   style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: completed ? color : AppTheme.foreground,
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.foreground.withAlpha(230),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                 Text(
                   message,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.foreground.withAlpha(179),
-                  ),
-                ),
-                if (showButton && buttonLabel != null) ...[
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: onButtonPressed,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withAlpha(15),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: AppTheme.primary.withAlpha(30),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        buttonLabel,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.primary,
-                        ),
-                      ),
+                      color: completed ? color : AppTheme.mutedForeground,
                     ),
                   ),
                 ],
-                if (!isLast) const SizedBox(height: 24),
-              ],
+              ),
             ),
           ),
         ],
@@ -656,16 +598,21 @@ class _ClientDetailsPageState extends State<ClientDetailsPage> {
     );
   }
 
+  // Helper to get status color
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Ação Necessária':
-        return const Color(0xFFFF6B6B);
-      case 'Pendente':
-        return const Color(0xFFFFBE0B);
-      case 'Concluído':
-        return const Color(0xFF40C057);
+    switch (status.toLowerCase()) {
+      case 'ativo':
+      case 'contrato ativo':
+        return AppTheme.success;
+      case 'pendente':
+      case 'em processo':
+      case 'aguardando aprovação':
+        return AppTheme.warning;
+      case 'rejeitado':
+      case 'cancelado':
+        return AppTheme.destructive;
       default:
-        return AppTheme.foreground;
+        return AppTheme.mutedForeground;
     }
   }
 }

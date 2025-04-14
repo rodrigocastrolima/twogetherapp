@@ -3,14 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
-import '../../../features/services/data/repositories/service_submission_repository.dart';
-import '../../../features/services/presentation/providers/service_submission_provider.dart';
-import '../../../core/models/service_submission.dart';
-import '../../../core/models/service_types.dart';
+import '../../../features/opportunity/presentation/providers/opportunity_providers.dart';
+import '../../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 
 class ClientsPage extends ConsumerStatefulWidget {
@@ -22,10 +17,9 @@ class ClientsPage extends ConsumerStatefulWidget {
 
 class _ClientsPageState extends ConsumerState<ClientsPage> {
   final _searchController = TextEditingController();
-  String _selectedView = 'pending_review';
   String _searchQuery = '';
 
-  // Status constants
+  // Add back Status constants
   static const String STATUS_PENDING_REVIEW = 'pending_review';
   static const String STATUS_APPROVED = 'approved';
   static const String STATUS_REJECTED = 'rejected';
@@ -48,7 +42,8 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final submissionsStream = ref.watch(userSubmissionsProvider);
+    // Replace userSubmissionsProvider with filteredOpportunitiesProvider
+    final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -57,58 +52,28 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         top: false,
         child: Column(
           children: [
-            // Header area
+            // Header area with search - simplified and Apple-like
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Minhas Submissões',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildSearchBar()),
-                ],
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: _buildSearchBar(),
             ),
 
-            // Tab selector - full width, themed
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildSegmentedControl(),
-            ),
-
-            // Add a bit more space
-            const SizedBox(height: 12),
-
-            // Divider
-            Container(
-              height: 0.5,
-              color: CupertinoColors.systemGrey4.withAlpha(128),
-            ),
-
-            // Submissions list
+            // Opportunities list
             Expanded(
-              child: submissionsStream.when(
-                data: (submissions) {
-                  final filteredSubmissions = _filterSubmissions(
-                    submissions,
-                    _selectedView,
-                    _searchQuery,
+              child: opportunitiesAsync.when(
+                data: (opportunities) {
+                  // Filter opportunities based on search query
+                  final filteredOpportunities = ref.watch(
+                    filteredOpportunitiesProvider(_searchQuery),
                   );
 
-                  if (filteredSubmissions.isEmpty) {
+                  if (filteredOpportunities.isEmpty) {
                     return _buildEmptyState();
                   }
 
                   return ListView.separated(
                     padding: const EdgeInsets.only(top: 6),
-                    itemCount: filteredSubmissions.length,
+                    itemCount: filteredOpportunities.length,
                     separatorBuilder:
                         (context, index) => Container(
                           margin: const EdgeInsets.only(left: 72),
@@ -116,10 +81,10 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                           color: CupertinoColors.systemGrey5.withAlpha(128),
                         ),
                     itemBuilder: (context, index) {
-                      final submission = filteredSubmissions[index];
-                      return _buildSubmissionCard(
-                        submission,
-                        key: ValueKey(submission.id),
+                      final opportunity = filteredOpportunities[index];
+                      return _buildOpportunityCard(
+                        opportunity,
+                        key: ValueKey(opportunity.Id),
                       );
                     },
                   );
@@ -128,7 +93,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 error:
                     (error, stackTrace) => Center(
                       child: Text(
-                        'Erro ao carregar submissões: $error',
+                        'Erro ao carregar clientes: $error',
                         style: const TextStyle(color: Colors.red),
                       ),
                     ),
@@ -139,45 +104,15 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+        shape: const CircleBorder(),
+        elevation: 2.0,
+        child: const Icon(CupertinoIcons.add, color: Colors.white),
         onPressed: () {
           context.push('/services');
         },
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
-  }
-
-  List<ServiceSubmission> _filterSubmissions(
-    List<ServiceSubmission> submissions,
-    String selectedView,
-    String searchQuery,
-  ) {
-    return submissions.where((submission) {
-      // Filter by search (check client name or email)
-      if (searchQuery.isNotEmpty) {
-        final nameMatch = submission.responsibleName.toLowerCase().contains(
-          searchQuery,
-        );
-        final emailMatch = submission.email.toLowerCase().contains(searchQuery);
-        final nifMatch = submission.nif.toLowerCase().contains(searchQuery);
-
-        if (!nameMatch && !emailMatch && !nifMatch) {
-          return false;
-        }
-      }
-
-      // Filter by selected view/status
-      switch (selectedView) {
-        case STATUS_PENDING_REVIEW:
-          return submission.status == STATUS_PENDING_REVIEW;
-        case STATUS_APPROVED:
-          return submission.status == STATUS_APPROVED;
-        case STATUS_REJECTED:
-          return submission.status == STATUS_REJECTED;
-        default:
-          return true;
-      }
-    }).toList();
   }
 
   Widget _buildSearchBar() {
@@ -189,13 +124,13 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       ),
       child: CupertinoTextField(
         controller: _searchController,
-        placeholder: 'Buscar por nome, email ou NIF',
+        placeholder: 'Buscar cliente',
         placeholderStyle: const TextStyle(
           color: CupertinoColors.systemGrey,
           fontSize: 14,
         ),
         prefix: Padding(
-          padding: const EdgeInsets.only(left: 8),
+          padding: const EdgeInsets.only(left: 10),
           child: Icon(
             CupertinoIcons.search,
             color: CupertinoColors.systemGrey,
@@ -207,7 +142,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 ? GestureDetector(
                   onTap: () => _searchController.clear(),
                   child: const Padding(
-                    padding: EdgeInsets.only(right: 8),
+                    padding: EdgeInsets.only(right: 10),
                     child: Icon(
                       CupertinoIcons.clear_circled_solid,
                       color: CupertinoColors.systemGrey,
@@ -226,115 +161,16 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildSegmentedControl() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(20),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildCustomSegment(STATUS_PENDING_REVIEW, 'Em Revisão'),
-              ),
-              Container(
-                width: 1,
-                height: 44,
-                color: Colors.white.withAlpha(26),
-              ),
-              Expanded(
-                child: _buildCustomSegment(STATUS_APPROVED, 'Aprovados'),
-              ),
-              Container(
-                width: 1,
-                height: 44,
-                color: Colors.white.withAlpha(26),
-              ),
-              Expanded(
-                child: _buildCustomSegment(STATUS_REJECTED, 'Rejeitados'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomSegment(String value, String label, [int? count]) {
-    final isSelected = _selectedView == value;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedView = value),
-      child: Container(
-        alignment: Alignment.center,
-        color: isSelected ? AppTheme.primary.withAlpha(51) : Colors.transparent,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color:
-                    isSelected ? AppTheme.primary : Colors.white.withAlpha(204),
-              ),
-            ),
-            if (count != null && count > 0) ...[
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? AppTheme.primary
-                          : Colors.white.withAlpha(26),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  count.toString(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        isSelected ? Colors.white : Colors.white.withAlpha(204),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmptyState() {
-    String message;
-
-    switch (_selectedView) {
-      case STATUS_PENDING_REVIEW:
-        message = 'Nenhuma submissão em revisão';
-        break;
-      case STATUS_APPROVED:
-        message = 'Nenhuma submissão aprovada';
-        break;
-      case STATUS_REJECTED:
-        message = 'Nenhuma submissão rejeitada';
-        break;
-      default:
-        message = 'Nenhuma submissão encontrada';
-    }
+    // Updated empty state message
+    const String message = 'Sem Clientes Ativos';
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            CupertinoIcons.doc_text,
+            CupertinoIcons.person_2,
             size: 48,
             color: CupertinoColors.systemGrey,
           ),
@@ -348,36 +184,49 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Crie uma nova submissão usando o botão +',
-            style: TextStyle(fontSize: 15, color: CupertinoColors.systemGrey),
+          Text(
+            _searchQuery.isEmpty
+                ? 'Adicione um novo cliente usando o botão +'
+                : 'Tente refinar sua busca.',
+            style: const TextStyle(
+              fontSize: 15,
+              color: CupertinoColors.systemGrey,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSubmissionCard(ServiceSubmission submission, {Key? key}) {
-    // Format date
-    final formattedDate = DateFormat(
-      'dd/MM/yyyy',
-    ).format(submission.submissionDate);
+  // New method to build an opportunity card
+  Widget _buildOpportunityCard(SalesforceOpportunity opportunity, {Key? key}) {
+    // Format date if available (Data_de_Previs_o_de_Fecho__c)
+    String formattedDate = '';
+    if (opportunity.Data_de_Previs_o_de_Fecho__c != null) {
+      try {
+        final date = DateTime.parse(opportunity.Data_de_Previs_o_de_Fecho__c!);
+        formattedDate = DateFormat('dd/MM/yyyy').format(date);
+      } catch (e) {
+        // If parsing fails, use the raw string
+        formattedDate = opportunity.Data_de_Previs_o_de_Fecho__c!;
+      }
+    }
 
     return GestureDetector(
       key: key,
-      onTap: () => _showSubmissionDetails(submission),
+      onTap: () => _showOpportunityDetails(opportunity),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            _buildSubmissionIcon(submission),
+            _buildOpportunityIcon(opportunity),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    submission.responsibleName,
+                    opportunity.Name,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -389,14 +238,14 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                   Row(
                     children: [
                       Text(
-                        '${submission.serviceCategory.displayName} • $formattedDate',
+                        '${opportunity.Solu_o__c ?? "N/A"} • ${formattedDate.isNotEmpty ? formattedDate : "N/A"}',
                         style: const TextStyle(
                           fontSize: 13,
                           color: CupertinoColors.systemGrey,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      _buildStatusIndicator(submission.status),
+                      _buildPhaseIndicator(opportunity.Fase__c),
                     ],
                   ),
                 ],
@@ -413,26 +262,35 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildStatusIndicator(String status) {
+  Widget _buildPhaseIndicator(String? phase) {
     Color color;
-    String displayStatus;
+    String displayPhase;
 
-    switch (status) {
-      case STATUS_PENDING_REVIEW:
-        color = CupertinoColors.systemOrange;
-        displayStatus = 'Em Revisão';
-        break;
-      case STATUS_APPROVED:
-        color = CupertinoColors.systemGreen;
-        displayStatus = 'Aprovado';
-        break;
-      case STATUS_REJECTED:
-        color = CupertinoColors.systemRed;
-        displayStatus = 'Rejeitado';
-        break;
-      default:
-        color = CupertinoColors.systemGrey;
-        displayStatus = status;
+    // Map Salesforce phases to display text and colors
+    if (phase == null) {
+      color = CupertinoColors.systemGrey;
+      displayPhase = 'N/A';
+    } else if (phase.startsWith('0 -')) {
+      color = CupertinoColors.systemOrange;
+      displayPhase = 'Identificada';
+    } else if (phase.startsWith('1 -')) {
+      color = CupertinoColors.systemBlue;
+      displayPhase = 'Qualificada';
+    } else if (phase.startsWith('2 -')) {
+      color = CupertinoColors.activeBlue;
+      displayPhase = 'Proposta';
+    } else if (phase.startsWith('3 -')) {
+      color = CupertinoColors.systemIndigo;
+      displayPhase = 'Negociação';
+    } else if (phase.startsWith('4 -')) {
+      color = CupertinoColors.systemGreen;
+      displayPhase = 'Fechada/Ganha';
+    } else if (phase.startsWith('5 -')) {
+      color = CupertinoColors.systemRed;
+      displayPhase = 'Fechada/Perdida';
+    } else {
+      color = CupertinoColors.systemGrey;
+      displayPhase = phase; // Use the raw phase string
     }
 
     return Row(
@@ -444,7 +302,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         ),
         const SizedBox(width: 4),
         Text(
-          displayStatus,
+          displayPhase,
           style: TextStyle(
             fontSize: 13,
             color: color,
@@ -455,58 +313,58 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildSubmissionIcon(ServiceSubmission submission) {
-    final bool isResidential = submission.clientType == ClientType.residential;
-
+  Widget _buildOpportunityIcon(SalesforceOpportunity opportunity) {
+    // Simple icon - could add logic to show different icons based on solution type
     return Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color:
-            isResidential
-                ? CupertinoColors.systemGreen.withAlpha(26)
-                : CupertinoColors.systemIndigo.withAlpha(26),
+        color: CupertinoColors.systemIndigo.withAlpha(26),
         shape: BoxShape.circle,
       ),
-      child: Center(
+      child: const Center(
         child: Icon(
-          isResidential
-              ? CupertinoIcons.person_fill
-              : CupertinoIcons.building_2_fill,
+          CupertinoIcons.building_2_fill,
           size: 20,
-          color:
-              isResidential
-                  ? CupertinoColors.systemGreen
-                  : CupertinoColors.systemIndigo,
+          color: CupertinoColors.systemIndigo,
         ),
       ),
     );
   }
 
-  void _showSubmissionDetails(ServiceSubmission submission) {
+  void _showOpportunityDetails(SalesforceOpportunity opportunity) {
+    // TODO: Implement opportunity detail view
+    // For now, just show information in a bottom sheet
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _SubmissionDetailsSheet(submission: submission),
+      builder: (context) => _OpportunityDetailsSheet(opportunity: opportunity),
     );
   }
 }
 
-class _SubmissionDetailsSheet extends StatelessWidget {
-  final ServiceSubmission submission;
+// Simple opportunity details sheet
+class _OpportunityDetailsSheet extends StatelessWidget {
+  final SalesforceOpportunity opportunity;
 
-  const _SubmissionDetailsSheet({required this.submission});
+  const _OpportunityDetailsSheet({required this.opportunity});
 
   @override
   Widget build(BuildContext context) {
     // Format date
-    final formattedDate = DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(submission.submissionDate);
+    String formattedDate = '';
+    if (opportunity.Data_de_Previs_o_de_Fecho__c != null) {
+      try {
+        final date = DateTime.parse(opportunity.Data_de_Previs_o_de_Fecho__c!);
+        formattedDate = DateFormat('dd/MM/yyyy').format(date);
+      } catch (e) {
+        formattedDate = opportunity.Data_de_Previs_o_de_Fecho__c!;
+      }
+    }
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.5,
       decoration: BoxDecoration(
         color: AppTheme.background,
         borderRadius: const BorderRadius.only(
@@ -540,7 +398,7 @@ class _SubmissionDetailsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Detalhes da Submissão',
+                        'Detalhes da Oportunidade',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -548,17 +406,18 @@ class _SubmissionDetailsSheet extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Enviado em $formattedDate',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.foreground.withOpacity(0.7),
+                      if (formattedDate.isNotEmpty)
+                        Text(
+                          'Fechamento: $formattedDate',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.foreground.withOpacity(0.7),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
-                _buildStatusBadge(submission.status),
+                _buildPhaseBadge(opportunity.Fase__c),
               ],
             ),
           ),
@@ -570,39 +429,24 @@ class _SubmissionDetailsSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Client Information Section
-                  _buildSectionTitle('Informações do Cliente'),
-                  _buildInfoItem('Nome', submission.responsibleName),
-                  if (submission.clientType == ClientType.commercial &&
-                      submission.companyName != null)
-                    _buildInfoItem('Empresa', submission.companyName!),
+                  // Opportunity Information Section
+                  _buildSectionTitle('Informações da Oportunidade'),
+                  _buildInfoItem('Nome', opportunity.Name),
+                  _buildInfoItem('Fase', opportunity.Fase__c ?? 'N/A'),
+                  _buildInfoItem('Solução', opportunity.Solu_o__c ?? 'N/A'),
                   _buildInfoItem(
-                    'Tipo de Cliente',
-                    submission.clientType.displayName,
+                    'Data Fechamento',
+                    formattedDate.isNotEmpty ? formattedDate : 'N/A',
                   ),
-                  _buildInfoItem('NIF', submission.nif),
-                  _buildInfoItem('Email', submission.email),
-                  _buildInfoItem('Telefone', submission.phone),
                   const SizedBox(height: 20),
 
-                  // Service Information Section
-                  _buildSectionTitle('Informações do Serviço'),
+                  // Account Information Section
+                  _buildSectionTitle('Informações da Conta'),
+                  _buildInfoItem('ID da Conta', opportunity.AccountId ?? 'N/A'),
                   _buildInfoItem(
-                    'Categoria',
-                    submission.serviceCategory.displayName,
+                    'Nome da Conta',
+                    opportunity.Account?.Name ?? 'N/A',
                   ),
-                  if (submission.energyType != null)
-                    _buildInfoItem(
-                      'Tipo de Energia',
-                      submission.energyType!.displayName,
-                    ),
-                  _buildInfoItem('Fornecedor', submission.provider.displayName),
-                  const SizedBox(height: 20),
-
-                  // Invoice Section
-                  _buildSectionTitle('Fatura'),
-                  if (submission.invoicePhoto != null)
-                    _buildInvoiceImage(submission.invoicePhoto!.storagePath),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -672,26 +516,35 @@ class _SubmissionDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildPhaseBadge(String? phase) {
     Color color;
-    String displayStatus;
+    String displayPhase;
 
-    switch (status) {
-      case 'pending_review':
-        color = Colors.orange;
-        displayStatus = 'Em Revisão';
-        break;
-      case 'approved':
-        color = Colors.green;
-        displayStatus = 'Aprovado';
-        break;
-      case 'rejected':
-        color = Colors.red;
-        displayStatus = 'Rejeitado';
-        break;
-      default:
-        color = Colors.grey;
-        displayStatus = status;
+    // Map Salesforce phases to display text and colors
+    if (phase == null) {
+      color = Colors.grey;
+      displayPhase = 'Não definido';
+    } else if (phase.startsWith('0 -')) {
+      color = Colors.orange;
+      displayPhase = 'Identificada';
+    } else if (phase.startsWith('1 -')) {
+      color = Colors.blue;
+      displayPhase = 'Qualificada';
+    } else if (phase.startsWith('2 -')) {
+      color = Colors.blue.shade700;
+      displayPhase = 'Proposta';
+    } else if (phase.startsWith('3 -')) {
+      color = Colors.indigo;
+      displayPhase = 'Negociação';
+    } else if (phase.startsWith('4 -')) {
+      color = Colors.green;
+      displayPhase = 'Fechada/Ganha';
+    } else if (phase.startsWith('5 -')) {
+      color = Colors.red;
+      displayPhase = 'Fechada/Perdida';
+    } else {
+      color = Colors.grey;
+      displayPhase = phase; // Use the raw phase string
     }
 
     return Container(
@@ -702,63 +555,11 @@ class _SubmissionDetailsSheet extends StatelessWidget {
         border: Border.all(color: color),
       ),
       child: Text(
-        displayStatus,
+        displayPhase,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.w500,
           fontSize: 12,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInvoiceImage(String storagePath) {
-    return GestureDetector(
-      onTap: () {
-        // TODO: Show fullscreen image viewer
-      },
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: FutureBuilder<String>(
-          future: FirebaseStorage.instance.ref(storagePath).getDownloadURL(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError || !snapshot.hasData) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.red[300], size: 40),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Erro ao carregar imagem',
-                      style: TextStyle(color: Colors.red[300]),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return CachedNetworkImage(
-              imageUrl: snapshot.data!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              placeholder:
-                  (context, url) =>
-                      const Center(child: CircularProgressIndicator()),
-              errorWidget:
-                  (context, url, error) =>
-                      const Center(child: Icon(Icons.error)),
-            );
-          },
         ),
       ),
     );

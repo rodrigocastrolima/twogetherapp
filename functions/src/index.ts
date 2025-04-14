@@ -13,11 +13,13 @@ import * as admin from "firebase-admin";
 import { cleanupExpiredMessages } from './messageCleanup';
 import { onNewMessageNotification } from './notifications';
 import { removeRememberMeField } from './removeRememberMeField';
+import { getResellerOpportunities } from './getResellerOpportunities'; // Import the new function
 import * as jwt from 'jsonwebtoken'; // Added for JWT generation
 import axios from 'axios'; // Added for HTTP requests
 // Import v2 Firestore triggers
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as jsforce from 'jsforce'; // For Salesforce connection
+import * as functions from "firebase-functions"; // Ensure this import exists for functions.config()
 // import { Storage } from "@google-cloud/storage"; // Not needed if using admin.storage()
 
 // Export the removeRememberMeField function
@@ -641,7 +643,7 @@ export const createSalesforceOpportunity = onCall(
     const data = request.data as OpportunityInputData; // Assert type here after checks
     const contextAuth = request.auth; // Use context for auth info
 
-    // --- 1. Authentication/Authorization Check --- 
+    // --- 1. Authentication/Authorization Check ---
     // Simplified check - implement proper role check later
     if (!contextAuth) {
       logger.error("Unauthenticated call");
@@ -667,28 +669,36 @@ export const createSalesforceOpportunity = onCall(
       );
     }
 
-    // --- 3. Salesforce Connection and Login --- 
-    // Using OAuth 2.0 JWT Bearer Flow with hardcoded credentials
-
-    // Hardcoded JWT configuration (Restored by User)
-    const privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDI5faWzetIZTsj\n74D39O/H+uVKmV/yJFrbfG2wFAPFMFhB/C4pA7wQHTx+NPk+I3HOd48ZCj/sy5tp\nRqaVYD76U+lZ/HYS8G5ziyuPmWnHaAgUM3N+eo4cgRn1CYEyxSwZtS9y8ZMqZT6X\nCWXwlc8wW/OWIzazz6HajQf0ZmPM0hLEa85eLcUe6msLMT/FGdk3fw9va3Sa9Uvy\nf+TtolRiIpF9kKedoqLoJ7vR69WoTxF83rqNdI3n5M0UDRLQn+0LmT9IEday8wCh\nXxgD5mvcK1/GhZppYeDB5BJfuEF/UNgZuFEDZ7qbiS4zZd3d0gR6t3wVqJ7/ZAy0\nTeyRhfQ7AgMBAAECggEADJf2/0tlSv3v2SWz1fvxnTSFc7dtpAZAiq7pSVuOshc3\nvtsus+HI6IiMpocAvEVRr55ENLzHds17ifvt0WbLcHHRmG7Jolkoqjhvd3y6M2Io\nHTU2w/KtrDV6d14sTlfh4CBliMddug9+I4WycV/lDMkEkOmye08f6gQ+9o28mP8b\nbYkQXPIAZW5OZr8fls3zZzEbbnZmTVfoZKbUlmBqrgPDMZirEXwMQ/R4wjjvfBPi\nol7AFOfONg5L5Sj2rzjUTyvvI7TRmjCyBHYOMzDzFAp4PLPkvcgxx3RBtEUNA1D6\nPekWZ1N67cCsVKtleiiZs/r5tR1uD49as7mTQcwZ4QKBgQD3zLAz+0tpiIH6B0rm\npRCihClHA0QLIwzD1dJaS8p52hWGEt6oXITeoKgdSPC5drP7nqY6de880GyL2wT1\n2vV1PjEd5J8ybmjTZNzTOqQZICKD+S+yItlxLK3eS/0Mjh5DOm3xxdcBZYllMmjQ\nj2kms0Vop+7g6HFoS9M0qZyQmQKBgQDPi++mVP4MShfNDGLdSWw5o15zOQg5wKi9\nT3L6oax9NoSTKCdM1WMy9wh3wDonVEX5i0+5URZZAVNsAODrQgDGLKRAiCTYx4Da\nN3dCqTrPnpRsMEfXZmWRYOJh6B5UTqr2XRSDkeitBw7FTlhOCGaGXLScMPrCfydp\n+u74Evcr8wKBgQDDWzCy2nN6kK7/wc4QBaQWq6CrJmz3ZruCjMjYfRX0eLUtTSUS\nkFYD+Z5v7/gwDuAYB9w/DIj+Zcadf57qgKOwucYZLgs/xAGKXuMk9/80+7uaVdJ/\nWrAYZEPyk++8fTJoh+DzkahOppDqIhK2EcmxQ/X9ax+NWlNGCTlKNEmFSQKBgBmJ\nnnNZAemBNGyGmaOg5TAyaezDl7+DdT/WBs/QFOlTS/zPdAaAOzSKMQCLJpywQevy\nuFyVHarV/u3LLeHEvVOlKpDGL8J8yd4P9Ry+tf3WBW1Kg4x9jQHWagSiCxlUlLS7\nv0pxKbAgrjCY80Smw/bEcXTGkhRckPz5Y24i50cBAoGAH2rR6CrP8VrbASBznlZR\nnG6OdGobipwixhd/Tsfk2btnoMzd3JDjBZ+lV+Euk8ly/yH/nlj2qqpUPIwxeP/b\nOuQiu2bYNtJbNLczJy7Kpty6Gs8Xd5nMiLQ/pwd/gSw7Bu8q5h6Xwl2++kDm78BW\nb6q2Af1snitBZO0xbv6mOtA=\n-----END PRIVATE KEY-----";
-    const consumerKey = "3MVG9T46ZAw5GTfWlGzpUr1bL14rAr48fglmDfgf4oWyIBerrrJBQz21SWPWmYoRGJqBzULovmWZ2ROgCyixB";
-    const salesforceUsername = "integration@twogetherretail.com";
-    const tokenEndpoint = "https://login.salesforce.com/services/oauth2/token";
-    const audience = "https://login.salesforce.com";
-
     // Define connection variable here, to be initialized after auth
     let conn: jsforce.Connection;
 
     try {
+      // --- 3. Salesforce Connection and Login ---
+      // Using OAuth 2.0 JWT Bearer Flow with environment configuration
+
+      // Retrieve configuration values
+      const sfConfig = functions.config().salesforce;
+      if (!sfConfig || !sfConfig.private_key || !sfConfig.consumer_key || !sfConfig.username) {
+          logger.error("Salesforce configuration missing in Firebase environment variables (salesforce.private_key, salesforce.consumer_key, salesforce.username).");
+          throw new HttpsError('internal', 'Server configuration error: Salesforce credentials missing.');
+      }
+
+      // Handle potential escaped newlines in the private key when read from config
+      const privateKey = sfConfig.private_key.replace(/\\n/g, '\\n'); // Keep literal \n for jwt library
+      const consumerKey = sfConfig.consumer_key;
+      const salesforceUsername = sfConfig.username;
+      const tokenEndpoint = "https://login.salesforce.com/services/oauth2/token"; // Keep as is or make config too
+      const audience = "https://login.salesforce.com"; // Keep as is or make config too
+
       // Generate JWT
-      logger.info('Generating JWT for Salesforce...');
+      logger.info('Generating JWT for Salesforce using environment configuration...');
       const claim = {
-      iss: consumerKey,
-      sub: salesforceUsername,
-      aud: audience,
+        iss: consumerKey,
+        sub: salesforceUsername,
+        aud: audience,
         exp: Math.floor(Date.now() / 1000) + (3 * 60) // Expires in 3 minutes
       };
+      // Use the privateKey read from config
       const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
 
       // Request Access Token from Salesforce
@@ -1484,4 +1494,5 @@ export const runMigration = onCall({
 export {
   cleanupExpiredMessages,
   onNewMessageNotification,
+  getResellerOpportunities, // Export the new function here
 };

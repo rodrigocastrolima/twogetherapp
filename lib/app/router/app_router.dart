@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -12,25 +13,20 @@ import '../../presentation/screens/auth/change_password_page.dart';
 import '../../presentation/screens/home/reseller_home_page.dart';
 import '../../presentation/screens/clients/clients_page.dart';
 import '../../presentation/screens/clients/client_details_page.dart';
-import '../../presentation/screens/clients/proposal_details_page.dart';
-import '../../presentation/screens/clients/document_submission_page.dart';
 import '../../presentation/screens/messages/messages_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
-import '../../presentation/screens/notifications/rejection_details_page.dart';
 import '../../presentation/screens/services/services_page.dart';
-import '../../presentation/screens/services/resubmission_form_page.dart';
 import '../../presentation/screens/dashboard/dashboard_page.dart';
 import '../../presentation/screens/admin/admin_home_page.dart';
-import '../../presentation/screens/admin/admin_reports_page.dart';
 import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
-import '../../presentation/screens/admin/admin_opportunities_page.dart';
 import '../../features/chat/data/repositories/chat_repository.dart';
-import '../../features/opportunity/presentation/pages/opportunity_verification_page.dart';
+import '../../features/opportunity/presentation/pages/opportunity_verification_page.dart'
+    as admin_pages;
 import '../../core/services/salesforce_auth_service.dart';
-import '../../features/salesforce/presentation/pages/salesforce_setup_page.dart';
+import '../../features/settings/presentation/pages/profile_page.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -40,10 +36,12 @@ class AuthNotifier extends ChangeNotifier {
   bool _isAuthenticated = false;
   bool _isAdmin = false;
   bool _isFirstLogin = false;
+  String? _salesforceId; // Add field for Salesforce ID
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isAdmin => _isAdmin;
   bool get isFirstLogin => _isFirstLogin;
+  String? get salesforceId => _salesforceId; // Add getter
 
   AuthNotifier() {
     _initAuth();
@@ -57,9 +55,12 @@ class AuthNotifier extends ChangeNotifier {
         try {
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
-            final roleData = doc.data()?['role'];
+            final data = doc.data()!;
+            final roleData = data['role'];
             final String roleString = roleData is String ? roleData : 'unknown';
-            final isFirstLogin = doc.data()?['isFirstLogin'] as bool? ?? false;
+            final isFirstLogin = data['isFirstLogin'] as bool? ?? false;
+            final salesforceIdFromDb =
+                data['salesforceId'] as String?; // Read salesforceId
 
             _isAuthenticated = true;
 
@@ -79,11 +80,16 @@ class AuthNotifier extends ChangeNotifier {
               print('Normalized role: "$normalizedRole", isAdmin: $_isAdmin');
             }
             if (kDebugMode) {
-              print('User data: ${doc.data()}');
+              print('User data: $data');
+              print(
+                'Fetched Salesforce ID: $salesforceIdFromDb',
+              ); // Log fetched ID
             }
 
             _isFirstLogin = isFirstLogin;
+            _salesforceId = salesforceIdFromDb; // Store salesforceId
           } else {
+            // Handle case where doc doesn't exist
             // No user data found in Firestore
             if (kDebugMode) {
               print(
@@ -93,6 +99,7 @@ class AuthNotifier extends ChangeNotifier {
             _isAuthenticated = true;
             _isAdmin = false;
             _isFirstLogin = true;
+            _salesforceId = null; // Reset salesforceId
           }
         } catch (e) {
           if (kDebugMode) {
@@ -101,12 +108,14 @@ class AuthNotifier extends ChangeNotifier {
           _isAuthenticated = true;
           _isAdmin = false;
           _isFirstLogin = false;
+          _salesforceId = null; // Reset salesforceId on error
         }
       } else {
         // User is signed out
         _isAuthenticated = false;
         _isAdmin = false;
         _isFirstLogin = false;
+        _salesforceId = null; // Reset salesforceId on sign out
       }
       notifyListeners();
     });
@@ -122,7 +131,9 @@ class AuthNotifier extends ChangeNotifier {
     } else {
       // Sign out
       await _auth.signOut();
+      // state is updated by the listener
     }
+    // We don't manually call notifyListeners here as the authStateChanges listener handles it
   }
 
   // Sign in with email and password
@@ -285,8 +296,12 @@ class AuthNotifier extends ChangeNotifier {
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
-  static final _shellNavigatorKey = GlobalKey<NavigatorState>();
-  static final _adminShellNavigatorKey = GlobalKey<NavigatorState>();
+  static final _shellNavigatorKey = GlobalKey<NavigatorState>(
+    debugLabel: 'ShellReseller',
+  );
+  static final _adminShellNavigatorKey = GlobalKey<NavigatorState>(
+    debugLabel: 'ShellAdmin',
+  );
 
   // Authentication notifier
   static final authNotifier = AuthNotifier();
@@ -294,6 +309,17 @@ class AppRouter {
   // Method to reset authentication state to false
   static void resetToLogin() async {
     await authNotifier.setAuthenticated(false);
+  }
+
+  // Helper to determine current index based on route
+  static int _calculateCurrentIndex(GoRouterState state) {
+    final location = state.matchedLocation;
+    if (location.startsWith('/') && location.length == 1) return 0; // Home
+    if (location.startsWith('/clients')) return 1;
+    if (location.startsWith('/messages')) return 2;
+    if (location.startsWith('/settings'))
+      return 3; // Renamed /profile to /settings
+    return 0; // Default to home
   }
 
   // Initialization of router
@@ -305,9 +331,6 @@ class AppRouter {
     redirect: (context, state) {
       try {
         final container = ProviderScope.containerOf(context);
-        final salesforceAuthNotifier = container.read(
-          salesforceAuthProvider.notifier,
-        );
         final salesforceAuthState = container.read(salesforceAuthProvider);
 
         // Get current auth states
@@ -363,54 +386,31 @@ class AppRouter {
           switch (salesforceAuthState) {
             case SalesforceAuthState.unknown:
             case SalesforceAuthState.authenticating:
-              if (kDebugMode)
+              if (kDebugMode) {
                 print(
                   '[Redirect] Admin: SF State $salesforceAuthState. Waiting on current page ($currentRoute).',
                 );
+              }
               // Stay on the current admin page, UI should show loading based on state.
               return null;
 
             case SalesforceAuthState.unauthenticated:
             case SalesforceAuthState.error:
-              // Check if we've already tried the automatic sign-in this session
-              final alreadyAttempted =
-                  salesforceAuthNotifier.initialSignInAttempted;
-
-              if (kDebugMode)
+              if (kDebugMode) {
                 print(
-                  '[Redirect] Admin: SF State $salesforceAuthState on page $currentRoute. Initial attempt done: $alreadyAttempted',
+                  '[Redirect] Admin: SF State $salesforceAuthState on page $currentRoute.',
                 );
-
-              // Trigger automatic sign-in ONLY if it hasn't been attempted yet
-              if (!alreadyAttempted) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  // Double-check state and flag inside callback
-                  if ((container.read(salesforceAuthProvider) ==
-                              SalesforceAuthState.unauthenticated ||
-                          container.read(salesforceAuthProvider) ==
-                              SalesforceAuthState.error) &&
-                      !container
-                          .read(salesforceAuthProvider.notifier)
-                          .initialSignInAttempted) {
-                    // Mark as attempted BEFORE calling signIn
-                    salesforceAuthNotifier.markInitialSignInAttempted();
-
-                    salesforceAuthNotifier.signIn().catchError((e) {
-                      if (kDebugMode)
-                        print("Error triggering signIn from redirect: $e");
-                    });
-                  }
-                });
               }
 
               // Allow navigation to proceed regardless of the trigger attempt
               return null; // Stay on current admin page
 
             case SalesforceAuthState.authenticated:
-              if (kDebugMode)
+              if (kDebugMode) {
                 print(
                   '[Redirect] Admin: SF State Authenticated on page $currentRoute.',
                 );
+              }
               // Already authenticated, stay on current admin page.
               return null;
           }
@@ -446,44 +446,59 @@ class AppRouter {
       }
     },
     // Ensure transitions are as clean as possible
-    routerNeglect: true, // Avoid unnecessarily rebuilding the navigator
+    routerNeglect: true,
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
         path: '/change-password',
+        parentNavigatorKey:
+            _rootNavigatorKey, // Ensures it appears above shells
         builder: (context, state) => const ChangePasswordPage(),
       ),
 
-      // Reseller routes
+      // Reseller routes SHELL
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return MainLayout(currentIndex: 0, child: child);
+          // Determine the current index dynamically
+          final currentIndex = _calculateCurrentIndex(state);
+          return MainLayout(currentIndex: currentIndex, child: child);
         },
         routes: [
           GoRoute(
-            path: '/',
-            builder: (context, state) => const ResellerHomePage(),
+            path: '/', // Home
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: ResellerHomePage()),
           ),
           GoRoute(
             path: '/clients',
-            builder: (context, state) => const ClientsPage(),
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: ClientsPage()),
           ),
           GoRoute(
             path: '/messages',
-            builder: (context, state) => const MessagesPage(),
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: MessagesPage()),
           ),
           GoRoute(
-            path: '/profile',
-            builder: (context, state) => const SettingsPage(),
+            path: '/settings', // Renamed from /profile for clarity
+            pageBuilder:
+                (context, state) => const NoTransitionPage(
+                  child:
+                      SettingsPage(), // This is the main settings *tab* content
+                ),
           ),
         ],
       ),
 
-      // Admin routes
+      // Admin routes SHELL
       ShellRoute(
         navigatorKey: _adminShellNavigatorKey,
         builder: (context, state, child) {
+          // Admin layout might need its own logic for nav state
           return AdminLayout(
             showNavigation: true,
             showBackButton: false,
@@ -493,137 +508,137 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/admin',
-            builder: (context, state) => const AdminHomePage(),
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: AdminHomePage()),
           ),
           GoRoute(
             path: '/admin/messages',
-            builder: (context, state) => const MessagesPage(),
+            pageBuilder:
+                (context, state) => const NoTransitionPage(
+                  child: MessagesPage(), // Can reuse MessagesPage if suitable
+                ),
           ),
           GoRoute(
             path: '/admin/reports',
-            builder: (context, state) => const AdminReportsPage(),
+            pageBuilder:
+                (context, state) => const NoTransitionPage(
+                  child: AdminHomePage(), // Placeholder
+                ),
           ),
           GoRoute(
             path: '/admin/settings',
-            builder: (context, state) => const AdminSettingsPage(),
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: AdminSettingsPage()),
           ),
           GoRoute(
             path: '/admin/user-management',
-            builder: (context, state) => const UserManagementPage(),
-          ),
-          GoRoute(
-            path: '/admin/users/:userId',
-            builder: (context, state) {
-              final user = state.extra as AppUser?;
-
-              if (user == null) {
-                // TODO: Handle case where user data is not provided
-                // For now, redirect back to user management page
-                return const UserManagementPage();
-              }
-
-              return UserDetailPage(user: user);
-            },
-          ),
-          GoRoute(
-            path: '/admin/resellers/:userId',
-            builder: (context, state) {
-              final reseller = state.extra as AppUser?;
-
-              if (reseller == null) {
-                // Handle case where reseller data is not provided
-                // Redirect back to user management page
-                return const UserManagementPage();
-              }
-
-              // Remove the ResellerDetailPage route since it's been deleted
-              return const UserManagementPage();
-            },
-          ),
-          GoRoute(
-            path: '/admin/salesforce-setup',
-            builder: (context, state) => const SalesforceSetupPage(),
-          ),
-          GoRoute(
-            path: '/admin/home',
             pageBuilder:
-                (context, state) => const NoTransitionPage(
-                  child: AdminLayout(
-                    child: AdminHomePage(),
-                    pageTitle: 'Admin Dashboard',
-                  ),
-                ),
+                (context, state) =>
+                    const NoTransitionPage(child: UserManagementPage()),
           ),
+          // --- Route to be moved BACK INSIDE ---
           GoRoute(
             path: '/admin/opportunities',
-            pageBuilder:
-                (context, state) => const NoTransitionPage(
-                  child: OpportunityVerificationPage(),
-                ),
+            pageBuilder: (context, state) {
+              // Use MaterialPage for default transitions or CustomTransitionPage
+              return const MaterialPage(
+                child: admin_pages.OpportunityVerificationPage(),
+              );
+            },
           ),
         ],
       ),
 
-      // Other routes (remain the same)
+      // --- Top-Level Secondary Routes (No Shell) ---
+      GoRoute(
+        path: '/admin/users/:userId',
+        parentNavigatorKey: _rootNavigatorKey, // Display above admin shell
+        pageBuilder: (context, state) {
+          final user = state.extra as AppUser?;
+          if (user == null) {
+            // Simple fallback, ideally show an error or fetch user
+            return const MaterialPage(
+              child: Scaffold(body: Center(child: Text("User not found"))),
+            );
+          }
+          // Use MaterialPage for default transitions or CustomTransitionPage
+          return MaterialPage(child: UserDetailPage(user: user));
+        },
+      ),
+      GoRoute(
+        path: '/profile-details',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder:
+            (context, state) => const MaterialPage(
+              fullscreenDialog: true,
+              child: ProfilePage(),
+            ),
+      ),
+      GoRoute(
+        path: '/services',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final preFilledData = state.extra as Map<String, dynamic>?;
+          return MaterialPage(
+            fullscreenDialog: true,
+            child: ServicesPage(preFilledData: preFilledData),
+          );
+        },
+      ),
       GoRoute(
         path: '/client-details',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          final clientData = state.extra as Map<String, dynamic>;
-          return MainLayout(
-            currentIndex: 0,
+        pageBuilder: (context, state) {
+          final clientData = state.extra as Map<String, dynamic>?;
+          // Handle potentially null extra data
+          if (clientData == null) {
+            return const MaterialPage(
+              child: Scaffold(body: Center(child: Text("Client data missing"))),
+            );
+          }
+          return MaterialPage(
+            fullscreenDialog: true,
             child: ClientDetailsPage(clientData: clientData),
           );
         },
       ),
       GoRoute(
-        path: '/services',
-        builder: (context, state) {
-          final preFilledData = state.extra as Map<String, dynamic>?;
-          final servicesPageKey = GlobalKey<ServicesPageState>();
-
-          return MainLayout(
-            currentIndex: 1,
-            child: ServicesPage(
-              key: servicesPageKey,
-              preFilledData: preFilledData,
-            ),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/proposal-details',
+        path: '/proposals/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          final proposalData = state.extra as Map<String, dynamic>;
-          return MainLayout(
-            currentIndex: 0,
-            child: ProposalDetailsPage(proposalData: proposalData),
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          // This should likely navigate to a ProposalDetailsPage, not ClientsPage
+          // Placeholder:
+          return MaterialPage(
+            child: Scaffold(body: Center(child: Text("Proposal Detail: $id"))),
           );
         },
       ),
       GoRoute(
         path: '/document-submission',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          return MainLayout(
-            currentIndex: 2,
-            child: const DocumentSubmissionPage(),
+        pageBuilder: (context, state) {
+          // Should likely point to a dedicated document submission page
+          // Placeholder:
+          return MaterialPage(
+            child: Scaffold(
+              body: Center(child: Text("Document Submission Page")),
+            ),
           );
         },
       ),
       GoRoute(
         path: '/notifications/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return MainLayout(
-            currentIndex: 0,
-            child: RejectionDetailsPage(
-              submissionId: id,
-              rejectionReason: 'Missing document information',
-              rejectionDate: DateTime.now(),
-              isPermanentRejection: false,
+          // Should point to a NotificationDetailsPage
+          // Placeholder:
+          return MaterialPage(
+            child: Scaffold(
+              body: Center(child: Text("Notification Detail: $id")),
             ),
           );
         },
@@ -631,32 +646,33 @@ class AppRouter {
       GoRoute(
         path: '/resubmission-form/:id',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return MainLayout(
-            currentIndex: 1,
-            child: ResubmissionFormPage(submissionId: id),
+          // Should point to a specific ResubmissionForm page, potentially pre-filled
+          // Placeholder:
+          return MaterialPage(
+            child: ServicesPage(preFilledData: {'resubmissionId': id}),
           );
         },
       ),
       GoRoute(
-        path: '/dashboard',
+        path:
+            '/dashboard', // Is this admin or reseller specific? Assuming reseller for now.
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          return MainLayout(currentIndex: 3, child: const DashboardPage());
-        },
-      ),
-      GoRoute(
-        path: '/salesforce-setup',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) {
-          return MainLayout(
-            currentIndex: 3,
-            child: const SalesforceSetupPage(),
-          );
+        pageBuilder: (context, state) {
+          // Should point to DashboardPage directly
+          return const MaterialPage(child: DashboardPage());
         },
       ),
     ],
+    // Optional: Add error page handling
+    errorPageBuilder:
+        (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: Scaffold(
+            body: Center(child: Text('Page not found: ${state.error}')),
+          ),
+        ),
   );
 
   static GoRouter get router => _router;

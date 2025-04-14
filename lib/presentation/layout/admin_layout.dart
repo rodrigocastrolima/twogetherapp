@@ -8,7 +8,6 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/ui_styles.dart';
 import '../../core/theme/responsive.dart';
 import '../screens/admin/admin_home_page.dart';
-import '../screens/admin/admin_reports_page.dart';
 import '../screens/admin/admin_settings_page.dart';
 import '../screens/messages/messages_page.dart';
 import '../../features/chat/presentation/providers/chat_provider.dart';
@@ -42,7 +41,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   final List<Widget> _pages = [
     const AdminHomePage(),
     const MessagesPage(),
-    const AdminReportsPage(),
     const AdminSettingsPage(),
   ];
 
@@ -63,13 +61,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     } else if (location == '/admin/messages') {
       setState(() => _selectedIndex = 1);
     } else if (location == '/admin/reports') {
-      setState(() => _selectedIndex = 2);
+      setState(() => _selectedIndex = 1);
     } else if (location == '/admin/settings') {
-      setState(() => _selectedIndex = 3);
+      setState(() => _selectedIndex = 2);
     } else if (location == '/admin/opportunities') {
-      setState(() => _selectedIndex = 4);
+      setState(() => _selectedIndex = 3);
     } else if (location == '/admin/user-management') {
-      setState(() => _selectedIndex = 5);
+      setState(() => _selectedIndex = 4);
     }
   }
 
@@ -90,15 +88,12 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
             context.go('/admin/messages');
             break;
           case 2:
-            context.go('/admin/reports');
-            break;
-          case 3:
             context.go('/admin/settings');
             break;
-          case 4:
+          case 3:
             context.go('/admin/opportunities');
             break;
-          case 5:
+          case 4:
             context.go('/admin/user-management');
             break;
         }
@@ -279,13 +274,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     } else if (location == '/admin/messages') {
       currentIndex = 1;
     } else if (location == '/admin/reports') {
-      currentIndex = 2;
+      currentIndex = 1;
     } else if (location == '/admin/settings') {
-      currentIndex = 3;
+      currentIndex = 2;
     } else if (location == '/admin/opportunities') {
-      currentIndex = 4;
+      currentIndex = 3;
     } else if (location == '/admin/user-management') {
-      currentIndex = 5;
+      currentIndex = 4;
     }
 
     // Fixed width sidebar
@@ -345,8 +340,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       _buildNavItem(
                         icon: CupertinoIcons.graph_square,
                         title: l10n.navOpportunities,
-                        isSelected: currentIndex == 4,
-                        onTap: () => _handleNavigation(4),
+                        isSelected: currentIndex == 3,
+                        onTap: () => _handleNavigation(3),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
@@ -362,24 +357,24 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       _buildNavItem(
                         icon: CupertinoIcons.chart_bar,
                         title: l10n.navReports,
-                        isSelected: currentIndex == 2,
-                        onTap: () => _handleNavigation(2),
+                        isSelected: currentIndex == 1,
+                        onTap: () => _handleNavigation(1),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
                       _buildNavItem(
                         icon: CupertinoIcons.person_2,
                         title: l10n.navResellers,
-                        isSelected: currentIndex == 5,
-                        onTap: () => _handleNavigation(5),
+                        isSelected: currentIndex == 4,
+                        onTap: () => _handleNavigation(4),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
                       _buildNavItem(
                         icon: CupertinoIcons.settings,
                         title: l10n.navSettings,
-                        isSelected: currentIndex == 3,
-                        onTap: () => _handleNavigation(3),
+                        isSelected: currentIndex == 2,
+                        onTap: () => _handleNavigation(2),
                         textColor: textColor,
                       ),
                     ],
@@ -533,25 +528,25 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
                   label: l10n.navResellers,
-                  isSelected: _selectedIndex == 5,
-                  onTap: () => _handleNavigation(5),
+                  isSelected: _selectedIndex == 4,
+                  onTap: () => _handleNavigation(4),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.graph_square,
                   label: l10n.navOpportunities,
                   isSelected:
-                      _selectedIndex == 4 ||
+                      _selectedIndex == 3 ||
                       GoRouterState.of(context).matchedLocation ==
                           '/admin/opportunities',
-                  onTap: () => _handleNavigation(4),
+                  onTap: () => _handleNavigation(3),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.settings,
                   label: l10n.navSettings,
-                  isSelected: _selectedIndex == 3,
-                  onTap: () => _handleNavigation(3),
+                  isSelected: _selectedIndex == 2,
+                  onTap: () => _handleNavigation(2),
                   width: tabWidth,
                 ),
               ],

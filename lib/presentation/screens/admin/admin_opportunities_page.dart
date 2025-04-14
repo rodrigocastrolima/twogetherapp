@@ -1,33 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/salesforce/data/repositories/salesforce_repository.dart';
+import '../../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
 
-class AdminOpportunitiesPage extends StatefulWidget {
-  const AdminOpportunitiesPage({super.key});
+class OpportunityVerificationPage extends ConsumerStatefulWidget {
+  const OpportunityVerificationPage({super.key});
 
   @override
-  State<AdminOpportunitiesPage> createState() => _AdminOpportunitiesPageState();
+  ConsumerState<OpportunityVerificationPage> createState() =>
+      _OpportunityVerificationPageState();
 }
 
-class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
-  final SalesforceRepository _repository = SalesforceRepository();
+class _OpportunityVerificationPageState
+    extends ConsumerState<OpportunityVerificationPage> {
+  late final SalesforceRepository _repository;
   bool _isLoading = true;
   bool _isConnected = false;
   String _errorMessage = '';
-  List<Map<String, dynamic>> _opportunities = [];
-  List<String> _availableFields = [];
-  final String _objectName = 'Oportunidade__c';
-
-  // Default record type filter
-  String _selectedRecordType = 'Retail';
-
-  // Available record types (can be expanded based on actual data)
-  final List<String> _recordTypes = ['All', 'Retail'];
+  List<SalesforceOpportunity> _opportunities = [];
 
   @override
   void initState() {
     super.initState();
+    _repository = ref.read(salesforceRepositoryProvider);
     _initializeSalesforce();
   }
 
@@ -38,71 +34,36 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
     });
 
     try {
-      _isConnected = await _repository.initialize();
-      if (!_isConnected) {
-        setState(() {
-          _errorMessage = 'Failed to connect to Salesforce.';
-          _isLoading = false;
-        });
-        return;
-      }
+      final isConnected = await _repository.initialize();
 
-      // First try to get the metadata to understand the object schema
-      await _fetchObjectMetadata();
-
-      // Then fetch the actual opportunities
-      await _fetchOpportunities();
-    } catch (e) {
       setState(() {
-        _errorMessage = 'Error: ${e.toString()}';
+        _isConnected = isConnected;
         _isLoading = false;
       });
-    }
-  }
 
-  Future<void> _fetchObjectMetadata() async {
-    try {
-      if (kDebugMode) {
-        print(
-          'AdminOpportunitiesPage: Fetching object metadata for $_objectName...',
-        );
+      if (isConnected) {
+        await _fetchOpportunities();
       }
-
-      final fields = await _repository.getObjectFields(_objectName);
-
+    } catch (e) {
       setState(() {
-        _availableFields = fields;
+        _isConnected = false;
+        _isLoading = false;
+        _errorMessage = 'Error connecting to Salesforce: ${e.toString()}';
       });
 
       if (kDebugMode) {
-        print(
-          'AdminOpportunitiesPage: Found ${fields.length} fields on $_objectName',
-        );
-        if (fields.isNotEmpty) {
-          print('AdminOpportunitiesPage: Field names: ${fields.join(', ')}');
-        }
+        print('OpportunityVerificationPage: Error initializing Salesforce: $e');
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('AdminOpportunitiesPage: Error fetching object metadata: $e');
-      }
-      // Don't fail the whole page load if metadata can't be fetched
     }
   }
 
   Future<void> _fetchOpportunities() async {
     try {
       if (kDebugMode) {
-        print('AdminOpportunitiesPage: Fetching opportunities...');
-        print(
-          'AdminOpportunitiesPage: Using record type filter: $_selectedRecordType',
-        );
+        print('OpportunityVerificationPage: Fetching opportunities...');
       }
 
-      // Pass the record type filter if not "All"
-      final opportunities = await _repository.getOpportunities(
-        recordType: _selectedRecordType == 'All' ? null : _selectedRecordType,
-      );
+      final opportunities = await _repository.getOpportunities();
 
       setState(() {
         _opportunities = opportunities;
@@ -111,17 +72,17 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
 
       if (kDebugMode) {
         print(
-          'AdminOpportunitiesPage: Fetched ${opportunities.length} opportunities',
+          'OpportunityVerificationPage: Fetched ${opportunities.length} opportunities',
         );
         if (opportunities.isNotEmpty) {
           print(
-            'AdminOpportunitiesPage: First opportunity sample: ${opportunities.first}',
+            'OpportunityVerificationPage: First opportunity sample: ${opportunities.first}',
           );
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('AdminOpportunitiesPage: Error fetching opportunities: $e');
+        print('OpportunityVerificationPage: Error fetching opportunities: $e');
       }
 
       setState(() {
@@ -133,59 +94,18 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header with title and actions
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Salesforce Opportunities',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            Row(
-              children: [
-                // Filter dropdown
-                DropdownButton<String>(
-                  value: _selectedRecordType,
-                  icon: const Icon(Icons.filter_list),
-                  underline: Container(), // No underline
-                  onChanged: (String? newValue) {
-                    if (newValue != null && newValue != _selectedRecordType) {
-                      setState(() {
-                        _selectedRecordType = newValue;
-                      });
-                      _fetchOpportunities();
-                    }
-                  },
-                  items:
-                      _recordTypes.map<DropdownMenuItem<String>>((
-                        String value,
-                      ) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(width: 8),
-                // Refresh button
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _fetchOpportunities,
-                  tooltip: 'Refresh',
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Main content
-        Expanded(child: _buildContent(context)),
-      ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Salesforce Opportunities'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchOpportunities,
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
+      body: _buildContent(context),
     );
   }
 
@@ -234,176 +154,29 @@ class _AdminOpportunitiesPageState extends State<AdminOpportunitiesPage> {
     }
 
     if (_opportunities.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('No opportunities found', textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchOpportunities,
-              child: const Text('Refresh'),
-            ),
-            const SizedBox(height: 32),
-            if (_availableFields.isNotEmpty) ...[
-              Text(
-                'Available fields: ${_availableFields.length}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  children:
-                      _availableFields
-                          .map(
-                            (field) =>
-                                ListTile(title: Text(field), dense: true),
-                          )
-                          .toList(),
-                ),
-              ),
-            ],
-          ],
-        ),
+      return const Center(
+        child: Text('No opportunities found', textAlign: TextAlign.center),
       );
     }
 
-    // Display opportunities in a list or data table
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '${_opportunities.length} Opportunities Found',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 16),
-        Expanded(child: _buildOpportunitiesTable()),
-      ],
-    );
-  }
-
-  Widget _buildOpportunitiesTable() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Fase')),
-            DataColumn(label: Text('Tipo')),
-            DataColumn(label: Text('Data Previsão')),
-            DataColumn(label: Text('Receita')),
-            DataColumn(label: Text('Record Type')),
-          ],
-          rows:
-              _opportunities.map((opportunity) {
-                // Extract record type from the nested object
-                String recordType = 'N/A';
-                if (opportunity.containsKey('RecordType') &&
-                    opportunity['RecordType'] is Map<String, dynamic>) {
-                  recordType =
-                      opportunity['RecordType']['Name']?.toString() ?? 'N/A';
-                }
-
-                return DataRow(
-                  cells: [
-                    DataCell(Text(opportunity['Name'] ?? 'N/A')),
-                    DataCell(Text(opportunity['Fase__c']?.toString() ?? 'N/A')),
-                    DataCell(
-                      Text(
-                        opportunity['Tipo_de_Oportunidade__c']?.toString() ??
-                            'N/A',
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        opportunity['Data_de_Previs_o_de_Fecho__c']
-                                ?.toString() ??
-                            'N/A',
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        opportunity['Receita_Total__c']?.toString() ?? 'N/A',
-                      ),
-                    ),
-                    DataCell(Text(recordType)),
-                  ],
-                  onSelectChanged: (_) {
-                    _showOpportunityDetails(opportunity);
-                  },
-                );
-              }).toList(),
-        ),
-      ),
-    );
-  }
-
-  void _showOpportunityDetails(Map<String, dynamic> opportunity) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(opportunity['Name'] ?? 'Opportunity Details'),
-            content: SingleChildScrollView(
-              child: ListBody(
-                children:
-                    opportunity.entries
-                        .where((entry) => entry.key != 'attributes')
-                        .map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    '${entry.key}:',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 3,
-                                  child: _formatFieldValue(entry.value),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-              ),
+    // Display opportunities
+    return ListView.builder(
+      itemCount: _opportunities.length,
+      itemBuilder: (context, index) {
+        final opportunity = _opportunities[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: ListTile(
+            title: Text(opportunity.Name),
+            subtitle: Text(
+              opportunity.AccountId != null
+                  ? 'Account: ${opportunity.Account?.Name ?? 'Unknown'}'
+                  : 'No Account',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-            ],
+            trailing: Text(opportunity.Fase__c ?? 'Unknown'),
           ),
+        );
+      },
     );
-  }
-
-  /// Helper method to format different field value types for display
-  Widget _formatFieldValue(dynamic value) {
-    if (value == null) {
-      return const Text('N/A');
-    } else if (value is bool) {
-      return value
-          ? const Text('Yes', style: TextStyle(color: Colors.green))
-          : const Text('No', style: TextStyle(color: Colors.red));
-    } else if (value is Map) {
-      // Handle nested objects/maps
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children:
-            value.entries.map((e) => Text('${e.key}: ${e.value}')).toList(),
-      );
-    } else {
-      return Text(value.toString());
-    }
   }
 }

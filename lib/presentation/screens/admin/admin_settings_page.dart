@@ -12,6 +12,7 @@ import '../../../core/theme/ui_styles.dart';
 import '../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../../core/services/loading_service.dart';
+import '../../../core/services/salesforce_auth_service.dart';
 
 class AdminSettingsPage extends ConsumerStatefulWidget {
   const AdminSettingsPage({super.key});
@@ -34,6 +35,33 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
 
+    // Watch Salesforce auth state
+    final salesforceState = ref.watch(salesforceAuthProvider);
+
+    // Determine status color and text based on state
+    Color statusColor;
+    String statusSubtitle;
+    bool isConnected = false;
+
+    switch (salesforceState) {
+      case SalesforceAuthState.authenticated:
+        statusColor = AppTheme.success;
+        statusSubtitle = 'Connected';
+        isConnected = true;
+        break;
+      case SalesforceAuthState.unauthenticated:
+      case SalesforceAuthState.error:
+        statusColor = AppTheme.destructive;
+        statusSubtitle = 'Disconnected - Tap to connect';
+        break;
+      case SalesforceAuthState.authenticating:
+      case SalesforceAuthState.unknown:
+      default:
+        statusColor = AppTheme.muted;
+        statusSubtitle = 'Checking Status...';
+        break;
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -48,6 +76,22 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
           ),
           const SizedBox(height: 32),
+
+          // --- 1. Profile Button Section ---
+          _buildSettingsGroup(l10n.account, [
+            // Keep group title for consistency, or remove if preferred
+            _buildActionSetting(
+              l10n.adminProfile,
+              l10n.viewEditProfile,
+              CupertinoIcons.person_fill,
+              () {
+                // Navigate to admin profile
+              },
+            ),
+          ]),
+          const SizedBox(height: 24),
+
+          // --- 2. Common Settings Group ---
           _buildSettingsGroup(l10n.commonSettings, [
             _buildToggleSetting(
               l10n.profileTheme,
@@ -91,6 +135,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
           ]),
           const SizedBox(height: 24),
+
+          // --- 3. Admin Preferences Group ---
           _buildSettingsGroup(l10n.adminPreferences, [
             _buildActionSetting(
               l10n.adminSystemConfig,
@@ -102,49 +148,61 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
             _buildActionSetting(
               l10n.profileSalesforceConnect,
-              l10n.salesforceIntegrationDescription,
+              statusSubtitle,
               CupertinoIcons.cloud,
-              () {
-                context.go('/admin/salesforce-setup');
+              () async {
+                // Only trigger sign-in if not connected
+                if (!isConnected) {
+                  final loadingService = ref.read(loadingServiceProvider);
+                  final salesforceNotifier = ref.read(
+                    salesforceAuthProvider.notifier,
+                  );
+                  loadingService.show(
+                    context,
+                    message: 'Connecting to Salesforce...',
+                  );
+                  try {
+                    await salesforceNotifier.signIn();
+                    // No navigation needed here, state change will rebuild UI
+                  } catch (e) {
+                    // Handle potential errors (e.g., show a snackbar)
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Salesforce connection failed: $e'),
+                        ),
+                      );
+                    }
+                  } finally {
+                    if (mounted) {
+                      loadingService.hide();
+                    }
+                  }
+                } else {
+                  // Optional: Add logic for when already connected (e.g., show info)
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Already connected to Salesforce.'),
+                    ),
+                  );
+                }
               },
-            ),
-            _buildActionSetting(
-              l10n.exportDatabase,
-              l10n.exportDatabaseDescription,
-              CupertinoIcons.cloud_download_fill,
-              () {
-                _showBackupDialog(context);
-              },
+              statusIndicator: _buildStatusIndicator(statusColor),
+              hideChevron: true,
             ),
           ]),
           const SizedBox(height: 24),
-          _buildSettingsGroup(l10n.account, [
-            _buildActionSetting(
-              l10n.adminProfile,
-              l10n.viewEditProfile,
-              CupertinoIcons.person_fill,
-              () {
-                // Navigate to admin profile
-              },
-            ),
-            _buildActionSetting(
-              l10n.security,
-              l10n.changePasswordSettings,
-              CupertinoIcons.lock_fill,
-              () {
-                // Navigate to security settings
-              },
-            ),
-            _buildActionSetting(
-              l10n.profileLogout,
-              l10n.profileEndSession,
-              CupertinoIcons.square_arrow_right,
-              () {
-                _handleLogout(context, ref);
-              },
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ]),
+
+          // --- 4. Standalone Logout Button ---
+          _buildActionSetting(
+            l10n.profileLogout,
+            l10n.profileEndSession,
+            CupertinoIcons.square_arrow_right,
+            () {
+              _handleLogout(context, ref);
+            },
+            color: Theme.of(context).colorScheme.error,
+          ),
         ],
       ),
     );
@@ -364,6 +422,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     IconData icon,
     VoidCallback onTap, {
     Color? color,
+    Widget? statusIndicator,
+    bool hideChevron = false,
   }) {
     final theme = Theme.of(context);
     final defaultColor = theme.colorScheme.onSurface;
@@ -406,11 +466,15 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 ],
               ),
             ),
-            Icon(
-              CupertinoIcons.chevron_right,
-              color: (color ?? defaultColor).withOpacity(0.7),
-              size: 20,
-            ),
+            if (statusIndicator != null) statusIndicator,
+            if (!hideChevron) ...[
+              const SizedBox(width: 8),
+              Icon(
+                CupertinoIcons.chevron_right,
+                color: (color ?? defaultColor).withOpacity(0.7),
+                size: 20,
+              ),
+            ],
           ],
         ),
       ),
@@ -620,6 +684,16 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ),
         );
       },
+    );
+  }
+
+  // Helper to build status indicator dot
+  Widget _buildStatusIndicator(Color color) {
+    return Container(
+      width: 10,
+      height: 10,
+      margin: const EdgeInsets.only(left: 8),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

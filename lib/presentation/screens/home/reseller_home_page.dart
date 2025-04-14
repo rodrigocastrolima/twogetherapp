@@ -123,22 +123,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                   bottom: false,
                   child: Stack(
                     children: [
-                      // Gradient overlay to improve text contrast
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withOpacity(0.3),
-                                Colors.black.withOpacity(0.1),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
                       // Content
                       Column(
                         children: [
@@ -158,7 +142,10 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                     .when(
                                       data:
                                           (user) => GestureDetector(
-                                            onTap: () => context.go('/profile'),
+                                            onTap:
+                                                () => context.push(
+                                                  '/profile-details',
+                                                ),
                                             child: Container(
                                               padding: const EdgeInsets.all(10),
                                               decoration: BoxDecoration(
@@ -215,7 +202,10 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                           ),
                                       error:
                                           (_, __) => GestureDetector(
-                                            onTap: () => context.go('/profile'),
+                                            onTap:
+                                                () => context.push(
+                                                  '/profile-details',
+                                                ),
                                             child: Container(
                                               padding: const EdgeInsets.all(10),
                                               decoration: BoxDecoration(

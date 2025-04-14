@@ -42,7 +42,8 @@ class ServiceSubmissionState {
   final String? errorMessage;
   final String? successMessage;
   final Map<String, dynamic> formData;
-  final File? selectedInvoiceFile;
+  final dynamic
+  selectedInvoiceFile; // Changed from File? to dynamic to support both platforms
   final String? submissionId; // ID of the created submission (if successful)
 
   ServiceSubmissionState({
@@ -60,7 +61,7 @@ class ServiceSubmissionState {
     String? errorMessage,
     String? successMessage,
     Map<String, dynamic>? formData,
-    File? selectedInvoiceFile,
+    dynamic selectedInvoiceFile, // Changed from File? to dynamic
     String? submissionId,
     bool clearError = false,
     bool clearSuccessMessage = false,
@@ -101,17 +102,124 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
     state = state.copyWith(formData: updatedFormData, clearError: true);
   }
 
-  // Select an invoice file from gallery
+  // Select an invoice file from gallery (image or PDF)
   Future<void> pickInvoiceFile() async {
     try {
-      final file = await _repository.pickImageFromGallery();
+      if (kDebugMode) {
+        print('Selecting file from device');
+      }
+
+      // Allow both images and PDFs using our universal file picker
+      final file = await _repository.pickFileFromGallery(
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'heic'],
+      );
+
       if (file != null) {
+        if (kDebugMode) {
+          String fileInfo = '';
+          String fileType = 'unknown';
+
+          if (file is File) {
+            fileInfo = file.path;
+            final ext = fileInfo.split('.').last.toLowerCase();
+            fileType = ext;
+          } else if (file is XFile) {
+            fileInfo = file.path;
+            final ext = fileInfo.split('.').last.toLowerCase();
+            fileType = ext;
+          }
+
+          print('Successfully selected file: $fileInfo (type: $fileType)');
+
+          // Validate file type here to provide better user feedback
+          final validTypes = ['jpg', 'jpeg', 'png', 'pdf', 'heic'];
+          if (!validTypes.contains(fileType)) {
+            throw Exception(
+              'Selected file is not a supported type. Please select a PDF or image file.',
+            );
+          }
+        }
+
         state = state.copyWith(selectedInvoiceFile: file, clearError: true);
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('Error selecting file: $e');
+      }
+
+      // Provide a user-friendly error message
+      String errorMessage = e.toString().replaceAll('Exception: ', '');
+
+      // Special handling for common error cases
+      if (e.toString().contains('supported type')) {
+        errorMessage = 'Please select a PDF, JPG, PNG or HEIC file.';
+      } else if (e.toString().contains('cancelled') ||
+          e.toString().contains('canceled')) {
+        // Don't show errors for user cancellations
+        return;
+      }
+
       state = state.copyWith(
-        errorMessage: 'Failed to pick file: ${e.toString()}',
+        errorMessage: 'Failed to select file: $errorMessage',
       );
+    }
+  }
+
+  // Specifically select a PDF file
+  Future<dynamic> pickPdfFile() async {
+    try {
+      if (kDebugMode) {
+        print('Picking PDF file - STRICT VERSION');
+      }
+
+      // Clear any previous errors
+      state = state.copyWith(clearError: true);
+
+      // Use the dedicated method for picking PDF files
+      final file = await _repository.pickPdfFromGallery();
+
+      if (file != null) {
+        // Validate that it's actually a PDF
+        final filePath = file.path.toLowerCase();
+        final extension = filePath.split('.').last;
+
+        if (kDebugMode) {
+          print('Selected file: $filePath');
+          print('File extension: $extension');
+        }
+
+        // Make sure it's a PDF
+        if (extension != 'pdf' && !filePath.endsWith('.pdf')) {
+          if (kDebugMode) {
+            print('WARNING: Selected file is not a PDF!');
+            print('Extension: $extension');
+          }
+
+          // Show an error and don't update the state
+          state = state.copyWith(
+            errorMessage: 'Please select a PDF file (file extension .pdf).',
+          );
+          return null;
+        }
+
+        if (kDebugMode) {
+          print('PDF file validation successful: $filePath');
+        }
+
+        // If we got here, it's a valid PDF, so update the state
+        state = state.copyWith(selectedInvoiceFile: file, clearError: true);
+        return file;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking PDF file: $e');
+      }
+
+      state = state.copyWith(
+        errorMessage: 'Failed to select PDF file. Please try again.',
+      );
+      return null;
     }
   }
 

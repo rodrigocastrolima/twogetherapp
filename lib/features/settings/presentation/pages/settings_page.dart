@@ -156,28 +156,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       children: [
         _buildSettingsSection(l10n.profilePersonalInfo, [
           _buildSettingsTile(
-            icon: Icons.dashboard_outlined,
-            title: 'Dashboard',
+            icon: Icons.person_outline,
+            title: 'Perfil',
             subtitle: l10n.profilePersonalInfo,
             trailing: Icon(
               Icons.chevron_right,
               color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
             onTap: () {
-              // Navigate to dashboard
-            },
-            theme: theme,
-          ),
-          _buildSettingsTile(
-            icon: Icons.lock_outline,
-            title: l10n.profileChangePassword,
-            subtitle: l10n.profileUpdatePassword,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
-            ),
-            onTap: () {
-              // Handle password change
+              // Navigate to profile page using push
+              context.push('/profile-details');
             },
             theme: theme,
           ),
@@ -247,19 +235,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 }
               },
             ),
-            theme: theme,
-          ),
-          _buildSettingsTile(
-            icon: Icons.cloud_outlined,
-            title: 'Salesforce',
-            subtitle: l10n.profileSalesforceConnect,
-            trailing: Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
-            ),
-            onTap: () {
-              context.go('/salesforce-setup');
-            },
             theme: theme,
           ),
           _buildSettingsTile(

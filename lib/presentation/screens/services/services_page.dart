@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/models/service_types.dart';
 import '../../../core/models/service_types.dart' as service_types show Provider;
 import '../../../core/theme/theme.dart';
@@ -7,8 +9,10 @@ import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
 import 'dart:ui';
 import '../../../core/theme/ui_styles.dart';
-import '../../../features/services/presentation/widgets/image_upload_widget.dart';
+import '../../../features/services/presentation/widgets/file_upload_widget.dart';
 import '../../../features/services/presentation/providers/service_submission_provider.dart';
+import '../../../features/services/data/repositories/service_submission_repository.dart'
+    as repo;
 
 class ServicesPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? preFilledData;
@@ -19,7 +23,8 @@ class ServicesPage extends ConsumerStatefulWidget {
   ConsumerState<ServicesPage> createState() => ServicesPageState();
 }
 
-class ServicesPageState extends ConsumerState<ServicesPage> {
+class ServicesPageState extends ConsumerState<ServicesPage>
+    with SingleTickerProviderStateMixin {
   int currentStep = 0; // Start at 0 to not show step indicator initially
   ServiceCategory? _selectedCategory;
   EnergyType? _selectedEnergyType;
@@ -34,6 +39,10 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
   late final TextEditingController _nifController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+
+  // Animation controller for pulsing effect
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -55,9 +64,24 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     );
 
     // If we have pre-filled data, set the client type but don't skip steps
-    if (widget.preFilledData != null) {
-      _selectedClientType = widget.preFilledData!['clientType'] as ClientType;
+    if (widget.preFilledData != null &&
+        widget.preFilledData!.containsKey('resubmissionId')) {
+      // Potentially pre-fill steps based on existing submission data
+      // For now, just log it
+      debugPrint(
+        "Handling potential resubmission for ID: ${widget.preFilledData!['resubmissionId']}",
+      );
     }
+
+    // Initialize animation controller
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 700), // Pulse duration
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -67,6 +91,7 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     _nifController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _pulseController.dispose(); // Dispose animation controller
     super.dispose();
   }
 
@@ -75,16 +100,20 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
 
     setState(() {
       _selectedCategory = category;
-      currentStep = 1; // Now start counting steps
+      currentStep = 1;
       _selectedEnergyType = null;
       _selectedClientType = null;
       _selectedProvider = null;
-      _clearForm();
+      _clearFormValues(); // Clear form fields, but not file
     });
 
-    // Update the form state
+    // Update the form state in the provider
     final formNotifier = ref.read(serviceSubmissionProvider.notifier);
     formNotifier.updateFormField('serviceCategory', category.name);
+    // Clear dependent fields in provider state
+    formNotifier.updateFormField('energyType', null);
+    formNotifier.updateFormField('clientType', null);
+    formNotifier.updateFormField('provider', null);
   }
 
   void _handleEnergyTypeSelection(EnergyType type) {
@@ -93,12 +122,14 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
       currentStep = 2;
       _selectedClientType = null;
       _selectedProvider = null;
-      _clearForm();
+      _clearFormValues();
     });
 
     // Update the form state
     final formNotifier = ref.read(serviceSubmissionProvider.notifier);
     formNotifier.updateFormField('energyType', type.name);
+    formNotifier.updateFormField('clientType', null);
+    formNotifier.updateFormField('provider', null);
   }
 
   void _handleClientTypeSelection(ClientType type) {
@@ -106,13 +137,14 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
       _selectedClientType = type;
       currentStep = 3;
 
-      // Set provider based on client type
+      // Set provider based on client type and energy type
       if (_selectedEnergyType == EnergyType.solar ||
           type == ClientType.commercial) {
         _selectedProvider = service_types.Provider.edp;
       } else {
         _selectedProvider = service_types.Provider.repsol;
       }
+      _clearFormValues();
     });
 
     // Update the form state
@@ -121,37 +153,49 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     formNotifier.updateFormField('provider', _selectedProvider!.name);
   }
 
-  void _clearForm() {
+  // Clear only text form fields, keep file selection
+  void _clearFormValues() {
     _companyNameController.clear();
     _responsibleNameController.clear();
     _nifController.clear();
     _emailController.clear();
     _phoneController.clear();
-
-    // Reset form state
-    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
-    formNotifier.resetForm();
+    // Don't reset provider form state here, keep selections
   }
 
   bool _isFormValid() {
-    // Check if invoice file has been selected
+    // Check if invoice file has been selected from the provider state
     final formState = ref.read(serviceSubmissionProvider);
     bool hasInvoiceFile = formState.selectedInvoiceFile != null;
 
+    // Validate required text fields based on client type
+    bool textFieldsValid = false;
     if (_selectedClientType == ClientType.commercial) {
-      return _companyNameController.text.isNotEmpty &&
+      textFieldsValid =
+          _companyNameController.text.isNotEmpty &&
           _responsibleNameController.text.isNotEmpty &&
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
-          _phoneController.text.isNotEmpty &&
-          hasInvoiceFile;
+          _phoneController.text.isNotEmpty;
     } else {
-      return _responsibleNameController.text.isNotEmpty &&
+      textFieldsValid =
+          _responsibleNameController.text.isNotEmpty &&
           _nifController.text.isNotEmpty &&
           _emailController.text.isNotEmpty &&
-          _phoneController.text.isNotEmpty &&
-          hasInvoiceFile;
+          _phoneController.text.isNotEmpty;
     }
+
+    // Check NIF format
+    bool nifValid =
+        _nifController.text.length == 9 &&
+        int.tryParse(_nifController.text) != null;
+
+    // Check email format
+    bool emailValid =
+        _emailController.text.contains('@') &&
+        _emailController.text.contains('.');
+
+    return hasInvoiceFile && textFieldsValid && nifValid && emailValid;
   }
 
   Future<void> _handleSubmit() async {
@@ -163,7 +207,6 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     });
 
     try {
-      // Make sure all selections from the UI are set in the form state
       final formNotifier = ref.read(serviceSubmissionProvider.notifier);
 
       // Update form fields with the text controller values
@@ -175,160 +218,241 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
         'phone': _phoneController.text,
       };
 
-      // Explicitly set the selections from UI state
+      // Ensure selections from UI state are also in the provider state
       if (_selectedCategory != null) {
-        formData['serviceCategory'] = _selectedCategory!.name;
+        formNotifier.updateFormField(
+          'serviceCategory',
+          _selectedCategory!.name,
+        );
       }
-
       if (_selectedEnergyType != null) {
-        formData['energyType'] = _selectedEnergyType!.name;
+        formNotifier.updateFormField('energyType', _selectedEnergyType!.name);
       }
-
       if (_selectedClientType != null) {
-        formData['clientType'] = _selectedClientType!.name;
+        formNotifier.updateFormField('clientType', _selectedClientType!.name);
       }
-
       if (_selectedProvider != null) {
-        formData['provider'] = _selectedProvider!.name;
+        formNotifier.updateFormField('provider', _selectedProvider!.name);
       }
 
-      // Update all form fields at once
+      // Update text fields in provider state
       formNotifier.updateFormFields(formData);
 
-      // Get current user info
-      final user =
-          await ref
-              .read(serviceSubmissionRepositoryProvider)
-              .getCurrentUserData();
-      if (user == null) {
+      // Get current user info from repository
+      final userRepo = ref.read(repo.serviceSubmissionRepositoryProvider);
+      final userData = await userRepo.getCurrentUserData();
+      if (userData == null) {
         throw Exception('User not authenticated');
       }
 
-      // Now submit the form
+      // Now submit the form using the provider
       final success = await formNotifier.submitServiceRequest(
-        resellerId: user['uid'] ?? '',
-        resellerName: user['displayName'] ?? user['email'] ?? 'Unknown',
+        resellerId: userData['uid'] ?? '',
+        resellerName: userData['displayName'] ?? userData['email'] ?? 'Unknown',
       );
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Service request submitted successfully'),
+            content: Text('Pedido de serviço enviado com sucesso'),
             backgroundColor: Colors.green,
           ),
         );
-
-        // Reset form and go back to first step
-        setState(() {
-          currentStep = 0;
-          _selectedCategory = null;
-          _selectedEnergyType = null;
-          _selectedClientType = null;
-          _selectedProvider = null;
-          _clearForm();
-        });
+        // Navigate back after successful submission
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          // Fallback if cannot pop (e.g., deep link)
+          context.go('/');
+        }
       } else {
+        // Error message is handled by the provider listener
         final formState = ref.read(serviceSubmissionProvider);
         setState(() {
-          _errorMessage = formState.errorMessage ?? 'Error submitting form';
+          _errorMessage = formState.errorMessage ?? 'Erro ao enviar formulário';
         });
       }
     } catch (e) {
       debugPrint('Error submitting form: $e');
       setState(() {
-        _errorMessage = 'Error submitting form: ${e.toString()}';
+        _errorMessage = 'Erro ao enviar formulário: ${e.toString()}';
       });
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
+  // Handle back navigation within the stepper or pop the route
   void handleBackPress() {
-    setState(() {
-      if (currentStep > 0) {
+    if (currentStep > 0) {
+      setState(() {
         currentStep--;
+        // Clear selections for the step we are going *back* to
+        // This logic might need refinement based on exact UX desired
         switch (currentStep) {
-          case 0:
+          case 0: // Going back to category selection
             _selectedCategory = null;
             _selectedEnergyType = null;
             _selectedClientType = null;
             _selectedProvider = null;
-            _clearForm();
+            _clearFormValues();
+            ref
+                .read(serviceSubmissionProvider.notifier)
+                .resetForm(); // Full reset
             break;
-          case 1:
+          case 1: // Going back to energy type selection
             _selectedEnergyType = null;
             _selectedClientType = null;
             _selectedProvider = null;
-            _clearForm();
+            _clearFormValues();
+            ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+              'energyType': null,
+              'clientType': null,
+              'provider': null,
+            });
+            break;
+          case 2: // Going back to client type selection
+            _selectedClientType = null;
+            _selectedProvider = null;
+            _clearFormValues();
+            ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+              'clientType': null,
+              'provider': null,
+            });
             break;
         }
+      });
+    } else {
+      // If at step 0 (category selection), pop the route
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        // Fallback if cannot pop (e.g., direct link)
+        context.go('/');
       }
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (currentStep > 0) _buildStepIndicator(),
-        Expanded(child: _buildCurrentStep()),
-      ],
-    );
-  }
+    // Watch for error messages from the provider
+    ref.listen<ServiceSubmissionState>(serviceSubmissionProvider, (
+      previous,
+      next,
+    ) {
+      if (next.errorMessage != null && next.errorMessage != _errorMessage) {
+        // Update local error message state IF the provider has an error
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _errorMessage = next.errorMessage;
+            });
+          }
+        });
+      } else if (next.errorMessage == null && _errorMessage != null) {
+        // Clear local error message if provider error is cleared
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _errorMessage = null;
+            });
+          }
+        });
+      }
+    });
 
-  Widget _buildStepIndicator() {
-    return Padding(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      child: Row(
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.chevron_left),
+          onPressed: handleBackPress, // Use unified back handler
+        ),
+        // Remove title conditionally based on step?
+        title: null, // Removed title
+        centerTitle: true,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStepNumber(1, currentStep >= 1),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              child: _buildStepLine(currentStep >= 2),
-            ),
-          ),
-          _buildStepNumber(2, currentStep >= 2),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              child: _buildStepLine(currentStep >= 3),
-            ),
-          ),
-          _buildStepNumber(3, currentStep >= 3),
+          // Only show step indicator after step 0
+          if (currentStep > 0) _buildStepIndicator(),
+          Expanded(child: _buildCurrentStep()),
         ],
       ),
     );
   }
 
-  Widget _buildStepNumber(int step, bool isActive) {
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(128),
-      ),
+  // --- UI Builder Methods --- //
+
+  Widget _buildStepIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.spacing16),
       child: Center(
-        child: Text(
-          step.toString(),
-          style: TextStyle(
-            color: isActive ? Colors.white : AppTheme.mutedForeground,
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Keep Row compact
+          children: List<Widget>.generate(5, (index) {
+            // 3 circles + 2 lines = 5 items
+            // Even indices are circles (0, 2, 4), odd are lines (1, 3)
+            if (index.isEven) {
+              final stepIndex = index ~/ 2; // 0, 1, 2
+              final stepNumber = stepIndex + 1;
+              final isActive = currentStep >= stepNumber;
+              final isCurrent = currentStep == stepNumber;
+
+              // Build Circle
+              Widget circleWidget = Container(
+                width: 30, // Revert to fixed size
+                height: 30, // Revert to fixed size
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isActive ? AppTheme.primary : Colors.grey[300],
+                ),
+                child: Center(
+                  child: Text(
+                    '$stepNumber',
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.grey[600],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              );
+
+              // Apply pulse effect if current
+              if (isCurrent) {
+                return ScaleTransition(
+                  scale: _pulseAnimation,
+                  child: circleWidget,
+                );
+              } else {
+                return circleWidget;
+              }
+            } else {
+              // Build Line
+              final stepIndex = index ~/ 2; // 0, 1
+              final stepNumber = stepIndex + 1;
+              final isActive = currentStep > stepNumber;
+
+              return Container(
+                width: 80, // Increased width for the line
+                height: 1.5, // Thinner line
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                // Use rounded corners for a softer look
+                decoration: BoxDecoration(
+                  color: isActive ? AppTheme.primary : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              );
+            }
+          }),
         ),
       ),
-    );
-  }
-
-  Widget _buildStepLine(bool isActive) {
-    return Container(
-      height: 1,
-      color: isActive ? AppTheme.primary : AppTheme.muted.withAlpha(128),
     );
   }
 
@@ -337,28 +461,26 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
       case 0:
         return _buildServiceCategoryStep();
       case 1:
-        if (_selectedCategory == ServiceCategory.energy) {
-          return _buildEnergyTypeStep();
-        }
-        return const Center(child: Text('Service not available yet'));
+        return _buildEnergyTypeStep();
       case 2:
         return _buildClientTypeStep();
       case 3:
         return _buildFormStep();
       default:
-        return const SizedBox.shrink();
+        return const Center(child: Text('Passo inválido'));
     }
   }
 
+  // --- Step Builder Methods (Reverted to original structure) ---
+
   Widget _buildServiceCategoryStep() {
-    return NoScrollbarBehavior.noScrollbars(
-      context,
-      SingleChildScrollView(
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.spacing16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: AppConstants.spacing24),
             Text(
               'Qual tipo de serviço?',
               style: AppTextStyles.h2.copyWith(
@@ -383,9 +505,9 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
   }
 
   Widget _buildEnergyTypeStep() {
-    return NoScrollbarBehavior.noScrollbars(
-      context,
-      SingleChildScrollView(
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.spacing16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,9 +530,9 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
   Widget _buildClientTypeStep() {
     // For Solar, show only Commercial client with EDP
     if (_selectedEnergyType == EnergyType.solar) {
-      return NoScrollbarBehavior.noScrollbars(
-        context,
-        SingleChildScrollView(
+      return ScrollConfiguration(
+        behavior: const NoScrollbarBehavior(),
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppConstants.spacing16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,9 +558,9 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     }
 
     // Original view for Electricity/Gas
-    return NoScrollbarBehavior.noScrollbars(
-      context,
-      SingleChildScrollView(
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppConstants.spacing16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,65 +592,93 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     );
   }
 
-  Widget _buildClientCard({
-    required String title,
-    required String subtitle,
-    required String imagePath,
-    required VoidCallback onTap,
-  }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(AppConstants.spacing16),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(26),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(51)),
+  Widget _buildFormStep() {
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppConstants.spacing16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Dados do Cliente', style: AppTextStyles.h2),
+            const SizedBox(height: AppConstants.spacing24),
+            if (_selectedClientType == ClientType.commercial) ...[
+              _buildTextField(
+                controller: _companyNameController,
+                label: 'Nome da Empresa',
+                hint: 'Digite o nome da empresa',
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: AppTextStyles.body1.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.foreground,
+              const SizedBox(height: AppConstants.spacing16),
+            ],
+            _buildTextField(
+              controller: _responsibleNameController,
+              label: 'Nome do Responsável',
+              hint: 'Digite o nome do responsável',
+            ),
+            const SizedBox(height: AppConstants.spacing16),
+            _buildTextField(
+              controller: _nifController,
+              label: 'NIF',
+              hint: 'Digite o NIF',
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: AppConstants.spacing16),
+            _buildTextField(
+              controller: _emailController,
+              label: 'Email',
+              hint: 'Digite o email',
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: AppConstants.spacing16),
+            _buildTextField(
+              controller: _phoneController,
+              label: 'Telefone',
+              hint: 'Digite o telefone',
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: AppConstants.spacing24),
+
+            // Document upload widget
+            const FileUploadWidget(),
+
+            if (_errorMessage != null) ...[
+              const SizedBox(height: AppConstants.spacing16),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: AppTheme.destructive, fontSize: 14),
+              ),
+            ],
+
+            const SizedBox(height: AppConstants.spacing24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    _isFormValid() && !_isSubmitting ? _handleSubmit : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppConstants.spacing16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child:
+                    _isSubmitting
+                        ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: AppTextStyles.body2.copyWith(
-                            color: AppTheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppConstants.spacing16),
-                  SizedBox(
-                    width: 80,
-                    child: Image.asset(imagePath, fit: BoxFit.contain),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.foreground.withAlpha(128),
-                    size: 20,
-                  ),
-                ],
+                        )
+                        : const Text('Enviar'),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -608,93 +758,66 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
     );
   }
 
-  Widget _buildFormStep() {
-    final formState = ref.watch(serviceSubmissionProvider);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Dados do Cliente', style: AppTextStyles.h2),
-          const SizedBox(height: AppConstants.spacing24),
-          if (_selectedClientType == ClientType.commercial) ...[
-            _buildTextField(
-              controller: _companyNameController,
-              label: 'Nome da Empresa',
-              hint: 'Digite o nome da empresa',
-            ),
-            const SizedBox(height: AppConstants.spacing16),
-          ],
-          _buildTextField(
-            controller: _responsibleNameController,
-            label: 'Nome do Responsável',
-            hint: 'Digite o nome do responsável',
-          ),
-          const SizedBox(height: AppConstants.spacing16),
-          _buildTextField(
-            controller: _nifController,
-            label: 'NIF',
-            hint: 'Digite o NIF',
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: AppConstants.spacing16),
-          _buildTextField(
-            controller: _emailController,
-            label: 'Email',
-            hint: 'Digite o email',
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: AppConstants.spacing16),
-          _buildTextField(
-            controller: _phoneController,
-            label: 'Telefone',
-            hint: 'Digite o telefone',
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: AppConstants.spacing24),
-
-          // Document upload widget
-          const ImageUploadWidget(),
-
-          if (_errorMessage != null) ...[
-            const SizedBox(height: AppConstants.spacing16),
-            Text(
-              _errorMessage!,
-              style: TextStyle(color: AppTheme.destructive, fontSize: 14),
-            ),
-          ],
-
-          const SizedBox(height: AppConstants.spacing24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed:
-                  _isFormValid() && !_isSubmitting ? _handleSubmit : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppConstants.spacing16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+  Widget _buildClientCard({
+    required String title,
+    required String subtitle,
+    required String imagePath,
+    required VoidCallback onTap,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(AppConstants.spacing16),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(26),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withAlpha(51)),
               ),
-              child:
-                  _isSubmitting
-                      ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTextStyles.body1.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.foreground,
+                          ),
                         ),
-                      )
-                      : const Text('Enviar'),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: AppTextStyles.body2.copyWith(
+                            color: AppTheme.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.spacing16),
+                  SizedBox(
+                    width: 80,
+                    child: Image.asset(imagePath, fit: BoxFit.contain),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.foreground.withAlpha(128),
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -769,5 +892,19 @@ class ServicesPageState extends ConsumerState<ServicesPage> {
       case EnergyType.solar:
         return Icons.solar_power;
     }
+  }
+}
+
+// Helper class to prevent scrollbar from showing
+class NoScrollbarBehavior extends ScrollBehavior {
+  const NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }

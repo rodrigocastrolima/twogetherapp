@@ -19,6 +19,13 @@ class AppTheme {
   static const input = Color(0xFFE5EAF0);
   static const ring = Color(0xFF0A0E17);
 
+  // Status Colors (Light)
+  static const success = Color(0xFF22C55E); // Green-500
+  static const warning = Color(0xFFF59E0B); // Amber-500
+
+  // Popover background (Light)
+  static const popoverBackground = Color(0xFFFFFFFF);
+
   // Dark theme colors
   static const darkBackground = Color(0xFF0A192F); // Deep dark blue
   static const darkNavBarBackground = Color(
@@ -41,6 +48,16 @@ class AppTheme {
   static const darkAccentForeground = Color(0xFF0A192F); // Dark text on accent
   static const darkBorder = Color(0xFF1E293B); // Match secondary for borders
   static const darkInput = Color(0xFF1E293B); // Match secondary for inputs
+
+  // Status Colors (Dark)
+  static const darkSuccess = Color(0xFF4ADE80); // Green-400
+  static const darkWarning = Color(0xFFFBBF24); // Amber-400
+  static const darkDestructive = Color(0xFFF87171); // Red-400
+
+  // Popover background (Dark)
+  static const darkPopoverBackground = Color(
+    0xFF1E293B,
+  ); // Same as darkSecondary
 
   // Gradient colors
   static const lightGradientStart = Color(0xFF7CBAE3); // Light blue at top
@@ -70,6 +87,10 @@ class AppTheme {
         onError: destructiveForeground,
         background: background,
         onBackground: foreground,
+        tertiary: success,
+        onTertiary: Colors.white,
+        tertiaryContainer: warning,
+        onTertiaryContainer: Colors.black,
       ),
       textTheme: GoogleFonts.interTextTheme(),
       scaffoldBackgroundColor: background,
@@ -116,6 +137,30 @@ class AppTheme {
           ),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: popoverBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        elevation: 4,
+        textStyle: const TextStyle(color: foreground),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        inputDecorationTheme: InputDecorationTheme(
+          fillColor: popoverBackground,
+          filled: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radius),
+            borderSide: const BorderSide(color: border),
+          ),
+        ),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(popoverBackground),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+          ),
+        ),
+      ),
     );
   }
 
@@ -124,83 +169,77 @@ class AppTheme {
       brightness: Brightness.dark,
       useMaterial3: true,
       colorScheme: const ColorScheme.dark(
-        surface: darkSecondary, // Use secondary for card/surface backgrounds
+        surface: darkSecondary,
         onSurface: darkForeground,
         primary: darkPrimary,
         onPrimary: darkPrimaryForeground,
         secondary: darkSecondary,
         onSecondary: darkSecondaryForeground,
-        error: destructive,
+        error: darkDestructive,
         onError: darkForeground,
         background: darkBackground,
         onBackground: darkForeground,
+        tertiary: darkSuccess,
+        onTertiary: darkPrimaryForeground,
+        tertiaryContainer: darkWarning,
+        onTertiaryContainer: darkPrimaryForeground,
       ),
       scaffoldBackgroundColor: darkBackground,
       appBarTheme: const AppBarTheme(
-        backgroundColor: darkBackground, // Use main dark background
+        backgroundColor: darkBackground,
         foregroundColor: darkForeground,
         elevation: 0,
       ),
       cardTheme: CardTheme(
-        color: darkSecondary, // Use secondary color for cards
+        color: darkSecondary,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: const BorderSide(color: darkBorder), // Use dark border
+          side: const BorderSide(color: darkBorder),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: darkInput, // Use dark input color
+        fillColor: darkInput,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: darkBorder), // Use dark border
+          borderSide: const BorderSide(color: darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: BorderSide(
-            color: darkBorder.withAlpha(128),
-          ), // Slightly lighter border
+          borderSide: BorderSide(color: darkBorder.withAlpha(128)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(
-            color: darkPrimary,
-          ), // Primary color for focus
+          borderSide: const BorderSide(color: darkPrimary),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: destructive),
+          borderSide: const BorderSide(color: darkDestructive),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
-        labelStyle: const TextStyle(
-          color: darkMutedForeground,
-        ), // Muted color for labels
-        hintStyle: const TextStyle(
-          color: darkMutedForeground,
-        ), // Muted color for hints
+        labelStyle: const TextStyle(color: darkMutedForeground),
+        hintStyle: const TextStyle(color: darkMutedForeground),
       ),
       textTheme: GoogleFonts.interTextTheme(
         ThemeData.dark().textTheme,
       ).apply(bodyColor: darkForeground, displayColor: darkForeground),
-      iconTheme: const IconThemeData(
-        color: darkMutedForeground,
-      ), // Muted icon color
+      iconTheme: const IconThemeData(color: darkMutedForeground),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) {
             return darkPrimary;
           }
-          return darkMuted; // Off state color
+          return darkMuted;
         }),
         trackColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) {
             return darkPrimary.withOpacity(0.5);
           }
-          return darkMuted.withOpacity(0.5); // Off state track color
+          return darkMuted.withOpacity(0.5);
         }),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -219,6 +258,30 @@ class AppTheme {
           minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius),
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: darkPopoverBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        elevation: 4,
+        textStyle: const TextStyle(color: darkForeground),
+      ),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        inputDecorationTheme: InputDecorationTheme(
+          fillColor: darkPopoverBackground,
+          filled: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radius),
+            borderSide: const BorderSide(color: darkBorder),
+          ),
+        ),
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(darkPopoverBackground),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
           ),
         ),
       ),

@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
@@ -318,30 +320,381 @@ class ServiceSubmissionRepository {
     }
   }
 
-  // Method to pick an image file from the device
-  Future<File?> pickImageFile({
-    ImageSource source = ImageSource.gallery,
-  }) async {
-    final pickedFile = await _imagePicker.pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1200,
-    );
+  // Universal file picker for all platforms and file types
+  Future<dynamic> pickFileFromGallery({List<String>? allowedExtensions}) async {
+    try {
+      if (kDebugMode) {
+        print('Opening universal file picker');
+      }
 
-    if (pickedFile != null) {
+      // Default allowed extensions (support both images and PDFs)
+      final validExtensions =
+          allowedExtensions ?? ['jpg', 'jpeg', 'png', 'pdf', 'heic'];
+
+      // Create a case-insensitive list of extensions that includes both upper and lowercase
+      final allExtensions = <String>[];
+      for (final ext in validExtensions) {
+        allExtensions.add(ext.toLowerCase());
+        allExtensions.add(ext.toUpperCase());
+      }
+
+      if (kIsWeb) {
+        // Web implementation uses ImagePicker for now
+        // This is simpler and more reliable on web
+    final pickedFile = await _imagePicker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 75,
+        );
+
+        if (pickedFile == null) {
+          return null;
+        }
+
+        // Validate file extension
+        final fileName = pickedFile.name.toLowerCase();
+        if (!_isFileExtensionValid(fileName, validExtensions)) {
+          throw Exception(
+            'Please select a valid file type: ${validExtensions.join(", ")}',
+          );
+        }
+
+        return pickedFile;
+      } else {
+        // For all other platforms (mobile/desktop)
+        // Use FilePicker with minimal configuration to avoid errors
+        try {
+          if (kDebugMode) {
+            print('Using file picker with extensions: $allExtensions');
+          }
+
+          // On Windows, explicitly use FileType.custom with all allowed extensions
+          // This works better than FileType.any which sometimes has issues with PDFs
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: allExtensions,
+            allowMultiple: false,
+            dialogTitle:
+                'Open File', // Standard dialog title recognized by Windows
+            lockParentWindow: true,
+          );
+
+          if (result == null || result.files.isEmpty) {
+            if (kDebugMode) {
+              print('No file selected or selection canceled');
+            }
+            return null;
+          }
+
+          final file = result.files.first;
+          if (kDebugMode) {
+            print('Selected file: ${file.name}, type: ${file.extension}');
+          }
+
+          final filePath = file.path;
+
+          if (filePath == null) {
+            if (kDebugMode) {
+              print('Invalid file path');
+            }
+            return null;
+          }
+
+          // Create a File object
+          final selectedFile = File(filePath);
+
+          // Validate if the file exists
+          if (!await selectedFile.exists()) {
+            if (kDebugMode) {
+              print('File does not exist: $filePath');
+            }
+            return null;
+          }
+
+          // Validate file extension
+          if (!_isFileExtensionValid(filePath, validExtensions)) {
+            throw Exception(
+              'Please select a valid file type: ${validExtensions.join(", ")}',
+            );
+          }
+
+          if (kDebugMode) {
+            print('Successfully selected file: $filePath');
+          }
+
+          return selectedFile;
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error with FilePicker: $e');
+          }
+
+          // Windows-specific workaround
+          if (Platform.isWindows) {
+            try {
+              if (kDebugMode) {
+                print('Trying Windows-specific fallback approach...');
+              }
+
+              // Try with a broader approach without extension filtering
+              final fallbackResult = await FilePicker.platform.pickFiles(
+                type: FileType.any, // No filtering to see anything
+                allowMultiple: false,
+                dialogTitle: 'Open File',
+                withReadStream: true,
+              );
+
+              if (fallbackResult != null && fallbackResult.files.isNotEmpty) {
+                final fallbackFile = fallbackResult.files.first;
+                if (fallbackFile.path != null) {
+                  final file = File(fallbackFile.path!);
+
+                  // Validate manually
+                  if (await file.exists()) {
+                    if (kDebugMode) {
+                      print('Fallback approach success: ${file.path}');
+                    }
+
+                    // We'll allow any file to be selected at this point and handle validation in UI
+                    return file;
+                  }
+                }
+              }
+            } catch (fallbackError) {
+              if (kDebugMode) {
+                print('Windows fallback approach also failed: $fallbackError');
+              }
+            }
+          }
+
+          // If FilePicker fails on any platform, try a fallback method with ImagePicker
+          // This ensures we always have a working file picker
+          final pickedFile = await _imagePicker.pickImage(
+            source: ImageSource.gallery,
+            imageQuality: 75,
+          );
+
+          if (pickedFile == null) {
+            return null;
+          }
+
+          // On non-web platforms, convert XFile to File
       return File(pickedFile.path);
+    }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking file: $e');
+      }
+      throw Exception('Failed to select file: $e');
+    }
+  }
+
+  // Helper method to check if file extension is valid
+  bool _isFileExtensionValid(String filePath, List<String> validExtensions) {
+    final lowerPath = filePath.toLowerCase();
+    return validExtensions.any((ext) => lowerPath.endsWith('.$ext'));
+  }
+
+  // Legacy method for backward compatibility
+  Future<dynamic> pickImageFromGallery() async {
+    return pickFileFromGallery(
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'heic'],
+    );
+  }
+
+  // Method to pick PDF files ONLY
+  Future<File?> pickPdfFromGallery() async {
+    try {
+      if (kDebugMode) {
+        print('Opening PDF-only file picker (CASE-INSENSITIVE VERSION)');
+      }
+
+      // WEB PLATFORM
+      if (kIsWeb) {
+        if (kDebugMode) {
+          print(
+            'Web implementation - using pickFileFromGallery with PDF filter only',
+          );
+        }
+        // For web, just use the universal picker with PDF filter
+        final result = await pickFileFromGallery(allowedExtensions: ['pdf']);
+        if (result is XFile) {
+          if (kDebugMode) {
+            print('Selected file on web: ${result.name}');
+          }
+          return File(result.path);
     }
     return null;
   }
 
-  // Convenience method to pick from camera
-  Future<File?> pickImageFromCamera() async {
-    return pickImageFile(source: ImageSource.camera);
+      // WINDOWS/DESKTOP PLATFORM - use FilePicker with AGGRESSIVE PDF-only approach
+      try {
+        if (kDebugMode) {
+          print('Using FilePicker with AGGRESSIVE settings for PDFs only');
+          print('Trying to set dialogTitle to "Select PDF File (.pdf)"');
+          // Allow both lowercase and uppercase PDF extensions
+          print(
+            'Using explicitly ["pdf"] as allowed extensions (will be handled case-insensitively)',
+          );
+        }
+
+        // Use explicit FileType.custom with clear PDF-only extensions
+        // Note: FilePicker handles extensions case-insensitively on most platforms
+        final result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'Select PDF File (.pdf)',
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+          allowCompression: false,
+          allowMultiple: false,
+          withData: false,
+          lockParentWindow: true,
+        );
+
+        if (result == null || result.files.isEmpty) {
+          if (kDebugMode) {
+            print('No file selected or selection canceled');
+          }
+          return null;
+        }
+
+        final file = result.files.first;
+        final filePath = file.path;
+
+        if (kDebugMode) {
+          print('SELECTED FILE INFO:');
+          print('- Name: ${file.name}');
+          print('- Path: $filePath');
+          print('- Size: ${file.size} bytes');
+          print('- Extension from FilePicker: ${file.extension}');
+        }
+
+        if (filePath == null) {
+          if (kDebugMode) {
+            print('File path is null');
+          }
+          return null;
+        }
+
+        // Create a File object
+        final pdfFile = File(filePath);
+
+        // Validate if file exists
+        final exists = await pdfFile.exists();
+        if (kDebugMode) {
+          print('File exists: $exists');
+        }
+
+        if (exists) {
+          // Verify it's a PDF by checking extension - force lowercase for case-insensitive comparison
+          final extension = path.extension(filePath).toLowerCase();
+          if (kDebugMode) {
+            print('File extension (lowercase): $extension');
+          }
+
+          if (extension == '.pdf') {
+            if (kDebugMode) {
+              print('Successfully selected PDF file: $filePath');
+            }
+            return pdfFile;
+          } else {
+            if (kDebugMode) {
+              print('Selected file is not a PDF. Extension: $extension');
+              print('Still returning the file for further validation in UI');
+            }
+            return pdfFile;
+          }
+        } else {
+          if (kDebugMode) {
+            print('Selected file does not exist: $filePath');
+          }
+          return null;
+        }
+      } catch (e) {
+        // If the first approach fails, try an even simpler fallback approach
+        if (kDebugMode) {
+          print('First PDF picker attempt failed: $e');
+          print('Trying absolute simplified fallback...');
+        }
+
+        // Ultra-simple fallback - just try to get ANY file and then validate
+        try {
+          final result = await FilePicker.platform.pickFiles(
+            type: FileType.any,
+            allowMultiple: false,
+          );
+
+          if (result == null ||
+              result.files.isEmpty ||
+              result.files.first.path == null) {
+            if (kDebugMode) {
+              print('Fallback file picker failed or user canceled');
+            }
+            return null;
+          }
+
+          final file = File(result.files.first.path!);
+          if (await file.exists()) {
+            // Always use lowercase for case-insensitive comparison
+            final fileExtension = path.extension(file.path).toLowerCase();
+            if (kDebugMode) {
+              print('Fallback selected file extension: $fileExtension');
+            }
+
+            if (fileExtension == '.pdf') {
+              if (kDebugMode) {
+                print('Fallback success - found PDF: ${file.path}');
+              }
+              return file;
+            } else {
+              if (kDebugMode) {
+                print('Fallback file is not a PDF. Extension: $fileExtension');
+                print('Still returning for UI validation');
+              }
+              return file;
+            }
+          }
+        } catch (fallbackError) {
+          if (kDebugMode) {
+            print('Even the fallback approach failed: $fallbackError');
+          }
+        }
+      }
+
+      if (kDebugMode) {
+        print('All PDF file picking attempts failed, returning null');
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking PDF: $e');
+      }
+      return null;
+    }
   }
 
-  // Convenience method to pick from gallery
-  Future<File?> pickImageFromGallery() async {
-    return pickImageFile(source: ImageSource.gallery);
+  // Pick an image from camera
+  Future<dynamic> pickImageFromCamera() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 75, // Moderate quality for reasonable file size
+      );
+
+      if (pickedFile == null) {
+        return null;
+      }
+
+      // Return the appropriate type based on platform
+      if (kIsWeb) {
+        // For web, return the XFile directly
+        return pickedFile;
+      } else {
+        // For mobile, convert to File
+        return File(pickedFile.path);
+      }
+    } catch (e) {
+      debugPrint('Error picking image from camera: $e');
+      throw Exception('Failed to pick image: $e');
+    }
   }
 
   // Get download URL for a storage path
@@ -364,7 +717,7 @@ class ServiceSubmissionRepository {
   // Submit a service request with client details and invoice file
   Future<String> submitServiceRequest({
     required Map<String, dynamic> clientDetails,
-    required File invoiceFile,
+    required dynamic invoiceFile, // Supports File, XFile, or Uint8List
     required String resellerId,
     required String resellerName,
   }) async {
@@ -373,14 +726,100 @@ class ServiceSubmissionRepository {
     final submissionId = docRef.id;
 
     // 2. Define the storage path for the invoice file
-    final fileExtension = invoiceFile.path.split('.').last;
+    String fileName;
+    String fileExtension = 'jpg'; // Default extension
+    String contentType = 'image/jpeg'; // Default content type
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileName = 'invoice_${timestamp}.$fileExtension';
+
+    // Handle file name and extension based on platform
+    if (kIsWeb) {
+      // For web, we may not have a path property
+      if (invoiceFile is XFile) {
+        // Try to get extension from name if available
+        final name = invoiceFile.name.toLowerCase();
+        if (name.contains('.')) {
+          fileExtension = name.split('.').last;
+
+          // Set contentType based on file extension
+          if (fileExtension == 'pdf') {
+            contentType = 'application/pdf';
+          } else if (['jpg', 'jpeg'].contains(fileExtension)) {
+            contentType = 'image/jpeg';
+          } else if (fileExtension == 'png') {
+            contentType = 'image/png';
+          } else if (fileExtension == 'heic') {
+            contentType = 'image/heic';
+          }
+        }
+      }
+    } else {
+      // For mobile platforms
+      String path = '';
+      if (invoiceFile is File) {
+        path = invoiceFile.path.toLowerCase();
+      } else if (invoiceFile is XFile) {
+        path = invoiceFile.path.toLowerCase();
+      }
+
+      if (path.isNotEmpty) {
+        if (path.contains('.')) {
+          fileExtension = path.split('.').last;
+
+          // Set contentType based on file extension
+          if (fileExtension == 'pdf') {
+            contentType = 'application/pdf';
+          } else if (['jpg', 'jpeg'].contains(fileExtension)) {
+            contentType = 'image/jpeg';
+          } else if (fileExtension == 'png') {
+            contentType = 'image/png';
+          } else if (fileExtension == 'heic') {
+            contentType = 'image/heic';
+          }
+        }
+      }
+    }
+
+    fileName = 'invoice_${timestamp}.$fileExtension';
     final storagePath = 'submissions/$submissionId/$fileName';
 
     // 3. Upload the file to Firebase Storage
     final storageRef = _storage.ref(storagePath);
-    final uploadTask = storageRef.putFile(invoiceFile);
+    UploadTask uploadTask;
+
+    if (kIsWeb) {
+      // Web implementation
+      if (invoiceFile is Uint8List) {
+        // If it's already binary data
+        uploadTask = storageRef.putData(
+          invoiceFile,
+          SettableMetadata(contentType: contentType),
+        );
+      } else if (invoiceFile is XFile) {
+        // If it's an XFile
+        final bytes = await invoiceFile.readAsBytes();
+        uploadTask = storageRef.putData(
+          bytes,
+          SettableMetadata(contentType: contentType),
+        );
+      } else {
+        throw Exception("Unsupported file format for web platform");
+      }
+    } else {
+      // Mobile implementation
+      if (invoiceFile is File) {
+        uploadTask = storageRef.putFile(
+          invoiceFile,
+          SettableMetadata(contentType: contentType),
+        );
+      } else if (invoiceFile is XFile) {
+        uploadTask = storageRef.putFile(
+          File(invoiceFile.path),
+          SettableMetadata(contentType: contentType),
+        );
+      } else {
+        throw Exception("Unsupported file format for mobile platform");
+      }
+    }
 
     // Wait for the upload to complete
     await uploadTask;

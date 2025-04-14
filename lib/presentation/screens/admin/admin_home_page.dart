@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
+import '../../../presentation/widgets/logo.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/theme/ui_styles.dart';
@@ -67,18 +68,23 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
             const SizedBox(height: 24),
 
+            // --- MOVED Recent Activity UP ---
+            _buildSubmissionsNotificationSection(context),
+
+            const SizedBox(height: 24),
+
             // Quick stats section
             _buildQuickStatsSection(context, l10n),
 
-            const SizedBox(height: 24),
+            // --- REMOVED Quick Actions Section ---
+            // const SizedBox(height: 24),
+            // // Recent actions section
+            // _buildRecentActionsSection(context),
 
-            // Recent actions section
-            _buildRecentActionsSection(context),
-
-            const SizedBox(height: 24),
-
-            // Submissions notification section
-            _buildSubmissionsNotificationSection(context),
+            // --- REMOVED redundant notifications section placeholder ---
+            // const SizedBox(height: 24),
+            // // Submissions notification section
+            // _buildSubmissionsNotificationSection(context),
           ],
         ),
       ),
@@ -90,100 +96,32 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final l10n = AppLocalizations.of(context)!;
 
     return Container(
-      decoration: AppStyles.glassCard(context),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Welcome text and date
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome to Admin Panel',
-                  style: AppTextStyles.h2.copyWith(
-                    color: AppTheme.foreground,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  date,
-                  style: AppTextStyles.body1.copyWith(
-                    color: AppTheme.mutedForeground,
-                  ),
-                ),
-                Text(
-                  time,
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppTheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          LogoWidget(height: 40),
 
-          // Quick actions
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildQuickActionButton(
-                context: context,
-                icon: CupertinoIcons.person_add,
-                label: l10n.navResellers,
-                onTap: () => context.push('/admin/user-management'),
+              Text(
+                date,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppTheme.mutedForeground,
+                ),
               ),
-              const SizedBox(height: 8),
-              _buildQuickActionButton(
-                context: context,
-                icon: CupertinoIcons.graph_square,
-                label: l10n.navOpportunities,
-                onTap: () => context.push('/admin/opportunities'),
+              Text(
+                time,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppTheme.mutedForeground,
+                ),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color accentColor = Color(0xFFffbe45); // Tulip Tree color
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: accentColor.withOpacity(0.5), width: 1),
-            color: accentColor.withOpacity(0.1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: accentColor),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: accentColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -193,44 +131,52 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+            vertical: 8.0,
+          ), // Adjusted padding
           child: Text(
             'Dashboard Statistics',
             style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
           ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                context,
-                CupertinoIcons.person_2_fill,
-                '12', // Placeholder value
-                'Active Resellers',
-                Color(0xFF60A5FA), // Light blue
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+          ), // Add padding to Row
+          child: Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  context,
+                  CupertinoIcons.person_2_fill,
+                  '12', // Placeholder value
+                  'Active Resellers',
+                  Color(0xFF60A5FA), // Light blue
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                context,
-                CupertinoIcons.doc_text_fill,
-                '28', // Placeholder value
-                'Pending Submissions',
-                Color(0xFFffbe45), // Tulip Tree
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  context,
+                  CupertinoIcons.doc_text_fill,
+                  '28', // Placeholder value
+                  'Pending Submissions',
+                  Color(0xFFffbe45), // Tulip Tree
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                context,
-                CupertinoIcons.graph_square_fill,
-                '18', // Placeholder value
-                'Monthly Opportunities',
-                Color(0xFF34D399), // Green
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  context,
+                  CupertinoIcons.graph_square_fill,
+                  '18', // Placeholder value
+                  'Monthly Opportunities',
+                  Color(0xFF34D399), // Green
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -243,19 +189,53 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     String label,
     Color color,
   ) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppStyles.glassCard(context),
+      padding: const EdgeInsets.symmetric(
+        vertical: 20,
+        horizontal: 16,
+      ), // Adjust padding
+      decoration: BoxDecoration(
+        // Use standard BoxDecoration
+        color: theme.colorScheme.surface.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              theme.brightness == Brightness.dark
+                  ? theme.colorScheme.onSurface.withOpacity(0.05)
+                  : theme.dividerColor.withOpacity(0.1),
+          width: 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                theme.brightness == Brightness.dark
+                    ? theme.colorScheme.shadow.withOpacity(0.2)
+                    : theme.colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 12),
+          // Simpler Icon presentation
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 16), // Increased space
           Text(
             value,
-            style: AppTextStyles.h2.copyWith(
+            style: AppTextStyles.h1.copyWith(
+              // Larger value text
               color: AppTheme.foreground,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600, // Slightly less bold
             ),
           ),
           const SizedBox(height: 4),
@@ -264,7 +244,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             style: AppTextStyles.body2.copyWith(
               color: AppTheme.mutedForeground,
             ),
-            maxLines: 2,
+            maxLines: 1, // Ensure single line
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -272,175 +252,82 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     );
   }
 
-  Widget _buildRecentActionsSection(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'Quick Actions',
-            style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
-          ),
-        ),
-        Container(
-          decoration: AppStyles.glassCard(context),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildActionTile(
-                  context,
-                  CupertinoIcons.chat_bubble_2_fill,
-                  l10n.navMessages,
-                  'Check and respond to messages',
-                  () => context.push('/admin/messages'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildActionTile(
-                  context,
-                  CupertinoIcons.graph_square,
-                  'View Opportunities',
-                  'Manage sales opportunities',
-                  () => context.push('/admin/opportunities'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildActionTile(
-                  context,
-                  CupertinoIcons.person_2,
-                  'User Management',
-                  'Manage resellers and users',
-                  () => context.push('/admin/user-management'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionTile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback onTap,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 24, color: AppTheme.primary),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: AppTextStyles.body2.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSubmissionsNotificationSection(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'Recent Activity',
-            style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
-          ),
-        ),
-        Container(
-          height: 400, // Fixed height for the submissions list
-          decoration: AppStyles.glassCard(context),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+          ), // Adjust padding
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header
-              Padding(
-                padding: AppStyles.standardCardPadding,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Recent Notifications',
-                      style: AppTextStyles.h4.copyWith(
-                        color: AppTheme.foreground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        return Row(
-                          children: [
-                            // Refresh Button
-                            IconButton(
-                              icon: const Icon(CupertinoIcons.refresh),
-                              tooltip: 'Refresh Notifications',
-                              onPressed: () {
-                                // Force refresh notifications
-                                refreshAdminNotifications(ref);
-                                if (kDebugMode) {
-                                  print('Notifications manually refreshed');
-                                }
-                              },
-                            ),
-                            TextButton.icon(
-                              icon: const Icon(CupertinoIcons.checkmark_circle),
-                              label: Text('Mark All as Read'),
-                              onPressed: () {
-                                // Mark all notifications as read
-                                final notificationActions = ref.read(
-                                  notificationActionsProvider,
-                                );
-                                notificationActions.markAllAsRead();
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
+              Text(
+                'Recent Activity',
+                style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
               ),
-
-              // Divider
-              const Divider(height: 1),
-
-              // Notifications list
-              Expanded(child: _buildNotificationsList(context)),
+              // Simplified Header Actions
+              Consumer(
+                builder: (context, ref, _) {
+                  return Row(
+                    children: [
+                      // Refresh Button (more subtle)
+                      CupertinoButton(
+                        padding: const EdgeInsets.all(4.0),
+                        minSize: 0,
+                        child: Icon(
+                          CupertinoIcons.refresh,
+                          size: 20,
+                          color: AppTheme.mutedForeground,
+                        ),
+                        onPressed: () {
+                          refreshAdminNotifications(ref);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      // Mark All Read Button (more subtle)
+                      CupertinoButton(
+                        padding: const EdgeInsets.all(4.0),
+                        minSize: 0,
+                        child: Icon(
+                          CupertinoIcons.checkmark_circle,
+                          size: 20,
+                          color: AppTheme.mutedForeground,
+                        ),
+                        onPressed: () {
+                          final notificationActions = ref.read(
+                            notificationActionsProvider,
+                          );
+                          notificationActions.markAllAsRead();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
+        const SizedBox(height: 12), // Reduced space
+        // Remove the outer container with fixed height and glass effect
+        // Container(
+        //   height: 400, // Fixed height for the submissions list
+        //   decoration: AppStyles.glassCard(context),
+        //   clipBehavior: Clip.antiAlias,
+        //   child: Column(
+        //     crossAxisAlignment: CrossAxisAlignment.start,
+        //     children: [
+        //       // Header Removed from here
+        //       const Divider(height: 1),
+        //       Expanded(child: _buildNotificationsList(context)),
+        //     ],
+        //   ),
+        // ),
+        _buildNotificationsList(context), // Call list builder directly
       ],
     );
   }
@@ -449,282 +336,185 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final l10n = AppLocalizations.of(context)!;
     final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
     final notificationActions = ref.read(notificationActionsProvider);
+    final theme = Theme.of(context);
 
     return notificationsStream.when(
       data: (notifications) {
         if (notifications.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.doc_text,
-                  size: 48,
-                  color: AppTheme.mutedForeground,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No Submissions Yet',
-                  style: AppTextStyles.body1.copyWith(
-                    color: AppTheme.mutedForeground,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'New submissions will appear here',
-                  style: AppTextStyles.body2.copyWith(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 48.0,
+              ), // Add padding
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    CupertinoIcons.bell_slash, // Changed icon
+                    size: 48,
                     color: AppTheme.mutedForeground,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  icon: const Icon(CupertinoIcons.refresh),
-                  label: Text('Refresh'),
-                  onPressed: () {
-                    refreshAdminNotifications(ref);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Text(
+                    'No Recent Activity', // Updated text
+                    style: AppTextStyles.body1.copyWith(
+                      color: AppTheme.mutedForeground,
+                      fontWeight: FontWeight.w500, // Adjusted weight
+                    ),
+                  ),
+                  // Removed extra text and button
+                ],
+              ),
             ),
           );
         }
 
-        // Wrap with RefreshIndicator for pull-to-refresh
-        return RefreshIndicator(
-          onRefresh: () async {
-            // Force refresh by invalidating the provider
-            refreshAdminNotifications(ref);
-          },
-          child: ListView.separated(
-            padding: AppStyles.standardCardPadding,
-            itemCount: notifications.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-
-              return _buildSubmissionNotificationItem(
-                context,
-                notification,
-                onTap: () async {
-                  // Mark as read
-                  await notificationActions.markAsRead(notification.id);
-
-                  // Navigate to opportunities page instead of submission details
-                  if (notification.metadata.containsKey('submissionId')) {
-                    if (context.mounted) {
-                      // Redirect to opportunities page since submissions page is removed
-                      context.push('/admin/opportunities');
-                    }
+        // Build the list directly, no RefreshIndicator needed here if pull-to-refresh is on main scroll
+        return ListView.builder(
+          shrinkWrap: true, // Important for nested list
+          physics:
+              const NeverScrollableScrollPhysics(), // Disable nested scrolling
+          padding: const EdgeInsets.symmetric(horizontal: 16.0), // Add padding
+          itemCount: notifications.length,
+          // Remove separatorBuilder for cleaner look
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            return _buildCleanNotificationItem(
+              // Use new item builder
+              context,
+              notification,
+              onTap: () async {
+                await notificationActions.markAsRead(notification.id);
+                if (notification.metadata.containsKey('submissionId')) {
+                  if (context.mounted) {
+                    context.push('/admin/opportunities');
                   }
-                },
-              );
-            },
-          ),
+                }
+              },
+            );
+          },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CupertinoActivityIndicator(), // Use Cupertino style loader
+            ),
+          ),
       error:
           (error, stackTrace) => Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  CupertinoIcons.exclamationmark_triangle,
-                  size: 48,
-                  color: Colors.amber,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load notifications',
-                  style: AppTextStyles.body1.copyWith(
-                    color: AppTheme.foreground,
-                    fontWeight: FontWeight.bold,
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_triangle,
+                    size: 48,
+                    color: Colors.orange, // Use warning color
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  error.toString(),
-                  style: AppTextStyles.body2.copyWith(
-                    color: AppTheme.mutedForeground,
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load activity', // Updated text
+                    style: AppTextStyles.body1.copyWith(
+                      color: AppTheme.foreground,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  icon: const Icon(CupertinoIcons.refresh),
-                  label: Text('Try Again'),
-                  onPressed: () {
-                    refreshAdminNotifications(ref);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppTheme.mutedForeground,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  CupertinoButton(
+                    child: Text('Try Again'),
+                    onPressed: () {
+                      refreshAdminNotifications(ref);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
     );
   }
 
-  Widget _buildSubmissionNotificationItem(
+  // New Clean Notification Item Builder
+  Widget _buildCleanNotificationItem(
     BuildContext context,
     UserNotification notification, {
     required VoidCallback onTap,
   }) {
-    final dateFormatter = DateFormat.yMMMd().add_jm();
+    final theme = Theme.of(context);
+    final dateFormatter = DateFormat.yMd().add_jm(); // Simpler date format
     final formattedDate = dateFormatter.format(notification.createdAt);
 
     // Extract metadata
-    final resellerName =
-        notification.metadata['resellerName'] ?? 'Unknown reseller';
-    final clientName = notification.metadata['clientName'] ?? 'Unknown client';
-    final serviceType =
-        notification.metadata['serviceType'] ?? 'Unknown service';
+    final resellerName = notification.metadata['resellerName'] ?? 'Unknown';
+    final clientName = notification.metadata['clientName'] ?? '?';
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: AppStyles.standardCardPadding,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Notification icon
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color:
-                      notification.isRead
-                          ? AppTheme.mutedForeground.withOpacity(0.1)
-                          : Colors.amber.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color:
-                        notification.isRead
-                            ? AppTheme.mutedForeground.withOpacity(0.2)
-                            : Colors.amber.withOpacity(0.5),
-                    width: notification.isRead ? 1 : 2,
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    CupertinoIcons.doc_text,
-                    color:
-                        notification.isRead
-                            ? AppTheme.mutedForeground
-                            : Colors.amber,
-                    size: 24,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Notification content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Service type label
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            serviceType,
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        // Date
-                        Text(
-                          formattedDate,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppTheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Notification title and unread indicator
-                    Row(
-                      children: [
-                        if (!notification.isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.amber,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        if (!notification.isRead) const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            notification.title,
-                            style: AppTextStyles.body1.copyWith(
-                              color: AppTheme.foreground,
-                              fontWeight:
-                                  notification.isRead
-                                      ? FontWeight.normal
-                                      : FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Submission details
-                    RichText(
-                      text: TextSpan(
-                        style: AppTextStyles.body2.copyWith(
-                          color: AppTheme.mutedForeground,
-                        ),
-                        children: [
-                          const TextSpan(text: 'From '),
-                          TextSpan(
-                            text: resellerName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
-                            ),
-                          ),
-                          const TextSpan(text: ' for client '),
-                          TextSpan(
-                            text: clientName,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.foreground,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Arrow indicator
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: AppTheme.mutedForeground,
-                size: 16,
-              ),
-            ],
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12.0), // Adjust padding
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: theme.dividerColor, width: 0.5),
           ),
+        ),
+        child: Row(
+          children: [
+            // Unread indicator dot
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color:
+                    notification.isRead ? Colors.transparent : AppTheme.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Main content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title, // e.g., "New Submission"
+                    style: AppTextStyles.body1.copyWith(
+                      color: AppTheme.foreground,
+                      fontWeight: FontWeight.w500, // Slightly bolder
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${resellerName} / ${clientName}', // Combine reseller/client
+                    style: AppTextStyles.body2.copyWith(
+                      color: AppTheme.mutedForeground,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Date
+            Text(
+              formattedDate,
+              style: AppTextStyles.caption.copyWith(
+                color: AppTheme.mutedForeground,
+              ),
+            ),
+          ],
         ),
       ),
     );
