@@ -4,10 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:collection/collection.dart'; // For distinct reseller names
 import '../../../../core/models/service_submission.dart'; // Adjusted path
+import '../../../../core/models/service_types.dart'; // Import ServiceCategory enum
 import './opportunity_detail_page.dart'; // Import the new detail page
 import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases
 import '../../../../core/theme/ui_styles.dart'; // Use AppStyles for specific decorations/layouts
+import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
 
 // Provider to stream pending opportunity submissions
 final pendingOpportunitiesProvider = StreamProvider<List<ServiceSubmission>>((
@@ -40,6 +42,7 @@ class _OpportunityVerificationPageState
     extends ConsumerState<OpportunityVerificationPage> {
   String _searchQuery = '';
   String? _selectedReseller;
+  ServiceCategory? _selectedServiceType; // State for service type filter
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -53,26 +56,164 @@ class _OpportunityVerificationPageState
     return DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal());
   }
 
+  // --- START: Deletion Logic --- Updated
+  Future<void> _deleteSubmission(String submissionId) async {
+    // Show loading indicator maybe?
+    final docRef = FirebaseFirestore.instance
+        .collection('serviceSubmissions')
+        .doc(submissionId);
+
+    String? storagePathToDelete;
+    String feedbackMessage =
+        'Submission deleted successfully.'; // Default success
+    Color feedbackColor = Colors.green;
+
+    try {
+      // 1. Get the document data BEFORE deleting to find the file path
+      final docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        final data = docSnap.data() as Map<String, dynamic>?;
+        // Check for invoicePhoto and its storagePath
+        if (data != null && data.containsKey('invoicePhoto')) {
+          final invoicePhotoData =
+              data['invoicePhoto'] as Map<String, dynamic>?;
+          if (invoicePhotoData != null &&
+              invoicePhotoData.containsKey('storagePath')) {
+            storagePathToDelete = invoicePhotoData['storagePath'] as String?;
+          }
+        }
+      } else {
+        // Document doesn't exist, maybe already deleted?
+        feedbackMessage = 'Submission not found.';
+        feedbackColor = Colors.orange;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(feedbackMessage),
+              backgroundColor: feedbackColor,
+            ),
+          );
+        }
+        return; // Exit early
+      }
+
+      // 2. Attempt to delete the file from Storage if path exists
+      if (storagePathToDelete != null && storagePathToDelete.isNotEmpty) {
+        try {
+          final storageRef = FirebaseStorage.instance.ref(storagePathToDelete);
+          await storageRef.delete();
+          print('Successfully deleted file from Storage: $storagePathToDelete');
+        } on FirebaseException catch (e) {
+          // Handle Storage deletion errors (e.g., file not found, permissions)
+          print('Error deleting file from Storage: $e');
+          if (e.code == 'object-not-found') {
+            // File already gone, proceed to delete Firestore doc anyway
+            print('Storage file not found, proceeding with Firestore delete.');
+          } else {
+            // Other storage error, maybe don't delete Firestore doc?
+            feedbackMessage = 'Error deleting associated file: ${e.message}';
+            feedbackColor = Colors.red;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(feedbackMessage),
+                  backgroundColor: feedbackColor,
+                ),
+              );
+            }
+            return; // Exit without deleting Firestore doc for critical storage errors
+          }
+        }
+      }
+
+      // 3. Delete the Firestore document
+      await docRef.delete();
+    } catch (e) {
+      print('Error during deletion process: $e');
+      feedbackMessage = 'Error deleting submission: ${e.toString()}';
+      feedbackColor = Colors.red;
+    } finally {
+      // Show final feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(feedbackMessage),
+            backgroundColor: feedbackColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showDeleteConfirmationDialog(
+    BuildContext context,
+    String submissionId,
+    String submissionName,
+    ThemeData theme,
+  ) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button!
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: const Text('Confirm Deletion'), // TODO: l10n
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                  'Are you sure you want to delete the submission for "$submissionName"?',
+                ), // TODO: l10n
+                const Text('This action cannot be undone.'), // TODO: l10n
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'), // TODO: l10n
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss the dialog
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error, // Use error color
+              ),
+              child: const Text('Delete'), // TODO: l10n
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss the dialog
+                _deleteSubmission(submissionId); // Call the delete function
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+  // --- END: Deletion Logic ---
+
   @override
   Widget build(BuildContext context) {
     final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
     final l10n = AppLocalizations.of(context)!; // Get localizations
     final theme = Theme.of(context); // Get theme
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background, // Use theme background
+      backgroundColor: colorScheme.surface, // Use surface instead of background
       body: Padding(
         // Consistent padding
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
         child: pendingOpportunitiesAsync.when(
           data: (allSubmissions) {
-            // --- Filtering Logic ---
+            // --- Filtering Logic --- Updated
             final uniqueResellers =
                 allSubmissions
                     .map((s) => s.resellerName)
-                    .whereNotNull() // Ensure resellerName is not null
+                    .nonNulls // Use .nonNulls instead of whereNotNull
                     .toSet() // Get unique names
                     .toList()
                   ..sort(); // Sort alphabetically
@@ -82,6 +223,13 @@ class _OpportunityVerificationPageState
                   final resellerMatch =
                       _selectedReseller == null ||
                       submission.resellerName == _selectedReseller;
+
+                  // Match service category (compare names)
+                  final serviceTypeMatch =
+                      _selectedServiceType == null ||
+                      submission.serviceCategory.name ==
+                          _selectedServiceType!.name;
+
                   final searchMatch =
                       _searchQuery.isEmpty ||
                       (submission.companyName ?? '').toLowerCase().contains(
@@ -93,19 +241,21 @@ class _OpportunityVerificationPageState
                       (submission.nif ?? '').toLowerCase().contains(
                         _searchQuery.toLowerCase(),
                       );
-                  return resellerMatch && searchMatch;
+
+                  return resellerMatch && serviceTypeMatch && searchMatch;
                 }).toList();
             // --- End Filtering Logic ---
 
             return LayoutBuilder(
               builder: (context, constraints) {
                 // Define breakpoint for web/desktop layout
-                final bool isWebView = constraints.maxWidth > 700;
+                final bool isWebView =
+                    constraints.maxWidth > 800; // Adjusted breakpoint
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- Header Section ---
+                    // --- Header Section --- Updated
                     _buildHeader(
                       context,
                       l10n,
@@ -114,7 +264,7 @@ class _OpportunityVerificationPageState
                       uniqueResellers,
                     ),
                     const SizedBox(height: 24), // Spacing below header
-                    // --- Content Section ---
+                    // --- Content Section --- (List builders will be updated next)
                     Expanded(
                       child:
                           filteredSubmissions.isEmpty
@@ -143,7 +293,7 @@ class _OpportunityVerificationPageState
     );
   }
 
-  // --- Header Builder ---
+  // --- Header Builder --- Updated
   Widget _buildHeader(
     BuildContext context,
     AppLocalizations l10n,
@@ -159,16 +309,20 @@ class _OpportunityVerificationPageState
           'Opportunity Verification',
           style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground,
+            color:
+                theme
+                    .colorScheme
+                    .onSurface, // Use onSurface instead of onBackground
           ),
         ),
         if (isWebView) ...[
           const SizedBox(height: 16),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Search Field
               Expanded(
-                flex: 2, // Give search more space
+                flex: 3, // Adjusted flex
                 child: SizedBox(
                   height: 42,
                   child: TextField(
@@ -220,7 +374,7 @@ class _OpportunityVerificationPageState
               const SizedBox(width: 16),
               // Reseller Dropdown
               Expanded(
-                flex: 1,
+                flex: 2, // Adjusted flex
                 child: SizedBox(
                   height: 42,
                   child: DropdownButtonFormField<String>(
@@ -248,7 +402,7 @@ class _OpportunityVerificationPageState
                     ),
                     hint: Text(
                       // l10n.filterByResellerHint, // TODO: Add localization key
-                      'Filter by Reseller',
+                      'All Resellers',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant.withOpacity(
                           0.7,
@@ -276,12 +430,80 @@ class _OpportunityVerificationPageState
                             overflow: TextOverflow.ellipsis,
                           ),
                         );
-                      }).toList(),
+                      }), // Remove .toList() here
                     ],
                     onChanged: (value) {
                       setState(() => _selectedReseller = value);
                     },
-                    // Style dropdown icon if needed
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // --- NEW: Service Type Dropdown ---
+              Expanded(
+                flex: 2, // Adjusted flex
+                child: SizedBox(
+                  height: 42,
+                  child: DropdownButtonFormField<ServiceCategory>(
+                    value: _selectedServiceType,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      // hintText: 'Filter by Service Type', // TODO: l10n
+                      filled: true,
+                      fillColor: theme.colorScheme.surface.withOpacity(0.5),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: Icon(
+                        // Choose an appropriate icon
+                        Icons.category_outlined,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    hint: Text(
+                      'All Service Types', // TODO: l10n
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                          0.7,
+                        ),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    items: [
+                      // "All" option
+                      DropdownMenuItem<ServiceCategory>(
+                        value: null,
+                        child: Text(
+                          'All Service Types', // TODO: l10n
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      // Service Categories from Enum
+                      ...ServiceCategory.values.map((category) {
+                        return DropdownMenuItem<ServiceCategory>(
+                          value: category,
+                          child: Text(
+                            category.displayName, // Use the display name
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }), // Remove .toList() here
+                    ],
+                    onChanged: (value) {
+                      setState(() => _selectedServiceType = value);
+                    },
                     icon: Icon(
                       Icons.arrow_drop_down,
                       color: theme.colorScheme.onSurfaceVariant,
@@ -292,17 +514,18 @@ class _OpportunityVerificationPageState
             ],
           ),
         ],
+        // TODO: Add filter UI for mobile view if needed
+        // Consider chips or a separate filter button/modal for mobile
       ],
     );
   }
 
-  // --- Web List Builder ---
+  // --- Web List Builder --- Updated
   Widget _buildWebList(
     BuildContext context,
     List<ServiceSubmission> submissions,
     ThemeData theme,
   ) {
-    final l10n = AppLocalizations.of(context)!;
     return ListView.separated(
       itemCount: submissions.length + 1, // +1 for header row
       separatorBuilder:
@@ -361,7 +584,7 @@ class _OpportunityVerificationPageState
                     ),
                   ),
                 ),
-                const SizedBox(width: 40), // Action icon space
+                SizedBox(width: 48), // Space for PopupMenuButton
               ],
             ),
           );
@@ -369,57 +592,131 @@ class _OpportunityVerificationPageState
 
         // Data Rows
         final submission = submissions[index - 1];
-        return InkWell(
-          onTap: () => _navigateToDetail(context, submission),
-          child: Container(
-            color:
-                index % 2 != 0
-                    ? Colors.transparent
-                    : theme.colorScheme.onSurface.withOpacity(0.03),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 14.0,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    submission.companyName ?? submission.responsibleName,
-                    style: theme.textTheme.bodyMedium,
-                    overflow: TextOverflow.ellipsis,
+        return Material(
+          color:
+              index % 2 != 0
+                  ? Colors.transparent
+                  : theme.colorScheme.onSurface.withOpacity(0.03),
+          child: InkWell(
+            onTap:
+                () => _navigateToDetail(context, submission), // Navigate on tap
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 16.0,
+                right: 4.0,
+                top: 14.0,
+                bottom: 14.0,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      submission.companyName ??
+                          submission.responsibleName, // Use expression directly
+                      style: theme.textTheme.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    submission.nif ?? '-',
-                    style: theme.textTheme.bodyMedium,
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      submission.nif ?? '-', // Keep ?? '-' for nif
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    submission.resellerName ?? '-',
-                    style: theme.textTheme.bodyMedium,
-                    overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      submission
+                          .resellerName, // Remove ?? '-', resellerName is non-nullable
+                      style: theme.textTheme.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    _formatDate(submission.submissionDate),
-                    style: theme.textTheme.bodySmall,
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      _formatDate(submission.submissionDate),
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 40,
-                  child: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  SizedBox(
+                    width: 48,
+                    child: PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      tooltip: 'Actions', // TODO: l10n
+                      onSelected: (String result) {
+                        switch (result) {
+                          case 'view':
+                            _navigateToDetail(context, submission);
+                            break;
+                          case 'delete':
+                            // --- Check if ID exists before showing dialog ---
+                            if (submission.id != null) {
+                              _showDeleteConfirmationDialog(
+                                context,
+                                submission.id!, // Pass non-nullable ID
+                                // Revert to simpler name logic
+                                submission.companyName ??
+                                    submission.responsibleName,
+                                theme,
+                              );
+                            } else {
+                              // Optional: Show error if ID is null (shouldn't happen often)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Error: Submission ID is missing.',
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                            break;
+                        }
+                      },
+                      itemBuilder:
+                          (BuildContext context) => <PopupMenuEntry<String>>[
+                            const PopupMenuItem<String>(
+                              value: 'view',
+                              child: ListTile(
+                                leading: Icon(Icons.visibility_outlined),
+                                title: Text('View Details'), // TODO: l10n
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            PopupMenuItem<String>(
+                              value: 'delete',
+                              // Disable if ID is null
+                              enabled: submission.id != null,
+                              child: ListTile(
+                                leading: Icon(
+                                  Icons.delete_outline,
+                                  color:
+                                      submission.id != null
+                                          ? theme.colorScheme.error
+                                          : theme.disabledColor,
+                                ),
+                                title: Text(
+                                  'Delete Submission', // TODO: l10n
+                                  style: TextStyle(
+                                    color:
+                                        submission.id != null
+                                            ? theme.colorScheme.error
+                                            : theme.disabledColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -427,7 +724,7 @@ class _OpportunityVerificationPageState
     );
   }
 
-  // --- Mobile List Builder ---
+  // --- Mobile List Builder --- Updated
   Widget _buildMobileList(
     BuildContext context,
     List<ServiceSubmission> submissions,
@@ -452,9 +749,18 @@ class _OpportunityVerificationPageState
           color: theme.colorScheme.surface, // Use surface color
           clipBehavior: Clip.antiAlias, // Ensure InkWell splash stays inside
           child: InkWell(
-            onTap: () => _navigateToDetail(context, submission),
+            onTap:
+                () => _navigateToDetail(
+                  context,
+                  submission,
+                ), // Still allow tap on body
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.only(
+                left: 16.0,
+                right: 8.0,
+                top: 16.0,
+                bottom: 16.0,
+              ),
               child: Row(
                 // Use Row for icon alignment
                 children: [
@@ -463,7 +769,9 @@ class _OpportunityVerificationPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          submission.companyName ?? submission.responsibleName,
+                          submission.companyName ??
+                              submission
+                                  .responsibleName, // Use expression directly
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface,
@@ -474,14 +782,15 @@ class _OpportunityVerificationPageState
                         _buildMobileInfoRow(
                           context,
                           'NIF',
-                          submission.nif ?? '-',
+                          submission.nif ?? '-', // Keep ?? '-' for nif
                           theme,
                         ),
                         const SizedBox(height: 4),
                         _buildMobileInfoRow(
                           context,
                           'Reseller',
-                          submission.resellerName ?? '-',
+                          submission
+                              .resellerName, // Remove ?? '-', resellerName is non-nullable
                           theme,
                         ),
                         const SizedBox(height: 4),
@@ -529,10 +838,27 @@ class _OpportunityVerificationPageState
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right,
+                  const SizedBox(width: 0), // Reduced space before icon
+                  IconButton(
+                    icon: const Icon(Icons.more_vert),
                     color: theme.colorScheme.onSurfaceVariant,
+                    tooltip: 'Actions', // TODO: l10n
+                    splashRadius: 20,
+                    // Disable button if ID is null
+                    onPressed:
+                        submission.id == null
+                            ? null
+                            : () {
+                              // Removed intermediate variable and if/else logic
+                              _showDeleteConfirmationDialog(
+                                context,
+                                submission.id!, // Pass non-nullable ID
+                                // Revert to simpler name logic
+                                submission.companyName ??
+                                    submission.responsibleName,
+                                theme,
+                              );
+                            },
                   ),
                 ],
               ),
@@ -645,7 +971,10 @@ class _OpportunityVerificationPageState
             ),
           ),
           const SizedBox(height: 8),
-          if (_searchQuery.isNotEmpty || _selectedReseller != null)
+          if (_searchQuery.isNotEmpty ||
+              _selectedReseller != null ||
+              _selectedServiceType !=
+                  null) // Update condition for empty state message
             Text(
               // l10n.tryAdjustingFilters, // TODO: Add localization key
               'Try adjusting the search or filters.',

@@ -1,361 +1,258 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+// import 'package:flutter/cupertino.dart'; // Unnecessary import
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:ui';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+// import 'dart:ui'; // Unnecessary import
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../../../core/theme/theme.dart';
-import '../../../../core/theme/ui_styles.dart';
 import '../providers/service_submission_provider.dart';
+// import '../../../../core/theme/ui_styles.dart'; // Unused import
+
+// Define callback types
+typedef OnFilePickedCallback = void Function(dynamic fileData, String fileName);
+typedef OnFileClearedCallback = void Function();
 
 /// Widget for uploading documents and photos
 class FileUploadWidget extends ConsumerWidget {
-  const FileUploadWidget({super.key});
+  final dynamic selectedFile; // Can be File (mobile) or Uint8List (web)
+  final String? selectedFileName;
+  // Remove callbacks as we now use provider methods directly
+  // final OnFilePickedCallback onFilePicked;
+  // final OnFileClearedCallback onFileCleared;
+
+  const FileUploadWidget({
+    Key? key,
+    required this.selectedFile,
+    required this.selectedFileName,
+    // required this.onFilePicked,
+    // required this.onFileCleared,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final formState = ref.watch(serviceSubmissionProvider);
-    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    final l10n = AppLocalizations.of(context)!;
+    final notifier = ref.read(serviceSubmissionProvider.notifier);
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title and instructions
         Text(
-          'Upload PDF Document',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.foreground,
+          // l10n.serviceSubmissionInvoicePhotoLabel, // Replaced with default
+          'Invoice Photo / PDF',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Please select a PDF file or take a photo for the service request',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.foreground.withAlpha(
-              (0.7 * 255).round(),
-            ), // Updated from withOpacity
-          ),
+          // l10n.serviceSubmissionInvoicePhotoHint, // Replaced with default
+          'Upload a photo or PDF of the invoice',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
         ),
         const SizedBox(height: 16),
-
-        // File grid with add button
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(
-              (0.1 * 255).round(),
-            ), // Updated from withOpacity
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withAlpha((0.2 * 255).round()),
-            ), // Updated from withOpacity
-          ),
+        Center(
           child: Column(
             children: [
-              // Show selected invoice file if available
-              if (formState.selectedInvoiceFile != null)
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 1,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1.0,
+              if (selectedFile != null && selectedFileName != null) ...[
+                // Ensure selectedFileName is not null before passing
+                _buildFilePreview(context, selectedFile, selectedFileName!, () {
+                  // Call notifier directly to clear the file
+                  notifier.clearInvoiceFile();
+                }),
+                const SizedBox(height: 8),
+                // Optionally display file name below preview
+                // Text(selectedFileName!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              ] else ...[
+                // Upload Placeholder
+                Container(
+                  width: 200,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.dividerColor),
+                    borderRadius: BorderRadius.circular(12),
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
                   ),
-                  itemCount: 1,
-                  itemBuilder: (context, index) {
-                    return _buildImagePreview(
-                      context,
-                      formState.selectedInvoiceFile,
-                      onDelete: () => formNotifier.clearInvoiceFile(),
-                    );
-                  },
-                ),
-
-              // Show options when no file is selected
-              if (formState.selectedInvoiceFile == null)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Take Photo option
-                    Expanded(
-                      child: _buildOptionButton(
-                        context: context,
-                        icon: Icons.camera_alt_rounded,
-                        label: 'Take Photo',
-                        onTap: () => formNotifier.pickInvoiceFromCamera(),
-                      ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 40,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 12),
+                        // Combined Upload Button
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.folder_open, size: 18),
+                          // label: Text(l10n.serviceSubmissionSelectFileButton), // Replaced with default
+                          label: const Text('Select File'),
+                          style: ElevatedButton.styleFrom(
+                            // backgroundColor: theme.colorScheme.secondaryContainer,
+                            // foregroundColor: theme.colorScheme.onSecondaryContainer,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            textStyle: theme.textTheme.labelMedium,
+                          ),
+                          onPressed: () {
+                            // Call the unified picker method
+                            notifier.pickInvoiceFile();
+                          },
+                        ),
+                        // Removed Camera Button - Use gallery picker for now
+                        // const SizedBox(height: 8),
+                        // TextButton.icon(
+                        //   icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                        //   label: const Text('Use Camera'),
+                        //   onPressed: () {
+                        //      // TODO: Implement or remove camera functionality
+                        //      // For now, calls gallery picker
+                        //      notifier.pickInvoiceFile(); // Replaced pickInvoiceFromCamera
+                        //   },
+                        // ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    // Upload File option
-                    Expanded(
-                      child: _buildOptionButton(
-                        context: context,
-                        icon: Icons.file_upload_outlined,
-                        label: 'Upload File',
-                        onTap:
-                            () => _showFilePickerOptions(context, formNotifier),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+                const SizedBox(height: 12),
+                Text(
+                  // l10n.serviceSubmissionSelectFileHint, // Replaced with default
+                  'Tap button to upload photo or PDF',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
           ),
         ),
-
-        // Error message
-        if (formState.errorMessage != null &&
-            formState.errorMessage!.contains('file')) ...[
-          const SizedBox(height: 8),
-          Text(
-            formState.errorMessage!,
-            style: TextStyle(color: AppTheme.destructive, fontSize: 14),
-          ),
-        ],
       ],
     );
   }
 
-  Widget _buildOptionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha(
-            (0.05 * 255).round(),
-          ), // Updated from withOpacity
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withAlpha((0.3 * 255).round()),
-            width: 1,
-          ), // Updated from withOpacity
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: AppTheme.primary),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.foreground,
+  // --- File Preview Widget Logic (copied & adapted from ServiceSubmissionPage) ---
+  Widget _buildFilePreview(
+    BuildContext context,
+    dynamic selectedFile,
+    String fileName, // Made non-nullable based on call site check
+    VoidCallback onRemovePressed,
+  ) {
+    final theme = Theme.of(context);
+    final lowerCaseFileName = fileName.toLowerCase();
+    final isImage =
+        lowerCaseFileName.endsWith('.jpg') ||
+        lowerCaseFileName.endsWith('.jpeg') ||
+        lowerCaseFileName.endsWith('.png') ||
+        lowerCaseFileName.endsWith('.heic');
+
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxHeight: 250), // Limit preview height
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11), // Inner radius
+            child:
+                isImage
+                    ? _buildImagePreview(selectedFile)
+                    : _buildPdfPreview(context, fileName),
+          ),
+          // Remove Button Overlay
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Material(
+              color: Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: onRemovePressed,
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(Icons.close, color: Colors.white, size: 18),
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  void _showFilePickerOptions(
-    BuildContext context,
-    ServiceSubmissionNotifier formNotifier,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: AppTheme.background.withAlpha(
-              (0.95 * 255).round(),
-            ), // Updated from withOpacity
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf),
-                title: const Text('Select PDF File'),
-                onTap: () {
-                  Navigator.pop(context);
-                  formNotifier.pickPdfFile();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.image),
-                title: const Text('Select Image'),
-                onTap: () {
-                  Navigator.pop(context);
-                  formNotifier.pickInvoiceFile();
-                },
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.close),
-                title: const Text('Cancel'),
-                onTap: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildImagePreview(
-    BuildContext context,
-    dynamic image, {
-    required VoidCallback onDelete,
-  }) {
-    return Stack(
-      children: [
-        // File preview
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            color: Colors.grey[200],
-            width: double.infinity,
-            height: double.infinity,
-            child: _buildFilePreview(image),
-          ),
-        ),
-
-        // Delete button
-        Positioned(
-          top: 4,
-          right: 4,
-          child: InkWell(
-            onTap: onDelete,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withAlpha(
-                  (0.7 * 255).round(),
-                ), // Updated from withOpacity
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, size: 14, color: Colors.white),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFilePreview(dynamic file) {
-    // Helper function to get file path or name
-    String getFileName(dynamic file) {
-      if (file is File) {
-        return file.path.split('/').last;
-      } else if (file is XFile) {
-        return file.name;
+  Widget _buildImagePreview(dynamic selectedFile) {
+    try {
+      if (kIsWeb && selectedFile is Uint8List) {
+        return Image.memory(selectedFile, fit: BoxFit.contain);
+      } else if (!kIsWeb && selectedFile is File) {
+        return Image.file(selectedFile, fit: BoxFit.contain);
+      } else {
+        return _buildErrorPreview('Invalid image data type');
       }
-      return "Document";
+    } catch (e) {
+      debugPrint("Error building image preview: $e");
+      return _buildErrorPreview('Cannot display preview');
     }
+  }
 
-    // Determine if it's a PDF based on file extension
-    bool isPdf = false;
-    String fileName = getFileName(file);
-
-    if (fileName.toLowerCase().endsWith('.pdf')) {
-      isPdf = true;
-    }
-
-    // If it's a PDF, show a PDF icon with the filename
-    if (isPdf) {
-      return Container(
-        color: Colors.grey[200],
+  Widget _buildPdfPreview(BuildContext context, String fileName) {
+    final theme = Theme.of(context);
+    return Container(
+      color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.picture_as_pdf, size: 48, color: Colors.red[700]),
-            const SizedBox(height: 12),
+            Icon(
+              Icons.picture_as_pdf_rounded,
+              size: 40,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 fileName,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // Removed redundant button - use overlay X button
+            // TextButton.icon(
+            //   icon: Icon(Icons.picture_as_pdf_outlined, size: 18),
+            //   label: const Text("Choose PDF"),
+            //   onPressed: () {
+            //     // Call unified picker method
+            //     ref.read(serviceSubmissionProvider.notifier).pickInvoiceFile(); // Replaced pickPdfFile
+            //   },
+            // ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    // Handle image files based on platform
-    if (kIsWeb) {
-      if (file is XFile) {
-        return FutureBuilder<Uint8List>(
-          future: file.readAsBytes(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError || !snapshot.hasData) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.red[700], size: 32),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Error loading file',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return Image.memory(snapshot.data!, fit: BoxFit.cover);
-          },
-        );
-      }
-    } else {
-      if (file is File) {
-        return Image.file(file, fit: BoxFit.cover);
-      } else if (file is XFile) {
-        return Image.file(File(file.path), fit: BoxFit.cover);
-      }
-    }
-
-    // Fallback for any other file type
+  Widget _buildErrorPreview(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.insert_drive_file, size: 48, color: Colors.blue[700]),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              fileName,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text(
+          message,
+          style: TextStyle(color: Colors.red[700]),
+        ), // Darker red for visibility
       ),
     );
   }

@@ -14,6 +14,8 @@ import '../../../features/notifications/presentation/providers/notification_prov
 import '../../../core/models/notification.dart';
 import '../../../features/notifications/presentation/services/notification_service.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
+import '../../../features/services/presentation/providers/service_submission_provider.dart';
 
 class ResellerHomePage extends ConsumerStatefulWidget {
   const ResellerHomePage({super.key});
@@ -93,6 +95,19 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     return l10n.userInitialsDefault;
   }
 
+  // Helper method to show the auto-dismissing dialog
+  Future<void> _showAutoDismissDialog(BuildContext context) async {
+    // Use the current context (from ResellerHomePage) to show the dialog
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
+      builder: (BuildContext dialogContext) {
+        // Use the custom stateful widget for the dialog content
+        return const _AutoDismissDialogContent();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -103,6 +118,23 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
 
     // Calculate the height of the top section (1/3 of screen)
     final topSectionHeight = screenSize.height * 0.33;
+
+    // Listener for the success dialog
+    ref.listen<bool>(showSubmissionSuccessDialogProvider, (
+      previousState,
+      shouldShow,
+    ) {
+      // Use WidgetsBinding to defer showing dialog and resetting state until after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Check if mounted is crucial if this logic moves to initState or dispose
+        // In build, it's generally safe but good practice
+        if (shouldShow && mounted) {
+          _showAutoDismissDialog(context);
+          // Reset the flag immediately after triggering the dialog
+          ref.read(showSubmissionSuccessDialogProvider.notifier).state = false;
+        }
+      });
+    });
 
     return Scaffold(
       backgroundColor: Colors.transparent, // Make scaffold transparent
@@ -1042,6 +1074,63 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Auto-Dismiss Dialog Content Widget
+class _AutoDismissDialogContent extends StatefulWidget {
+  const _AutoDismissDialogContent({Key? key}) : super(key: key);
+
+  @override
+  State<_AutoDismissDialogContent> createState() =>
+      _AutoDismissDialogContentState();
+}
+
+class _AutoDismissDialogContentState extends State<_AutoDismissDialogContent> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start a 5-second timer to automatically dismiss the dialog
+    _timer = Timer(const Duration(seconds: 3), () {
+      // Ensure the dialog context is still valid before popping
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Cancel the timer if the widget is disposed early
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Potentially adapt theme/styling based on ResellerHomePage if needed
+    final theme = Theme.of(context);
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.check_circle_outline, color: Colors.green, size: 28),
+          SizedBox(width: 10),
+          Text('Submission Successful'), // Consider using l10n here
+        ],
+      ),
+      content: const SingleChildScrollView(
+        child: ListBody(
+          children: <Widget>[
+            Text(
+              'Your service request has been submitted and will be reviewed shortly.', // Consider using l10n here
+            ),
+          ],
+        ),
+      ),
+      actions: const [], // No buttons needed for auto-dismiss
     );
   }
 }

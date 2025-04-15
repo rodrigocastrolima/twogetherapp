@@ -245,11 +245,13 @@ class ReviewDetails {
   final String reviewerId;
   final Timestamp reviewTimestamp;
   final String? notes;
+  final String? rejectionReason;
 
   ReviewDetails({
     required this.reviewerId,
     required this.reviewTimestamp,
     this.notes,
+    this.rejectionReason,
   });
 
   // Create from map
@@ -257,7 +259,8 @@ class ReviewDetails {
     return ReviewDetails(
       reviewerId: map['reviewerId'] ?? '',
       reviewTimestamp: map['reviewTimestamp'] ?? Timestamp.now(),
-      notes: map['notes'],
+      notes: map['notes'] as String?,
+      rejectionReason: map['rejectionReason'] as String?,
     );
   }
 
@@ -267,6 +270,7 @@ class ReviewDetails {
       'reviewerId': reviewerId,
       'reviewTimestamp': reviewTimestamp,
       'notes': notes,
+      'rejectionReason': rejectionReason,
     };
   }
 
@@ -275,11 +279,13 @@ class ReviewDetails {
     String? reviewerId,
     Timestamp? reviewTimestamp,
     String? notes,
+    String? rejectionReason,
   }) {
     return ReviewDetails(
       reviewerId: reviewerId ?? this.reviewerId,
       reviewTimestamp: reviewTimestamp ?? this.reviewTimestamp,
       notes: notes ?? this.notes,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 }

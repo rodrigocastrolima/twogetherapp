@@ -42,8 +42,8 @@ class ServiceSubmissionState {
   final String? errorMessage;
   final String? successMessage;
   final Map<String, dynamic> formData;
-  final dynamic
-  selectedInvoiceFile; // Changed from File? to dynamic to support both platforms
+  final dynamic selectedInvoiceFile; // Supports File or Uint8List
+  final String? selectedInvoiceFileName; // Added to store file name
   final String? submissionId; // ID of the created submission (if successful)
 
   ServiceSubmissionState({
@@ -52,6 +52,7 @@ class ServiceSubmissionState {
     this.successMessage,
     Map<String, dynamic>? formData,
     this.selectedInvoiceFile,
+    this.selectedInvoiceFileName, // Added
     this.submissionId,
   }) : formData = formData ?? {};
 
@@ -61,7 +62,8 @@ class ServiceSubmissionState {
     String? errorMessage,
     String? successMessage,
     Map<String, dynamic>? formData,
-    dynamic selectedInvoiceFile, // Changed from File? to dynamic
+    dynamic selectedInvoiceFile,
+    String? selectedInvoiceFileName, // Added
     String? submissionId,
     bool clearError = false,
     bool clearSuccessMessage = false,
@@ -77,6 +79,10 @@ class ServiceSubmissionState {
           clearInvoiceFile
               ? null
               : (selectedInvoiceFile ?? this.selectedInvoiceFile),
+      selectedInvoiceFileName: // Added
+          clearInvoiceFile
+              ? null
+              : (selectedInvoiceFileName ?? this.selectedInvoiceFileName),
       submissionId: submissionId ?? this.submissionId,
     );
   }
@@ -102,159 +108,79 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
     state = state.copyWith(formData: updatedFormData, clearError: true);
   }
 
-  // Select an invoice file from gallery (image or PDF)
+  // --- REVISED: Pick invoice file using new repository method ---
   Future<void> pickInvoiceFile() async {
+    state = state.copyWith(isLoading: true, clearError: true); // Show loading
     try {
       if (kDebugMode) {
-        print('Selecting file from device');
+        print('Calling repository.pickFileFromGalleryAndGetName()');
       }
+      final result = await _repository.pickFileFromGalleryAndGetName();
 
-      // Allow both images and PDFs using our universal file picker
-      final file = await _repository.pickFileFromGallery(
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'heic'],
-      );
-
-      if (file != null) {
-        if (kDebugMode) {
-          String fileInfo = '';
-          String fileType = 'unknown';
-
-          if (file is File) {
-            fileInfo = file.path;
-            final ext = fileInfo.split('.').last.toLowerCase();
-            fileType = ext;
-          } else if (file is XFile) {
-            fileInfo = file.path;
-            final ext = fileInfo.split('.').last.toLowerCase();
-            fileType = ext;
-          }
-
-          print('Successfully selected file: $fileInfo (type: $fileType)');
-
-          // Validate file type here to provide better user feedback
-          final validTypes = ['jpg', 'jpeg', 'png', 'pdf', 'heic'];
-          if (!validTypes.contains(fileType)) {
-            throw Exception(
-              'Selected file is not a supported type. Please select a PDF or image file.',
-            );
-          }
-        }
-
-        state = state.copyWith(selectedInvoiceFile: file, clearError: true);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error selecting file: $e');
-      }
-
-      // Provide a user-friendly error message
-      String errorMessage = e.toString().replaceAll('Exception: ', '');
-
-      // Special handling for common error cases
-      if (e.toString().contains('supported type')) {
-        errorMessage = 'Please select a PDF, JPG, PNG or HEIC file.';
-      } else if (e.toString().contains('cancelled') ||
-          e.toString().contains('canceled')) {
-        // Don't show errors for user cancellations
-        return;
-      }
-
-      state = state.copyWith(
-        errorMessage: 'Failed to select file: $errorMessage',
-      );
-    }
-  }
-
-  // Specifically select a PDF file
-  Future<dynamic> pickPdfFile() async {
-    try {
-      if (kDebugMode) {
-        print('Picking PDF file - STRICT VERSION');
-      }
-
-      // Clear any previous errors
-      state = state.copyWith(clearError: true);
-
-      // Use the dedicated method for picking PDF files
-      final file = await _repository.pickPdfFromGallery();
-
-      if (file != null) {
-        // Validate that it's actually a PDF
-        final filePath = file.path.toLowerCase();
-        final extension = filePath.split('.').last;
+      if (result != null) {
+        final fileData = result['fileData'];
+        final fileName = result['fileName'] as String?;
 
         if (kDebugMode) {
-          print('Selected file: $filePath');
-          print('File extension: $extension');
-        }
-
-        // Make sure it's a PDF
-        if (extension != 'pdf' && !filePath.endsWith('.pdf')) {
-          if (kDebugMode) {
-            print('WARNING: Selected file is not a PDF!');
-            print('Extension: $extension');
-          }
-
-          // Show an error and don't update the state
-          state = state.copyWith(
-            errorMessage: 'Please select a PDF file (file extension .pdf).',
+          print(
+            'File picked: Name = $fileName, Type = ${fileData?.runtimeType}',
           );
-          return null;
         }
 
-        if (kDebugMode) {
-          print('PDF file validation successful: $filePath');
+        if (fileData != null && fileName != null) {
+          state = state.copyWith(
+            selectedInvoiceFile: fileData,
+            selectedInvoiceFileName: fileName,
+            isLoading: false,
+          );
+        } else {
+          // Handle case where file picking succeeded but data/name is missing
+          if (kDebugMode) print('File picking returned null data or name');
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Failed to get file details.',
+          );
         }
-
-        // If we got here, it's a valid PDF, so update the state
-        state = state.copyWith(selectedInvoiceFile: file, clearError: true);
-        return file;
+      } else {
+        // User likely cancelled the picker
+        if (kDebugMode) print('File picking cancelled by user.');
+        state = state.copyWith(isLoading: false); // Just stop loading, no error
       }
-      return null;
     } catch (e) {
       if (kDebugMode) {
-        print('Error picking PDF file: $e');
+        print('Error picking file via notifier: $e');
       }
-
       state = state.copyWith(
-        errorMessage: 'Failed to select PDF file. Please try again.',
-      );
-      return null;
-    }
-  }
-
-  // Select an invoice file from camera
-  Future<void> pickInvoiceFromCamera() async {
-    try {
-      final file = await _repository.pickImageFromCamera();
-      if (file != null) {
-        state = state.copyWith(selectedInvoiceFile: file, clearError: true);
-      }
-    } catch (e) {
-      state = state.copyWith(
-        errorMessage: 'Failed to take photo: ${e.toString()}',
+        isLoading: false,
+        errorMessage:
+            'Failed to select file: ${e.toString().replaceFirst("Exception: ", "")}',
       );
     }
   }
 
-  // Remove the currently selected invoice file
+  // --- OLD/REPLACED PICKERS ---
+  // Future<dynamic> pickPdfFile() async { ... }
+  // Future<void> pickInvoiceFromCamera() async { ... }
+
+  // --- REVISED: Clear invoice file state ---
   void clearInvoiceFile() {
-    state = state.copyWith(clearInvoiceFile: true);
+    state = state.copyWith(
+      clearInvoiceFile: true,
+    ); // This now clears both file and name
   }
 
-  // Submit the form data and file
+  // --- REVISED: Submit the form data and file ---
   Future<bool> submitServiceRequest({
     required String resellerId,
     required String resellerName,
   }) async {
-    // Validate required fields (can be enhanced based on form requirements)
-    if (state.selectedInvoiceFile == null) {
+    // Validate required fields
+    if (state.selectedInvoiceFile == null ||
+        state.selectedInvoiceFileName == null) {
       state = state.copyWith(errorMessage: 'Please select an invoice file');
       return false;
     }
 
-    // Check if form data is complete based on your app's requirements
-    // This is just a basic example - you should adapt to your actual required fields
     final formData = state.formData;
     if (!_validateFormData(formData)) {
       state = state.copyWith(
@@ -272,21 +198,21 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
 
     try {
       if (kDebugMode) {
-        print('Starting service submission request');
-        print('Reseller data: id=$resellerId, name=$resellerName');
-        print('Form data: $formData');
+        print('Starting service submission via notifier');
       }
 
-      // Call repository to submit the request
+      // Call repository to submit the request, passing the file data AND name
       final submissionId = await _repository.submitServiceRequest(
         clientDetails: formData,
         invoiceFile: state.selectedInvoiceFile!,
+        invoiceFileName:
+            state.selectedInvoiceFileName!, // Pass the stored file name
         resellerId: resellerId,
         resellerName: resellerName,
       );
 
       if (kDebugMode) {
-        print('Service submission created with ID: $submissionId');
+        print('Notifier: Submission successful with ID: $submissionId');
       }
 
       // Update state with success
@@ -295,19 +221,20 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
         successMessage: 'Service request submitted successfully',
         submissionId: submissionId,
         // Clear the form data and file
-        formData: {},
-        clearInvoiceFile: true,
+        formData: {}, // Clear form data map
+        clearInvoiceFile: true, // Clear file data and name
       );
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Error submitting service request: $e');
+        print('Notifier: Error submitting service request: $e');
         print('Stack trace: ${StackTrace.current}');
       }
       // Update state with error
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Failed to submit service request: ${e.toString()}',
+        errorMessage:
+            'Failed to submit service request: ${e.toString().replaceFirst("Exception: ", "")}',
       );
       return false;
     }
@@ -320,7 +247,10 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
 
   // Private method to validate form data based on requirements
   bool _validateFormData(Map<String, dynamic> data) {
-    // These are just example required fields - adapt to your actual requirements
+    // Log the data map being validated
+    if (kDebugMode) print('[_validateFormData] Validating data: $data');
+
+    // Basic check for essential fields - Adapt as needed!
     final requiredFields = [
       'serviceCategory',
       'clientType',
@@ -332,28 +262,55 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
     ];
 
     for (final field in requiredFields) {
-      if (!data.containsKey(field) ||
-          data[field] == null ||
-          data[field] == '') {
+      final value = data[field];
+      // Checks if value is null OR if it's a String that's empty after trimming
+      if (value == null || (value is String && value.trim().isEmpty)) {
+        // Log specific field failure
+        if (kDebugMode)
+          print(
+            '[_validateFormData] FAILED: Missing or empty required field -> $field',
+          );
+        return false; // Fails if any required field is missing/empty
+      }
+    }
+
+    // Conditional validation
+    final serviceCategory = data['serviceCategory']?.toString();
+    final clientType = data['clientType']?.toString();
+
+    // Check energyType if category is energy
+    if (serviceCategory == service_types.ServiceCategory.energy.name) {
+      final energyType = data['energyType'];
+      // Check if energyType is null OR if it's an empty string
+      if (energyType == null ||
+          (energyType is String && energyType.trim().isEmpty)) {
+        // Log specific field failure
+        if (kDebugMode)
+          print(
+            '[_validateFormData] FAILED: Missing energyType for energy category',
+          );
         return false;
       }
     }
 
-    // Check if energyType is required based on service category
-    if (data['serviceCategory'] == 'energy' &&
-        (!data.containsKey('energyType') || data['energyType'] == null)) {
-      return false;
+    // Check companyName if client type is commercial
+    if (clientType == service_types.ClientType.commercial.name) {
+      final companyName = data['companyName'];
+      // Check if companyName is null OR if it's an empty string
+      if (companyName == null ||
+          (companyName is String && companyName.trim().isEmpty)) {
+        // Log specific field failure
+        if (kDebugMode)
+          print(
+            '[_validateFormData] FAILED: Missing companyName for commercial client',
+          );
+        return false;
+      }
     }
 
-    // If client type is commercial, company name is required
-    if (data['clientType'] == 'commercial' &&
-        (!data.containsKey('companyName') ||
-            data['companyName'] == null ||
-            data['companyName'] == '')) {
-      return false;
-    }
-
-    return true;
+    // Log success if all checks pass
+    if (kDebugMode) print('[_validateFormData] PASSED');
+    return true; // Passes only if all checks succeed
   }
 }
 
@@ -369,12 +326,23 @@ final serviceSubmissionProvider =
 final isFormValidProvider = Provider<bool>((ref) {
   final state = ref.watch(serviceSubmissionProvider);
 
-  // Check if we have an invoice file and all required form data
-  if (state.selectedInvoiceFile == null) {
+  // Check if we have an invoice file AND file name
+  if (state.selectedInvoiceFile == null ||
+      state.selectedInvoiceFileName == null) {
+    if (kDebugMode)
+      print('isFormValidProvider: false (missing file or filename)');
     return false;
   }
 
-  // Create a temporary instance of the notifier to use validation logic
+  // Use the notifier's internal validation logic for form data
   final notifier = ref.read(serviceSubmissionProvider.notifier);
-  return notifier._validateFormData(state.formData);
+  final isDataValid = notifier._validateFormData(state.formData);
+
+  if (kDebugMode)
+    print('isFormValidProvider: File present, Data valid = $isDataValid');
+
+  return isDataValid; // Return true only if file is present AND form data is valid
 });
+
+// --- NEW: Provider to signal success dialog display ---
+final showSubmissionSuccessDialogProvider = StateProvider<bool>((ref) => false);

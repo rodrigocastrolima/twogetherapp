@@ -109,11 +109,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     // Update the form state in the provider
     final formNotifier = ref.read(serviceSubmissionProvider.notifier);
-    formNotifier.updateFormField('serviceCategory', category.name);
-    // Clear dependent fields in provider state
-    formNotifier.updateFormField('energyType', null);
-    formNotifier.updateFormField('clientType', null);
-    formNotifier.updateFormField('provider', null);
+    formNotifier.updateFormFields({
+      'serviceCategory': category.name,
+      // Clear dependent fields in provider state
+      'energyType': null,
+      'clientType': null,
+      'provider': null,
+    });
   }
 
   void _handleEnergyTypeSelection(EnergyType type) {
@@ -127,9 +129,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     // Update the form state
     final formNotifier = ref.read(serviceSubmissionProvider.notifier);
-    formNotifier.updateFormField('energyType', type.name);
-    formNotifier.updateFormField('clientType', null);
-    formNotifier.updateFormField('provider', null);
+    formNotifier.updateFormFields({
+      'energyType': type.name,
+      'clientType': null,
+      'provider': null,
+    });
   }
 
   void _handleClientTypeSelection(ClientType type) {
@@ -149,8 +153,10 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     // Update the form state
     final formNotifier = ref.read(serviceSubmissionProvider.notifier);
-    formNotifier.updateFormField('clientType', type.name);
-    formNotifier.updateFormField('provider', _selectedProvider!.name);
+    formNotifier.updateFormFields({
+      'clientType': type.name,
+      'provider': _selectedProvider!.name,
+    });
   }
 
   // Clear only text form fields, keep file selection
@@ -160,46 +166,12 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     _nifController.clear();
     _emailController.clear();
     _phoneController.clear();
-    // Don't reset provider form state here, keep selections
-  }
-
-  bool _isFormValid() {
-    // Check if invoice file has been selected from the provider state
-    final formState = ref.read(serviceSubmissionProvider);
-    bool hasInvoiceFile = formState.selectedInvoiceFile != null;
-
-    // Validate required text fields based on client type
-    bool textFieldsValid = false;
-    if (_selectedClientType == ClientType.commercial) {
-      textFieldsValid =
-          _companyNameController.text.isNotEmpty &&
-          _responsibleNameController.text.isNotEmpty &&
-          _nifController.text.isNotEmpty &&
-          _emailController.text.isNotEmpty &&
-          _phoneController.text.isNotEmpty;
-    } else {
-      textFieldsValid =
-          _responsibleNameController.text.isNotEmpty &&
-          _nifController.text.isNotEmpty &&
-          _emailController.text.isNotEmpty &&
-          _phoneController.text.isNotEmpty;
-    }
-
-    // Check NIF format
-    bool nifValid =
-        _nifController.text.length == 9 &&
-        int.tryParse(_nifController.text) != null;
-
-    // Check email format
-    bool emailValid =
-        _emailController.text.contains('@') &&
-        _emailController.text.contains('.');
-
-    return hasInvoiceFile && textFieldsValid && nifValid && emailValid;
+    // Note: This does NOT clear the provider's formData map,
+    // only the local controllers. Provider state is managed via updateFormFields.
   }
 
   Future<void> _handleSubmit() async {
-    if (!_isFormValid() || _isSubmitting) return;
+    if (_isSubmitting) return;
 
     setState(() {
       _isSubmitting = true;
@@ -208,65 +180,28 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     try {
       final formNotifier = ref.read(serviceSubmissionProvider.notifier);
-
-      // Update form fields with the text controller values
-      final formData = {
-        'companyName': _companyNameController.text,
-        'responsibleName': _responsibleNameController.text,
-        'nif': _nifController.text,
-        'email': _emailController.text,
-        'phone': _phoneController.text,
-      };
-
-      // Ensure selections from UI state are also in the provider state
-      if (_selectedCategory != null) {
-        formNotifier.updateFormField(
-          'serviceCategory',
-          _selectedCategory!.name,
-        );
-      }
-      if (_selectedEnergyType != null) {
-        formNotifier.updateFormField('energyType', _selectedEnergyType!.name);
-      }
-      if (_selectedClientType != null) {
-        formNotifier.updateFormField('clientType', _selectedClientType!.name);
-      }
-      if (_selectedProvider != null) {
-        formNotifier.updateFormField('provider', _selectedProvider!.name);
-      }
-
-      // Update text fields in provider state
-      formNotifier.updateFormFields(formData);
-
-      // Get current user info from repository
       final userRepo = ref.read(repo.serviceSubmissionRepositoryProvider);
       final userData = await userRepo.getCurrentUserData();
-      if (userData == null) {
-        throw Exception('User not authenticated');
-      }
 
-      // Now submit the form using the provider
+      if (userData == null) throw Exception('User not authenticated');
+
       final success = await formNotifier.submitServiceRequest(
         resellerId: userData['uid'] ?? '',
         resellerName: userData['displayName'] ?? userData['email'] ?? 'Unknown',
       );
 
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pedido de serviço enviado com sucesso'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Navigate back after successful submission
+        // Set the global flag to show dialog on destination page
+        ref.read(showSubmissionSuccessDialogProvider.notifier).state = true;
+
+        // Navigate back immediately
         if (context.canPop()) {
           context.pop();
         } else {
-          // Fallback if cannot pop (e.g., deep link)
-          context.go('/');
+          context.go('/'); // Navigate to home/root
         }
-      } else {
-        // Error message is handled by the provider listener
+      } else if (!success && mounted) {
+        // Handle submission failure (error message likely set by notifier)
         final formState = ref.read(serviceSubmissionProvider);
         setState(() {
           _errorMessage = formState.errorMessage ?? 'Erro ao enviar formulário';
@@ -286,13 +221,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     }
   }
 
-  // Handle back navigation within the stepper or pop the route
   void handleBackPress() {
     if (currentStep > 0) {
       setState(() {
         currentStep--;
-        // Clear selections for the step we are going *back* to
-        // This logic might need refinement based on exact UX desired
+        // Clear local selections for the step we are going back to
         switch (currentStep) {
           case 0: // Going back to category selection
             _selectedCategory = null;
@@ -300,15 +233,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             _selectedClientType = null;
             _selectedProvider = null;
             _clearFormValues();
-            ref
-                .read(serviceSubmissionProvider.notifier)
-                .resetForm(); // Full reset
+            // Also reset provider state completely when going back to step 0
+            ref.read(serviceSubmissionProvider.notifier).resetForm();
             break;
           case 1: // Going back to energy type selection
             _selectedEnergyType = null;
             _selectedClientType = null;
             _selectedProvider = null;
             _clearFormValues();
+            // Clear corresponding fields in provider state
             ref.read(serviceSubmissionProvider.notifier).updateFormFields({
               'energyType': null,
               'clientType': null,
@@ -319,6 +252,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             _selectedClientType = null;
             _selectedProvider = null;
             _clearFormValues();
+            // Clear corresponding fields in provider state
             ref.read(serviceSubmissionProvider.notifier).updateFormFields({
               'clientType': null,
               'provider': null,
@@ -593,6 +527,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildFormStep() {
+    // Get the notifier reference here for use in onChanged
+    final notifier = ref.read(serviceSubmissionProvider.notifier);
+
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -607,6 +544,10 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 controller: _companyNameController,
                 label: 'Nome da Empresa',
                 hint: 'Digite o nome da empresa',
+                // Add onChanged to update provider
+                onChanged:
+                    (value) =>
+                        notifier.updateFormFields({'companyName': value}),
               ),
               const SizedBox(height: AppConstants.spacing16),
             ],
@@ -614,6 +555,10 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               controller: _responsibleNameController,
               label: 'Nome do Responsável',
               hint: 'Digite o nome do responsável',
+              // Add onChanged to update provider
+              onChanged:
+                  (value) =>
+                      notifier.updateFormFields({'responsibleName': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
@@ -621,6 +566,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               label: 'NIF',
               hint: 'Digite o NIF',
               keyboardType: TextInputType.number,
+              // Add onChanged to update provider
+              onChanged: (value) => notifier.updateFormFields({'nif': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
@@ -628,6 +575,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               label: 'Email',
               hint: 'Digite o email',
               keyboardType: TextInputType.emailAddress,
+              // Add onChanged to update provider
+              onChanged: (value) => notifier.updateFormFields({'email': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
@@ -635,11 +584,21 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               label: 'Telefone',
               hint: 'Digite o telefone',
               keyboardType: TextInputType.phone,
+              // Add onChanged to update provider
+              onChanged: (value) => notifier.updateFormFields({'phone': value}),
             ),
             const SizedBox(height: AppConstants.spacing24),
 
-            // Document upload widget
-            const FileUploadWidget(),
+            // Document upload widget - Pass required state from provider
+            Consumer(
+              builder: (context, ref, child) {
+                final state = ref.watch(serviceSubmissionProvider);
+                return FileUploadWidget(
+                  selectedFile: state.selectedInvoiceFile,
+                  selectedFileName: state.selectedInvoiceFileName,
+                );
+              },
+            ),
 
             if (_errorMessage != null) ...[
               const SizedBox(height: AppConstants.spacing16),
@@ -653,8 +612,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
+                // Use isFormValidProvider directly here
                 onPressed:
-                    _isFormValid() && !_isSubmitting ? _handleSubmit : null,
+                    ref.watch(isFormValidProvider) && !_isSubmitting
+                        ? _handleSubmit
+                        : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
@@ -827,6 +789,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required String label,
     required String hint,
     TextInputType? keyboardType,
+    void Function(String)? onChanged, // Added onChanged parameter
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,6 +816,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               child: TextField(
                 controller: controller,
                 keyboardType: keyboardType,
+                onChanged: onChanged, // Use the passed onChanged callback
                 decoration: InputDecoration(
                   hintText: hint,
                   hintStyle: TextStyle(color: AppTheme.mutedForeground),

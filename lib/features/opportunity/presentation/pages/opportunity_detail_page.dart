@@ -46,6 +46,10 @@ class _OpportunityDetailFormViewState
   // State for submission button loading
   bool _isSubmitting = false;
 
+  // --- ADDED: State for Invoice Preview ---
+  String? _invoiceDownloadUrl; // To store the fetched URL
+  // Note: FutureBuilder will handle loading state for the URL fetch
+
   // Define picklist options (API Names)
   final List<String> _segmentoOptions = const [
     '--None--',
@@ -187,6 +191,114 @@ class _OpportunityDetailFormViewState
   //     return null;
   //   }
   // }
+
+  // --- ADDED: Fetch Invoice Download URL ---
+  Future<String?> _fetchInvoiceDownloadUrl() async {
+    final storagePath = widget.submission.invoicePhoto?.storagePath;
+    if (storagePath == null || storagePath.isEmpty) {
+      print("No storage path found for invoice.");
+      return null; // No path, no URL
+    }
+
+    try {
+      if (kDebugMode) {
+        print("Attempting to get download URL for: $storagePath");
+      }
+      final downloadUrl =
+          await FirebaseStorage.instance.ref(storagePath).getDownloadURL();
+      if (kDebugMode) {
+        print("Obtained download URL: $downloadUrl");
+      }
+      // Store the fetched URL in state if needed outside FutureBuilder
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   if (mounted) setState(() => _invoiceDownloadUrl = downloadUrl);
+      // });
+      return downloadUrl;
+    } on FirebaseException catch (e) {
+      if (kDebugMode) {
+        print("Firebase Error getting download URL: ${e.code} - ${e.message}");
+      }
+      // Handle specific errors if needed (e.g., object-not-found)
+      return null; // Indicate error by returning null
+    } catch (e) {
+      if (kDebugMode) {
+        print("Generic Error getting download URL: $e");
+      }
+      return null; // Indicate error
+    }
+  }
+
+  // --- ADDED: Rejection Dialog ---
+  Future<String?> _showRejectionDialog() async {
+    final reasonController = TextEditingController();
+    final dialogFormKey = GlobalKey<FormState>(); // Key for the dialog's form
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false, // User must tap button!
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: const Text('Reject Submission'), // TODO: l10n
+          content: Form(
+            key: dialogFormKey,
+            child: SingleChildScrollView(
+              child: ListBody(
+                children: <Widget>[
+                  const Text(
+                    'Please provide the reason for rejecting this submission.',
+                  ), // TODO: l10n
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: reasonController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter reason here...', // TODO: l10n
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Rejection reason cannot be empty'; // TODO: l10n
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'), // TODO: l10n
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(null); // Dismiss and return null
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor:
+                    Theme.of(context).colorScheme.error, // Use error color
+              ),
+              child: const Text('Confirm Rejection'), // TODO: l10n
+              onPressed: () {
+                // Validate the reason field
+                if (dialogFormKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogContext).pop(
+                    reasonController.text.trim(),
+                  ); // Dismiss and return reason
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -813,350 +925,485 @@ class _OpportunityDetailFormViewState
                     ),
                     const SizedBox(height: 16),
 
-                    // --- Invoice ---
+                    // --- Invoice --- Updated with Preview
                     const Divider(height: 32),
                     Text(
                       'Invoice',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 8),
-                    widget.submission.invoicePhoto?.storagePath != null
-                        ? TextButton.icon(
-                          icon:
-                              _isFetchingInvoiceUrl
-                                  ? SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.link),
-                          label: const Text('View Submitted Invoice'),
-                          onPressed:
-                              _isFetchingInvoiceUrl
-                                  ? null
-                                  : () async {
-                                    final storagePath =
-                                        widget
-                                            .submission
-                                            .invoicePhoto!
-                                            .storagePath;
-                                    if (storagePath.isEmpty) {
-                                      ScaffoldMessenger.of(
+                    const SizedBox(height: 16),
+                    // Use FutureBuilder to fetch URL and display preview/link
+                    FutureBuilder<String?>(
+                      future: _fetchInvoiceDownloadUrl(),
+                      builder: (context, snapshot) {
+                        // Check connection state
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Row(
+                            children: [
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Loading invoice...'),
+                            ],
+                          );
+                        }
+
+                        // Check for errors
+                        if (snapshot.hasError) {
+                          return const Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Error loading invoice details.'),
+                            ],
+                          );
+                        }
+
+                        // Check if data (URL) exists and is not null
+                        final downloadUrl = snapshot.data;
+                        final invoicePhoto = widget.submission.invoicePhoto;
+
+                        if (downloadUrl == null || invoicePhoto == null) {
+                          return const Text(
+                            'No invoice submitted or path is invalid.',
+                          );
+                        }
+
+                        // --- Display based on Content Type ---
+                        final contentType =
+                            invoicePhoto.contentType.toLowerCase();
+                        final fileName = invoicePhoto.fileName;
+
+                        if (contentType.startsWith('image/')) {
+                          // Display Image Preview
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Preview:',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () => _launchUrl(downloadUrl),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 250, // Limit preview height
+                                    maxWidth: double.infinity,
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      downloadUrl,
+                                      fit:
+                                          BoxFit
+                                              .contain, // Fit within constraints
+                                      // Add loading/error builders for the image itself
+                                      loadingBuilder: (
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Invoice storage path is empty.',
-                                          ),
-                                        ),
-                                      );
-                                      return;
-                                    }
-
-                                    setState(() {
-                                      _isFetchingInvoiceUrl = true;
-                                    });
-
-                                    try {
-                                      if (kDebugMode) {
-                                        print(
-                                          "Attempting to get download URL for: $storagePath",
-                                        );
-                                      }
-                                      // Get the actual download URL from Firebase Storage
-                                      final downloadUrl =
-                                          await FirebaseStorage.instance
-                                              .ref(storagePath)
-                                              .getDownloadURL();
-
-                                      if (kDebugMode) {
-                                        print(
-                                          "Obtained download URL: $downloadUrl",
-                                        );
-                                      }
-                                      // Launch the obtained URL
-                                      await _launchUrl(downloadUrl);
-                                    } on FirebaseException catch (e) {
-                                      if (kDebugMode) {
-                                        print(
-                                          "Firebase Error getting download URL: ${e.code} - ${e.message}",
-                                        );
-                                      }
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Error accessing invoice file: ${e.message ?? e.code}',
-                                            ),
-                                            backgroundColor:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.error,
+                                        child,
+                                        loadingProgress,
+                                      ) {
+                                        if (loadingProgress == null)
+                                          return child;
+                                        return Center(
+                                          child: CircularProgressIndicator(
+                                            value:
+                                                loadingProgress
+                                                            .expectedTotalBytes !=
+                                                        null
+                                                    ? loadingProgress
+                                                            .cumulativeBytesLoaded /
+                                                        loadingProgress
+                                                            .expectedTotalBytes!
+                                                    : null,
                                           ),
                                         );
-                                      }
-                                    } catch (e) {
-                                      if (kDebugMode) {
-                                        print(
-                                          "Generic Error getting download URL: $e",
-                                        );
-                                      }
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Could not view invoice: $e',
-                                            ),
-                                            backgroundColor:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.error,
+                                      },
+                                      errorBuilder: (
+                                        context,
+                                        error,
+                                        stackTrace,
+                                      ) {
+                                        return const Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.broken_image,
+                                                color: Colors.grey,
+                                                size: 40,
+                                              ),
+                                              SizedBox(height: 8),
+                                              Text(
+                                                'Could not load image preview.',
+                                              ),
+                                            ],
                                           ),
                                         );
-                                      }
-                                    } finally {
-                                      if (mounted) {
-                                        setState(() {
-                                          _isFetchingInvoiceUrl = false;
-                                        });
-                                      }
-                                    }
-                                  },
-                        )
-                        : const Text('No invoice submitted.'),
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                icon: const Icon(Icons.open_in_new),
+                                label: Text('Open Image: $fileName'),
+                                onPressed: () => _launchUrl(downloadUrl),
+                              ),
+                            ],
+                          );
+                        } else if (contentType == 'application/pdf') {
+                          // Display PDF Icon and Link
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.picture_as_pdf,
+                                    color: Colors.red.shade700,
+                                    size: 30,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      fileName,
+                                      style:
+                                          Theme.of(context).textTheme.bodyLarge,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                icon: const Icon(Icons.download_for_offline),
+                                label: const Text('Download/View PDF'),
+                                onPressed: () => _launchUrl(downloadUrl),
+                              ),
+                            ],
+                          );
+                        } else {
+                          // Fallback for other types
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.insert_drive_file, size: 30),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      fileName,
+                                      style:
+                                          Theme.of(context).textTheme.bodyLarge,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                icon: const Icon(Icons.download),
+                                label: const Text('Download File'),
+                                onPressed: () => _launchUrl(downloadUrl),
+                              ),
+                            ],
+                          );
+                        }
+                      },
+                    ),
                     const SizedBox(height: 32),
 
                     // --- Actions ---
                     Center(
-                      child: ElevatedButton(
-                        onPressed:
-                            _isSubmitting
-                                ? null
-                                : () async {
-                                  // Disable button when submitting
-                                  // Validate the form
-                                  if (_formKey.currentState?.validate() ??
-                                      false) {
-                                    // --- Check if essential fetched data is available ---
-                                    if (_isLoadingReseller) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Still loading reseller data...',
-                                          ),
-                                        ),
-                                      );
-                                      return; // Prevent submission while loading
-                                    }
-                                    if (_resellerSalesforceId == null ||
-                                        _resellerSalesforceId!.isEmpty) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Cannot submit: Reseller Salesforce ID is missing or invalid.',
-                                          ),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                      return; // Prevent submission if ID is missing
-                                    }
-                                    // -----------------------------------------------------
-
-                                    // Set loading state
-                                    setState(() {
-                                      _isSubmitting = true;
-                                    });
-
-                                    // If valid and ID exists, collect data
-                                    final opportunityData = {
-                                      'Name': _nameController.text,
-                                      'NIF__c': _nifController.text,
-                                      'Data_de_Cria_o_da_Oportunidade__c':
-                                          DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).format(DateTime.now()),
-                                      'Data_da_ltima_actualiza_o_de_Fase__c':
-                                          DateFormat(
-                                            'yyyy-MM-dd',
-                                          ).format(DateTime.now()),
-                                      'Fase__c': _faseValue,
-                                      'tipoOportunidadeValue':
-                                          _tipoOportunidadeValue,
-                                      'Segmento_de_Cliente__c':
-                                          _selectedSegmentoCliente,
-                                      'agenteRetailSalesforceId':
-                                          _resellerSalesforceId, // Send the ID
-                                      'Solu_o__c': _selectedSolucao,
-                                      'Data_de_Previs_o_de_Fecho__c':
-                                          _fechoController.text,
-                                      // Include original submission ID and invoice path for the Cloud Function
-                                      'originalSubmissionId':
-                                          widget.submission.id,
-                                      'invoiceStoragePath':
-                                          widget
-                                              .submission
-                                              .invoicePhoto
-                                              ?.storagePath,
-                                    };
-
-                                    if (kDebugMode) {
-                                      print(
-                                        "--- Opportunity Data for Submission ---",
-                                      );
-                                      opportunityData.forEach((key, value) {
-                                        print("$key: $value");
-                                      });
-                                      print(
-                                        "---------------------------------------",
-                                      );
-                                    }
-
-                                    // --- Call Cloud Function ---
-                                    try {
-                                      final callable =
-                                          FirebaseFunctions.instanceFor(
-                                            region: 'us-central1',
-                                          ) // Ensure region matches function deployment
-                                          .httpsCallable(
-                                            'createSalesforceOpportunity',
-                                          );
-                                      final result = await callable
-                                          .call<Map<String, dynamic>>(
-                                            opportunityData,
-                                          );
-                                      final resultData = result.data;
-
-                                      if (kDebugMode) {
-                                        print(
-                                          "Cloud Function Result: $resultData",
-                                        );
-                                      }
-
-                                      if (resultData['success'] == true) {
-                                        // Success!
-                                        if (mounted) {
+                      child: Wrap(
+                        spacing: 16.0, // Horizontal space between buttons
+                        runSpacing: 8.0, // Vertical space if buttons wrap
+                        alignment: WrapAlignment.center,
+                        children: [
+                          // Approve Button (Existing)
+                          ElevatedButton(
+                            onPressed:
+                                _isSubmitting
+                                    ? null
+                                    : () async {
+                                      // Disable button when submitting
+                                      // Validate the form
+                                      if (_formKey.currentState?.validate() ??
+                                          false) {
+                                        // --- Check if essential fetched data is available ---
+                                        if (_isLoadingReseller) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            SnackBar(
+                                            const SnackBar(
                                               content: Text(
-                                                'Opportunity created successfully! ID: ${resultData['opportunityId'] ?? 'N/A'}',
+                                                'Still loading reseller data...',
                                               ),
-                                              backgroundColor: Colors.green,
                                             ),
                                           );
-                                          // Optionally navigate back or refresh list
-                                          // Navigator.of(context).pop();
+                                          return; // Prevent submission while loading
                                         }
-                                      } else {
-                                        // Handle failure reported by the function
-                                        if (mounted) {
+                                        if (_resellerSalesforceId == null ||
+                                            _resellerSalesforceId!.isEmpty) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
-                                            SnackBar(
+                                            const SnackBar(
                                               content: Text(
-                                                'Failed to create opportunity: ${resultData['error'] ?? 'Unknown error'}',
+                                                'Cannot submit: Reseller Salesforce ID is missing or invalid.',
                                               ),
-                                              backgroundColor:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.error,
+                                              backgroundColor: Colors.red,
                                             ),
                                           );
+                                          return; // Prevent submission if ID is missing
                                         }
-                                      }
-                                    } on FirebaseFunctionsException catch (e) {
-                                      // Handle Cloud Functions specific errors (e.g., permission denied, not found)
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Cloud Function Error: (${e.code}) ${e.message}',
-                                            ),
-                                            backgroundColor:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.error,
-                                          ),
-                                        );
-                                      }
-                                      if (kDebugMode) {
-                                        print(
-                                          "FirebaseFunctionsException: ${e.code} - ${e.message}",
-                                        );
-                                      }
-                                    } catch (e) {
-                                      // Handle unexpected errors during the call
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'An unexpected error occurred: $e',
-                                            ),
-                                            backgroundColor:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.error,
-                                          ),
-                                        );
-                                      }
-                                      if (kDebugMode) {
-                                        print(
-                                          "Generic Error calling Cloud Function: $e",
-                                        );
-                                      }
-                                    } finally {
-                                      // Reset loading state
-                                      if (mounted) {
+                                        // -----------------------------------------------------
+
+                                        // Set loading state
                                         setState(() {
-                                          _isSubmitting = false;
+                                          _isSubmitting = true;
                                         });
-                                      }
-                                    }
-                                    // -------------------------
 
-                                    // ScaffoldMessenger.of(context).showSnackBar(
-                                    //   const SnackBar(
-                                    //     content: Text(
-                                    //       'Form Valid. Submission logic pending.',
-                                    //     ),
-                                    //     backgroundColor: Colors.green,
-                                    //   ),
-                                    // );
-                                  } else {
-                                    // Form is invalid, show error message
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Please fix the errors in the form.',
-                                        ),
-                                        backgroundColor: Colors.red,
+                                        // If valid and ID exists, collect data
+                                        final opportunityData = {
+                                          'Name': _nameController.text,
+                                          'NIF__c': _nifController.text,
+                                          'Data_de_Cria_o_da_Oportunidade__c':
+                                              DateFormat(
+                                                'yyyy-MM-dd',
+                                              ).format(DateTime.now()),
+                                          'Data_da_ltima_actualiza_o_de_Fase__c':
+                                              DateFormat(
+                                                'yyyy-MM-dd',
+                                              ).format(DateTime.now()),
+                                          'Fase__c': _faseValue,
+                                          'tipoOportunidadeValue':
+                                              _tipoOportunidadeValue,
+                                          'Segmento_de_Cliente__c':
+                                              _selectedSegmentoCliente,
+                                          'agenteRetailSalesforceId':
+                                              _resellerSalesforceId, // Send the ID
+                                          'Solu_o__c': _selectedSolucao,
+                                          'Data_de_Previs_o_de_Fecho__c':
+                                              _fechoController.text,
+                                          // Include original submission ID and invoice path for the Cloud Function
+                                          'originalSubmissionId':
+                                              widget.submission.id,
+                                          'invoiceStoragePath':
+                                              widget
+                                                  .submission
+                                                  .invoicePhoto
+                                                  ?.storagePath,
+                                        };
+
+                                        if (kDebugMode) {
+                                          print(
+                                            "--- Opportunity Data for Submission ---",
+                                          );
+                                          opportunityData.forEach((key, value) {
+                                            print("$key: $value");
+                                          });
+                                          print(
+                                            "---------------------------------------",
+                                          );
+                                        }
+
+                                        // --- Call Cloud Function ---
+                                        try {
+                                          final callable =
+                                              FirebaseFunctions.instanceFor(
+                                                region: 'us-central1',
+                                              ) // Ensure region matches function deployment
+                                              .httpsCallable(
+                                                'createSalesforceOpportunity',
+                                              );
+                                          final result = await callable
+                                              .call<Map<String, dynamic>>(
+                                                opportunityData,
+                                              );
+                                          final resultData = result.data;
+
+                                          if (kDebugMode) {
+                                            print(
+                                              "Cloud Function Result: $resultData",
+                                            );
+                                          }
+
+                                          if (resultData['success'] == true) {
+                                            // Success!
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Opportunity created successfully! ID: ${resultData['opportunityId'] ?? 'N/A'}',
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                              // Optionally navigate back or refresh list
+                                              // Navigator.of(context).pop();
+                                            }
+                                          } else {
+                                            // Handle failure reported by the function
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Failed to create opportunity: ${resultData['error'] ?? 'Unknown error'}',
+                                                  ),
+                                                  backgroundColor:
+                                                      Theme.of(
+                                                        context,
+                                                      ).colorScheme.error,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        } on FirebaseFunctionsException catch (
+                                          e
+                                        ) {
+                                          // Handle Cloud Functions specific errors (e.g., permission denied, not found)
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Cloud Function Error: (${e.code}) ${e.message}',
+                                                ),
+                                                backgroundColor:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.error,
+                                              ),
+                                            );
+                                          }
+                                          if (kDebugMode) {
+                                            print(
+                                              "FirebaseFunctionsException: ${e.code} - ${e.message}",
+                                            );
+                                          }
+                                        } catch (e) {
+                                          // Handle unexpected errors during the call
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'An unexpected error occurred: $e',
+                                                ),
+                                                backgroundColor:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.error,
+                                              ),
+                                            );
+                                          }
+                                          if (kDebugMode) {
+                                            print(
+                                              "Generic Error calling Cloud Function: $e",
+                                            );
+                                          }
+                                        } finally {
+                                          // Reset loading state
+                                          if (mounted) {
+                                            setState(() {
+                                              _isSubmitting = false;
+                                            });
+                                          }
+                                        }
+                                        // -------------------------
+
+                                        // ScaffoldMessenger.of(context).showSnackBar(
+                                        //   const SnackBar(
+                                        //     content: Text(
+                                        //       'Form Valid. Submission logic pending.',
+                                        //     ),
+                                        //     backgroundColor: Colors.green,
+                                        //   ),
+                                        // );
+                                      } else {
+                                        // Form is invalid, show error message
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Please fix the errors in the form.',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                                vertical: 15,
+                              ),
+                            ),
+                            child:
+                                _isSubmitting
+                                    ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
                                       ),
-                                    );
-                                  }
-                                },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 40,
-                            vertical: 15,
+                                    )
+                                    : const Text(
+                                      'Approve & Create Opportunity',
+                                    ),
                           ),
-                        ),
-                        child: const Text('Approve & Create Opportunity'),
+
+                          // --- NEW: Reject Button ---
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Reject'),
+                            onPressed:
+                                _isSubmitting
+                                    ? null
+                                    : () async {
+                                      // TODO: Call rejection dialog and handling logic
+                                      print('Reject button pressed');
+                                      final reason =
+                                          await _showRejectionDialog();
+                                      if (reason != null && reason.isNotEmpty) {
+                                        // Handle rejection logic
+                                        await _handleRejection(reason);
+                                      }
+                                    },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.error,
+                              side: BorderSide(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.error.withOpacity(0.7),
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                                vertical: 15,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -1168,6 +1415,76 @@ class _OpportunityDetailFormViewState
         ],
       ),
     );
+  }
+
+  // --- ADDED: Handle Rejection Logic ---
+  Future<void> _handleRejection(String reason) async {
+    if (widget.submission.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Error: Submission ID missing"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Ideally get admin user ID here, for now using a placeholder
+    // final adminId = ref.read(authProvider).currentUser?.uid;
+    const String adminId =
+        "ADMIN_PLACEHOLDER_ID"; // Replace with actual admin ID fetch
+    if (adminId == "ADMIN_PLACEHOLDER_ID") {
+      print("Warning: Using placeholder Admin ID for rejection.");
+      // Potentially show a warning SnackBar if needed
+    }
+
+    setState(() {
+      _isSubmitting = true; // Use the same flag to disable both buttons
+    });
+
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('serviceSubmissions')
+          .doc(widget.submission.id);
+
+      // Prepare review details data
+      final reviewData = {
+        'reviewerId': adminId,
+        'reviewTimestamp': Timestamp.now(),
+        'rejectionReason': reason,
+        'notes': null, // Explicitly set notes to null or handle separately
+      };
+
+      await docRef.update({'status': 'rejected', 'reviewDetails': reviewData});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Submission rejected successfully.'),
+            backgroundColor:
+                Colors.orange, // Use orange/yellow for rejection success
+          ),
+        );
+        // Optionally navigate back
+        // Navigator.of(context).pop();
+      }
+    } catch (e) {
+      print("Error rejecting submission: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reject submission: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   // Helper for read-only fields
