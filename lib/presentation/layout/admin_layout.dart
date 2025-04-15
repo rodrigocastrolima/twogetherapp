@@ -317,7 +317,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Center(
-                    child: LogoWidget(height: 60, darkMode: isDark),
+                    // Always use the light logo, regardless of theme mode
+                    child: LogoWidget(height: 60, darkMode: false),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -352,14 +353,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         onTap: () => _handleNavigation(1),
                         textColor: textColor,
                         badgeCount: unreadCount,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildNavItem(
-                        icon: CupertinoIcons.chart_bar,
-                        title: l10n.navReports,
-                        isSelected: currentIndex == 1,
-                        onTap: () => _handleNavigation(1),
-                        textColor: textColor,
                       ),
                       const SizedBox(height: 12),
                       _buildNavItem(

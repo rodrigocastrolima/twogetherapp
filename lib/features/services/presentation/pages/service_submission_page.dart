@@ -34,7 +34,6 @@ class _ServiceSubmissionPageState
   service_types.ClientType? _selectedClientType;
   service_types.Provider? _selectedProvider;
 
-  XFile? _invoicePhoto;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -95,17 +94,6 @@ class _ServiceSubmissionPageState
     }
   }
 
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image != null) {
-      setState(() {
-        _invoicePhoto = image;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Access the state
@@ -155,6 +143,16 @@ class _ServiceSubmissionPageState
                           if (value != null) {
                             setState(() {
                               _selectedCategory = value;
+                              // Use updateFormFields to update the provider state with correct key
+                              ref
+                                  .read(serviceSubmissionProvider.notifier)
+                                  .updateFormFields({
+                                    'serviceCategory': value,
+                                    // Reset dependent field in provider state as well
+                                    'energyType': null,
+                                  });
+                              // Reset local state for dependent field
+                              _selectedEnergyType = null;
                             });
                           }
                         },
@@ -199,6 +197,10 @@ class _ServiceSubmissionPageState
                             if (value != null) {
                               setState(() {
                                 _selectedEnergyType = value;
+                                // Use updateFormFields to update the provider state with correct key
+                                ref
+                                    .read(serviceSubmissionProvider.notifier)
+                                    .updateFormFields({'energyType': value});
                               });
                             }
                           },
@@ -247,6 +249,20 @@ class _ServiceSubmissionPageState
                           if (value != null) {
                             setState(() {
                               _selectedClientType = value;
+                              final updateData = <String, dynamic>{
+                                'clientType': value,
+                              };
+                              // Reset company name if changing from commercial
+                              if (value !=
+                                  service_types.ClientType.commercial) {
+                                _companyNameController.clear();
+                                updateData['companyName'] =
+                                    ''; // Reset in provider too
+                              }
+                              // Use updateFormFields to update the provider state with correct key
+                              ref
+                                  .read(serviceSubmissionProvider.notifier)
+                                  .updateFormFields(updateData);
                             });
                           }
                         },
@@ -289,6 +305,10 @@ class _ServiceSubmissionPageState
                           if (value != null) {
                             setState(() {
                               _selectedProvider = value;
+                              // Use updateFormFields to update the provider state with correct key
+                              ref
+                                  .read(serviceSubmissionProvider.notifier)
+                                  .updateFormFields({'provider': value});
                             });
                           }
                         },
@@ -351,6 +371,11 @@ class _ServiceSubmissionPageState
                           }
                           return null;
                         },
+                        onChanged: (value) {
+                          ref
+                              .read(serviceSubmissionProvider.notifier)
+                              .updateFormFields({'responsibleName': value});
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -372,6 +397,11 @@ class _ServiceSubmissionPageState
                           }
                           // Optional: Add specific NIF format validation
                           return null;
+                        },
+                        onChanged: (value) {
+                          ref
+                              .read(serviceSubmissionProvider.notifier)
+                              .updateFormFields({'nif': value});
                         },
                       ),
                       const SizedBox(height: 16),
@@ -399,6 +429,11 @@ class _ServiceSubmissionPageState
                           }
                           return null;
                         },
+                        onChanged: (value) {
+                          ref
+                              .read(serviceSubmissionProvider.notifier)
+                              .updateFormFields({'email': value});
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -422,6 +457,11 @@ class _ServiceSubmissionPageState
                           // Optional: Add phone format validation
                           return null;
                         },
+                        onChanged: (value) {
+                          ref
+                              .read(serviceSubmissionProvider.notifier)
+                              .updateFormFields({'phone': value});
+                        },
                       ),
                       const SizedBox(height: 24),
 
@@ -444,7 +484,7 @@ class _ServiceSubmissionPageState
                       Center(
                         child: Column(
                           children: [
-                            if (_invoicePhoto != null) ...[
+                            if (state.selectedInvoiceFile != null) ...[
                               // Show image preview
                               Stack(
                                 children: [
@@ -460,13 +500,12 @@ class _ServiceSubmissionPageState
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        File(_invoicePhoto!.path),
-                                        fit: BoxFit.cover,
+                                      child: _buildFilePreview(
+                                        state.selectedInvoiceFile,
                                       ),
                                     ),
                                   ),
-                                  // Button to remove selected image
+                                  // Button to remove selected image - use notifier method
                                   Positioned(
                                     top: 8,
                                     right: 8,
@@ -474,9 +513,13 @@ class _ServiceSubmissionPageState
                                       icon: const Icon(Icons.delete),
                                       label: const Text('Remove'),
                                       onPressed: () {
-                                        setState(() {
-                                          _invoicePhoto = null;
-                                        });
+                                        // Call notifier to clear the file state
+                                        ref
+                                            .read(
+                                              serviceSubmissionProvider
+                                                  .notifier,
+                                            )
+                                            .clearInvoiceFile();
                                       },
                                     ),
                                   ),
@@ -501,7 +544,14 @@ class _ServiceSubmissionPageState
                                       size: 40,
                                       color: Colors.grey,
                                     ),
-                                    onPressed: _pickImage,
+                                    onPressed: () {
+                                      // Call notifier to pick the file
+                                      ref
+                                          .read(
+                                            serviceSubmissionProvider.notifier,
+                                          )
+                                          .pickInvoiceFile();
+                                    },
                                   ),
                                 ),
                               ),
@@ -553,5 +603,50 @@ class _ServiceSubmissionPageState
                 ),
               ),
     );
+  }
+
+  // Helper widget to display file preview (handles File and XFile)
+  Widget _buildFilePreview(dynamic file) {
+    if (file == null) return const SizedBox.shrink();
+
+    String path;
+    if (file is File) {
+      path = file.path;
+    } else if (file is XFile) {
+      path = file.path;
+    } else {
+      // Handle unexpected type or web scenario if needed
+      return const Center(child: Text('Unsupported file preview'));
+    }
+
+    // Crude check for image based on extension
+    final isImage = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.bmp',
+      '.webp',
+      '.heic',
+    ].any((ext) => path.toLowerCase().endsWith(ext));
+
+    if (isImage) {
+      // For mobile, Image.file works for both File and XFile paths
+      return Image.file(File(path), fit: BoxFit.cover);
+    } else if (path.toLowerCase().endsWith('.pdf')) {
+      // Placeholder for PDF preview - Consider using a pdf viewer plugin
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.picture_as_pdf, size: 50, color: Colors.redAccent),
+            SizedBox(height: 8),
+            Text('PDF Selected', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    } else {
+      return const Center(child: Text('Cannot preview this file type'));
+    }
   }
 }

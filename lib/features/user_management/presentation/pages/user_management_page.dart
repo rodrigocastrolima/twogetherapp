@@ -1028,152 +1028,166 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     ref.listen<UserCreationState>(userCreationProvider, (previous, next) {
       // Log the state details for debugging
       if (kDebugMode) {
-        print("[UserManagementPage Listener] State change detected.");
+        print("--- UserManagementPage Listener Triggered ---");
+        print("  Current _isDialogShowing: $_isDialogShowing");
         print("  Previous State: ${previous?.toString()}");
         print("  Next State    : ${next.toString()}");
-        print("  _isDialogShowing (before checks): $_isDialogShowing");
-        print(
-          "  VERIFY_CHECK: next.showVerificationDialog (${next.showVerificationDialog}) && !_isDialogShowing (${!_isDialogShowing})",
-        );
-        print(
-          "  SUCCESS_CHECK: next.showSuccessDialog (${next.showSuccessDialog}) && !_isDialogShowing (${!_isDialogShowing})",
-        );
-        print(
-          "  ERROR_CHECK: next.showErrorDialog (${next.showErrorDialog}) && !_isDialogShowing (${!_isDialogShowing})",
-        );
       }
 
-      // Use addPostFrameCallback for dialogs
-      // Check if verification dialog should be shown
-      if (next.showVerificationDialog && !_isDialogShowing) {
-        print(
-          "[UserManagementPage Listener] CONDITION MET for showVerificationDialog.",
-        );
-        if (next.verificationData != null) {
-          setState(() {
-            _isDialogShowing = true; // Set flag before showing
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              print(
-                "[UserManagementPage Listener] Calling _showVerificationDialogFromState.",
-              );
-              _showVerificationDialogFromState(next.verificationData!).then((
-                _,
-              ) {
-                // Reset flag when dialog is dismissed (or state changes)
-                // Note: This might reset too early if another dialog should show immediately.
-                // Consider resetting only when the corresponding state flag becomes false.
-                // if (mounted && !ref.read(userCreationProvider).showVerificationDialog) {
-                //   setState(() => _isDialogShowing = false);
-                // }
-              });
-            } else {
-              print(
-                "[UserManagementPage Listener] Verification NOT shown - page not mounted. Resetting flag.",
-              );
-              if (mounted)
-                setState(
-                  () => _isDialogShowing = false,
-                ); // Reset if showing failed
-            }
-          });
-        } else {
+      // If a dialog is already showing, generally avoid showing another one immediately.
+      // However, if the state explicitly clears dialog flags, allow the flag reset below.
+      bool shouldProceed = true;
+      if (_isDialogShowing &&
+          (next.showVerificationDialog ||
+              next.showSuccessDialog ||
+              next.showErrorDialog)) {
+        if (kDebugMode) {
           print(
-            "[UserManagementPage Listener] Verification NOT shown - verificationData is null.",
+            "  Listener SKIPPING: Dialog already showing and new dialog requested.",
           );
         }
-      }
-      // Check if success dialog should be shown
-      else if (next.showSuccessDialog && !_isDialogShowing) {
-        print(
-          "[UserManagementPage Listener] CONDITION MET for showSuccessDialog.",
-        );
-        if (next.successData != null) {
-          setState(() {
-            _isDialogShowing = true; // Set flag before showing
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              print(
-                "[UserManagementPage Listener] Calling _showSuccessDialogFromState.",
-              );
-              _showSuccessDialogFromState(next.successData!).then((_) {
-                // Reset flag when dialog is dismissed (or state changes)
-                // if (mounted && !ref.read(userCreationProvider).showSuccessDialog) {
-                //   setState(() => _isDialogShowing = false);
-                // }
-              });
-            } else {
-              print(
-                "[UserManagementPage Listener] Success NOT shown - page not mounted. Resetting flag.",
-              );
-              if (mounted)
-                setState(
-                  () => _isDialogShowing = false,
-                ); // Reset if showing failed
-            }
-          });
-        } else {
-          print(
-            "[UserManagementPage Listener] Success NOT shown - successData is null.",
-          );
-        }
-      }
-      // Check if error dialog should be shown
-      else if (next.showErrorDialog && !_isDialogShowing) {
-        print(
-          "[UserManagementPage Listener] CONDITION MET for showErrorDialog.",
-        );
-        if (next.errorMessage != null) {
-          setState(() {
-            _isDialogShowing = true; // Set flag before showing
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              print(
-                "[UserManagementPage Listener] Calling _showErrorDialogFromState.",
-              );
-              _showErrorDialogFromState(next.errorMessage!).then((_) {
-                // Reset flag when dialog is dismissed (or state changes)
-                // if (mounted && !ref.read(userCreationProvider).showErrorDialog) {
-                //   setState(() => _isDialogShowing = false);
-                // }
-              });
-            } else {
-              print(
-                "[UserManagementPage Listener] Error NOT shown - page not mounted. Resetting flag.",
-              );
-              if (mounted)
-                setState(
-                  () => _isDialogShowing = false,
-                ); // Reset if showing failed
-            }
-          });
-        } else {
-          print(
-            "[UserManagementPage Listener] Error NOT shown - errorMessage is null.",
-          );
-        }
+        // Optional: Decide if a new error dialog should interrupt an existing one.
+        // if (next.showErrorDialog) { /* Force close existing? */ }
+        shouldProceed =
+            false; // Prevent showing a new dialog while one is active
       }
 
-      // Reset the flag if no dialogs are supposed to be showing according to the state
-      // This handles cases where the provider resets the flags (e.g., on new loading state)
+      // Reset the flag FIRST if no dialogs are active in the new state.
+      // This prevents getting stuck if a dialog closes but the state updates slightly later.
       if (!next.showVerificationDialog &&
           !next.showSuccessDialog &&
-          !next.showErrorDialog) {
-        if (_isDialogShowing) {
+          !next.showErrorDialog &&
+          _isDialogShowing) {
+        if (kDebugMode) {
           print(
-            "[UserManagementPage Listener] Resetting _isDialogShowing flag as no dialogs are active in state.",
+            "  Listener Action: Resetting _isDialogShowing flag because no dialogs are active in next state.",
           );
-          // Use WidgetsBinding to avoid calling setState during build/listen phase directly
+        }
+        // Use WidgetsBinding to avoid calling setState during build/listen phase directly
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isDialogShowing = false);
+          }
+        });
+        shouldProceed =
+            false; // Flag has been reset, no further action needed this cycle
+      }
+
+      // Proceed to check if a dialog should be shown
+      if (shouldProceed && mounted) {
+        // Ensure page is still mounted
+        if (next.showVerificationDialog && next.verificationData != null) {
+          if (kDebugMode)
+            print("  Listener Condition MET: showVerificationDialog");
+          // Set flag immediately before showing
+          setState(() => _isDialogShowing = true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              setState(() => _isDialogShowing = false);
+              try {
+                if (kDebugMode)
+                  print(
+                    "  Listener Action: Calling _showVerificationDialogFromState",
+                  );
+                _showVerificationDialogFromState(next.verificationData!).then((
+                  _,
+                ) {
+                  // Intentionally do NOT reset _isDialogShowing here.
+                  // Rely on explicit dismissal (buttons) or the state update clearing the flag.
+                  if (kDebugMode)
+                    print(
+                      "  Listener Callback: _showVerificationDialogFromState finished.",
+                    );
+                });
+              } catch (e, s) {
+                if (kDebugMode)
+                  print(
+                    "  Listener ERROR: Failed to show verification dialog: $e\n$s",
+                  );
+                // Reset flag if dialog fails to show
+                if (mounted) setState(() => _isDialogShowing = false);
+                // Optionally show a generic error snackbar/dialog
+              }
+            } else {
+              if (kDebugMode)
+                print(
+                  "  Listener Warning: Page unmounted before showing verification dialog.",
+                );
+              // Ensure flag is reset if page became unmounted
+              // This might conflict if state changes again quickly, but safer than getting stuck
+              _isDialogShowing = false;
             }
           });
+        } else if (next.showSuccessDialog && next.successData != null) {
+          if (kDebugMode) print("  Listener Condition MET: showSuccessDialog");
+          setState(() => _isDialogShowing = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              try {
+                if (kDebugMode)
+                  print(
+                    "  Listener Action: Calling _showSuccessDialogFromState",
+                  );
+                _showSuccessDialogFromState(next.successData!).then((_) {
+                  if (kDebugMode)
+                    print(
+                      "  Listener Callback: _showSuccessDialogFromState finished.",
+                    );
+                });
+              } catch (e, s) {
+                if (kDebugMode)
+                  print(
+                    "  Listener ERROR: Failed to show success dialog: $e\n$s",
+                  );
+                if (mounted) setState(() => _isDialogShowing = false);
+              }
+            } else {
+              if (kDebugMode)
+                print(
+                  "  Listener Warning: Page unmounted before showing success dialog.",
+                );
+              _isDialogShowing = false;
+            }
+          });
+        } else if (next.showErrorDialog && next.errorMessage != null) {
+          if (kDebugMode) print("  Listener Condition MET: showErrorDialog");
+          setState(() => _isDialogShowing = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              try {
+                if (kDebugMode)
+                  print("  Listener Action: Calling _showErrorDialogFromState");
+                _showErrorDialogFromState(next.errorMessage!).then((_) {
+                  if (kDebugMode)
+                    print(
+                      "  Listener Callback: _showErrorDialogFromState finished.",
+                    );
+                });
+              } catch (e, s) {
+                if (kDebugMode)
+                  print(
+                    "  Listener ERROR: Failed to show error dialog: $e\n$s",
+                  );
+                if (mounted) setState(() => _isDialogShowing = false);
+              }
+            } else {
+              if (kDebugMode)
+                print(
+                  "  Listener Warning: Page unmounted before showing error dialog.",
+                );
+              _isDialogShowing = false;
+            }
+          });
+        } else {
+          if (kDebugMode)
+            print(
+              "  Listener Condition NOT MET: No dialog to show based on state.",
+            );
         }
+      } else if (!mounted) {
+        if (kDebugMode) print("  Listener SKIPPING: Page not mounted.");
       }
+
+      if (kDebugMode) print("--- UserManagementPage Listener Finished ---");
     });
 
     return Padding(
@@ -1570,15 +1584,17 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         TextButton(
-                          onPressed:
-                              ref.read(userCreationProvider).isLoading
-                                  ? null
-                                  : () {
-                                    // Reset the flag when canceling
-                                    if (mounted)
-                                      setState(() => _isDialogShowing = false);
-                                    Navigator.of(dialogContext).pop();
-                                  },
+                          onPressed: () {
+                            // Reset the flag when canceling
+                            if (mounted) {
+                              if (kDebugMode)
+                                print(
+                                  "Verification Dialog: Cancel button pressed. Resetting _isDialogShowing.",
+                                );
+                              setState(() => _isDialogShowing = false);
+                            }
+                            Navigator.of(dialogContext).pop();
+                          },
                           child: const Text('Cancel'),
                         ),
                         const SizedBox(width: 8),
@@ -1587,6 +1603,11 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                               ref.read(userCreationProvider).isLoading
                                   ? null
                                   : () {
+                                    if (kDebugMode)
+                                      print(
+                                        "Verification Dialog: Create User button pressed.",
+                                      );
+                                    // Don't reset _isDialogShowing here, wait for success/error dialog state
                                     Navigator.of(dialogContext).pop();
                                     // Call provider to confirm and create user
                                     ref
@@ -1772,7 +1793,13 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     child: FilledButton(
                       onPressed: () {
                         // Reset the flag when closing
-                        if (mounted) setState(() => _isDialogShowing = false);
+                        if (mounted) {
+                          if (kDebugMode)
+                            print(
+                              "Success Dialog: Close button pressed. Resetting _isDialogShowing.",
+                            );
+                          setState(() => _isDialogShowing = false);
+                        }
                         Navigator.of(dialogContext).pop();
                       },
                       child: const Text('Close'),

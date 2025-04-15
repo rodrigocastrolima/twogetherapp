@@ -58,8 +58,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final timeFormatter = DateFormat.jm().format(now);
 
     return Scaffold(
+      // Use theme background color
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.only(
+          bottom: 24,
+          top: 16,
+        ), // Added top padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -94,32 +99,25 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   Widget _buildWelcomeSection(BuildContext context, String date, String time) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // Adjusted padding
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.end, // Align time to the right
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          LogoWidget(height: 40),
+          // LogoWidget Removed
+          // LogoWidget(height: 40),
 
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                date,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
-              ),
-              Text(
-                time,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
-              ),
-            ],
+          // Spacer(), // Use mainAxisAlignment.end instead of Spacer
+
+          // Simplified Time Display
+          Text(
+            time, // Display only time
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant, // Muted color
+            ),
           ),
         ],
       ),
@@ -268,7 +266,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             children: [
               Text(
                 'Recent Activity',
-                style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  // Use titleLarge
+                  color: theme.colorScheme.onSurface, // Use theme color
+                  fontWeight: FontWeight.w600, // Slightly bolder
+                ),
               ),
               // Simplified Header Actions
               Consumer(
@@ -281,8 +283,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                         minSize: 0,
                         child: Icon(
                           CupertinoIcons.refresh,
-                          size: 20,
-                          color: AppTheme.mutedForeground,
+                          size: 18, // Smaller icon
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                            0.7,
+                          ), // More muted
                         ),
                         onPressed: () {
                           refreshAdminNotifications(ref);
@@ -295,8 +299,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                         minSize: 0,
                         child: Icon(
                           CupertinoIcons.checkmark_circle,
-                          size: 20,
-                          color: AppTheme.mutedForeground,
+                          size: 18, // Smaller icon
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                            0.7,
+                          ), // More muted
                         ),
                         onPressed: () {
                           final notificationActions = ref.read(
@@ -351,15 +357,17 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                 children: [
                   Icon(
                     CupertinoIcons.bell_slash, // Changed icon
-                    size: 48,
-                    color: AppTheme.mutedForeground,
+                    size: 40, // Slightly smaller icon
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'No Recent Activity', // Updated text
-                    style: AppTextStyles.body1.copyWith(
-                      color: AppTheme.mutedForeground,
-                      fontWeight: FontWeight.w500, // Adjusted weight
+                    'No Recent Activity',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      // Use titleMedium
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.8,
+                      ),
                     ),
                   ),
                   // Removed extra text and button
@@ -475,7 +483,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
               height: 8,
               decoration: BoxDecoration(
                 color:
-                    notification.isRead ? Colors.transparent : AppTheme.primary,
+                    notification.isRead
+                        ? Colors.transparent
+                        : theme.colorScheme.primary, // Use theme primary
                 shape: BoxShape.circle,
               ),
             ),
@@ -487,18 +497,20 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                 children: [
                   Text(
                     notification.title, // e.g., "New Submission"
-                    style: AppTextStyles.body1.copyWith(
-                      color: AppTheme.foreground,
-                      fontWeight: FontWeight.w500, // Slightly bolder
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      // Use bodyMedium
+                      color: theme.colorScheme.onSurface, // Use theme color
+                      fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${resellerName} / ${clientName}', // Combine reseller/client
-                    style: AppTextStyles.body2.copyWith(
-                      color: AppTheme.mutedForeground,
+                    '${resellerName} / ${clientName}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      // Use bodySmall
+                      color: theme.colorScheme.onSurfaceVariant, // Muted color
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -510,8 +522,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             // Date
             Text(
               formattedDate,
-              style: AppTextStyles.caption.copyWith(
-                color: AppTheme.mutedForeground,
+              style: theme.textTheme.labelSmall?.copyWith(
+                // Use labelSmall
+                color: theme.colorScheme.onSurfaceVariant, // Muted color
               ),
             ),
           ],

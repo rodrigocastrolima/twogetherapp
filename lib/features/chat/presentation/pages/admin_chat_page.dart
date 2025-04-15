@@ -244,7 +244,38 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               ...inactiveConversationsByResellerId,
                             };
 
-                            if (allFilteredResellers.isEmpty) {
+                            // --- Sorting Logic ---
+                            final sortedResellers =
+                                List<Map<String, dynamic>>.from(
+                                  allFilteredResellers,
+                                );
+                            sortedResellers.sort((a, b) {
+                              final conversationA =
+                                  combinedConversationsById[a['id']];
+                              final conversationB =
+                                  combinedConversationsById[b['id']];
+
+                              final timeA = conversationA?.lastMessageTime;
+                              final timeB = conversationB?.lastMessageTime;
+
+                              // Handle null times - conversations with null time are considered oldest
+                              if (timeA == null && timeB == null) {
+                                // If both are null, sort alphabetically by name for stability
+                                return (a['name'] as String? ?? '').compareTo(
+                                  b['name'] as String? ?? '',
+                                );
+                              } else if (timeA == null) {
+                                return 1; // timeA is older (null), so B comes first
+                              } else if (timeB == null) {
+                                return -1; // timeB is older (null), so A comes first
+                              }
+
+                              // If both times are valid, sort descending (most recent first)
+                              return timeB.compareTo(timeA);
+                            });
+                            // --- End Sorting Logic ---
+
+                            if (sortedResellers.isEmpty) {
                               // Handle empty state after filtering
                               return Center(
                                 child: Column(
@@ -294,7 +325,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               );
                             }
 
-                            // Build the list using allFilteredResellers
+                            // Build the list using sortedResellers
                             return Column(
                               children: [
                                 // Search bar
@@ -389,10 +420,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                         top: 8,
                                         bottom: 12,
                                       ),
-                                      itemCount: allFilteredResellers.length,
+                                      itemCount: sortedResellers.length,
                                       itemBuilder: (context, index) {
-                                        final reseller =
-                                            allFilteredResellers[index];
+                                        final reseller = sortedResellers[index];
                                         // Get the conversation for this reseller
                                         final conversation =
                                             combinedConversationsById[reseller['id']];
