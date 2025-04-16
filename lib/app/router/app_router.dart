@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -295,7 +294,7 @@ class AuthNotifier extends ChangeNotifier {
 }
 
 class AppRouter {
-  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+  static final rootNavigatorKey = GlobalKey<NavigatorState>();
   static final _shellNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'ShellReseller',
   );
@@ -324,7 +323,7 @@ class AppRouter {
 
   // Initialization of router
   static final GoRouter _router = GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
@@ -451,8 +450,7 @@ class AppRouter {
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
         path: '/change-password',
-        parentNavigatorKey:
-            _rootNavigatorKey, // Ensures it appears above shells
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ChangePasswordPage(),
       ),
 
@@ -554,7 +552,7 @@ class AppRouter {
       // --- Top-Level Secondary Routes (No Shell) ---
       GoRoute(
         path: '/admin/users/:userId',
-        parentNavigatorKey: _rootNavigatorKey, // Display above admin shell
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final user = state.extra as AppUser?;
           if (user == null) {
@@ -569,7 +567,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/profile-details',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder:
             (context, state) => const MaterialPage(
               fullscreenDialog: true,
@@ -578,7 +576,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/services',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final preFilledData = state.extra as Map<String, dynamic>?;
           return MaterialPage(
@@ -589,7 +587,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/client-details',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final clientData = state.extra as Map<String, dynamic>?;
           // Handle potentially null extra data
@@ -606,7 +604,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/proposals/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // This should likely navigate to a ProposalDetailsPage, not ClientsPage
@@ -618,7 +616,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/document-submission',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           // Should likely point to a dedicated document submission page
           // Placeholder:
@@ -631,7 +629,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/notifications/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // Should point to a NotificationDetailsPage
@@ -645,7 +643,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/resubmission-form/:id',
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // Should point to a specific ResubmissionForm page, potentially pre-filled
@@ -658,7 +656,7 @@ class AppRouter {
       GoRoute(
         path:
             '/dashboard', // Is this admin or reseller specific? Assuming reseller for now.
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
           // Should point to DashboardPage directly
           return const MaterialPage(child: DashboardPage());

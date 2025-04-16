@@ -49,7 +49,7 @@ final resellerOpportunitiesProvider = FutureProvider<
       print('resellerOpportunitiesProvider: Error fetching opportunities: $e');
     }
     // Re-throw the error so it's captured in the AsyncValue
-    throw e;
+    rethrow;
   }
 });
 
@@ -77,14 +77,9 @@ final filteredOpportunitiesProvider =
             // Search by name
             final nameMatch = opportunity.Name.toLowerCase().contains(query);
 
-            // Search by Account name if available
-            final accountMatch =
-                opportunity.Account?.Name?.toLowerCase().contains(query) ??
-                false;
-
             // Add more fields here as needed
 
-            return nameMatch || accountMatch;
+            return nameMatch;
           }).toList();
         },
         loading: () => [],

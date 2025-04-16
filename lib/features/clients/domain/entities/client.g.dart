@@ -7,15 +7,15 @@ part of 'client.dart';
 // **************************************************************************
 
 _$ClientImpl _$$ClientImplFromJson(Map<String, dynamic> json) => _$ClientImpl(
-  id: json['id'] as String,
-  name: json['name'] as String,
-  email: json['email'] as String,
-  phone: json['phone'] as String,
-  address: json['address'] as String,
-  status: $enumDecode(_$ClientStatusEnumMap, json['status']),
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  notes: json['notes'] as String?,
-);
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String,
+      address: json['address'] as String,
+      status: $enumDecode(_$ClientStatusEnumMap, json['status']),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      notes: json['notes'] as String?,
+    );
 
 Map<String, dynamic> _$$ClientImplToJson(_$ClientImpl instance) =>
     <String, dynamic>{

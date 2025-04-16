@@ -93,4 +93,19 @@ This document tracks pending issues, bugs, and future enhancements for the Twoge
 ## Documentation
 
 - [ ] **Code documentation**: Improve documentation of complex components
-- [ ] **User guide**: Create comprehensive user documentation 
+- [ ] **User guide**: Create comprehensive user documentation
+
+## Unresolved Issues
+
+- **Navigator `!_debugLocked` Crash After Login/Password Change:**
+  - **Description:** The app crashes with `Failed assertion: line 4078 pos 12: '!_debugLocked': is not true.` when finalizing the widget tree after a user logs in, specifically during the redirect away from `/login` or (more commonly) `/change-password` when `isFirstLogin` becomes false. Hot restart works fine once logged in.
+  - **Trigger:** Seems related to the sequence of state changes (`AuthNotifier`) triggering `GoRouter` redirects, which then conflict with asynchronous operations or UI updates (like `ScaffoldMessenger`) in the page being disposed (`ChangePasswordPage`).
+  - **Attempts:**
+    - Corrected package name/directory structure inconsistencies (`ClassNotFoundException`).
+    - Ensured plugin compatibility (v2 embedding, `file_picker`).
+    - Checked for improper async navigation after awaits (`mounted` checks).
+    - Verified GoRouter declarative redirects vs. imperative calls.
+    - Removed explicit `Navigator.popUntil` from `ChangePasswordPage`.
+    - Rearranged logic to show `SnackBar` *before* triggering redirect state change.
+    - Rearranged logic to trigger redirect state change *before* showing `SnackBar` (using root navigator context).
+  - **Next Steps:** Further investigation needed into the interaction between `AuthNotifier`, `GoRouter.redirect`, `ChangePasswordPage` lifecycle/context, and potentially `ScaffoldMessenger` during the rapid state change and redirection flow. Could explore alternative ways to signal completion/show messages without using context from the disposing page. 

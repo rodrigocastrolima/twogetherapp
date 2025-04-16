@@ -14,16 +14,10 @@ interface GetOpportunitiesInput {
 interface SalesforceOpportunity {
     Id: string;
     Name: string;
-    AccountId: string | null; // Account might be null
-    Account?: { // Include Account details if queried (e.g., Account.Name)
-        Name?: string; // Optional field
-        [key: string]: any; // Allow other Account fields if needed
-    } | null;
+    NIF__c: string | null; // Added NIF field
     Fase__c: string | null;
-    Solu_o__c: string | null;
-    Data_de_Previs_o_de_Fecho__c: string | null; // Date field (YYYY-MM-DD)
     CreatedDate: string; // Date field (ISO 8601 format)
-    // Add other fields as needed from your SOQL query
+    // Removed: AccountId, Account, Solu_o__c, Data_de_Previs_o_de_Fecho__c
 }
 
 interface GetOpportunitiesResult {
@@ -131,24 +125,19 @@ export const getResellerOpportunities = onCall(
             });
 
             // 4. --- SOQL Query ---
-            // Select fields needed for the list and potentially details view
+            // Select only the fields requested by the user
             const soqlQuery = `
                 SELECT
                     Id,
                     Name,
-                    AccountId,
-                    Account.Name,
+                    NIF__c,
                     Fase__c,
-                    Solu_o__c,
-                    Data_de_Previs_o_de_Fecho__c,
                     CreatedDate
                 FROM Oportunidade__c
                 WHERE Agente_Retail__c = '${resellerSalesforceId}'
                 ORDER BY CreatedDate DESC
             `;
-            // Note: jsforce typically handles basic SOQL injection prevention for query method,
-            // but using template literals directly requires care.
-            // The ID format validation above adds a layer of safety.
+            // Removed: AccountId, Account.Name, Solu_o__c, Data_de_Previs_o_de_Fecho__c, and the inline comment
 
             logger.info(`getResellerOpportunities: Executing SOQL query for ${resellerSalesforceId}`);
             logger.debug(`getResellerOpportunities: Query: ${soqlQuery.replace(/\s+/g, ' ').trim()}`);

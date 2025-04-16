@@ -48,11 +48,6 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       // Update password in Firebase
       await AppRouter.authNotifier.updatePassword(_newPasswordController.text);
 
-      // Ensure firstLogin is marked as completed
-      final authRepository = ref.read(authRepositoryProvider);
-      await authRepository.completeFirstLogin();
-      debugPrint('First login marked as completed');
-
       // Ensure the conversation is created for reseller users
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -70,9 +65,8 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
             final normalizedRole = roleString.trim().toLowerCase();
 
             if (normalizedRole == 'reseller') {
-              // For resellers, ensure conversation exists
               debugPrint(
-                'First login completed for reseller, ensuring conversation exists',
+                'Password change completed for reseller, ensuring conversation exists',
               );
               final chatRepository = ChatRepository();
               await chatRepository.ensureResellerHasConversation(user.uid);
@@ -85,27 +79,35 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
         }
       }
 
-      // Add a short delay to ensure Firebase operations complete
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Mark first login as completed *first* (this triggers the redirect)
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.completeFirstLogin();
+      debugPrint(
+        'First login marked as completed - redirect should be triggered',
+      );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      // Show success message *after* triggering the redirect state change,
+      // using the root navigator context if possible.
+      final rootContext = AppRouter.rootNavigatorKey.currentContext;
+      if (rootContext != null) {
+        ScaffoldMessenger.of(rootContext).showSnackBar(
           const SnackBar(content: Text('Password updated successfully')),
         );
-
-        // Force the app to recognize the first login is complete
-        Future.delayed(const Duration(milliseconds: 500), () {
-          // Navigate back to home page
-          if (mounted) {
-            // Additional guard to prevent navigation when widget is disposed
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          }
-        });
+      } else {
+        debugPrint(
+          "Couldn't show SnackBar: Root context was null after password change.",
+        );
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _errorMessage = 'Failed to update password: ${e.toString()}';
+        });
+      }
+    } finally {
+      // Ensure loading state is always reset
+      if (mounted) {
+        setState(() {
           _isLoading = false;
         });
       }

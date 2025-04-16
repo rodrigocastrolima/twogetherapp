@@ -12,8 +12,8 @@ _$ProfileImpl _$$ProfileImplFromJson(Map<String, dynamic> json) =>
       email: json['email'] as String,
       phone: json['phone'] as String,
       registrationDate: DateTime.parse(json['registrationDate'] as String),
-      totalClients: (json['totalClients'] as num).toInt(),
-      activeClients: (json['activeClients'] as num).toInt(),
+      totalClients: json['totalClients'] as int,
+      activeClients: json['activeClients'] as int,
     );
 
 Map<String, dynamic> _$$ProfileImplToJson(_$ProfileImpl instance) =>

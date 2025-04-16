@@ -165,12 +165,26 @@ class SalesforceRepository {
         }
 
         // Convert each JSON object to a SalesforceOpportunity
-        return opportunitiesJson
-            .map(
-              (json) =>
-                  SalesforceOpportunity.fromJson(json as Map<String, dynamic>),
-            )
-            .toList();
+        return opportunitiesJson.map((json) {
+          // Ensure json is treated as a Map before converting
+          if (json is Map) {
+            return SalesforceOpportunity.fromJson(
+              Map<String, dynamic>.from(json),
+            );
+          } else {
+            // Handle unexpected item type (log error, return null, or throw)
+            if (kDebugMode) {
+              print(
+                'Skipping unexpected item type in opportunities list: ${json?.runtimeType}',
+              );
+            }
+            // Option: return a default/empty object or filter out nulls later
+            // For simplicity, let's throw for now to make the issue clear if it happens.
+            throw Exception(
+              'Unexpected item type found in opportunities list: ${json?.runtimeType}',
+            );
+          }
+        }).toList();
       } else {
         // Handle error response from the function
         final errorMessage = data['error'] as String? ?? 'Unknown error';

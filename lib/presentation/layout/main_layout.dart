@@ -327,7 +327,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                       isSmallScreen
                                           ? (_selectedIndex == 0 ? 0 : 24)
                                           : (_selectedIndex == 0 ? 0 : 24),
-                                  bottom: _selectedIndex == 0 ? 0 : 24,
+                                  bottom: _selectedIndex == 0 ? 0 : 0,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

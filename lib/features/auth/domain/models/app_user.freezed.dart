@@ -12,8 +12,7 @@ part of 'app_user.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 AppUser _$AppUserFromJson(Map<String, dynamic> json) {
   return _AppUser.fromJson(json);
@@ -31,12 +30,8 @@ mixin _$AppUser {
   bool get isEmailVerified => throw _privateConstructorUsedError;
   Map<String, dynamic> get additionalData => throw _privateConstructorUsedError;
 
-  /// Serializes this AppUser to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of AppUser
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   $AppUserCopyWith<AppUser> get copyWith => throw _privateConstructorUsedError;
 }
 
@@ -45,17 +40,16 @@ abstract class $AppUserCopyWith<$Res> {
   factory $AppUserCopyWith(AppUser value, $Res Function(AppUser) then) =
       _$AppUserCopyWithImpl<$Res, AppUser>;
   @useResult
-  $Res call({
-    String uid,
-    String email,
-    UserRole role,
-    String? displayName,
-    String? photoURL,
-    String? salesforceId,
-    bool isFirstLogin,
-    bool isEmailVerified,
-    Map<String, dynamic> additionalData,
-  });
+  $Res call(
+      {String uid,
+      String email,
+      UserRole role,
+      String? displayName,
+      String? photoURL,
+      String? salesforceId,
+      bool isFirstLogin,
+      bool isEmailVerified,
+      Map<String, dynamic> additionalData});
 }
 
 /// @nodoc
@@ -68,8 +62,6 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of AppUser
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -83,78 +75,64 @@ class _$AppUserCopyWithImpl<$Res, $Val extends AppUser>
     Object? isEmailVerified = null,
     Object? additionalData = null,
   }) {
-    return _then(
-      _value.copyWith(
-            uid:
-                null == uid
-                    ? _value.uid
-                    : uid // ignore: cast_nullable_to_non_nullable
-                        as String,
-            email:
-                null == email
-                    ? _value.email
-                    : email // ignore: cast_nullable_to_non_nullable
-                        as String,
-            role:
-                null == role
-                    ? _value.role
-                    : role // ignore: cast_nullable_to_non_nullable
-                        as UserRole,
-            displayName:
-                freezed == displayName
-                    ? _value.displayName
-                    : displayName // ignore: cast_nullable_to_non_nullable
-                        as String?,
-            photoURL:
-                freezed == photoURL
-                    ? _value.photoURL
-                    : photoURL // ignore: cast_nullable_to_non_nullable
-                        as String?,
-            salesforceId:
-                freezed == salesforceId
-                    ? _value.salesforceId
-                    : salesforceId // ignore: cast_nullable_to_non_nullable
-                        as String?,
-            isFirstLogin:
-                null == isFirstLogin
-                    ? _value.isFirstLogin
-                    : isFirstLogin // ignore: cast_nullable_to_non_nullable
-                        as bool,
-            isEmailVerified:
-                null == isEmailVerified
-                    ? _value.isEmailVerified
-                    : isEmailVerified // ignore: cast_nullable_to_non_nullable
-                        as bool,
-            additionalData:
-                null == additionalData
-                    ? _value.additionalData
-                    : additionalData // ignore: cast_nullable_to_non_nullable
-                        as Map<String, dynamic>,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      uid: null == uid
+          ? _value.uid
+          : uid // ignore: cast_nullable_to_non_nullable
+              as String,
+      email: null == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String,
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as UserRole,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      photoURL: freezed == photoURL
+          ? _value.photoURL
+          : photoURL // ignore: cast_nullable_to_non_nullable
+              as String?,
+      salesforceId: freezed == salesforceId
+          ? _value.salesforceId
+          : salesforceId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      isFirstLogin: null == isFirstLogin
+          ? _value.isFirstLogin
+          : isFirstLogin // ignore: cast_nullable_to_non_nullable
+              as bool,
+      isEmailVerified: null == isEmailVerified
+          ? _value.isEmailVerified
+          : isEmailVerified // ignore: cast_nullable_to_non_nullable
+              as bool,
+      additionalData: null == additionalData
+          ? _value.additionalData
+          : additionalData // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$AppUserImplCopyWith<$Res> implements $AppUserCopyWith<$Res> {
   factory _$$AppUserImplCopyWith(
-    _$AppUserImpl value,
-    $Res Function(_$AppUserImpl) then,
-  ) = __$$AppUserImplCopyWithImpl<$Res>;
+          _$AppUserImpl value, $Res Function(_$AppUserImpl) then) =
+      __$$AppUserImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String uid,
-    String email,
-    UserRole role,
-    String? displayName,
-    String? photoURL,
-    String? salesforceId,
-    bool isFirstLogin,
-    bool isEmailVerified,
-    Map<String, dynamic> additionalData,
-  });
+  $Res call(
+      {String uid,
+      String email,
+      UserRole role,
+      String? displayName,
+      String? photoURL,
+      String? salesforceId,
+      bool isFirstLogin,
+      bool isEmailVerified,
+      Map<String, dynamic> additionalData});
 }
 
 /// @nodoc
@@ -162,12 +140,9 @@ class __$$AppUserImplCopyWithImpl<$Res>
     extends _$AppUserCopyWithImpl<$Res, _$AppUserImpl>
     implements _$$AppUserImplCopyWith<$Res> {
   __$$AppUserImplCopyWithImpl(
-    _$AppUserImpl _value,
-    $Res Function(_$AppUserImpl) _then,
-  ) : super(_value, _then);
+      _$AppUserImpl _value, $Res Function(_$AppUserImpl) _then)
+      : super(_value, _then);
 
-  /// Create a copy of AppUser
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -181,72 +156,61 @@ class __$$AppUserImplCopyWithImpl<$Res>
     Object? isEmailVerified = null,
     Object? additionalData = null,
   }) {
-    return _then(
-      _$AppUserImpl(
-        uid:
-            null == uid
-                ? _value.uid
-                : uid // ignore: cast_nullable_to_non_nullable
-                    as String,
-        email:
-            null == email
-                ? _value.email
-                : email // ignore: cast_nullable_to_non_nullable
-                    as String,
-        role:
-            null == role
-                ? _value.role
-                : role // ignore: cast_nullable_to_non_nullable
-                    as UserRole,
-        displayName:
-            freezed == displayName
-                ? _value.displayName
-                : displayName // ignore: cast_nullable_to_non_nullable
-                    as String?,
-        photoURL:
-            freezed == photoURL
-                ? _value.photoURL
-                : photoURL // ignore: cast_nullable_to_non_nullable
-                    as String?,
-        salesforceId:
-            freezed == salesforceId
-                ? _value.salesforceId
-                : salesforceId // ignore: cast_nullable_to_non_nullable
-                    as String?,
-        isFirstLogin:
-            null == isFirstLogin
-                ? _value.isFirstLogin
-                : isFirstLogin // ignore: cast_nullable_to_non_nullable
-                    as bool,
-        isEmailVerified:
-            null == isEmailVerified
-                ? _value.isEmailVerified
-                : isEmailVerified // ignore: cast_nullable_to_non_nullable
-                    as bool,
-        additionalData:
-            null == additionalData
-                ? _value._additionalData
-                : additionalData // ignore: cast_nullable_to_non_nullable
-                    as Map<String, dynamic>,
-      ),
-    );
+    return _then(_$AppUserImpl(
+      uid: null == uid
+          ? _value.uid
+          : uid // ignore: cast_nullable_to_non_nullable
+              as String,
+      email: null == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String,
+      role: null == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as UserRole,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      photoURL: freezed == photoURL
+          ? _value.photoURL
+          : photoURL // ignore: cast_nullable_to_non_nullable
+              as String?,
+      salesforceId: freezed == salesforceId
+          ? _value.salesforceId
+          : salesforceId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      isFirstLogin: null == isFirstLogin
+          ? _value.isFirstLogin
+          : isFirstLogin // ignore: cast_nullable_to_non_nullable
+              as bool,
+      isEmailVerified: null == isEmailVerified
+          ? _value.isEmailVerified
+          : isEmailVerified // ignore: cast_nullable_to_non_nullable
+              as bool,
+      additionalData: null == additionalData
+          ? _value._additionalData
+          : additionalData // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$AppUserImpl implements _AppUser {
-  const _$AppUserImpl({
-    required this.uid,
-    required this.email,
-    required this.role,
-    this.displayName,
-    this.photoURL,
-    this.salesforceId,
-    this.isFirstLogin = false,
-    this.isEmailVerified = false,
-    final Map<String, dynamic> additionalData = const {},
-  }) : _additionalData = additionalData;
+  const _$AppUserImpl(
+      {required this.uid,
+      required this.email,
+      required this.role,
+      this.displayName,
+      this.photoURL,
+      this.salesforceId,
+      this.isFirstLogin = false,
+      this.isEmailVerified = false,
+      final Map<String, dynamic> additionalData = const {}})
+      : _additionalData = additionalData;
 
   factory _$AppUserImpl.fromJson(Map<String, dynamic> json) =>
       _$$AppUserImplFromJson(json);
@@ -301,30 +265,25 @@ class _$AppUserImpl implements _AppUser {
                 other.isFirstLogin == isFirstLogin) &&
             (identical(other.isEmailVerified, isEmailVerified) ||
                 other.isEmailVerified == isEmailVerified) &&
-            const DeepCollectionEquality().equals(
-              other._additionalData,
-              _additionalData,
-            ));
+            const DeepCollectionEquality()
+                .equals(other._additionalData, _additionalData));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   int get hashCode => Object.hash(
-    runtimeType,
-    uid,
-    email,
-    role,
-    displayName,
-    photoURL,
-    salesforceId,
-    isFirstLogin,
-    isEmailVerified,
-    const DeepCollectionEquality().hash(_additionalData),
-  );
+      runtimeType,
+      uid,
+      email,
+      role,
+      displayName,
+      photoURL,
+      salesforceId,
+      isFirstLogin,
+      isEmailVerified,
+      const DeepCollectionEquality().hash(_additionalData));
 
-  /// Create a copy of AppUser
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$AppUserImplCopyWith<_$AppUserImpl> get copyWith =>
@@ -332,22 +291,23 @@ class _$AppUserImpl implements _AppUser {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$AppUserImplToJson(this);
+    return _$$AppUserImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _AppUser implements AppUser {
-  const factory _AppUser({
-    required final String uid,
-    required final String email,
-    required final UserRole role,
-    final String? displayName,
-    final String? photoURL,
-    final String? salesforceId,
-    final bool isFirstLogin,
-    final bool isEmailVerified,
-    final Map<String, dynamic> additionalData,
-  }) = _$AppUserImpl;
+  const factory _AppUser(
+      {required final String uid,
+      required final String email,
+      required final UserRole role,
+      final String? displayName,
+      final String? photoURL,
+      final String? salesforceId,
+      final bool isFirstLogin,
+      final bool isEmailVerified,
+      final Map<String, dynamic> additionalData}) = _$AppUserImpl;
 
   factory _AppUser.fromJson(Map<String, dynamic> json) = _$AppUserImpl.fromJson;
 
@@ -369,11 +329,8 @@ abstract class _AppUser implements AppUser {
   bool get isEmailVerified;
   @override
   Map<String, dynamic> get additionalData;
-
-  /// Create a copy of AppUser
-  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$AppUserImplCopyWith<_$AppUserImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

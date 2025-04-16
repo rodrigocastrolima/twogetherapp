@@ -168,11 +168,6 @@ class _OpportunityVerificationPageState
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           child: ListTile(
             title: Text(opportunity.Name),
-            subtitle: Text(
-              opportunity.AccountId != null
-                  ? 'Account: ${opportunity.Account?.Name ?? 'Unknown'}'
-                  : 'No Account',
-            ),
             trailing: Text(opportunity.Fase__c ?? 'Unknown'),
           ),
         );

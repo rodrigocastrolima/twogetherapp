@@ -12,8 +12,7 @@ part of 'profile.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 Profile _$ProfileFromJson(Map<String, dynamic> json) {
   return _Profile.fromJson(json);
@@ -28,12 +27,8 @@ mixin _$Profile {
   int get totalClients => throw _privateConstructorUsedError;
   int get activeClients => throw _privateConstructorUsedError;
 
-  /// Serializes this Profile to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of Profile
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   $ProfileCopyWith<Profile> get copyWith => throw _privateConstructorUsedError;
 }
 
@@ -42,14 +37,13 @@ abstract class $ProfileCopyWith<$Res> {
   factory $ProfileCopyWith(Profile value, $Res Function(Profile) then) =
       _$ProfileCopyWithImpl<$Res, Profile>;
   @useResult
-  $Res call({
-    String name,
-    String email,
-    String phone,
-    DateTime registrationDate,
-    int totalClients,
-    int activeClients,
-  });
+  $Res call(
+      {String name,
+      String email,
+      String phone,
+      DateTime registrationDate,
+      int totalClients,
+      int activeClients});
 }
 
 /// @nodoc
@@ -62,8 +56,6 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of Profile
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -74,60 +66,49 @@ class _$ProfileCopyWithImpl<$Res, $Val extends Profile>
     Object? totalClients = null,
     Object? activeClients = null,
   }) {
-    return _then(
-      _value.copyWith(
-            name:
-                null == name
-                    ? _value.name
-                    : name // ignore: cast_nullable_to_non_nullable
-                        as String,
-            email:
-                null == email
-                    ? _value.email
-                    : email // ignore: cast_nullable_to_non_nullable
-                        as String,
-            phone:
-                null == phone
-                    ? _value.phone
-                    : phone // ignore: cast_nullable_to_non_nullable
-                        as String,
-            registrationDate:
-                null == registrationDate
-                    ? _value.registrationDate
-                    : registrationDate // ignore: cast_nullable_to_non_nullable
-                        as DateTime,
-            totalClients:
-                null == totalClients
-                    ? _value.totalClients
-                    : totalClients // ignore: cast_nullable_to_non_nullable
-                        as int,
-            activeClients:
-                null == activeClients
-                    ? _value.activeClients
-                    : activeClients // ignore: cast_nullable_to_non_nullable
-                        as int,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      email: null == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String,
+      phone: null == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String,
+      registrationDate: null == registrationDate
+          ? _value.registrationDate
+          : registrationDate // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      totalClients: null == totalClients
+          ? _value.totalClients
+          : totalClients // ignore: cast_nullable_to_non_nullable
+              as int,
+      activeClients: null == activeClients
+          ? _value.activeClients
+          : activeClients // ignore: cast_nullable_to_non_nullable
+              as int,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$ProfileImplCopyWith<$Res> implements $ProfileCopyWith<$Res> {
   factory _$$ProfileImplCopyWith(
-    _$ProfileImpl value,
-    $Res Function(_$ProfileImpl) then,
-  ) = __$$ProfileImplCopyWithImpl<$Res>;
+          _$ProfileImpl value, $Res Function(_$ProfileImpl) then) =
+      __$$ProfileImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String name,
-    String email,
-    String phone,
-    DateTime registrationDate,
-    int totalClients,
-    int activeClients,
-  });
+  $Res call(
+      {String name,
+      String email,
+      String phone,
+      DateTime registrationDate,
+      int totalClients,
+      int activeClients});
 }
 
 /// @nodoc
@@ -135,12 +116,9 @@ class __$$ProfileImplCopyWithImpl<$Res>
     extends _$ProfileCopyWithImpl<$Res, _$ProfileImpl>
     implements _$$ProfileImplCopyWith<$Res> {
   __$$ProfileImplCopyWithImpl(
-    _$ProfileImpl _value,
-    $Res Function(_$ProfileImpl) _then,
-  ) : super(_value, _then);
+      _$ProfileImpl _value, $Res Function(_$ProfileImpl) _then)
+      : super(_value, _then);
 
-  /// Create a copy of Profile
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -151,54 +129,45 @@ class __$$ProfileImplCopyWithImpl<$Res>
     Object? totalClients = null,
     Object? activeClients = null,
   }) {
-    return _then(
-      _$ProfileImpl(
-        name:
-            null == name
-                ? _value.name
-                : name // ignore: cast_nullable_to_non_nullable
-                    as String,
-        email:
-            null == email
-                ? _value.email
-                : email // ignore: cast_nullable_to_non_nullable
-                    as String,
-        phone:
-            null == phone
-                ? _value.phone
-                : phone // ignore: cast_nullable_to_non_nullable
-                    as String,
-        registrationDate:
-            null == registrationDate
-                ? _value.registrationDate
-                : registrationDate // ignore: cast_nullable_to_non_nullable
-                    as DateTime,
-        totalClients:
-            null == totalClients
-                ? _value.totalClients
-                : totalClients // ignore: cast_nullable_to_non_nullable
-                    as int,
-        activeClients:
-            null == activeClients
-                ? _value.activeClients
-                : activeClients // ignore: cast_nullable_to_non_nullable
-                    as int,
-      ),
-    );
+    return _then(_$ProfileImpl(
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      email: null == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String,
+      phone: null == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String,
+      registrationDate: null == registrationDate
+          ? _value.registrationDate
+          : registrationDate // ignore: cast_nullable_to_non_nullable
+              as DateTime,
+      totalClients: null == totalClients
+          ? _value.totalClients
+          : totalClients // ignore: cast_nullable_to_non_nullable
+              as int,
+      activeClients: null == activeClients
+          ? _value.activeClients
+          : activeClients // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$ProfileImpl implements _Profile {
-  const _$ProfileImpl({
-    required this.name,
-    required this.email,
-    required this.phone,
-    required this.registrationDate,
-    required this.totalClients,
-    required this.activeClients,
-  });
+  const _$ProfileImpl(
+      {required this.name,
+      required this.email,
+      required this.phone,
+      required this.registrationDate,
+      required this.totalClients,
+      required this.activeClients});
 
   factory _$ProfileImpl.fromJson(Map<String, dynamic> json) =>
       _$$ProfileImplFromJson(json);
@@ -237,21 +206,12 @@ class _$ProfileImpl implements _Profile {
                 other.activeClients == activeClients));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    name,
-    email,
-    phone,
-    registrationDate,
-    totalClients,
-    activeClients,
-  );
+  int get hashCode => Object.hash(runtimeType, name, email, phone,
+      registrationDate, totalClients, activeClients);
 
-  /// Create a copy of Profile
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$ProfileImplCopyWith<_$ProfileImpl> get copyWith =>
@@ -259,19 +219,20 @@ class _$ProfileImpl implements _Profile {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$ProfileImplToJson(this);
+    return _$$ProfileImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _Profile implements Profile {
-  const factory _Profile({
-    required final String name,
-    required final String email,
-    required final String phone,
-    required final DateTime registrationDate,
-    required final int totalClients,
-    required final int activeClients,
-  }) = _$ProfileImpl;
+  const factory _Profile(
+      {required final String name,
+      required final String email,
+      required final String phone,
+      required final DateTime registrationDate,
+      required final int totalClients,
+      required final int activeClients}) = _$ProfileImpl;
 
   factory _Profile.fromJson(Map<String, dynamic> json) = _$ProfileImpl.fromJson;
 
@@ -287,11 +248,8 @@ abstract class _Profile implements Profile {
   int get totalClients;
   @override
   int get activeClients;
-
-  /// Create a copy of Profile
-  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$ProfileImplCopyWith<_$ProfileImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -308,12 +266,8 @@ mixin _$Revenue {
   double get amount => throw _privateConstructorUsedError;
   String get clientName => throw _privateConstructorUsedError;
 
-  /// Serializes this Revenue to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-
-  /// Create a copy of Revenue
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   $RevenueCopyWith<Revenue> get copyWith => throw _privateConstructorUsedError;
 }
 
@@ -322,13 +276,12 @@ abstract class $RevenueCopyWith<$Res> {
   factory $RevenueCopyWith(Revenue value, $Res Function(Revenue) then) =
       _$RevenueCopyWithImpl<$Res, Revenue>;
   @useResult
-  $Res call({
-    String cycle,
-    String type,
-    String cep,
-    double amount,
-    String clientName,
-  });
+  $Res call(
+      {String cycle,
+      String type,
+      String cep,
+      double amount,
+      String clientName});
 }
 
 /// @nodoc
@@ -341,8 +294,6 @@ class _$RevenueCopyWithImpl<$Res, $Val extends Revenue>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of Revenue
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -352,54 +303,44 @@ class _$RevenueCopyWithImpl<$Res, $Val extends Revenue>
     Object? amount = null,
     Object? clientName = null,
   }) {
-    return _then(
-      _value.copyWith(
-            cycle:
-                null == cycle
-                    ? _value.cycle
-                    : cycle // ignore: cast_nullable_to_non_nullable
-                        as String,
-            type:
-                null == type
-                    ? _value.type
-                    : type // ignore: cast_nullable_to_non_nullable
-                        as String,
-            cep:
-                null == cep
-                    ? _value.cep
-                    : cep // ignore: cast_nullable_to_non_nullable
-                        as String,
-            amount:
-                null == amount
-                    ? _value.amount
-                    : amount // ignore: cast_nullable_to_non_nullable
-                        as double,
-            clientName:
-                null == clientName
-                    ? _value.clientName
-                    : clientName // ignore: cast_nullable_to_non_nullable
-                        as String,
-          )
-          as $Val,
-    );
+    return _then(_value.copyWith(
+      cycle: null == cycle
+          ? _value.cycle
+          : cycle // ignore: cast_nullable_to_non_nullable
+              as String,
+      type: null == type
+          ? _value.type
+          : type // ignore: cast_nullable_to_non_nullable
+              as String,
+      cep: null == cep
+          ? _value.cep
+          : cep // ignore: cast_nullable_to_non_nullable
+              as String,
+      amount: null == amount
+          ? _value.amount
+          : amount // ignore: cast_nullable_to_non_nullable
+              as double,
+      clientName: null == clientName
+          ? _value.clientName
+          : clientName // ignore: cast_nullable_to_non_nullable
+              as String,
+    ) as $Val);
   }
 }
 
 /// @nodoc
 abstract class _$$RevenueImplCopyWith<$Res> implements $RevenueCopyWith<$Res> {
   factory _$$RevenueImplCopyWith(
-    _$RevenueImpl value,
-    $Res Function(_$RevenueImpl) then,
-  ) = __$$RevenueImplCopyWithImpl<$Res>;
+          _$RevenueImpl value, $Res Function(_$RevenueImpl) then) =
+      __$$RevenueImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({
-    String cycle,
-    String type,
-    String cep,
-    double amount,
-    String clientName,
-  });
+  $Res call(
+      {String cycle,
+      String type,
+      String cep,
+      double amount,
+      String clientName});
 }
 
 /// @nodoc
@@ -407,12 +348,9 @@ class __$$RevenueImplCopyWithImpl<$Res>
     extends _$RevenueCopyWithImpl<$Res, _$RevenueImpl>
     implements _$$RevenueImplCopyWith<$Res> {
   __$$RevenueImplCopyWithImpl(
-    _$RevenueImpl _value,
-    $Res Function(_$RevenueImpl) _then,
-  ) : super(_value, _then);
+      _$RevenueImpl _value, $Res Function(_$RevenueImpl) _then)
+      : super(_value, _then);
 
-  /// Create a copy of Revenue
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -422,48 +360,40 @@ class __$$RevenueImplCopyWithImpl<$Res>
     Object? amount = null,
     Object? clientName = null,
   }) {
-    return _then(
-      _$RevenueImpl(
-        cycle:
-            null == cycle
-                ? _value.cycle
-                : cycle // ignore: cast_nullable_to_non_nullable
-                    as String,
-        type:
-            null == type
-                ? _value.type
-                : type // ignore: cast_nullable_to_non_nullable
-                    as String,
-        cep:
-            null == cep
-                ? _value.cep
-                : cep // ignore: cast_nullable_to_non_nullable
-                    as String,
-        amount:
-            null == amount
-                ? _value.amount
-                : amount // ignore: cast_nullable_to_non_nullable
-                    as double,
-        clientName:
-            null == clientName
-                ? _value.clientName
-                : clientName // ignore: cast_nullable_to_non_nullable
-                    as String,
-      ),
-    );
+    return _then(_$RevenueImpl(
+      cycle: null == cycle
+          ? _value.cycle
+          : cycle // ignore: cast_nullable_to_non_nullable
+              as String,
+      type: null == type
+          ? _value.type
+          : type // ignore: cast_nullable_to_non_nullable
+              as String,
+      cep: null == cep
+          ? _value.cep
+          : cep // ignore: cast_nullable_to_non_nullable
+              as String,
+      amount: null == amount
+          ? _value.amount
+          : amount // ignore: cast_nullable_to_non_nullable
+              as double,
+      clientName: null == clientName
+          ? _value.clientName
+          : clientName // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
   }
 }
 
 /// @nodoc
 @JsonSerializable()
 class _$RevenueImpl implements _Revenue {
-  const _$RevenueImpl({
-    required this.cycle,
-    required this.type,
-    required this.cep,
-    required this.amount,
-    required this.clientName,
-  });
+  const _$RevenueImpl(
+      {required this.cycle,
+      required this.type,
+      required this.cep,
+      required this.amount,
+      required this.clientName});
 
   factory _$RevenueImpl.fromJson(Map<String, dynamic> json) =>
       _$$RevenueImplFromJson(json);
@@ -497,14 +427,12 @@ class _$RevenueImpl implements _Revenue {
                 other.clientName == clientName));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   int get hashCode =>
       Object.hash(runtimeType, cycle, type, cep, amount, clientName);
 
-  /// Create a copy of Revenue
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$RevenueImplCopyWith<_$RevenueImpl> get copyWith =>
@@ -512,18 +440,19 @@ class _$RevenueImpl implements _Revenue {
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$RevenueImplToJson(this);
+    return _$$RevenueImplToJson(
+      this,
+    );
   }
 }
 
 abstract class _Revenue implements Revenue {
-  const factory _Revenue({
-    required final String cycle,
-    required final String type,
-    required final String cep,
-    required final double amount,
-    required final String clientName,
-  }) = _$RevenueImpl;
+  const factory _Revenue(
+      {required final String cycle,
+      required final String type,
+      required final String cep,
+      required final double amount,
+      required final String clientName}) = _$RevenueImpl;
 
   factory _Revenue.fromJson(Map<String, dynamic> json) = _$RevenueImpl.fromJson;
 
@@ -537,11 +466,8 @@ abstract class _Revenue implements Revenue {
   double get amount;
   @override
   String get clientName;
-
-  /// Create a copy of Revenue
-  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$RevenueImplCopyWith<_$RevenueImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

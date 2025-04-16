@@ -48,7 +48,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        bottom: true,
+        bottom: false,
         top: false,
         child: Column(
           children: [
@@ -200,16 +200,23 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
 
   // New method to build an opportunity card
   Widget _buildOpportunityCard(SalesforceOpportunity opportunity, {Key? key}) {
-    // Format date if available (Data_de_Previs_o_de_Fecho__c)
-    String formattedDate = '';
-    if (opportunity.Data_de_Previs_o_de_Fecho__c != null) {
+    // Format CreatedDate
+    String formattedCreatedDate = '';
+    try {
+      final date = DateTime.parse(opportunity.CreatedDate);
+      // Use a locale-aware format if AppLocalizations is available
       try {
-        final date = DateTime.parse(opportunity.Data_de_Previs_o_de_Fecho__c!);
-        formattedDate = DateFormat('dd/MM/yyyy').format(date);
-      } catch (e) {
-        // If parsing fails, use the raw string
-        formattedDate = opportunity.Data_de_Previs_o_de_Fecho__c!;
+        final l10n = AppLocalizations.of(context);
+        if (l10n != null) {
+          formattedCreatedDate = DateFormat.yMd(l10n.localeName).format(date);
+        } else {
+          formattedCreatedDate = DateFormat('dd/MM/yyyy').format(date);
+        }
+      } catch (_) {
+        formattedCreatedDate = DateFormat('dd/MM/yyyy').format(date);
       }
+    } catch (e) {
+      formattedCreatedDate = opportunity.CreatedDate; // Fallback to raw string
     }
 
     return GestureDetector(
@@ -233,20 +240,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                       color: CupertinoColors.label,
                     ),
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(
-                        '${opportunity.Solu_o__c ?? "N/A"} • ${formattedDate.isNotEmpty ? formattedDate : "N/A"}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.systemGrey,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      _buildPhaseIndicator(opportunity.Fase__c),
-                    ],
                   ),
                 ],
               ),
@@ -352,15 +345,23 @@ class _OpportunityDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Format date
-    String formattedDate = '';
-    if (opportunity.Data_de_Previs_o_de_Fecho__c != null) {
+    // Format CreatedDate
+    String formattedCreatedDate = '';
+    try {
+      final date = DateTime.parse(opportunity.CreatedDate);
+      // Use a locale-aware format if AppLocalizations is available
       try {
-        final date = DateTime.parse(opportunity.Data_de_Previs_o_de_Fecho__c!);
-        formattedDate = DateFormat('dd/MM/yyyy').format(date);
-      } catch (e) {
-        formattedDate = opportunity.Data_de_Previs_o_de_Fecho__c!;
+        final l10n = AppLocalizations.of(context);
+        if (l10n != null) {
+          formattedCreatedDate = DateFormat.yMd(l10n.localeName).format(date);
+        } else {
+          formattedCreatedDate = DateFormat('dd/MM/yyyy').format(date);
+        }
+      } catch (_) {
+        formattedCreatedDate = DateFormat('dd/MM/yyyy').format(date);
       }
+    } catch (e) {
+      formattedCreatedDate = opportunity.CreatedDate; // Fallback to raw string
     }
 
     return Container(
@@ -398,22 +399,23 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Detalhes da Oportunidade',
+                        opportunity.Name,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.foreground,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      if (formattedDate.isNotEmpty)
-                        Text(
-                          'Fechamento: $formattedDate',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.foreground.withOpacity(0.7),
-                          ),
+                      Text(
+                        'Criada em: $formattedCreatedDate',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.foreground.withOpacity(0.7),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -433,20 +435,8 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                   _buildSectionTitle('Informações da Oportunidade'),
                   _buildInfoItem('Nome', opportunity.Name),
                   _buildInfoItem('Fase', opportunity.Fase__c ?? 'N/A'),
-                  _buildInfoItem('Solução', opportunity.Solu_o__c ?? 'N/A'),
-                  _buildInfoItem(
-                    'Data Fechamento',
-                    formattedDate.isNotEmpty ? formattedDate : 'N/A',
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Account Information Section
-                  _buildSectionTitle('Informações da Conta'),
-                  _buildInfoItem('ID da Conta', opportunity.AccountId ?? 'N/A'),
-                  _buildInfoItem(
-                    'Nome da Conta',
-                    opportunity.Account?.Name ?? 'N/A',
-                  ),
+                  _buildInfoItem('NIF', opportunity.NIF__c ?? 'N/A'),
+                  _buildInfoItem('Data Criação', formattedCreatedDate),
                   const SizedBox(height: 20),
                 ],
               ),

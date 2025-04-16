@@ -45,7 +45,7 @@ class _ResellerChatView extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        bottom: true,
+        bottom: false,
         top: false,
         child: conversationAsync.when(
           data: (conversationId) {
