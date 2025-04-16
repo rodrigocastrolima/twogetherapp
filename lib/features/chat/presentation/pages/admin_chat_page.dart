@@ -114,115 +114,115 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
             const SizedBox(height: 16), // Spacing below title
             // --- Existing Content Wrapped in Expanded ---
             Expanded(
-              child: Container(
+        child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                clipBehavior: Clip.antiAlias,
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: BackdropFilter(
-                  filter: AppStyles.standardBlur,
-                  child: Container(
-                    decoration: AppStyles.glassCard(context),
-                    child: resellersStream.when(
-                      data: (resellers) {
-                        if (resellers.isEmpty) {
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.person_3_fill,
-                                  size: 48,
+          clipBehavior: Clip.antiAlias,
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: BackdropFilter(
+            filter: AppStyles.standardBlur,
+            child: Container(
+              decoration: AppStyles.glassCard(context),
+              child: resellersStream.when(
+                data: (resellers) {
+                  if (resellers.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.person_3_fill,
+                            size: 48,
                                   color: theme.colorScheme.primary
                                   // .withOpacity(0.5),
                                   .withAlpha((255 * 0.5).round()),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  l10n.noRetailUsersFound,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    color: theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            l10n.noRetailUsersFound,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
                             ),
-                          );
-                        }
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-                        return conversationsStream.when(
-                          data: (conversations) {
-                            // Get all conversations or filter active ones based on state
-                            final List<ChatConversation> activeConversations =
-                                conversations
-                                    .where((c) => c.active ?? false)
-                                    .toList();
+                  return conversationsStream.when(
+                    data: (conversations) {
+                      // Get all conversations or filter active ones based on state
+                      final List<ChatConversation> activeConversations =
+                          conversations
+                              .where((c) => c.active ?? false)
+                              .toList();
 
-                            final List<ChatConversation> inactiveConversations =
-                                conversations
-                                    .where((c) => !(c.active ?? false))
-                                    .toList();
+                      final List<ChatConversation> inactiveConversations =
+                          conversations
+                              .where((c) => !(c.active ?? false))
+                              .toList();
 
-                            // Apply search filter if there's a query
-                            final List<ChatConversation>
-                            searchFilteredActiveConversations =
-                                _searchQuery.isEmpty
-                                    ? activeConversations
-                                    : activeConversations.where((c) {
-                                      // Find the reseller for this conversation
-                                      final reseller = resellers.firstWhere(
-                                        (r) => r['id'] == c.resellerId,
-                                        orElse: () => {'name': '', 'email': ''},
-                                      );
+                      // Apply search filter if there's a query
+                      final List<ChatConversation>
+                      searchFilteredActiveConversations =
+                          _searchQuery.isEmpty
+                              ? activeConversations
+                              : activeConversations.where((c) {
+                                // Find the reseller for this conversation
+                                final reseller = resellers.firstWhere(
+                                  (r) => r['id'] == c.resellerId,
+                                  orElse: () => {'name': '', 'email': ''},
+                                );
 
-                                      // Search in name, email, and last message
-                                      return (reseller['name'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (reseller['email'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (c.lastMessageContent ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery);
-                                    }).toList();
+                                // Search in name, email, and last message
+                                return (reseller['name'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (reseller['email'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (c.lastMessageContent ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery);
+                              }).toList();
 
-                            final List<ChatConversation>
-                            searchFilteredInactiveConversations =
-                                _searchQuery.isEmpty
-                                    ? inactiveConversations
-                                    : inactiveConversations.where((c) {
-                                      // Find the reseller for this conversation
-                                      final reseller = resellers.firstWhere(
-                                        (r) => r['id'] == c.resellerId,
-                                        orElse: () => {'name': '', 'email': ''},
-                                      );
+                      final List<ChatConversation>
+                      searchFilteredInactiveConversations =
+                          _searchQuery.isEmpty
+                              ? inactiveConversations
+                              : inactiveConversations.where((c) {
+                                // Find the reseller for this conversation
+                                final reseller = resellers.firstWhere(
+                                  (r) => r['id'] == c.resellerId,
+                                  orElse: () => {'name': '', 'email': ''},
+                                );
 
-                                      // Search in name, email, and last message
-                                      return (reseller['name'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (reseller['email'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (c.lastMessageContent ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery);
-                                    }).toList();
+                                // Search in name, email, and last message
+                                return (reseller['name'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (reseller['email'] ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery) ||
+                                    (c.lastMessageContent ?? '')
+                                        .toLowerCase()
+                                        .contains(_searchQuery);
+                              }).toList();
 
-                            // Create maps of conversations by reseller ID for both filtered lists
-                            final activeConversationsByResellerId = {
-                              for (var conversation
-                                  in searchFilteredActiveConversations)
-                                conversation.resellerId: conversation,
-                            };
+                      // Create maps of conversations by reseller ID for both filtered lists
+                      final activeConversationsByResellerId = {
+                        for (var conversation
+                            in searchFilteredActiveConversations)
+                          conversation.resellerId: conversation,
+                      };
 
-                            final inactiveConversationsByResellerId = {
-                              for (var conversation
-                                  in searchFilteredInactiveConversations)
-                                conversation.resellerId: conversation,
-                            };
+                      final inactiveConversationsByResellerId = {
+                        for (var conversation
+                            in searchFilteredInactiveConversations)
+                          conversation.resellerId: conversation,
+                      };
 
                             // ** Replace _buildChatUI call with ListView builder **
                             final allFilteredConversations = [
@@ -326,93 +326,93 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             }
 
                             // Build the list using sortedResellers
-                            return Column(
-                              children: [
-                                // Search bar
-                                Padding(
+                      return Column(
+                        children: [
+                          // Search bar
+                          Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     16,
                                     8,
                                     16,
                                     8,
                                   ),
-                                  child: Container(
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color:
-                                          theme.brightness == Brightness.dark
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.brightness == Brightness.dark
                                               ? theme.colorScheme.surface
                                                   .withAlpha(
                                                     (255 * 0.7).round(),
-                                                  )
+                                        )
                                               : theme.colorScheme.surface
                                                   .withAlpha(
                                                     (255 * 0.9).round(),
-                                                  ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
+                                        ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
                                         color: theme.colorScheme.onSurface
                                             .withAlpha((255 * 0.1).round()),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.shadowColor.withAlpha(
-                                            (255 * 0.05).round(),
-                                          ),
-                                          blurRadius: 3,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.shadowColor.withAlpha(
+                                      (255 * 0.05).round(),
                                     ),
-                                    child: TextField(
-                                      controller: _searchController,
-                                      style: TextStyle(
-                                        color: theme.colorScheme.onSurface,
-                                        fontSize: 15,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: "Search conversations...",
-                                        hintStyle: TextStyle(
-                                          color: theme.colorScheme.onSurface
-                                              .withAlpha((255 * 0.5).round()),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w400,
-                                        ),
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 15,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: "Search conversations...",
+                                  hintStyle: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha((255 * 0.5).round()),
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w400,
+                                  ),
                                         contentPadding:
                                             const EdgeInsets.symmetric(
-                                              vertical: 0,
-                                            ),
-                                        prefixIcon: Icon(
-                                          CupertinoIcons.search,
-                                          color: theme.colorScheme.onSurface
-                                              .withAlpha((255 * 0.5).round()),
-                                          size: 18,
-                                        ),
-                                        suffixIcon:
-                                            _searchQuery.isNotEmpty
-                                                ? IconButton(
-                                                  icon: Icon(
-                                                    CupertinoIcons.clear,
+                                    vertical: 0,
+                                  ),
+                                  prefixIcon: Icon(
+                                    CupertinoIcons.search,
+                                    color: theme.colorScheme.onSurface
+                                        .withAlpha((255 * 0.5).round()),
+                                    size: 18,
+                                  ),
+                                  suffixIcon:
+                                      _searchQuery.isNotEmpty
+                                          ? IconButton(
+                                            icon: Icon(
+                                              CupertinoIcons.clear,
                                                     color: theme
                                                         .colorScheme
                                                         .onSurface
-                                                        .withAlpha(
-                                                          (255 * 0.5).round(),
-                                                        ),
-                                                    size: 16,
+                                                  .withAlpha(
+                                                    (255 * 0.5).round(),
                                                   ),
-                                                  onPressed: () {
-                                                    _searchController.clear();
-                                                  },
-                                                )
-                                                : null,
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
+                                              size: 16,
+                                            ),
+                                            onPressed: () {
+                                              _searchController.clear();
+                                            },
+                                          )
+                                          : null,
+                                  border: InputBorder.none,
                                 ),
+                              ),
+                            ),
+                          ),
                                 // Conversation list
-                                Expanded(
+                                  Expanded(
                                   child: NoScrollbarBehavior.noScrollbars(
                                     context,
                                     ListView.builder(
@@ -433,30 +433,30 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                         );
                                       },
                                     ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                          loading:
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    loading:
                               () => const Center(
                                 child: CupertinoActivityIndicator(),
-                              ),
-                          error:
+                        ),
+                    error:
                               (error, stack) => Center(
                                 child: Text(
                                   'Error loading conversations: $error',
                                   style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                        );
-                      },
-                      loading:
+                                  color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ),
+                  );
+                },
+                loading:
                           () =>
                               const Center(child: CupertinoActivityIndicator()),
-                      error:
+                error:
                           (error, stack) => Center(
                             child: Text(
                               'Error loading resellers: $error',
@@ -465,10 +465,10 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           ),
                     ),
                   ),
-                ),
-              ),
-            ),
-          ],
+                                ),
+                              ),
+                            ),
+                          ],
         ),
       ),
     );

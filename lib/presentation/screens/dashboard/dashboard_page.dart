@@ -1,60 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'dart:ui';
 import '../../../core/theme/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/ui_styles.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> {
   String _selectedPeriod = 'month'; // 'month' or 'all'
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Dashboard',
+          style: TextStyle(color: theme.colorScheme.onSurface),
+        ),
+        leading: IconButton(
+          icon: Icon(
+            CupertinoIcons.chevron_back,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: Column(
       children: [
         // Period Selector - More compact and higher up
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(20),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withAlpha(25),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildPeriodOption('Ciclo', 'month'),
-                        Container(
-                          width: 1,
-                          height: 32,
-                          color: Colors.white.withAlpha(25),
-                        ),
-                        _buildPeriodOption('Total', 'all'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              children: [_buildPeriodSelector(context)],
           ),
         ),
         // Main Content
@@ -62,29 +54,72 @@ class _DashboardPageState extends State<DashboardPage> {
           child: NoScrollbarBehavior.noScrollbars(
             context,
             SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildEarningsCard(),
+                    _buildEarningsCard(context),
                   const SizedBox(height: 24),
-                  _buildEarningsGraph(),
+                    _buildEarningsGraph(context),
                   const SizedBox(height: 24),
-                  _buildStatsGrid(),
+                    _buildStatsGrid(context),
                   const SizedBox(height: 24),
-                  _buildProcessesSection(),
+                    _buildProcessesSection(context),
                   const SizedBox(height: 24),
-                  _buildSubmissionsSection(),
+                    _buildSubmissionsSection(context),
                 ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildPeriodOption(String label, String value) {
+  Widget _buildPeriodSelector(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final glassBgColor =
+        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(20);
+    final glassBorderColor =
+        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(25);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: AppStyles.standardBlur,
+        child: Container(
+          height: 32,
+          decoration: BoxDecoration(
+            color: glassBgColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: glassBorderColor, width: 0.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPeriodOption(context, 'Ciclo', 'month'),
+              Container(width: 1, height: 32, color: glassBorderColor),
+              _buildPeriodOption(context, 'Total', 'all'),
+      ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodOption(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final mutedForeground =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final selectionBg =
+        isDark ? primaryColor.withAlpha(50) : primaryColor.withAlpha(38);
+    final selectedTextColor = primaryColor;
+    final unselectedTextColor = mutedForeground;
+
     final isSelected = _selectedPeriod == value;
 
     return GestureDetector(
@@ -93,54 +128,61 @@ class _DashboardPageState extends State<DashboardPage> {
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
-        color: isSelected ? AppTheme.primary.withAlpha(38) : Colors.transparent,
+        decoration: BoxDecoration(
+          color: isSelected ? selectionBg : Colors.transparent,
+        ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected ? AppTheme.primary : Colors.white.withAlpha(178),
+            color: isSelected ? selectedTextColor : unselectedTextColor,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEarningsCard() {
+  Widget _buildEarningsCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final onPrimaryColor = theme.colorScheme.onPrimary;
+    final cardBgColor =
+        isDark ? primaryColor.withAlpha(50) : primaryColor.withAlpha(38);
+    final cardBorderColor =
+        isDark ? primaryColor.withAlpha(60) : primaryColor.withAlpha(50);
+    final textColor = isDark ? onPrimaryColor : primaryColor;
+
     final bool isCurrentCycle = _selectedPeriod == 'month';
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: AppStyles.standardBlur,
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withAlpha(38),
+            color: cardBgColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppTheme.primary.withAlpha(50),
-              width: 0.5,
-            ),
+            border: Border.all(color: cardBorderColor, width: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Comissões',
-                style: TextStyle(
-                  fontSize: 16,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: textColor,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 isCurrentCycle ? '€ 5.280,00' : '€ 42.150,00',
-                style: TextStyle(
-                  fontSize: 32,
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: textColor,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primary,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -151,12 +193,14 @@ class _DashboardPageState extends State<DashboardPage> {
                     Icon(
                       CupertinoIcons.arrow_up_right,
                       size: 16,
-                      color: AppTheme.primary,
+                      color: textColor,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '+22% em relação ao ciclo anterior',
-                      style: TextStyle(fontSize: 13, color: AppTheme.primary),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textColor,
+                      ),
                     ),
                   ],
                 ),
@@ -168,28 +212,154 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildEarningsGraph() {
+  Widget _buildStatsGrid(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final foregroundColor = theme.colorScheme.onSurface;
+    final mutedForeground =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
+    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+    final iconColorActive = isDark ? AppTheme.darkSuccess : AppTheme.success;
+    final iconColorSubmissions =
+        isDark ? AppTheme.darkPrimary : AppTheme.primary;
+    final iconBgActive =
+        isDark ? iconColorActive.withAlpha(30) : iconColorActive.withAlpha(20);
+    final iconBgSubmissions =
+        isDark
+            ? iconColorSubmissions.withAlpha(30)
+            : iconColorSubmissions.withAlpha(20);
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.8,
+      children: [
+        _buildStatCard(
+          context,
+          icon: CupertinoIcons.group_solid,
+          value: '32',
+          label: 'Clientes Ativos',
+          iconColor: iconColorActive,
+          iconBgColor: iconBgActive,
+          cardBgColor: cardBgColor,
+          cardBorderColor: cardBorderColor,
+          textColor: foregroundColor,
+          labelColor: mutedForeground,
+        ),
+        _buildStatCard(
+          context,
+          icon: CupertinoIcons.doc_chart_fill,
+          value: '28',
+          label: 'Submissões',
+          iconColor: iconColorSubmissions,
+          iconBgColor: iconBgSubmissions,
+          cardBgColor: cardBgColor,
+          cardBorderColor: cardBorderColor,
+          textColor: foregroundColor,
+          labelColor: mutedForeground,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color iconColor,
+    required Color iconBgColor,
+    required Color cardBgColor,
+    required Color cardBorderColor,
+    required Color textColor,
+    required Color labelColor,
+  }) {
+    final theme = Theme.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: AppStyles.standardBlur,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardBgColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cardBorderColor, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: labelColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEarningsGraph(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
+    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+    final foregroundColor = theme.colorScheme.onSurface;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: AppStyles.standardBlur,
         child: Container(
           height: 200,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(20),
+            color: cardBgColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
+            border: Border.all(color: cardBorderColor, width: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Evolução de Comissões',
-                style: TextStyle(
-                  fontSize: 16,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: foregroundColor,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.foreground,
                 ),
               ),
               const SizedBox(height: 16),
@@ -220,15 +390,37 @@ class _DashboardPageState extends State<DashboardPage> {
                                   const FlSpot(5, 42150),
                                 ],
                         isCurved: true,
-                        color: AppTheme.primary,
+                        color: primaryColor,
                         barWidth: 2,
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: AppTheme.primary.withAlpha(25),
+                          color: primaryColor.withAlpha(isDark ? 30 : 25),
                         ),
                       ),
                     ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        tooltipBgColor:
+                            isDark ? AppTheme.darkInput : Colors.white,
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((LineBarSpot touchedSpot) {
+                            final textStyle = TextStyle(
+                              color:
+                                  isDark
+                                      ? AppTheme.darkForeground
+                                      : AppTheme.foreground,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            );
+                            return LineTooltipItem(
+                              '€${touchedSpot.y.toStringAsFixed(0)}',
+                              textStyle,
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -239,54 +431,66 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildProcessesSection() {
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Text(
+        title,
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProcessesSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
+    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+    final textColor = theme.colorScheme.onSurfaceVariant;
+    final valueColor = theme.colorScheme.onSurface;
+
+    final processes = {
+      'Em Análise': 12,
+      'Aguardando Documentos': 8,
+      'Pendente Aprovação': 5,
+    };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Processos Ativos',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.foreground,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _buildSectionHeader(context, 'Processos Ativos'),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: AppStyles.standardBlur,
             child: Container(
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(20),
+                color: cardBgColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withAlpha(25),
-                  width: 0.5,
-                ),
+                border: Border.all(color: cardBorderColor, width: 0.5),
               ),
               child: Column(
-                children: [
-                  _buildProcessItem(
-                    label: 'Em Análise',
-                    value: _selectedPeriod == 'month' ? '12' : '45',
-                    color: const Color(0xFF5856D6),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProcessItem(
-                    label: 'Aguardando Documentos',
-                    value: _selectedPeriod == 'month' ? '8' : '23',
-                    color: const Color(0xFFFF9500),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProcessItem(
-                    label: 'Pendente de Aprovação',
-                    value: _selectedPeriod == 'month' ? '5' : '15',
-                    color: const Color(0xFF0A84FF),
-                  ),
-                ],
+                children:
+                    processes.entries.map((entry) {
+                      final index = processes.keys.toList().indexOf(entry.key);
+                      return _buildListItem(
+                        context,
+                        title: entry.key,
+                        value: entry.value.toString(),
+                        showDivider: index < processes.length - 1,
+                        textColor: textColor,
+                        valueColor: valueColor,
+                        valueBgColor: _getStatusColor(
+                          entry.key,
+                          isDark,
+                        ).withAlpha(38),
+                        valueFgColor: _getStatusColor(entry.key, isDark),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -295,54 +499,61 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildSubmissionsSection() {
+  Widget _buildSubmissionsSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
+    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+    final textColor = theme.colorScheme.onSurfaceVariant;
+    final valueColor = theme.colorScheme.onSurface;
+
+    final submissions = {'Aprovadas': 18, 'Rejeitadas': 3};
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Submissões',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.foreground,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 16),
+        _buildSectionHeader(context, 'Submissões'),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: AppStyles.standardBlur,
             child: Container(
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(20),
+                color: cardBgColor,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withAlpha(25),
-                  width: 0.5,
-                ),
+                border: Border.all(color: cardBorderColor, width: 0.5),
               ),
               child: Column(
-                children: [
-                  _buildProcessItem(
-                    label: 'Aprovadas',
-                    value: _selectedPeriod == 'month' ? '18' : '165',
-                    color: const Color(0xFF34C759),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProcessItem(
-                    label: 'Rejeitadas',
-                    value: _selectedPeriod == 'month' ? '3' : '12',
-                    color: const Color(0xFFFF3B30),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProcessItem(
-                    label: 'Taxa de Aprovação',
-                    value: _selectedPeriod == 'month' ? '86%' : '93%',
-                    color: const Color(0xFF5856D6),
-                  ),
-                ],
+                children:
+                    submissions.entries.map((entry) {
+                      final index = submissions.keys.toList().indexOf(
+                        entry.key,
+                      );
+                      return _buildListItem(
+                        context,
+                        title: entry.key,
+                        value: entry.value.toString(),
+                        showDivider: index < submissions.length - 1,
+                        textColor: textColor,
+                        valueColor: valueColor,
+                        valueBgColor: (entry.key == 'Aprovadas'
+                                ? (isDark
+                                    ? AppTheme.darkSuccess
+                                    : AppTheme.success)
+                                : (isDark
+                                    ? AppTheme.darkDestructive
+                                    : AppTheme.destructive))
+                            .withAlpha(38),
+                        valueFgColor:
+                            entry.key == 'Aprovadas'
+                                ? (isDark
+                                    ? AppTheme.darkSuccess
+                                    : AppTheme.success)
+                                : (isDark
+                                    ? AppTheme.darkDestructive
+                                    : AppTheme.destructive),
+                      );
+                    }).toList(),
               ),
             ),
           ),
@@ -351,125 +562,90 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildProcessItem({
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.foreground.withAlpha(178),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withAlpha(38),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ),
-      ],
-    );
+  Color _getStatusColor(String status, bool isDark) {
+    switch (status) {
+      case 'Em Análise':
+        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
+      case 'Aguardando Documentos':
+        return isDark ? Colors.orange.shade300 : Colors.orange.shade700;
+      case 'Pendente Aprovação':
+        return isDark ? Colors.purple.shade300 : Colors.purple.shade700;
+      default:
+        return isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    }
   }
 
-  Widget _buildStatsGrid() {
-    final bool isCurrentCycle = _selectedPeriod == 'month';
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 2.2,
-      children: [
-        _buildStatCard(
-          title: 'Clientes Ativos',
-          value: isCurrentCycle ? '32' : '156',
-          icon: CupertinoIcons.person_2_fill,
-          color: const Color(0xFF34C759),
-        ),
-        _buildStatCard(
-          title: 'Propostas',
-          value: isCurrentCycle ? '28' : '248',
-          icon: CupertinoIcons.doc_text_fill,
-          color: const Color(0xFF5856D6),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
+  Widget _buildListItem(
+    BuildContext context, {
     required String title,
     required String value,
-    required IconData icon,
-    required Color color,
+    bool showDivider = true,
+    required Color textColor,
+    required Color valueColor,
+    required Color valueBgColor,
+    required Color valueFgColor,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha(20),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withAlpha(25), width: 0.5),
-          ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final dividerColor =
+        isDark
+            ? AppTheme.darkBorder.withAlpha(50)
+            : AppTheme.border.withAlpha(50);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withAlpha(38),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 16),
+              Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: valueBgColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
                       value,
-                      style: const TextStyle(
-                        fontSize: 18,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: valueFgColor,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                      ),
                     ),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.foreground.withAlpha(178),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
         ),
-      ),
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Divider(height: 0.5, thickness: 0.5, color: dividerColor),
+          ),
+      ],
+    );
+  }
+}
+
+class NoScrollbarBehavior extends ScrollBehavior {
+  const NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+
+  static Widget noScrollbars(BuildContext context, Widget child) {
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: child,
     );
   }
 }

@@ -16,6 +16,9 @@ import '../../../features/notifications/presentation/services/notification_servi
 import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../../features/services/presentation/providers/service_submission_provider.dart';
+import '../../widgets/onboarding/app_tutorial_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/constants/constants.dart';
 
 class ResellerHomePage extends ConsumerStatefulWidget {
   const ResellerHomePage({super.key});
@@ -39,6 +42,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
       if (_scrollController.position.pixels < -50) {
         // Trigger the refresh
         _refreshIndicatorKey.currentState?.show();
+      }
+    });
+
+    // Check and show tutorial after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Ensure widget is still mounted
+        _checkAndShowTutorial(context);
       }
     });
   }
@@ -106,6 +117,40 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
         return const _AutoDismissDialogContent();
       },
     );
+  }
+
+  // --- Function to check and show onboarding tutorial ---
+  Future<void> _checkAndShowTutorial(BuildContext context) async {
+    // Check mounted status again inside async function
+    if (!context.mounted) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool hasCompletedTutorial =
+          prefs.getBool(AppConstants.kHasCompletedOnboardingTutorial) ?? false;
+
+      bool isFirstLogin = !hasCompletedTutorial;
+
+      if (isFirstLogin && context.mounted) {
+        // Show Tutorial as a full-screen dialog overlay
+        showGeneralDialog(
+          context: context,
+          barrierDismissible: false, // Prevent dismissing by tapping outside
+          barrierLabel: 'Tutorial',
+          barrierColor: Colors.black.withOpacity(0.5), // Dimmed background
+          transitionDuration: const Duration(milliseconds: 300),
+          pageBuilder: (ctx, anim1, anim2) => const AppTutorialScreen(),
+          transitionBuilder: (ctx, anim1, anim2, child) {
+            // Simple fade transition
+            return FadeTransition(opacity: anim1, child: child);
+          },
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error checking/showing tutorial: $e");
+      }
+    }
   }
 
   @override
@@ -279,6 +324,38 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                     _buildCircleIconButton(
                                       icon: CupertinoIcons.bell_fill,
                                       onTap: () {},
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Help/Tutorial Icon (NEW)
+                                    _buildCircleIconButton(
+                                      icon: CupertinoIcons.question_circle,
+                                      onTap: () {
+                                        // Manually trigger the tutorial screen as a dialog
+                                        showGeneralDialog(
+                                          context: context,
+                                          barrierDismissible: false,
+                                          barrierLabel: 'Tutorial',
+                                          barrierColor: Colors.black
+                                              .withOpacity(0.5),
+                                          transitionDuration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          pageBuilder:
+                                              (ctx, anim1, anim2) =>
+                                                  const AppTutorialScreen(),
+                                          transitionBuilder: (
+                                            ctx,
+                                            anim1,
+                                            anim2,
+                                            child,
+                                          ) {
+                                            return FadeTransition(
+                                              opacity: anim1,
+                                              child: child,
+                                            );
+                                          },
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),

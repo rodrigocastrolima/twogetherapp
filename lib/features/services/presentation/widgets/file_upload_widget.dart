@@ -29,120 +29,131 @@ class FileUploadWidget extends ConsumerWidget {
     // required this.onFileCleared,
   }) : super(key: key);
 
+  // --- Method to trigger file picking logic (handles platform differences) ---
+  void _triggerFilePick(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(serviceSubmissionProvider.notifier);
+    if (kIsWeb) {
+      notifier.pickInvoiceFile();
+    } else {
+      _showMobilePickerOptions(context, ref);
+    }
+  }
+
+  // --- Method to show mobile picker options ---
+  void _showMobilePickerOptions(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final notifier = ref.read(serviceSubmissionProvider.notifier);
+
+    showModalBottomSheet(
+      context: context,
+      // Optional: Customize bottom sheet appearance
+      // backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext bc) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: Text(l10n.fileUploadOptionGallery),
+                onTap: () {
+                  Navigator.of(context).pop(); // Close bottom sheet
+                  notifier.pickInvoiceFile(); // Call gallery/file picker
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: Text(l10n.fileUploadOptionCamera),
+                onTap: () {
+                  Navigator.of(context).pop(); // Close bottom sheet
+                  notifier.pickInvoiceFileFromCamera(); // Call camera picker
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.cancel_outlined),
+                title: Text(l10n.fileUploadOptionCancel),
+                onTap: () => Navigator.of(context).pop(), // Just close
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final notifier = ref.read(serviceSubmissionProvider.notifier);
     final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          // l10n.serviceSubmissionInvoicePhotoLabel, // Replaced with default
-          'Invoice Photo / PDF',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          // l10n.serviceSubmissionInvoicePhotoHint, // Replaced with default
-          'Upload a photo or PDF of the invoice',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-        ),
-        const SizedBox(height: 16),
-        Center(
-          child: Column(
-            children: [
-              if (selectedFile != null && selectedFileName != null) ...[
-                // Ensure selectedFileName is not null before passing
-                _buildFilePreview(context, selectedFile, selectedFileName!, () {
-                  // Call notifier directly to clear the file
-                  notifier.clearInvoiceFile();
-                }),
-                const SizedBox(height: 8),
-                // Optionally display file name below preview
-                // Text(selectedFileName!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ] else ...[
-                // Upload Placeholder
-                Container(
-                  width: 200,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.dividerColor),
-                    borderRadius: BorderRadius.circular(12),
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.cloud_upload_outlined,
-                          size: 40,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: 12),
-                        // Combined Upload Button
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.folder_open, size: 18),
-                          // label: Text(l10n.serviceSubmissionSelectFileButton), // Replaced with default
-                          label: const Text('Select File'),
-                          style: ElevatedButton.styleFrom(
-                            // backgroundColor: theme.colorScheme.secondaryContainer,
-                            // foregroundColor: theme.colorScheme.onSecondaryContainer,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            textStyle: theme.textTheme.labelMedium,
-                          ),
-                          onPressed: () {
-                            // Call the unified picker method
-                            notifier.pickInvoiceFile();
-                          },
-                        ),
-                        // Removed Camera Button - Use gallery picker for now
-                        // const SizedBox(height: 8),
-                        // TextButton.icon(
-                        //   icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                        //   label: const Text('Use Camera'),
-                        //   onPressed: () {
-                        //      // TODO: Implement or remove camera functionality
-                        //      // For now, calls gallery picker
-                        //      notifier.pickInvoiceFile(); // Replaced pickInvoiceFromCamera
-                        //   },
-                        // ),
-                      ],
+        // REMOVED Title Text and SizedBox
+
+        // --- Upload Placeholder OR File Preview ---
+        if (selectedFile == null) ...[
+          // --- Centered Box Placeholder ---
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              decoration: BoxDecoration(
+                border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(12),
+                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () => _triggerFilePick(context, ref),
+                    child: Text(
+                      l10n.fileUploadHint, // Use l10n key
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.hintColor,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  // l10n.serviceSubmissionSelectFileHint, // Replaced with default
-                  'Tap button to upload photo or PDF',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.hintColor,
+                  const SizedBox(height: 20),
+                  // --- Replaced Button with IconButton ---
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    iconSize: 40, // Make icon larger
+                    color: theme.colorScheme.primary, // Use primary color
+                    tooltip:
+                        l10n.fileUploadButtonLabel, // Reuse button label for tooltip
+                    onPressed: () => _triggerFilePick(context, ref),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 16), // Spacing after placeholder box
+        ] else ...[
+          // --- File Preview ---
+          _buildFilePreview(context, ref, selectedFile!, selectedFileName!, () {
+            ref.read(serviceSubmissionProvider.notifier).clearInvoiceFile();
+          }),
+          const SizedBox(height: 16), // Spacing after preview
+        ],
       ],
     );
   }
 
-  // --- File Preview Widget Logic (copied & adapted from ServiceSubmissionPage) ---
+  // --- File Preview Widget Logic (minor changes for l10n) ---
   Widget _buildFilePreview(
     BuildContext context,
+    WidgetRef ref,
     dynamic selectedFile,
-    String fileName, // Made non-nullable based on call site check
+    String fileName,
     VoidCallback onRemovePressed,
   ) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final lowerCaseFileName = fileName.toLowerCase();
     final isImage =
         lowerCaseFileName.endsWith('.jpg') ||
@@ -152,7 +163,7 @@ class FileUploadWidget extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxHeight: 250), // Limit preview height
+      constraints: const BoxConstraints(maxHeight: 250),
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(12),
@@ -161,7 +172,7 @@ class FileUploadWidget extends ConsumerWidget {
         alignment: Alignment.center,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(11), // Inner radius
+            borderRadius: BorderRadius.circular(11),
             child:
                 isImage
                     ? _buildImagePreview(selectedFile)
@@ -171,15 +182,18 @@ class FileUploadWidget extends ConsumerWidget {
           Positioned(
             top: 4,
             right: 4,
-            child: Material(
-              color: Colors.black.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
+            child: Tooltip(
+              message: l10n.fileUploadRemoveTooltip, // Use l10n key
+              child: Material(
+                color: Colors.black.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(12),
-                onTap: onRemovePressed,
-                child: const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Icon(Icons.close, color: Colors.white, size: 18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: onRemovePressed,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
                 ),
               ),
             ),
@@ -230,15 +244,6 @@ class FileUploadWidget extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Removed redundant button - use overlay X button
-            // TextButton.icon(
-            //   icon: Icon(Icons.picture_as_pdf_outlined, size: 18),
-            //   label: const Text("Choose PDF"),
-            //   onPressed: () {
-            //     // Call unified picker method
-            //     ref.read(serviceSubmissionProvider.notifier).pickInvoiceFile(); // Replaced pickPdfFile
-            //   },
-            // ),
           ],
         ),
       ),
@@ -249,10 +254,7 @@ class FileUploadWidget extends ConsumerWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Text(
-          message,
-          style: TextStyle(color: Colors.red[700]),
-        ), // Darker red for visibility
+        child: Text(message, style: TextStyle(color: Colors.red[700])),
       ),
     );
   }

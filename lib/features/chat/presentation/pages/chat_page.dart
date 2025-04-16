@@ -13,7 +13,7 @@ import '../../../../core/theme/theme.dart';
 import '../../domain/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
-import '../pages/image_preview_screen.dart';
+import '../widgets/chat_image_preview_sheet.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -182,8 +182,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } catch (e) {
       // Show error message to user
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sending message: ${e.toString()}')),
+          SnackBar(content: Text(l10n.chatSendMessageError(e.toString()))),
         );
       }
     } finally {
@@ -233,29 +234,45 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       }
 
       if (mounted) {
-        // Show the image preview screen
-        final result = await Navigator.of(context).push(
+        // Show the image preview as a semi-transparent overlay route
+        final result = await Navigator.of(context, rootNavigator: true).push(
           PageRouteBuilder(
-            opaque: true, // Make it opaque to hide underlying UI
+            opaque: false, // Makes the route transparent
             fullscreenDialog: true,
-            transitionDuration: const Duration(milliseconds: 200),
+            transitionDuration: const Duration(
+              milliseconds: 200,
+            ), // Match old duration
             pageBuilder:
-                (context, animation, secondaryAnimation) => ImagePreviewScreen(
-                  imageFile: pickedImage,
-                  conversationId: widget.conversationId,
-                ),
+                (context, animation, secondaryAnimation) =>
+                    ChatImagePreviewSheet(
+                      imageFile: pickedImage,
+                      conversationId: widget.conversationId,
+                    ),
             transitionsBuilder: (
               context,
               animation,
               secondaryAnimation,
               child,
             ) {
+              // Simple Fade transition
               return FadeTransition(opacity: animation, child: child);
             },
           ),
         );
 
-        // If the image was sent successfully, mark conversation as read
+        /* // REMOVE Old showModalBottomSheet logic
+        final result = await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true, // Allows sheet to be taller
+          backgroundColor: Colors.transparent, // Make background transparent
+          builder: (sheetContext) => ChatImagePreviewSheet(
+             imageFile: pickedImage,
+             conversationId: widget.conversationId,
+          ),
+        );
+        */
+
+        // If the image was sent successfully (result is true), mark as read & scroll
         if (result == true) {
           ref
               .read(chatNotifierProvider.notifier)
@@ -268,9 +285,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         print(stackTrace);
       }
       if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error selecting image: ${e.toString()}'),
+            content: Text(l10n.chatSelectImageError(e.toString())),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -332,7 +350,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       child: Text(
                         (widget.title?.isNotEmpty == true)
                             ? widget.title![0].toUpperCase()
-                            : 'S',
+                            : 'S', // Fallback initial
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -417,7 +435,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            "No messages yet",
+                            l10n.chatAdminEmptyState, // Use l10n
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey.withOpacity(0.8),
@@ -454,8 +472,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          // Use a fallback to avoid linter errors until the l10n files are generated
-                          'Loading messages...',
+                          l10n.chatLoadingMessages, // Use l10n
                           style: TextStyle(
                             color: theme.colorScheme.onBackground.withOpacity(
                               0.7,
@@ -489,8 +506,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          // Use a fallback to avoid linter errors until the l10n files are generated
-                          'Error loading messages',
+                          l10n.chatErrorLoading, // Use l10n
                           style: TextStyle(
                             color: theme.colorScheme.error,
                             fontWeight: FontWeight.bold,
@@ -501,8 +517,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           child: Text(
                             kDebugMode
                                 ? error.toString()
-                                // Use a fallback to avoid linter errors until the l10n files are generated
-                                : 'Please try again later',
+                                : l10n.chatErrorGenericRetry, // Use l10n
                             style: TextStyle(
                               color: theme.colorScheme.onBackground.withOpacity(
                                 0.6,
@@ -533,8 +548,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             backgroundColor: theme.colorScheme.primary,
                             foregroundColor: theme.colorScheme.onPrimary,
                           ),
-                          // Use a fallback to avoid linter errors until the l10n files are generated
-                          child: Text('Retry'),
+                          child: Text(l10n.chatRetry), // Use l10n
                         ),
                       ],
                     ),
@@ -636,7 +650,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } else if (isFromAdmin) {
       senderName = l10n.chatSupportName;
     } else {
-      senderName = message.senderName ?? 'User';
+      senderName =
+          message.senderName ?? l10n.chatDefaultSenderName; // Use l10n fallback
     }
 
     // Set bubble colors based on sender and theme
@@ -674,7 +689,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       ? theme.colorScheme.primary.withOpacity(0.2)
                       : theme.colorScheme.secondary.withOpacity(0.2),
               child: Text(
-                senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                senderName.isNotEmpty
+                    ? senderName[0].toUpperCase()
+                    : '?', // Fallback
                 style: TextStyle(
                   color:
                       isFromAdmin
@@ -738,6 +755,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Color textColor,
   ) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     if (message.isImage) {
       // Debug logging for image messages

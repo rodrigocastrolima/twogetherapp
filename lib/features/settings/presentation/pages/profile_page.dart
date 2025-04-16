@@ -153,50 +153,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  void _showCommissionDetails() {
-    // This would typically fetch commission data from Firestore
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Detalhes de Comissão'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCommissionItem('Comissão total:', 'R\$ 1.250,00'),
-                  _buildCommissionItem('Último mês:', 'R\$ 350,00'),
-                  _buildCommissionItem('Pendente:', 'R\$ 120,00'),
-                  _buildCommissionItem('Pedidos convertidos:', '12'),
-                  _buildCommissionItem('Taxa de comissão:', '10%'),
-                ],
-              ),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fechar'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Widget _buildCommissionItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -400,14 +356,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             child: _buildProfileSection('Ações', [
               _buildActionItem(
                 'Comissões',
-                'Visualizar detalhes de comissões e ganhos',
                 icon: Icons.monetization_on_outlined,
-                onTap: _showCommissionDetails,
+                onTap: () => context.push('/dashboard'),
                 theme: theme,
               ),
               _buildActionItem(
                 'Alterar Senha',
-                'Enviar email para redefinição de senha',
                 icon: Icons.lock_outline,
                 onTap: _showPasswordChangeDialog,
                 theme: theme,
@@ -422,62 +376,63 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Widget _buildActionItem(
-    String title,
-    String description, {
+    String title, {
     required IconData icon,
     required VoidCallback onTap,
     required ThemeData theme,
   }) {
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final onSurfaceColor = theme.colorScheme.onSurface;
+    // Use a slightly less prominent background for actions
+    final bgColor =
+        isDark
+            ? AppTheme.darkSecondary.withAlpha(100)
+            : AppTheme.secondary.withAlpha(150);
+    final borderColor =
+        isDark
+            ? AppTheme.darkBorder.withAlpha(100)
+            : AppTheme.border.withAlpha(100);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          filter: AppStyles.standardBlur, // Keep blur if desired
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ), // Adjusted padding
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: theme.colorScheme.primary.withOpacity(0.2),
-                ),
+                  color: borderColor,
+                ), // Use theme border color
               ),
               child: Row(
                 children: [
-                  Icon(icon, color: theme.colorScheme.primary, size: 22),
+                  Icon(icon, color: primaryColor, size: 22),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          description,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.colorScheme.onBackground.withOpacity(
-                              0.6,
-                            ),
-                          ),
-                        ),
-                      ],
+                    // Removed Column, just show title
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: onSurfaceColor, // Use standard text color
+                      ),
                     ),
                   ),
+                  // Keep chevron for visual cue
                   Icon(
                     Icons.chevron_right,
-                    color: theme.colorScheme.primary.withOpacity(0.7),
+                    color: onSurfaceColor.withAlpha(128),
                     size: 20,
                   ),
                 ],

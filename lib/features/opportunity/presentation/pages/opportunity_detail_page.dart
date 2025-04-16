@@ -6,7 +6,9 @@ import 'package:url_launcher/url_launcher.dart'; // Needed for invoice link
 import 'package:flutter/foundation.dart'; // For kDebugMode
 import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
 import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
-import '../../../../../core/models/service_submission.dart'; // Adjust path if needed
+import 'package:twogether/core/models/service_submission.dart'; // Using package path
+import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
+import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
@@ -925,7 +927,7 @@ class _OpportunityDetailFormViewState
                     ),
                     const SizedBox(height: 16),
 
-                    // --- Invoice --- Updated with Preview
+                    // --- Invoice --- Updated with Preview & Tap Action
                     const Divider(height: 32),
                     Text(
                       'Invoice',
@@ -975,26 +977,38 @@ class _OpportunityDetailFormViewState
                           );
                         }
 
-                        // --- Display based on Content Type ---
+                        // --- Display Image Preview (Tappable) ---
                         final contentType =
                             invoicePhoto.contentType.toLowerCase();
                         final fileName = invoicePhoto.fileName;
 
                         if (contentType.startsWith('image/')) {
-                          // Display Image Preview
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Preview:',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 8),
                               GestureDetector(
-                                onTap: () => _launchUrl(downloadUrl),
+                                onTap: () {
+                                  // Navigate to full-screen viewer on tap, using ROOT navigator
+                                  Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).push(
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => FullScreenImageViewer(
+                                            imageUrl: downloadUrl,
+                                            imageName:
+                                                fileName, // Pass name for context
+                                          ),
+                                      fullscreenDialog:
+                                          true, // Treat as a fullscreen dialog
+                                    ),
+                                  );
+                                },
                                 child: ConstrainedBox(
                                   constraints: const BoxConstraints(
-                                    maxHeight: 250, // Limit preview height
+                                    maxHeight:
+                                        200, // Keep preview height reasonable
                                     maxWidth: double.infinity,
                                   ),
                                   child: ClipRRect(
@@ -1003,8 +1017,8 @@ class _OpportunityDetailFormViewState
                                       downloadUrl,
                                       fit:
                                           BoxFit
-                                              .contain, // Fit within constraints
-                                      // Add loading/error builders for the image itself
+                                              .cover, // Cover for preview looks better
+                                      // Add loading/error builders for the preview image itself
                                       loadingBuilder: (
                                         context,
                                         child,
@@ -1041,9 +1055,7 @@ class _OpportunityDetailFormViewState
                                                 size: 40,
                                               ),
                                               SizedBox(height: 8),
-                                              Text(
-                                                'Could not load image preview.',
-                                              ),
+                                              Text('Preview not available.'),
                                             ],
                                           ),
                                         );
@@ -1052,20 +1064,28 @@ class _OpportunityDetailFormViewState
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              TextButton.icon(
-                                icon: const Icon(Icons.open_in_new),
-                                label: Text('Open Image: $fileName'),
-                                onPressed: () => _launchUrl(downloadUrl),
-                              ),
                             ],
                           );
                         } else if (contentType == 'application/pdf') {
-                          // Display PDF Icon and Link
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          return GestureDetector(
+                            onTap: () {
+                              // Navigate to full-screen PDF viewer on tap, using ROOT navigator
+                              Navigator.of(context, rootNavigator: true).push(
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => FullScreenPdfViewer(
+                                        pdfUrl: downloadUrl,
+                                        pdfName: fileName,
+                                      ),
+                                  fullscreenDialog: true,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
+                              child: Row(
                                 children: [
                                   Icon(
                                     Icons.picture_as_pdf,
@@ -1081,15 +1101,17 @@ class _OpportunityDetailFormViewState
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    // Add a visual cue for tapping
+                                    Icons.open_in_new,
+                                    size: 18,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              TextButton.icon(
-                                icon: const Icon(Icons.download_for_offline),
-                                label: const Text('Download/View PDF'),
-                                onPressed: () => _launchUrl(downloadUrl),
-                              ),
-                            ],
+                            ),
                           );
                         } else {
                           // Fallback for other types

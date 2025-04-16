@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/constants.dart'; // Import the constants file
 
 // Theme mode provider and notifier to manage app theme state
 final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
@@ -15,7 +16,7 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
   // Load saved theme preference
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+    final isDarkMode = prefs.getBool(AppConstants.themePreferenceKey) ?? false;
     state = isDarkMode ? ThemeMode.dark : ThemeMode.light;
   }
 
@@ -27,7 +28,10 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
     // Save theme preference
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_dark_mode', newState == ThemeMode.dark);
+    await prefs.setBool(
+      AppConstants.themePreferenceKey,
+      newState == ThemeMode.dark,
+    );
   }
 
   // Set theme to a specific value
@@ -36,7 +40,10 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
     // Save theme preference
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_dark_mode', themeMode == ThemeMode.dark);
+    await prefs.setBool(
+      AppConstants.themePreferenceKey,
+      themeMode == ThemeMode.dark,
+    );
   }
 
   // Check if current theme is dark

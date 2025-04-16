@@ -139,6 +139,43 @@ class ServiceSubmissionRepository {
     }
   }
 
+  // --- ADD: Pick Image from Camera ---
+  Future<Map<String, dynamic>?> pickImageFromCameraAndGetName() async {
+    // Camera is not supported on web
+    if (kIsWeb) {
+      throw UnsupportedError(
+        "Camera access is not supported on the web platform.",
+      );
+    }
+
+    try {
+      if (kDebugMode) {
+        print('Opening camera');
+      }
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        // Optionally set image quality, max width/height if needed
+        // imageQuality: 80,
+        // maxWidth: 1024,
+      );
+
+      if (pickedFile != null) {
+        final fileName = path.basename(pickedFile.path);
+        final fileData = File(pickedFile.path); // File object for mobile
+
+        return {'fileData': fileData, 'fileName': fileName};
+      } else {
+        // User cancelled camera
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Error picking image from camera: $e");
+      throw Exception(
+        "Error picking image from camera: $e",
+      ); // Re-throw to be caught by notifier
+    }
+  }
+
   // --- NEW: Firebase Upload Function from Guide ---
   Future<String> uploadFileToFirebase(
     dynamic fileData,
@@ -251,10 +288,10 @@ class ServiceSubmissionRepository {
           'Client'; // Assuming responsibleName is client name
 
       await _submissionsCollection.doc(submissionId).update({
-            'status': newStatus,
+        'status': newStatus,
         // Optionally add a timestamp for status update
         // 'statusUpdatedAt': FieldValue.serverTimestamp(),
-          });
+      });
 
       // Create notification for the reseller
       if (resellerId.isNotEmpty && oldStatus != newStatus) {
@@ -371,13 +408,13 @@ class ServiceSubmissionRepository {
             : '';
     String contentType = 'application/octet-stream'; // Default
     if (extension == 'pdf') {
-            contentType = 'application/pdf';
+      contentType = 'application/pdf';
     } else if (['jpg', 'jpeg'].contains(extension)) {
-            contentType = 'image/jpeg';
+      contentType = 'image/jpeg';
     } else if (extension == 'png') {
-            contentType = 'image/png';
+      contentType = 'image/png';
     } else if (extension == 'heic') {
-            contentType = 'image/heic';
+      contentType = 'image/heic';
     }
 
     // 4. Create the invoice photo metadata

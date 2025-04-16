@@ -26,6 +26,8 @@ import '../../features/opportunity/presentation/pages/opportunity_verification_p
     as admin_pages;
 import '../../core/services/salesforce_auth_service.dart';
 import '../../features/settings/presentation/pages/profile_page.dart';
+import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
+import '../../core/models/enums.dart';
 
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
@@ -287,6 +289,28 @@ class AuthNotifier extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         print('Error checking admin status: $e');
+      }
+      return false;
+    }
+  }
+
+  // Request password reset email
+  Future<bool> requestPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      if (kDebugMode) {
+        print('Password reset email sent successfully to: $email');
+      }
+      return true;
+    } on FirebaseAuthException catch (e) {
+      if (kDebugMode) {
+        print('Error sending password reset email: ${e.code} - ${e.message}');
+      }
+      // Could return specific error codes/messages if needed
+      return false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Generic error sending password reset email: $e');
       }
       return false;
     }
@@ -650,6 +674,32 @@ class AppRouter {
           // Placeholder:
           return MaterialPage(
             child: ServicesPage(preFilledData: {'resubmissionId': id}),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/stats-detail',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          // Extract data from 'extra'
+          final Map<String, dynamic>? args =
+              state.extra as Map<String, dynamic>?;
+          // final ChartType? chartType = args?['chartType'] as ChartType?; // REMOVE ChartType
+          final TimeFilter? timeFilter = args?['timeFilter'] as TimeFilter?;
+
+          // Basic validation
+          if ( /* chartType == null || */ timeFilter == null) {
+            // REMOVE ChartType check
+            return const MaterialPage(
+              child: Scaffold(body: Center(child: Text("Missing chart data"))),
+            );
+          }
+
+          return MaterialPage(
+            child: AdminStatsDetailPage(
+              // chartType: chartType, // REMOVE ChartType
+              timeFilter: timeFilter,
+            ),
           );
         },
       ),

@@ -197,7 +197,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         // Navigate back immediately
         if (context.canPop()) {
           context.pop();
-        } else {
+      } else {
           context.go('/'); // Navigate to home/root
         }
       } else if (!success && mounted) {
@@ -214,16 +214,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
+      setState(() {
+        _isSubmitting = false;
+      });
       }
     }
   }
 
   void handleBackPress() {
     if (currentStep > 0) {
-      setState(() {
+    setState(() {
         currentStep--;
         // Clear local selections for the step we are going back to
         switch (currentStep) {
@@ -273,6 +273,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final destructiveColor =
+        isDark ? AppTheme.darkDestructive : AppTheme.destructive;
+    final primaryForeground =
+        isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground;
+
     // Watch for error messages from the provider
     ref.listen<ServiceSubmissionState>(serviceSubmissionProvider, (
       previous,
@@ -304,7 +313,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.chevron_left),
+          icon: Icon(CupertinoIcons.chevron_left, color: foregroundColor),
           onPressed: handleBackPress, // Use unified back handler
         ),
         // Remove title conditionally based on step?
@@ -312,11 +321,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         centerTitle: true,
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           // Only show step indicator after step 0
-          if (currentStep > 0) _buildStepIndicator(),
-          Expanded(child: _buildCurrentStep()),
+        if (currentStep > 0) _buildStepIndicator(),
+        Expanded(child: _buildCurrentStep()),
         ],
       ),
     );
@@ -325,6 +334,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   // --- UI Builder Methods --- //
 
   Widget _buildStepIndicator() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
+    final inactiveColor = isDark ? AppTheme.darkMuted : Colors.grey[300];
+    final textColor = isDark ? AppTheme.darkPrimaryForeground : Colors.white;
+    final inactiveTextColor =
+        isDark ? AppTheme.darkMutedForeground : Colors.grey[600];
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppConstants.spacing16),
       child: Center(
@@ -343,15 +359,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               Widget circleWidget = Container(
                 width: 30, // Revert to fixed size
                 height: 30, // Revert to fixed size
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isActive ? AppTheme.primary : Colors.grey[300],
-                ),
-                child: Center(
-                  child: Text(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+                  color: isActive ? primaryColor : inactiveColor,
+      ),
+      child: Center(
+        child: Text(
                     '$stepNumber',
-                    style: TextStyle(
-                      color: isActive ? Colors.white : Colors.grey[600],
+          style: TextStyle(
+                      color: isActive ? textColor : inactiveTextColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -379,7 +395,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 margin: const EdgeInsets.symmetric(horizontal: 8),
                 // Use rounded corners for a softer look
                 decoration: BoxDecoration(
-                  color: isActive ? AppTheme.primary : Colors.grey[300],
+                  color: isActive ? primaryColor : inactiveColor,
                   borderRadius: BorderRadius.circular(1),
                 ),
               );
@@ -395,7 +411,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       case 0:
         return _buildServiceCategoryStep();
       case 1:
-        return _buildEnergyTypeStep();
+          return _buildEnergyTypeStep();
       case 2:
         return _buildClientTypeStep();
       case 3:
@@ -527,16 +543,23 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildFormStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final destructiveColor =
+        isDark ? AppTheme.darkDestructive : AppTheme.destructive;
+    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
+    final primaryForeground =
+        isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground;
+
     // Get the notifier reference here for use in onChanged
     final notifier = ref.read(serviceSubmissionProvider.notifier);
 
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+              padding: const EdgeInsets.all(AppConstants.spacing16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
             Text('Dados do Cliente', style: AppTextStyles.h2),
             const SizedBox(height: AppConstants.spacing24),
             if (_selectedClientType == ClientType.commercial) ...[
@@ -602,9 +625,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
             if (_errorMessage != null) ...[
               const SizedBox(height: AppConstants.spacing16),
-              Text(
+                        Text(
                 _errorMessage!,
-                style: TextStyle(color: AppTheme.destructive, fontSize: 14),
+                style: TextStyle(color: destructiveColor, fontSize: 14),
               ),
             ],
 
@@ -618,8 +641,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                         ? _handleSubmit
                         : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: Colors.white,
+                  backgroundColor: primaryColor,
+                  foregroundColor: primaryForeground,
                   padding: const EdgeInsets.symmetric(
                     vertical: AppConstants.spacing16,
                   ),
@@ -629,11 +652,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ),
                 child:
                     _isSubmitting
-                        ? const SizedBox(
+                        ? SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: primaryForeground,
                             strokeWidth: 2,
                           ),
                         )
@@ -652,6 +675,17 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final mutedColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
+    final bgColor =
+        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
+    final borderColor =
+        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppConstants.spacing16),
       child: ClipRRect(
@@ -665,9 +699,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               child: Container(
                 padding: const EdgeInsets.all(AppConstants.spacing16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(26),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withAlpha(51)),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Row(
                   children: [
@@ -677,16 +711,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                       decoration: BoxDecoration(
                         color:
                             isDisabled
-                                ? Colors.white.withAlpha(13)
-                                : AppTheme.primary.withAlpha(38),
+                                ? (isDark
+                                    ? Colors.white.withAlpha(8)
+                                    : Colors.white.withAlpha(13))
+                                : primaryColor.withAlpha(38),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         icon,
-                        color:
-                            isDisabled
-                                ? AppTheme.mutedForeground
-                                : AppTheme.primary,
+                        color: isDisabled ? mutedColor : primaryColor,
                         size: 24,
                       ),
                     ),
@@ -697,17 +730,14 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w500,
-                          color:
-                              isDisabled
-                                  ? AppTheme.mutedForeground
-                                  : AppTheme.foreground,
+                          color: isDisabled ? mutedColor : foregroundColor,
                         ),
                       ),
                     ),
                     if (!isDisabled)
                       Icon(
                         Icons.chevron_right,
-                        color: AppTheme.foreground.withAlpha(128),
+                        color: foregroundColor.withAlpha(128),
                         size: 20,
                       ),
                   ],
@@ -726,6 +756,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required String imagePath,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final mutedColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final bgColor =
+        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
+    final borderColor =
+        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
@@ -736,43 +776,43 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             onTap: onTap,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(AppConstants.spacing16),
+      padding: const EdgeInsets.all(AppConstants.spacing16),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(26),
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(51)),
+                border: Border.all(color: borderColor),
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                         Text(
                           title,
                           style: AppTextStyles.body1.copyWith(
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.foreground,
+                            color: foregroundColor,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
                           style: AppTextStyles.body2.copyWith(
-                            color: AppTheme.mutedForeground,
+                            color: mutedColor,
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: AppConstants.spacing16),
-                  SizedBox(
+          SizedBox(
                     width: 80,
                     child: Image.asset(imagePath, fit: BoxFit.contain),
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: AppTheme.foreground.withAlpha(128),
+                    color: foregroundColor.withAlpha(128),
                     size: 20,
                   ),
                 ],
@@ -791,6 +831,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     TextInputType? keyboardType,
     void Function(String)? onChanged, // Added onChanged parameter
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final mutedColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final bgColor =
+        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
+    final borderColor =
+        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -799,7 +849,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppTheme.foreground,
+            color: foregroundColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -809,9 +859,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(26),
+                color: bgColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(51)),
+                border: Border.all(color: borderColor),
               ),
               child: TextField(
                 controller: controller,
@@ -819,7 +869,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 onChanged: onChanged, // Use the passed onChanged callback
                 decoration: InputDecoration(
                   hintText: hint,
-                  hintStyle: TextStyle(color: AppTheme.mutedForeground),
+                  hintStyle: TextStyle(color: mutedColor),
                   filled: false,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -829,7 +879,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                 ),
-                style: TextStyle(color: AppTheme.foreground),
+                style: TextStyle(color: foregroundColor),
               ),
             ),
           ),

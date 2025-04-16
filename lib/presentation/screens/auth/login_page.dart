@@ -19,6 +19,9 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isForgotPasswordMode = false;
+  bool _isSendingRecovery = false;
+  bool _recoveryEmailSent = false;
 
   void _handleLogin() async {
     try {
@@ -54,6 +57,89 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           SnackBar(content: Text('Login failed: ${e.toString()}')),
         );
       }
+    }
+  }
+
+  void _sendRecoveryEmail() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter your email address.'),
+        ), // TODO: l10n
+      );
+      return;
+    }
+
+    setState(() {
+      _isSendingRecovery = true;
+      _recoveryEmailSent =
+          false; // Ensure success message isn't shown during send
+    });
+
+    try {
+      final authNotifier = AppRouter.authNotifier;
+      final success = await authNotifier.requestPasswordReset(email);
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Password reset email sent to $email. Check your inbox.',
+              ), // TODO: l10n
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Set state to show success message
+          setState(() {
+            _recoveryEmailSent = true;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to send reset email. Check the email address or try again later.',
+              ), // TODO: l10n
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'An unexpected error occurred: ${e.toString()}',
+            ), // TODO: l10n
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingRecovery = false;
+        });
+      }
+    }
+  }
+
+  void _switchToLoginMode() {
+    if (mounted) {
+      setState(() {
+        _isForgotPasswordMode = false;
+        _recoveryEmailSent = false;
+      });
+    }
+  }
+
+  void _switchToForgotPasswordMode() {
+    if (mounted) {
+      setState(() {
+        _isForgotPasswordMode = true;
+        _recoveryEmailSent = false;
+      });
     }
   }
 
@@ -104,7 +190,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: isSmallScreen ? size.width * 0.8 : 400,
-                      minHeight: isSmallScreen ? 0.0 : 520,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -113,6 +198,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       children: [
                         // Form Container
                         Container(
+                          width: double.infinity,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -124,13 +210,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                             ],
                           ),
-                          constraints: BoxConstraints(
-                            maxWidth: isSmallScreen ? size.width * 0.7 : 340,
-                          ),
                           child: Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: isSmallScreen ? 18 : 24,
-                              vertical: isSmallScreen ? 16 : 24,
+                              vertical: isSmallScreen ? 24 : 32,
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -150,151 +233,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                SizedBox(height: isSmallScreen ? 24 : 32),
 
-                                // Email field
-                                Theme(
-                                  data: Theme.of(context).copyWith(
-                                    inputDecorationTheme: InputDecorationTheme(
-                                      filled: true,
-                                      fillColor: const Color(0xFFF7F7F7),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 12,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outlineVariant
-                                              .withOpacity(0.4),
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(
-                                          color: AppTheme.primary,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  child: TextField(
-                                    controller: _emailController,
-                                    decoration: InputDecoration(
-                                      hintText: l10n.loginUsername,
-                                      hintStyle: TextStyle(
-                                        color: Colors.black45,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                      prefixIcon: Icon(
-                                        Icons.email_outlined,
-                                        color: Colors.black45,
-                                        size: 17,
-                                      ),
-                                      isDense: true,
-                                    ),
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 13,
-                                    ),
-                                    keyboardType: TextInputType.emailAddress,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-
-                                // Password field
-                                Theme(
-                                  data: Theme.of(context).copyWith(
-                                    inputDecorationTheme: InputDecorationTheme(
-                                      filled: true,
-                                      fillColor: const Color(0xFFF7F7F7),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 12,
-                                      ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outlineVariant
-                                              .withOpacity(0.4),
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(
-                                          color: AppTheme.primary,
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  child: TextField(
-                                    controller: _passwordController,
-                                    decoration: InputDecoration(
-                                      hintText: l10n.loginPassword,
-                                      hintStyle: TextStyle(
-                                        color: Colors.black45,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                      prefixIcon: Icon(
-                                        Icons.lock_outline,
-                                        color: Colors.black45,
-                                        size: 17,
-                                      ),
-                                      isDense: true,
-                                    ),
-                                    style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 13,
-                                    ),
-                                    obscureText: true,
-                                    textInputAction: TextInputAction.done,
-                                    onSubmitted: (_) => _handleLogin(),
-                                  ),
-                                ),
-                                SizedBox(height: isSmallScreen ? 26 : 34),
-
-                                // Login button
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 38,
-                                  child: FilledButton(
-                                    onPressed: _handleLogin,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppTheme.primary,
-                                      foregroundColor:
-                                          AppTheme.primaryForeground,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      l10n.loginButton,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                // --- Conditional Content ---
+                                if (!_isForgotPasswordMode)
+                                  // --- Login Mode ---
+                                  _buildLoginForm(context, l10n)
+                                else if (_isForgotPasswordMode &&
+                                    !_recoveryEmailSent)
+                                  // --- Forgot Password Mode ---
+                                  _buildForgotPasswordForm(context, l10n)
+                                else // isForgotPasswordMode && recoveryEmailSent
+                                  // --- Success Message ---
+                                  _buildSuccessMessage(context, l10n),
                               ],
+                            ),
+                          ),
+                        ),
+                        // --- Links Below Form ---
+                        Visibility(
+                          visible: !_isForgotPasswordMode,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 24.0),
+                            child: TextButton(
+                              onPressed: _switchToForgotPasswordMode,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.primary,
+                                textStyle: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              child: Text(l10n.loginForgotPassword),
+                            ),
+                          ),
+                        ),
+                        Visibility(
+                          visible: _isForgotPasswordMode,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 24.0),
+                            child: TextButton(
+                              onPressed: _switchToLoginMode,
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppTheme.primary,
+                                textStyle: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              child: Text(l10n.forgotPasswordBackButton),
                             ),
                           ),
                         ),
@@ -304,6 +291,242 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Helper Widgets for Form States ---
+
+  Widget _buildLoginForm(BuildContext context, AppLocalizations l10n) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF7F7F7),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withOpacity(0.4),
+                  width: 1.0,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppTheme.primary, width: 1),
+              ),
+            ),
+          ),
+          child: TextField(
+            controller: _emailController,
+            decoration: InputDecoration(
+              hintText: l10n.loginUsername,
+              hintStyle: TextStyle(
+                color: Colors.black45,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: Icon(
+                Icons.email_outlined,
+                color: Colors.black45,
+                size: 17,
+              ),
+              isDense: true,
+            ),
+            style: TextStyle(color: Colors.black87, fontSize: 13),
+            keyboardType: TextInputType.emailAddress,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF7F7F7),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant.withAlpha(
+                    (0.4 * 255).round(),
+                  ), // Use withAlpha
+                  width: 1.0,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppTheme.primary, width: 1),
+              ),
+            ),
+          ),
+          child: TextField(
+            controller: _passwordController,
+            decoration: InputDecoration(
+              hintText: l10n.loginPassword,
+              hintStyle: TextStyle(
+                color: Colors.black45,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: Icon(
+                Icons.lock_outline,
+                color: Colors.black45,
+                size: 17,
+              ),
+              isDense: true,
+            ),
+            style: TextStyle(color: Colors.black87, fontSize: 13),
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _handleLogin(),
+          ),
+        ),
+        const SizedBox(height: 40),
+        SizedBox(
+          width: double.infinity,
+          height: 38,
+          child: FilledButton(
+            onPressed: _handleLogin,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: AppTheme.primaryForeground,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              l10n.loginButton,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForgotPasswordForm(BuildContext context, AppLocalizations l10n) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF7F7F7),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outlineVariant.withOpacity(0.4),
+                  width: 1.0,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AppTheme.primary, width: 1),
+              ),
+            ),
+          ),
+          child: TextField(
+            controller: _emailController,
+            decoration: InputDecoration(
+              hintText: l10n.loginUsername,
+              hintStyle: TextStyle(
+                color: Colors.black45,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: Icon(
+                Icons.email_outlined,
+                color: Colors.black45,
+                size: 17,
+              ),
+              isDense: true,
+            ),
+            style: TextStyle(color: Colors.black87, fontSize: 13),
+            keyboardType: TextInputType.emailAddress,
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          height: 38,
+          child: FilledButton(
+            onPressed: _isSendingRecovery ? null : _sendRecoveryEmail,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: AppTheme.primaryForeground,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child:
+                _isSendingRecovery
+                    ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryForeground,
+                      ),
+                    )
+                    : Text(
+                      l10n.forgotPasswordRecoverButton,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuccessMessage(BuildContext context, AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            l10n.forgotPasswordSuccessMessage,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),

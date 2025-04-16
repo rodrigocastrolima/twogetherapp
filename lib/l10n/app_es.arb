@@ -77,6 +77,26 @@
     "chatRetry": "Reintentar",
     "chatWelcomeTitle": "Bienvenido a Soporte",
     "chatWelcomeMessage": "Conéctate directamente con nuestro equipo de soporte para recibir asistencia personalizada con tu cuenta, servicios y cualquier pregunta que puedas tener.",
+    "chatSendMessageError": "Error al enviar mensaje: {error}",
+    "@chatSendMessageError": {
+        "description": "Mensaje de error al fallar el envío de un mensaje de chat",
+        "placeholders": {
+            "error": {
+                "type": "String",
+                "example": "Network timeout"
+            }
+        }
+    },
+    "chatSelectImageError": "Error al seleccionar imagen: {error}",
+    "@chatSelectImageError": {
+        "description": "Mensaje de error al fallar la selección de una imagen para el chat",
+        "placeholders": {
+            "error": {
+                "type": "String",
+                "example": "Permission denied"
+            }
+        }
+    },
     
     "@_SERVICES": {},
     "servicesTitle": "Servicios",
@@ -220,5 +240,76 @@
     "navReports": "Informes",
     "navOpportunities": "Oportunidades",
     "navSubmissions": "Envíos",
-    "navResellers": "Revendedores"
+    "navResellers": "Revendedores",
+
+    "dashboardSubmissionApprovalRate": "Tasa de Aprobación",
+    "@dashboardSubmissionApprovalRate": {
+        "description": "Etiqueta para la tasa de aprobación de envíos"
+    },
+
+    "@_FILE_UPLOAD": {},
+    "fileUploadTitleInvoice": "Factura",
+    "@fileUploadTitleInvoice": {
+        "description": "Título de la sección de carga de archivos específicamente para facturas"
+    },
+    "fileUploadHint": "Cargue una foto o PDF de la factura",
+    "@fileUploadHint": {
+        "description": "Texto de ayuda que indica al usuario qué cargar"
+    },
+    "fileUploadButtonLabel": "Cargar Factura",
+    "@fileUploadButtonLabel": {
+        "description": "Etiqueta del botón único para iniciar la carga de la factura"
+    },
+    "fileUploadOptionGallery": "Elegir de Galería/Archivos",
+    "@fileUploadOptionGallery": {
+        "description": "Etiqueta de la opción para seleccionar un archivo de la galería o sistema de archivos del dispositivo"
+    },
+    "fileUploadOptionCamera": "Usar Cámara",
+    "@fileUploadOptionCamera": {
+        "description": "Etiqueta de la opción para tomar una nueva foto usando la cámara"
+    },
+    "fileUploadOptionCancel": "Cancelar",
+    "@fileUploadOptionCancel": {
+        "description": "Etiqueta de la acción de cancelar en las opciones de carga de archivo"
+    },
+    "fileUploadRemoveTooltip": "Eliminar Archivo",
+    "@fileUploadRemoveTooltip": {
+        "description": "Tooltip del botón para eliminar el archivo actualmente seleccionado"
+    },
+
+    "@_CHAT_PAGE": {},
+    "chatAdminEmptyState": "Sin mensajes todavía",
+    "chatErrorGenericRetry": "Por favor, inténtelo de nuevo más tarde",
+    "chatDefaultSenderName": "Usuario",
+    "chatImageLoadError": "Error al cargar la imagen",
+    "chatImageNotAvailable": "Imagen no disponible",
+    "chatImageLoadFailed": "Error al cargar la imagen",
+    "chatImageRetryLabel": "Toca para reintentar {count}/{maxRetries}",
+    "@chatImageRetryLabel": { 
+        "placeholders": { 
+            "count": {
+                "type": "int",
+                "example": "1"
+            }, 
+            "maxRetries": {
+                "type": "int",
+                "example": "3"
+            } 
+        }
+    },
+    "chatImageCannotDisplay": "No se puede mostrar la imagen",
+    "chatImageOpenInBrowser": "Toca para abrir en el navegador",
+    "chatInputHintAdmin": "Mensaje",
+    "chatDebugDialogTitle": "Info Depuración Carga Imagen",
+    "chatDebugDialogUrlLabel": "URL:",
+    "chatDebugDialogTestsLabel": "Pruebas:",
+    "chatDebugDialogRunUrlTestButton": "Ejecutar Pruebas de URL",
+    "chatDebugDialogImageUrlInfoButton": "Info URL Imagen",
+    "chatDebugDialogCloseButton": "Cerrar",
+    "chatDebugDialogFirebaseTitle": "Problema URL Firebase Storage",
+    "chatDebugDialogFirebaseContent": "Las URLs de Firebase Storage a menudo tienen problemas de CORS en navegadores web que impiden la carga directa.",
+    "chatDebugDialogFirebaseSolutionsTitle": "Posibles soluciones:",
+    "chatDebugDialogFirebaseSolution1": "1. Configurar ajustes CORS de Firebase Storage",
+    "chatDebugDialogFirebaseSolution2": "2. Usar un servidor proxy para evitar CORS",
+    "chatDebugDialogFirebaseSolution3": "3. Cambiar a usar un CachedNetworkImageProvider"
 } 

@@ -78,8 +78,14 @@ dependencies:
   file_picker: ^8.0.0
   # -------------------------------
 
+  # --- Added for Sharing ---
+  share_plus: ^9.0.0 # Or latest version
+
   path_provider: ^2.1.3
   path: ^1.9.0 # Explicitly add path package
+
+  # Added for introduction_screen
+  introduction_screen: ^3.1.14
 
 dev_dependencies:
   flutter_test:
@@ -118,6 +124,7 @@ flutter:
     - assets/images/backgrounds/homepage.png
     - assets/documents/proposta_exemplo.pdf
     - assets/documents/contrato_exemplo.pdf
+    - assets/images/tutorial/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

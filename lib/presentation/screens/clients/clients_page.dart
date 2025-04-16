@@ -42,6 +42,8 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     // Replace userSubmissionsProvider with filteredOpportunitiesProvider
     final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
 
@@ -55,7 +57,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
             // Header area with search - simplified and Apple-like
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: _buildSearchBar(),
+              child: _buildSearchBar(context),
             ),
 
             // Opportunities list
@@ -68,7 +70,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                   );
 
                   if (filteredOpportunities.isEmpty) {
-                    return _buildEmptyState();
+                    return _buildEmptyState(context);
                   }
 
                   return ListView.separated(
@@ -78,23 +80,37 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                         (context, index) => Container(
                           margin: const EdgeInsets.only(left: 72),
                           height: 0.5,
-                          color: CupertinoColors.systemGrey5.withAlpha(128),
+                          color:
+                              isDark
+                                  ? AppTheme.darkBorder.withAlpha(128)
+                                  : AppTheme.border.withAlpha(128),
                         ),
                     itemBuilder: (context, index) {
                       final opportunity = filteredOpportunities[index];
                       return _buildOpportunityCard(
+                        context,
                         opportunity,
                         key: ValueKey(opportunity.Id),
                       );
                     },
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading:
+                    () => Center(
+                      child: CircularProgressIndicator(
+                        color: isDark ? AppTheme.darkPrimary : AppTheme.primary,
+                      ),
+                    ),
                 error:
                     (error, stackTrace) => Center(
                       child: Text(
                         'Erro ao carregar clientes: $error',
-                        style: const TextStyle(color: Colors.red),
+                        style: TextStyle(
+                          color:
+                              isDark
+                                  ? AppTheme.darkDestructive
+                                  : AppTheme.destructive,
+                        ),
                       ),
                     ),
               ),
@@ -103,10 +119,16 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primary,
+        backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primary,
         shape: const CircleBorder(),
         elevation: 2.0,
-        child: const Icon(CupertinoIcons.add, color: Colors.white),
+        child: Icon(
+          CupertinoIcons.add,
+          color:
+              isDark
+                  ? AppTheme.darkPrimaryForeground
+                  : AppTheme.primaryForeground,
+        ),
         onPressed: () {
           context.push('/services');
         },
@@ -115,37 +137,39 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark
+            ? AppTheme.darkInput.withAlpha(204)
+            : AppTheme.secondary.withAlpha(204);
+    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final hintColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6.withAlpha(204),
+        color: bgColor,
         borderRadius: BorderRadius.circular(10),
       ),
       child: CupertinoTextField(
         controller: _searchController,
         placeholder: 'Buscar cliente',
-        placeholderStyle: const TextStyle(
-          color: CupertinoColors.systemGrey,
-          fontSize: 14,
-        ),
+        placeholderStyle: TextStyle(color: hintColor, fontSize: 14),
         prefix: Padding(
           padding: const EdgeInsets.only(left: 10),
-          child: Icon(
-            CupertinoIcons.search,
-            color: CupertinoColors.systemGrey,
-            size: 16,
-          ),
+          child: Icon(CupertinoIcons.search, color: hintColor, size: 16),
         ),
         suffix:
             _searchQuery.isNotEmpty
                 ? GestureDetector(
                   onTap: () => _searchController.clear(),
-                  child: const Padding(
-                    padding: EdgeInsets.only(right: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10),
                     child: Icon(
                       CupertinoIcons.clear_circled_solid,
-                      color: CupertinoColors.systemGrey,
+                      color: hintColor,
                       size: 16,
                     ),
                   ),
@@ -156,12 +180,16 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        style: const TextStyle(fontSize: 14),
+        style: TextStyle(fontSize: 14, color: textColor),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+
     // Updated empty state message
     const String message = 'Sem Clientes Ativos';
 
@@ -169,18 +197,14 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            CupertinoIcons.person_2,
-            size: 48,
-            color: CupertinoColors.systemGrey,
-          ),
+          Icon(CupertinoIcons.person_2, size: 48, color: textColor),
           const SizedBox(height: 12),
           Text(
             message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
-              color: CupertinoColors.systemGrey,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -188,10 +212,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
             _searchQuery.isEmpty
                 ? 'Adicione um novo cliente usando o botão +'
                 : 'Tente refinar sua busca.',
-            style: const TextStyle(
-              fontSize: 15,
-              color: CupertinoColors.systemGrey,
-            ),
+            style: TextStyle(fontSize: 15, color: textColor),
           ),
         ],
       ),
@@ -199,7 +220,16 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   }
 
   // New method to build an opportunity card
-  Widget _buildOpportunityCard(SalesforceOpportunity opportunity, {Key? key}) {
+  Widget _buildOpportunityCard(
+    BuildContext context,
+    SalesforceOpportunity opportunity, {
+    Key? key,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final chevronColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+
     // Format CreatedDate
     String formattedCreatedDate = '';
     try {
@@ -226,7 +256,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            _buildOpportunityIcon(opportunity),
+            _buildOpportunityIcon(context, opportunity),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -234,55 +264,52 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 children: [
                   Text(
                     opportunity.Name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: CupertinoColors.label,
+                      color: textColor,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const Icon(
-              CupertinoIcons.chevron_right,
-              size: 14,
-              color: CupertinoColors.systemGrey3,
-            ),
+            Icon(CupertinoIcons.chevron_right, size: 14, color: chevronColor),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPhaseIndicator(String? phase) {
+  Widget _buildPhaseIndicator(BuildContext context, String? phase) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Color color;
     String displayPhase;
 
     // Map Salesforce phases to display text and colors
     if (phase == null) {
-      color = CupertinoColors.systemGrey;
+      color = isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
       displayPhase = 'N/A';
     } else if (phase.startsWith('0 -')) {
-      color = CupertinoColors.systemOrange;
+      color = isDark ? Colors.orange.shade300 : Colors.orange;
       displayPhase = 'Identificada';
     } else if (phase.startsWith('1 -')) {
-      color = CupertinoColors.systemBlue;
+      color = isDark ? AppTheme.darkPrimary : AppTheme.primary;
       displayPhase = 'Qualificada';
     } else if (phase.startsWith('2 -')) {
-      color = CupertinoColors.activeBlue;
+      color = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
       displayPhase = 'Proposta';
     } else if (phase.startsWith('3 -')) {
-      color = CupertinoColors.systemIndigo;
+      color = isDark ? Colors.indigo.shade300 : Colors.indigo;
       displayPhase = 'Negociação';
     } else if (phase.startsWith('4 -')) {
-      color = CupertinoColors.systemGreen;
+      color = isDark ? AppTheme.darkSuccess : AppTheme.success;
       displayPhase = 'Fechada/Ganha';
     } else if (phase.startsWith('5 -')) {
-      color = CupertinoColors.systemRed;
+      color = isDark ? AppTheme.darkDestructive : AppTheme.destructive;
       displayPhase = 'Fechada/Perdida';
     } else {
-      color = CupertinoColors.systemGrey;
+      color = isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
       displayPhase = phase; // Use the raw phase string
     }
 
@@ -306,21 +333,23 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildOpportunityIcon(SalesforceOpportunity opportunity) {
+  Widget _buildOpportunityIcon(
+    BuildContext context,
+    SalesforceOpportunity opportunity,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
+
     // Simple icon - could add logic to show different icons based on solution type
     return Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
-        color: CupertinoColors.systemIndigo.withAlpha(26),
+        color: baseColor.withAlpha(26),
         shape: BoxShape.circle,
       ),
-      child: const Center(
-        child: Icon(
-          CupertinoIcons.building_2_fill,
-          size: 20,
-          color: CupertinoColors.systemIndigo,
-        ),
+      child: Center(
+        child: Icon(CupertinoIcons.building_2_fill, size: 20, color: baseColor),
       ),
     );
   }
@@ -345,6 +374,18 @@ class _OpportunityDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor =
+        isDark ? AppTheme.darkBackground : AppTheme.background;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final mutedColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final handleColor =
+        isDark
+            ? AppTheme.darkMutedForeground.withOpacity(0.3)
+            : Colors.grey.withOpacity(0.3);
+
     // Format CreatedDate
     String formattedCreatedDate = '';
     try {
@@ -367,7 +408,7 @@ class _OpportunityDetailsSheet extends StatelessWidget {
     return Container(
       height: MediaQuery.of(context).size.height * 0.5,
       decoration: BoxDecoration(
-        color: AppTheme.background,
+        color: backgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -383,7 +424,7 @@ class _OpportunityDetailsSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
+                color: handleColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -403,7 +444,7 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.foreground,
+                          color: foregroundColor,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -413,13 +454,13 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                         'Criada em: $formattedCreatedDate',
                         style: TextStyle(
                           fontSize: 14,
-                          color: AppTheme.foreground.withOpacity(0.7),
+                          color: foregroundColor.withOpacity(0.7),
                         ),
                       ),
                     ],
                   ),
                 ),
-                _buildPhaseBadge(opportunity.Fase__c),
+                _buildPhaseBadge(context, opportunity.Fase__c),
               ],
             ),
           ),
@@ -432,11 +473,11 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Opportunity Information Section
-                  _buildSectionTitle('Informações da Oportunidade'),
-                  _buildInfoItem('Nome', opportunity.Name),
-                  _buildInfoItem('Fase', opportunity.Fase__c ?? 'N/A'),
-                  _buildInfoItem('NIF', opportunity.NIF__c ?? 'N/A'),
-                  _buildInfoItem('Data Criação', formattedCreatedDate),
+                  _buildSectionTitle(context, 'Informações da Oportunidade'),
+                  _buildInfoItem(context, 'Nome', opportunity.Name),
+                  _buildInfoItem(context, 'Fase', opportunity.Fase__c ?? 'N/A'),
+                  _buildInfoItem(context, 'NIF', opportunity.NIF__c ?? 'N/A'),
+                  _buildInfoItem(context, 'Data Criação', formattedCreatedDate),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -449,8 +490,12 @@ class _OpportunityDetailsSheet extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: AppTheme.primary,
+                foregroundColor:
+                    isDark
+                        ? AppTheme.darkPrimaryForeground
+                        : AppTheme.primaryForeground,
+                backgroundColor:
+                    isDark ? AppTheme.darkPrimary : AppTheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -464,7 +509,12 @@ class _OpportunityDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    final foregroundColor =
+        Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkForeground
+            : AppTheme.foreground;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
@@ -472,13 +522,19 @@ class _OpportunityDetailsSheet extends StatelessWidget {
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: AppTheme.foreground,
+          color: foregroundColor,
         ),
       ),
     );
   }
 
-  Widget _buildInfoItem(String label, String value) {
+  Widget _buildInfoItem(BuildContext context, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor =
+        isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final mutedColor =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -491,14 +547,14 @@ class _OpportunityDetailsSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.foreground.withOpacity(0.7),
+                color: mutedColor,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 14, color: AppTheme.foreground),
+              style: TextStyle(fontSize: 14, color: foregroundColor),
             ),
           ),
         ],
@@ -506,34 +562,35 @@ class _OpportunityDetailsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildPhaseBadge(String? phase) {
+  Widget _buildPhaseBadge(BuildContext context, String? phase) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Color color;
     String displayPhase;
 
     // Map Salesforce phases to display text and colors
     if (phase == null) {
-      color = Colors.grey;
+      color = isDark ? AppTheme.darkMutedForeground : Colors.grey;
       displayPhase = 'Não definido';
     } else if (phase.startsWith('0 -')) {
-      color = Colors.orange;
+      color = isDark ? Colors.orange.shade300 : Colors.orange;
       displayPhase = 'Identificada';
     } else if (phase.startsWith('1 -')) {
-      color = Colors.blue;
+      color = isDark ? AppTheme.darkPrimary : Colors.blue;
       displayPhase = 'Qualificada';
     } else if (phase.startsWith('2 -')) {
-      color = Colors.blue.shade700;
+      color = isDark ? Colors.blue.shade300 : Colors.blue.shade700;
       displayPhase = 'Proposta';
     } else if (phase.startsWith('3 -')) {
-      color = Colors.indigo;
+      color = isDark ? Colors.indigo.shade300 : Colors.indigo;
       displayPhase = 'Negociação';
     } else if (phase.startsWith('4 -')) {
-      color = Colors.green;
+      color = isDark ? AppTheme.darkSuccess : AppTheme.success;
       displayPhase = 'Fechada/Ganha';
     } else if (phase.startsWith('5 -')) {
-      color = Colors.red;
+      color = isDark ? AppTheme.darkDestructive : AppTheme.destructive;
       displayPhase = 'Fechada/Perdida';
     } else {
-      color = Colors.grey;
+      color = isDark ? AppTheme.darkMutedForeground : Colors.grey;
       displayPhase = phase; // Use the raw phase string
     }
 

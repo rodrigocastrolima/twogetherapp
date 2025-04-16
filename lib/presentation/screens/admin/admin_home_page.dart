@@ -6,7 +6,10 @@ import 'package:intl/intl.dart';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 
+import '../../../core/models/enums.dart';
 import '../../../presentation/widgets/logo.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
@@ -23,6 +26,11 @@ class AdminHomePage extends ConsumerStatefulWidget {
 }
 
 class _AdminHomePageState extends ConsumerState<AdminHomePage> {
+  // State for the time filter
+  TimeFilter _selectedTimeFilter = TimeFilter.monthly; // Default to monthly
+  // State for chart type (default to submissions)
+  ChartType _selectedChartType = ChartType.submissions;
+
   @override
   void initState() {
     super.initState();
@@ -52,71 +60,44 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
     final now = DateTime.now();
-    final dateFormatter = DateFormat.yMMMMd().format(now);
     final timeFormatter = DateFormat.jm().format(now);
 
     return Scaffold(
-      // Use theme background color
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: theme.colorScheme.background,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          bottom: 24,
-          top: 16,
-        ), // Added top padding
+        padding: const EdgeInsets.only(bottom: 24, top: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome section with date/time
-            _buildWelcomeSection(context, dateFormatter, timeFormatter),
-
+            // Welcome/Time Section
+            _buildWelcomeSection(context, timeFormatter),
             const SizedBox(height: 24),
 
-            // --- MOVED Recent Activity UP ---
+            // --- Updated Statistics Section ---
+            _buildStatisticsSection(context),
+            const SizedBox(height: 24),
+
+            // --- Recent Activity Section ---
             _buildSubmissionsNotificationSection(context),
-
-            const SizedBox(height: 24),
-
-            // Quick stats section
-            _buildQuickStatsSection(context, l10n),
-
-            // --- REMOVED Quick Actions Section ---
-            // const SizedBox(height: 24),
-            // // Recent actions section
-            // _buildRecentActionsSection(context),
-
-            // --- REMOVED redundant notifications section placeholder ---
-            // const SizedBox(height: 24),
-            // // Submissions notification section
-            // _buildSubmissionsNotificationSection(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildWelcomeSection(BuildContext context, String date, String time) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = AppLocalizations.of(context)!;
+  Widget _buildWelcomeSection(BuildContext context, String time) {
     final theme = Theme.of(context);
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // Adjusted padding
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end, // Align time to the right
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // LogoWidget Removed
-          // LogoWidget(height: 40),
-
-          // Spacer(), // Use mainAxisAlignment.end instead of Spacer
-
-          // Simplified Time Display
           Text(
-            time, // Display only time
+            time,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant, // Muted color
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -124,185 +105,527 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     );
   }
 
-  Widget _buildQuickStatsSection(BuildContext context, AppLocalizations l10n) {
+  Widget _buildStatisticsSection(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Navigation action for the icon button
+    void navigateToDetails() {
+      print('Navigating to Statistics Detail - Filter: $_selectedTimeFilter');
+      context.push(
+        '/admin/stats-detail',
+        extra: {
+          // Only pass timeFilter now
+          'timeFilter': _selectedTimeFilter,
+        },
+      );
+    }
+
+    // Build the single card section
     return Column(
+      // Main column for the whole section
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // --- Header Row: Title, Filter (Moved outside card) ---
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-            vertical: 8.0,
-          ), // Adjusted padding
-          child: Text(
-            'Dashboard Statistics',
-            style: AppTextStyles.h3.copyWith(color: AppTheme.foreground),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-          ), // Add padding to Row
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  CupertinoIcons.person_2_fill,
-                  '12', // Placeholder value
-                  'Active Resellers',
-                  Color(0xFF60A5FA), // Light blue
+              Text(
+                'Statistics',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  CupertinoIcons.doc_text_fill,
-                  '28', // Placeholder value
-                  'Pending Submissions',
-                  Color(0xFFffbe45), // Tulip Tree
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  CupertinoIcons.graph_square_fill,
-                  '18', // Placeholder value
-                  'Monthly Opportunities',
-                  Color(0xFF34D399), // Green
-                ),
+              Row(
+                children: [
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<TimeFilter>(
+                      value: _selectedTimeFilter,
+                      icon: Icon(
+                        CupertinoIcons.chevron_down,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      elevation: 2,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      dropdownColor: theme.colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                      items:
+                          TimeFilter.values.map((TimeFilter filter) {
+                            String text;
+                            switch (filter) {
+                              case TimeFilter.weekly:
+                                text = 'Weekly'; // TODO: l10n
+                                break;
+                              case TimeFilter.monthly:
+                                text = 'Monthly'; // TODO: l10n
+                                break;
+                              case TimeFilter.cycle:
+                                text = 'Cycle'; // TODO: l10n
+                                break;
+                            }
+                            return DropdownMenuItem<TimeFilter>(
+                              value: filter,
+                              child: Text(text),
+                            );
+                          }).toList(),
+                      onChanged: (TimeFilter? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedTimeFilter = newValue;
+                            // TODO: Trigger data refresh for charts
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // --- Card containing charts and expand icon ---
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Card(
+            elevation: 2,
+            shadowColor: theme.shadowColor.withOpacity(0.1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            color: theme.colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Expand icon aligned to top right
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      minSize: 0,
+                      child: Icon(
+                        CupertinoIcons.arrow_up_left_arrow_down_right,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                      onPressed: navigateToDetails,
+                    ),
+                  ),
+                  const SizedBox(height: 8), // Space below icon
+                  // --- Chart Area: Conditional Layout ---
+                  if (kIsWeb) // Web layout: Side-by-side charts
+                    SizedBox(
+                      height: 300, // Define height for the web chart row
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Submissions',
+                                  style: theme.textTheme.titleSmall,
+                                ), // TODO: l10n
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: _buildSubmissionsChart(
+                                    context,
+                                    _selectedTimeFilter,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Estimated Revenue',
+                                  style: theme.textTheme.titleSmall,
+                                ), // TODO: l10n
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: _buildRevenueChart(
+                                    context,
+                                    _selectedTimeFilter,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else // Mobile layout: Stacked charts
+                    Column(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Submissions',
+                              style: theme.textTheme.titleSmall,
+                            ), // TODO: l10n
+                            const SizedBox(height: 8),
+                            AspectRatio(
+                              aspectRatio: 1.8,
+                              child: _buildSubmissionsChart(
+                                context,
+                                _selectedTimeFilter,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Estimated Revenue',
+                              style: theme.textTheme.titleSmall,
+                            ), // TODO: l10n
+                            const SizedBox(height: 8),
+                            AspectRatio(
+                              aspectRatio: 1.8,
+                              child: _buildRevenueChart(
+                                context,
+                                _selectedTimeFilter,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context,
-    IconData icon,
-    String value,
-    String label,
-    Color color,
-  ) {
+  Widget _buildSubmissionsChart(BuildContext context, TimeFilter filter) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 20,
-        horizontal: 16,
-      ), // Adjust padding
-      decoration: BoxDecoration(
-        // Use standard BoxDecoration
-        color: theme.colorScheme.surface.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              theme.brightness == Brightness.dark
-                  ? theme.colorScheme.onSurface.withOpacity(0.05)
-                  : theme.dividerColor.withOpacity(0.1),
-          width: 0.5,
+    int days = 30;
+    String bottomTitleInterval = 'D'; // D for Day number
+    if (filter == TimeFilter.weekly) {
+      days = 7;
+      bottomTitleInterval = 'WD'; // WD for Week Day initial
+    }
+    if (filter == TimeFilter.cycle) {
+      days = 90;
+      bottomTitleInterval = 'W#'; // W# for Week Number
+    }
+    final spots = _generatePlaceholderSpots(days, 50);
+    double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
+    double interval = (days / 5).ceilToDouble(); // Show ~5 labels
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          horizontalInterval: 10,
+          verticalInterval: interval, // Align vertical lines with bottom titles
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.1),
+              strokeWidth: 1,
+            );
+          },
+          getDrawingVerticalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.1),
+              strokeWidth: 1,
+            );
+          },
         ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                theme.brightness == Brightness.dark
-                    ? theme.colorScheme.shadow.withOpacity(0.2)
-                    : theme.colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: interval,
+              getTitlesWidget:
+                  (value, meta) => _bottomTitleWidgets(
+                    value,
+                    meta,
+                    days,
+                    bottomTitleInterval,
+                    theme,
+                  ),
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 10, // Adjust interval based on maxY
+              getTitlesWidget:
+                  (value, meta) => _leftTitleWidgets(value, meta, theme),
+              reservedSize: 42,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        minX: 0,
+        maxX: maxX,
+        minY: 0,
+        maxY: 60,
+        lineTouchData: LineTouchData(
+          // Add touch data
+          touchTooltipData: LineTouchTooltipData(
+            tooltipBgColor: theme.colorScheme.secondaryContainer,
+            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+              return touchedBarSpots.map((barSpot) {
+                final flSpot = barSpot;
+                return LineTooltipItem(
+                  flSpot.y.toStringAsFixed(0), // Show integer value
+                  TextStyle(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              }).toList();
+            },
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: theme.colorScheme.primary,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: theme.colorScheme.primary.withOpacity(0.2),
+            ),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Simpler Icon presentation
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 16), // Increased space
-          Text(
-            value,
-            style: AppTextStyles.h1.copyWith(
-              // Larger value text
-              color: AppTheme.foreground,
-              fontWeight: FontWeight.w600, // Slightly less bold
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTextStyles.body2.copyWith(
-              color: AppTheme.mutedForeground,
-            ),
-            maxLines: 1, // Ensure single line
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+      duration: const Duration(milliseconds: 250),
     );
+  }
+
+  Widget _buildRevenueChart(BuildContext context, TimeFilter filter) {
+    final theme = Theme.of(context);
+    int days = 30;
+    String bottomTitleInterval = 'D';
+    if (filter == TimeFilter.weekly) {
+      days = 7;
+      bottomTitleInterval = 'WD';
+    }
+    if (filter == TimeFilter.cycle) {
+      days = 90;
+      bottomTitleInterval = 'W#';
+    }
+    final spots = _generatePlaceholderSpots(days, 5000, isDouble: true);
+    double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
+    double interval = (days / 5).ceilToDouble();
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          horizontalInterval: 1000,
+          verticalInterval: interval,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.1),
+              strokeWidth: 1,
+            );
+          },
+          getDrawingVerticalLine: (value) {
+            return FlLine(
+              color: theme.dividerColor.withOpacity(0.1),
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: interval,
+              getTitlesWidget:
+                  (value, meta) => _bottomTitleWidgets(
+                    value,
+                    meta,
+                    days,
+                    bottomTitleInterval,
+                    theme,
+                  ),
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: 1000, // Adjust based on maxY
+              getTitlesWidget:
+                  (value, meta) => _leftTitleWidgets(
+                    value,
+                    meta,
+                    theme,
+                    isCurrency: true,
+                  ), // Format as currency
+              reservedSize: 42,
+            ),
+          ),
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        minX: 0,
+        maxX: maxX,
+        minY: 0,
+        maxY: 6000,
+        lineTouchData: LineTouchData(
+          // Add touch data
+          touchTooltipData: LineTouchTooltipData(
+            tooltipBgColor: theme.colorScheme.secondaryContainer,
+            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+              return touchedBarSpots.map((barSpot) {
+                final flSpot = barSpot;
+                // Format as currency for tooltip
+                final currencyFormatter = NumberFormat.simpleCurrency(
+                  decimalDigits: 0,
+                );
+                String tooltipText = currencyFormatter.format(flSpot.y);
+                return LineTooltipItem(
+                  tooltipText,
+                  TextStyle(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              }).toList();
+            },
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: Colors.green,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.green.withOpacity(0.2),
+            ),
+          ),
+        ],
+      ),
+      duration: const Duration(milliseconds: 250),
+    );
+  }
+
+  List<FlSpot> _generatePlaceholderSpots(
+    int count,
+    double maxVal, {
+    bool isDouble = false,
+  }) {
+    if (count <= 0) return []; // Handle zero or negative count
+    final random = Random();
+    return List.generate(count, (index) {
+      double yValue =
+          isDouble
+              ? random.nextDouble() * maxVal
+              : random.nextInt(maxVal.toInt()).toDouble();
+      yValue = yValue * (1 + (index / (count * 2)));
+      // Ensure value is not negative and clamp upper bound
+      yValue = yValue.clamp(0, maxVal * 1.2);
+      return FlSpot(index.toDouble(), yValue);
+    });
   }
 
   Widget _buildSubmissionsNotificationSection(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16.0,
-          ), // Adjust padding
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Recent Activity',
                 style: theme.textTheme.titleLarge?.copyWith(
-                  // Use titleLarge
-                  color: theme.colorScheme.onSurface, // Use theme color
-                  fontWeight: FontWeight.w600, // Slightly bolder
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              // Simplified Header Actions
               Consumer(
                 builder: (context, ref, _) {
                   return Row(
                     children: [
-                      // Refresh Button (more subtle)
                       CupertinoButton(
                         padding: const EdgeInsets.all(4.0),
                         minSize: 0,
                         child: Icon(
                           CupertinoIcons.refresh,
-                          size: 18, // Smaller icon
+                          size: 18,
                           color: theme.colorScheme.onSurfaceVariant.withOpacity(
                             0.7,
-                          ), // More muted
+                          ),
                         ),
                         onPressed: () {
                           refreshAdminNotifications(ref);
                         },
                       ),
                       const SizedBox(width: 8),
-                      // Mark All Read Button (more subtle)
                       CupertinoButton(
                         padding: const EdgeInsets.all(4.0),
                         minSize: 0,
                         child: Icon(
                           CupertinoIcons.checkmark_circle,
-                          size: 18, // Smaller icon
+                          size: 18,
                           color: theme.colorScheme.onSurfaceVariant.withOpacity(
                             0.7,
-                          ), // More muted
+                          ),
                         ),
                         onPressed: () {
                           final notificationActions = ref.read(
@@ -318,28 +641,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             ],
           ),
         ),
-        const SizedBox(height: 12), // Reduced space
-        // Remove the outer container with fixed height and glass effect
-        // Container(
-        //   height: 400, // Fixed height for the submissions list
-        //   decoration: AppStyles.glassCard(context),
-        //   clipBehavior: Clip.antiAlias,
-        //   child: Column(
-        //     crossAxisAlignment: CrossAxisAlignment.start,
-        //     children: [
-        //       // Header Removed from here
-        //       const Divider(height: 1),
-        //       Expanded(child: _buildNotificationsList(context)),
-        //     ],
-        //   ),
-        // ),
-        _buildNotificationsList(context), // Call list builder directly
+        const SizedBox(height: 12),
+        _buildNotificationsList(context),
       ],
     );
   }
 
   Widget _buildNotificationsList(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
     final notificationActions = ref.read(notificationActionsProvider);
     final theme = Theme.of(context);
@@ -349,53 +657,54 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         if (notifications.isEmpty) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 48.0,
-              ), // Add padding
+              padding: const EdgeInsets.symmetric(vertical: 48.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    CupertinoIcons.bell_slash, // Changed icon
-                    size: 40, // Slightly smaller icon
+                    CupertinoIcons.bell_slash,
+                    size: 40,
                     color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No Recent Activity',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      // Use titleMedium
                       color: theme.colorScheme.onSurfaceVariant.withOpacity(
                         0.8,
                       ),
                     ),
                   ),
-                  // Removed extra text and button
                 ],
               ),
             ),
           );
         }
-
-        // Build the list directly, no RefreshIndicator needed here if pull-to-refresh is on main scroll
-        return ListView.builder(
-          shrinkWrap: true, // Important for nested list
-          physics:
-              const NeverScrollableScrollPhysics(), // Disable nested scrolling
-          padding: const EdgeInsets.symmetric(horizontal: 16.0), // Add padding
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
           itemCount: notifications.length,
-          // Remove separatorBuilder for cleaner look
+          separatorBuilder:
+              (context, index) => Divider(
+                height: 1,
+                thickness: 0.5,
+                color: theme.dividerColor.withOpacity(0.5),
+                indent: 16,
+                endIndent: 16,
+              ),
           itemBuilder: (context, index) {
             final notification = notifications[index];
-            return _buildCleanNotificationItem(
-              // Use new item builder
+            return _buildEnhancedNotificationItem(
               context,
               notification,
               onTap: () async {
                 await notificationActions.markAsRead(notification.id);
                 if (notification.metadata.containsKey('submissionId')) {
                   if (context.mounted) {
-                    context.push('/admin/opportunities');
+                    context.push(
+                      '/admin/opportunities/${notification.metadata['submissionId']}',
+                    );
                   }
                 }
               },
@@ -407,7 +716,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           () => const Center(
             child: Padding(
               padding: EdgeInsets.all(32.0),
-              child: CupertinoActivityIndicator(), // Use Cupertino style loader
+              child: CupertinoActivityIndicator(),
             ),
           ),
       error:
@@ -420,11 +729,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                   Icon(
                     CupertinoIcons.exclamationmark_triangle,
                     size: 48,
-                    color: Colors.orange, // Use warning color
+                    color: Colors.orange,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Failed to load activity', // Updated text
+                    'Failed to load activity',
                     style: AppTextStyles.body1.copyWith(
                       color: AppTheme.foreground,
                       fontWeight: FontWeight.bold,
@@ -452,84 +761,143 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     );
   }
 
-  // New Clean Notification Item Builder
-  Widget _buildCleanNotificationItem(
+  Widget _buildEnhancedNotificationItem(
     BuildContext context,
     UserNotification notification, {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    final dateFormatter = DateFormat.yMd().add_jm(); // Simpler date format
+    final dateFormatter = DateFormat.yMd().add_jm();
     final formattedDate = dateFormatter.format(notification.createdAt);
-
-    // Extract metadata
     final resellerName = notification.metadata['resellerName'] ?? 'Unknown';
     final clientName = notification.metadata['clientName'] ?? '?';
+    final isNew = !notification.isRead;
 
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12.0), // Adjust padding
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: theme.dividerColor, width: 0.5),
-          ),
+    IconData itemIcon = CupertinoIcons.doc_plaintext;
+    Color iconColor = theme.colorScheme.primary;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
+      leading: CircleAvatar(
+        radius: 20,
+        backgroundColor: iconColor.withOpacity(0.1),
+        child: Icon(itemIcon, size: 20, color: iconColor),
+      ),
+      title: Text(
+        notification.title,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: isNew ? FontWeight.bold : FontWeight.normal,
+          color: theme.colorScheme.onSurface,
         ),
-        child: Row(
-          children: [
-            // Unread indicator dot
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        '${resellerName} / ${clientName}',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            formattedDate,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (isNew) const SizedBox(height: 4),
+          if (isNew)
             Container(
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color:
-                    notification.isRead
-                        ? Colors.transparent
-                        : theme.colorScheme.primary, // Use theme primary
+                color: theme.colorScheme.primary,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 12),
-            // Main content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    notification.title, // e.g., "New Submission"
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      // Use bodyMedium
-                      color: theme.colorScheme.onSurface, // Use theme color
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${resellerName} / ${clientName}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      // Use bodySmall
-                      color: theme.colorScheme.onSurfaceVariant, // Muted color
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Date
-            Text(
-              formattedDate,
-              style: theme.textTheme.labelSmall?.copyWith(
-                // Use labelSmall
-                color: theme.colorScheme.onSurfaceVariant, // Muted color
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
+      onTap: onTap,
+      dense: true,
+    );
+  }
+
+  // --- Helper Functions for Chart Titles ---
+
+  Widget _bottomTitleWidgets(
+    double value,
+    TitleMeta meta,
+    int totalDays,
+    String intervalType,
+    ThemeData theme,
+  ) {
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    String text;
+    int dayIndex = value.toInt();
+
+    // Prevent labels outside the data range
+    if (dayIndex < 0 || dayIndex >= totalDays) {
+      return Container();
+    }
+
+    switch (intervalType) {
+      case 'WD': // Weekly - Day Initials
+        // Calculate the date corresponding to the index (assuming today is the last day)
+        DateTime date = DateTime.now().subtract(
+          Duration(days: totalDays - 1 - dayIndex),
+        );
+        text = DateFormat.E().format(date)[0]; // First letter of weekday
+        break;
+      case 'W#': // Cycle - Week Number
+        int weekNumber = (dayIndex / 7).floor() + 1;
+        text = 'W$weekNumber';
+        break;
+      case 'D': // Monthly - Day Number
+      default:
+        text = (dayIndex + 1).toString(); // Day 1, Day 2...
+        break;
+    }
+
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      space: 8.0,
+      child: Text(text, style: style),
+    );
+  }
+
+  Widget _leftTitleWidgets(
+    double value,
+    TitleMeta meta,
+    ThemeData theme, {
+    bool isCurrency = false,
+  }) {
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    String text;
+    if (value == meta.max || value == meta.min) {
+      return Container(); // Avoid labels at min/max Y if they overlap border
+    }
+    if (isCurrency) {
+      final currencyFormatter = NumberFormat.compactSimpleCurrency(
+        decimalDigits: 0,
+      );
+      text = currencyFormatter.format(value);
+    } else {
+      text = value.toInt().toString();
+    }
+
+    return SideTitleWidget(
+      axisSide: meta.axisSide,
+      space: 8.0,
+      child: Text(text, style: style, textAlign: TextAlign.left),
     );
   }
 }

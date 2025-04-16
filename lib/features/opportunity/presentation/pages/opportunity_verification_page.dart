@@ -4,8 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:collection/collection.dart'; // For distinct reseller names
 import '../../../../core/models/service_submission.dart'; // Adjusted path
-import '../../../../core/models/service_types.dart'; // Import ServiceCategory enum
+import '../../../../core/models/service_types.dart'; // Ensure this line exists and is correct
 import './opportunity_detail_page.dart'; // Import the new detail page
+import '../widgets/opportunity_filter_sheet.dart'; // <-- Import the filter sheet
 import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases
 import '../../../../core/theme/ui_styles.dart'; // Use AppStyles for specific decorations/layouts
@@ -42,8 +43,45 @@ class _OpportunityVerificationPageState
     extends ConsumerState<OpportunityVerificationPage> {
   String _searchQuery = '';
   String? _selectedReseller;
-  ServiceCategory? _selectedServiceType; // State for service type filter
+  ServiceCategory? _selectedServiceType;
+  EnergyType? _selectedEnergyType; // <-- ADD state for EnergyType
   final TextEditingController _searchController = TextEditingController();
+
+  // --- ADD Callback for applying filters from the sheet ---
+  void _applyFilters(
+    String? reseller,
+    ServiceCategory? serviceType,
+    EnergyType? energyType,
+  ) {
+    setState(() {
+      _selectedReseller = reseller;
+      _selectedServiceType = serviceType;
+      _selectedEnergyType = energyType;
+    });
+  }
+  // -------------------------------------------------------
+
+  // --- ADD Method to show the filter sheet ---
+  void _showFilterSheet(BuildContext context, List<String> availableResellers) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Allow sheet to take variable height
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (BuildContext modalContext) {
+        return OpportunityFilterSheet(
+          initialReseller: _selectedReseller,
+          initialServiceType: _selectedServiceType,
+          initialEnergyType: _selectedEnergyType,
+          availableResellers: availableResellers,
+          onApplyFilters: _applyFilters, // Pass the callback
+        );
+      },
+    );
+  }
+  // ------------------------------------------
 
   @override
   void dispose() {
@@ -56,144 +94,12 @@ class _OpportunityVerificationPageState
     return DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal());
   }
 
-  // --- START: Deletion Logic --- Updated
-  Future<void> _deleteSubmission(String submissionId) async {
-    // Show loading indicator maybe?
-    final docRef = FirebaseFirestore.instance
-        .collection('serviceSubmissions')
-        .doc(submissionId);
-
-    String? storagePathToDelete;
-    String feedbackMessage =
-        'Submission deleted successfully.'; // Default success
-    Color feedbackColor = Colors.green;
-
-    try {
-      // 1. Get the document data BEFORE deleting to find the file path
-      final docSnap = await docRef.get();
-
-      if (docSnap.exists) {
-        final data = docSnap.data() as Map<String, dynamic>?;
-        // Check for invoicePhoto and its storagePath
-        if (data != null && data.containsKey('invoicePhoto')) {
-          final invoicePhotoData =
-              data['invoicePhoto'] as Map<String, dynamic>?;
-          if (invoicePhotoData != null &&
-              invoicePhotoData.containsKey('storagePath')) {
-            storagePathToDelete = invoicePhotoData['storagePath'] as String?;
-          }
-        }
-      } else {
-        // Document doesn't exist, maybe already deleted?
-        feedbackMessage = 'Submission not found.';
-        feedbackColor = Colors.orange;
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(feedbackMessage),
-              backgroundColor: feedbackColor,
-            ),
-          );
-        }
-        return; // Exit early
-      }
-
-      // 2. Attempt to delete the file from Storage if path exists
-      if (storagePathToDelete != null && storagePathToDelete.isNotEmpty) {
-        try {
-          final storageRef = FirebaseStorage.instance.ref(storagePathToDelete);
-          await storageRef.delete();
-          print('Successfully deleted file from Storage: $storagePathToDelete');
-        } on FirebaseException catch (e) {
-          // Handle Storage deletion errors (e.g., file not found, permissions)
-          print('Error deleting file from Storage: $e');
-          if (e.code == 'object-not-found') {
-            // File already gone, proceed to delete Firestore doc anyway
-            print('Storage file not found, proceeding with Firestore delete.');
-          } else {
-            // Other storage error, maybe don't delete Firestore doc?
-            feedbackMessage = 'Error deleting associated file: ${e.message}';
-            feedbackColor = Colors.red;
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(feedbackMessage),
-                  backgroundColor: feedbackColor,
-                ),
-              );
-            }
-            return; // Exit without deleting Firestore doc for critical storage errors
-          }
-        }
-      }
-
-      // 3. Delete the Firestore document
-      await docRef.delete();
-    } catch (e) {
-      print('Error during deletion process: $e');
-      feedbackMessage = 'Error deleting submission: ${e.toString()}';
-      feedbackColor = Colors.red;
-    } finally {
-      // Show final feedback
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(feedbackMessage),
-            backgroundColor: feedbackColor,
-          ),
-        );
-      }
-    }
+  // Helper to calculate if any filters are active
+  bool _areFiltersActive() {
+    return _selectedReseller != null ||
+        _selectedServiceType != null ||
+        _selectedEnergyType != null;
   }
-
-  Future<void> _showDeleteConfirmationDialog(
-    BuildContext context,
-    String submissionId,
-    String submissionName,
-    ThemeData theme,
-  ) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false, // User must tap button!
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text('Confirm Deletion'), // TODO: l10n
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text(
-                  'Are you sure you want to delete the submission for "$submissionName"?',
-                ), // TODO: l10n
-                const Text('This action cannot be undone.'), // TODO: l10n
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'), // TODO: l10n
-              onPressed: () {
-                Navigator.of(dialogContext).pop(); // Dismiss the dialog
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.error, // Use error color
-              ),
-              child: const Text('Delete'), // TODO: l10n
-              onPressed: () {
-                Navigator.of(dialogContext).pop(); // Dismiss the dialog
-                _deleteSubmission(submissionId); // Call the delete function
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-  // --- END: Deletion Logic ---
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +136,12 @@ class _OpportunityVerificationPageState
                       submission.serviceCategory.name ==
                           _selectedServiceType!.name;
 
+                  // --- ADD Energy Type Filter Condition ---
+                  final energyTypeMatch =
+                      _selectedEnergyType == null ||
+                      submission.energyType?.name == _selectedEnergyType!.name;
+                  // ---------------------------------------
+
                   final searchMatch =
                       _searchQuery.isEmpty ||
                       (submission.companyName ?? '').toLowerCase().contains(
@@ -242,7 +154,10 @@ class _OpportunityVerificationPageState
                         _searchQuery.toLowerCase(),
                       );
 
-                  return resellerMatch && serviceTypeMatch && searchMatch;
+                  return resellerMatch &&
+                      serviceTypeMatch &&
+                      energyTypeMatch &&
+                      searchMatch;
                 }).toList();
             // --- End Filtering Logic ---
 
@@ -315,207 +230,137 @@ class _OpportunityVerificationPageState
                     .onSurface, // Use onSurface instead of onBackground
           ),
         ),
-        if (isWebView) ...[
+        // --- Updated: Common Row for Search and Filters ---
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start, // Keep alignment
+          children: [
+            // Search Field (remains similar)
+            Expanded(
+              flex: isWebView ? 3 : 5, // Adjust flex based on view
+              child: SizedBox(
+                height: 42,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    // hintText: l10n.commonSearchHint, // TODO: Add localization key
+                    hintText: 'Search by Name, NIF...',
+                    prefixIcon: Icon(
+                      Icons.search,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.7,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: theme.colorScheme.surface.withOpacity(0.5),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    suffixIcon:
+                        _searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              splashRadius: 20,
+                              visualDensity: VisualDensity.compact,
+                            )
+                            : null,
+                  ),
+                  style: theme.textTheme.bodyMedium,
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // --- NEW: Filter Button ---
+            SizedBox(
+              height: 42,
+              child: Badge(
+                // Add Badge
+                isLabelVisible:
+                    _areFiltersActive(), // Show badge if filters are active
+                backgroundColor: theme.colorScheme.primary,
+                child: OutlinedButton.icon(
+                  icon: Icon(Icons.filter_list, size: 18),
+                  label: Text('Filters'), // TODO: l10n
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    side: BorderSide(color: theme.dividerColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ), // Adjust padding
+                  ),
+                  onPressed: () {
+                    // Call the method to show the bottom sheet
+                    _showFilterSheet(context, uniqueResellers);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        // --- REMOVE OLD DROPDOWNS ---
+        /*
+        if (isWebView) ...[ // Keep conditional structure if needed for other web-only elements
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Field
-              Expanded(
-                flex: 3, // Adjusted flex
-                child: SizedBox(
-                  height: 42,
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      // hintText: l10n.commonSearchHint, // TODO: Add localization key
-                      hintText: 'Search by Name, NIF...',
-                      prefixIcon: Icon(
-                        Icons.search,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                          0.7,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface.withOpacity(0.5),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon:
-                          _searchQuery.isNotEmpty
-                              ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                                splashRadius: 20,
-                                visualDensity: VisualDensity.compact,
-                              )
-                              : null,
-                    ),
-                    style: theme.textTheme.bodyMedium,
-                    onChanged: (value) {
-                      setState(() => _searchQuery = value);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Reseller Dropdown
-              Expanded(
-                flex: 2, // Adjusted flex
-                child: SizedBox(
-                  height: 42,
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedReseller,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      // hintText: l10n.filterByResellerHint, // TODO: Add localization key
-                      hintText: 'Filter by Reseller',
-                      filled: true,
-                      fillColor: theme.colorScheme.surface.withOpacity(0.5),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.person_outline,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    hint: Text(
-                      // l10n.filterByResellerHint, // TODO: Add localization key
-                      'All Resellers',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                          0.7,
-                        ),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    items: [
-                      // Add "All" option
-                      DropdownMenuItem<String>(
-                        value: null, // Represents "All"
-                        child: Text(
-                          // l10n.filterAllResellers, // TODO: Add localization key
-                          'All Resellers',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                      // Add unique resellers
-                      ...uniqueResellers.map((reseller) {
-                        return DropdownMenuItem<String>(
-                          value: reseller,
-                          child: Text(
-                            reseller,
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }), // Remove .toList() here
-                    ],
-                    onChanged: (value) {
-                      setState(() => _selectedReseller = value);
-                    },
-                    icon: Icon(
-                      Icons.arrow_drop_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // --- NEW: Service Type Dropdown ---
-              Expanded(
-                flex: 2, // Adjusted flex
-                child: SizedBox(
-                  height: 42,
-                  child: DropdownButtonFormField<ServiceCategory>(
-                    value: _selectedServiceType,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      // hintText: 'Filter by Service Type', // TODO: l10n
-                      filled: true,
-                      fillColor: theme.colorScheme.surface.withOpacity(0.5),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: Icon(
-                        // Choose an appropriate icon
-                        Icons.category_outlined,
-                        size: 20,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    hint: Text(
-                      'All Service Types', // TODO: l10n
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                          0.7,
-                        ),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    items: [
-                      // "All" option
-                      DropdownMenuItem<ServiceCategory>(
-                        value: null,
-                        child: Text(
-                          'All Service Types', // TODO: l10n
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                      // Service Categories from Enum
-                      ...ServiceCategory.values.map((category) {
-                        return DropdownMenuItem<ServiceCategory>(
-                          value: category,
-                          child: Text(
-                            category.displayName, // Use the display name
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }), // Remove .toList() here
-                    ],
-                    onChanged: (value) {
-                      setState(() => _selectedServiceType = value);
-                    },
-                    icon: Icon(
-                      Icons.arrow_drop_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ),
+              // Search Field (was here)
+              // Reseller Dropdown (was here)
+              // Service Type Dropdown (was here)
+              // Energy Type Dropdown (was here)
             ],
           ),
+        ] else ...[
+           // --- Add Filter Button for Mobile View too ---
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              height: 40, // Slightly smaller for mobile
+              child: Badge(
+                isLabelVisible: _areFiltersActive(),
+                backgroundColor: theme.colorScheme.primary,
+                child: OutlinedButton.icon(
+                  icon: Icon(Icons.filter_list, size: 18),
+                  label: Text('Filters'), // TODO: l10n
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.onSurfaceVariant,
+                    side: BorderSide(color: theme.dividerColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onPressed: () {
+                    _showFilterSheet(context, uniqueResellers);
+                  },
+                ),
+              ),
+            ),
+          ),
         ],
-        // TODO: Add filter UI for mobile view if needed
-        // Consider chips or a separate filter button/modal for mobile
+        */
       ],
     );
   }
@@ -973,8 +818,8 @@ class _OpportunityVerificationPageState
           const SizedBox(height: 8),
           if (_searchQuery.isNotEmpty ||
               _selectedReseller != null ||
-              _selectedServiceType !=
-                  null) // Update condition for empty state message
+              _selectedServiceType != null ||
+              _selectedEnergyType != null) // <-- ADD EnergyType check
             Text(
               // l10n.tryAdjustingFilters, // TODO: Add localization key
               'Try adjusting the search or filters.',
@@ -997,4 +842,144 @@ class _OpportunityVerificationPageState
       ),
     );
   }
+
+  // --- START: Deletion Logic --- Updated
+  Future<void> _deleteSubmission(String submissionId) async {
+    // Show loading indicator maybe?
+    final docRef = FirebaseFirestore.instance
+        .collection('serviceSubmissions')
+        .doc(submissionId);
+
+    String? storagePathToDelete;
+    String feedbackMessage =
+        'Submission deleted successfully.'; // Default success
+    Color feedbackColor = Colors.green;
+
+    try {
+      // 1. Get the document data BEFORE deleting to find the file path
+      final docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        final data = docSnap.data() as Map<String, dynamic>?;
+        // Check for invoicePhoto and its storagePath
+        if (data != null && data.containsKey('invoicePhoto')) {
+          final invoicePhotoData =
+              data['invoicePhoto'] as Map<String, dynamic>?;
+          if (invoicePhotoData != null &&
+              invoicePhotoData.containsKey('storagePath')) {
+            storagePathToDelete = invoicePhotoData['storagePath'] as String?;
+          }
+        }
+      } else {
+        // Document doesn't exist, maybe already deleted?
+        feedbackMessage = 'Submission not found.';
+        feedbackColor = Colors.orange;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(feedbackMessage),
+              backgroundColor: feedbackColor,
+            ),
+          );
+        }
+        return; // Exit early
+      }
+
+      // 2. Attempt to delete the file from Storage if path exists
+      if (storagePathToDelete != null && storagePathToDelete.isNotEmpty) {
+        try {
+          final storageRef = FirebaseStorage.instance.ref(storagePathToDelete);
+          await storageRef.delete();
+          print('Successfully deleted file from Storage: $storagePathToDelete');
+        } on FirebaseException catch (e) {
+          // Handle Storage deletion errors (e.g., file not found, permissions)
+          print('Error deleting file from Storage: $e');
+          if (e.code == 'object-not-found') {
+            // File already gone, proceed to delete Firestore doc anyway
+            print('Storage file not found, proceeding with Firestore delete.');
+          } else {
+            // Other storage error, maybe don't delete Firestore doc?
+            feedbackMessage = 'Error deleting associated file: ${e.message}';
+            feedbackColor = Colors.red;
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(feedbackMessage),
+                  backgroundColor: feedbackColor,
+                ),
+              );
+            }
+            return; // Exit without deleting Firestore doc for critical storage errors
+          }
+        }
+      }
+
+      // 3. Delete the Firestore document
+      await docRef.delete();
+    } catch (e) {
+      print('Error during deletion process: $e');
+      feedbackMessage = 'Error deleting submission: ${e.toString()}';
+      feedbackColor = Colors.red;
+    } finally {
+      // Show final feedback
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(feedbackMessage),
+            backgroundColor: feedbackColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showDeleteConfirmationDialog(
+    BuildContext context,
+    String submissionId,
+    String submissionName,
+    ThemeData theme,
+  ) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button!
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          title: const Text('Confirm Deletion'), // TODO: l10n
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text(
+                  'Are you sure you want to delete the submission for "$submissionName"?',
+                ), // TODO: l10n
+                const Text('This action cannot be undone.'), // TODO: l10n
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'), // TODO: l10n
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss the dialog
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error, // Use error color
+              ),
+              child: const Text('Delete'), // TODO: l10n
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss the dialog
+                _deleteSubmission(submissionId); // Call the delete function
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- END: Deletion Logic ---
 }

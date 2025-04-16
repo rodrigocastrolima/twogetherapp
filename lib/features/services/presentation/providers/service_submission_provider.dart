@@ -158,9 +158,61 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
     }
   }
 
+  // --- Add method to pick from Camera ---
+  Future<void> pickInvoiceFileFromCamera() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      if (kDebugMode) {
+        print('Calling repository.pickImageFromCameraAndGetName()');
+      }
+      // ASSUMPTION: Repository has a method like pickImageFromCameraAndGetName
+      // If not, it needs to be added there using ImagePicker().pickImage(source: ImageSource.camera)
+      final result = await _repository.pickImageFromCameraAndGetName();
+
+      if (result != null) {
+        final fileData = result['fileData']; // Should be File for mobile camera
+        final fileName = result['fileName'] as String?;
+
+        if (kDebugMode) {
+          print(
+            'Camera image picked: Name = $fileName, Type = ${fileData?.runtimeType}',
+          );
+        }
+
+        if (fileData is File && fileName != null) {
+          // Explicitly check for File type
+          state = state.copyWith(
+            selectedInvoiceFile: fileData,
+            selectedInvoiceFileName: fileName,
+            isLoading: false,
+          );
+        } else {
+          if (kDebugMode)
+            print('Camera picking returned null data/name or invalid type');
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Failed to get image details from camera.',
+          );
+        }
+      } else {
+        if (kDebugMode) print('Camera picking cancelled by user.');
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking file from camera via notifier: $e');
+      }
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage:
+            'Failed to use camera: ${e.toString().replaceFirst("Exception: ", "")}',
+      );
+    }
+  }
+
   // --- OLD/REPLACED PICKERS ---
   // Future<dynamic> pickPdfFile() async { ... }
-  // Future<void> pickInvoiceFromCamera() async { ... }
+  // Future<void> pickInvoiceFromCamera() async { ... } // Original commented out
 
   // --- REVISED: Clear invoice file state ---
   void clearInvoiceFile() {

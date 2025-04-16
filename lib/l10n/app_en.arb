@@ -7,7 +7,22 @@
     "loginPassword": "Password",
     "loginRememberMe": "Remember me",
     "loginButton": "Login",
-    "loginForgotPassword": "Forgot password?",
+    "loginForgotPassword": "Forgot Password?",
+    "@loginForgotPassword": {
+        "description": "Text for the forgot password link/button on the login page"
+    },
+    "forgotPasswordRecoverButton": "Recover Password",
+    "@forgotPasswordRecoverButton": {
+        "description": "Button text to request password recovery"
+    },
+    "forgotPasswordBackButton": "Back to Login",
+    "@forgotPasswordBackButton": {
+        "description": "Button text to return to the standard login form"
+    },
+    "forgotPasswordSuccessMessage": "If an account exists for that email, a recovery link has been sent.",
+    "@forgotPasswordSuccessMessage": {
+        "description": "Message shown after successfully requesting password reset"
+    },
     
     "@_ADMIN": {},
     "adminRetailUsers": "Retail Users",
@@ -245,5 +260,120 @@
     "resellerRole": "Reseller",
 
     "navSubmissions": "Submissions",
-    "navResellers": "Resellers"
+    "navResellers": "Resellers",
+
+    "dashboardSubmissionApprovalRate": "Approval Rate",
+    "@dashboardSubmissionApprovalRate": {
+        "description": "Label for the submission approval rate"
+    },
+
+    "@_FILE_UPLOAD": {},
+    "fileUploadTitleInvoice": "Invoice",
+    "@fileUploadTitleInvoice": {
+        "description": "Title for the file upload section specifically for invoices"
+    },
+    "fileUploadHint": "Upload a photo or PDF of the invoice",
+    "@fileUploadHint": {
+        "description": "Hint text instructing the user what to upload"
+    },
+    "fileUploadButtonLabel": "Upload Invoice",
+    "@fileUploadButtonLabel": {
+        "description": "Label for the single button to initiate invoice upload"
+    },
+    "fileUploadOptionGallery": "Choose from Gallery/Files",
+    "@fileUploadOptionGallery": {
+        "description": "Label for the option to select a file from the device gallery or file system"
+    },
+    "fileUploadOptionCamera": "Use Camera",
+    "@fileUploadOptionCamera": {
+        "description": "Label for the option to take a new photo using the camera"
+    },
+    "fileUploadOptionCancel": "Cancel",
+    "@fileUploadOptionCancel": {
+        "description": "Label for the cancel action in the file upload options"
+    },
+    "fileUploadRemoveTooltip": "Remove File",
+    "@fileUploadRemoveTooltip": {
+        "description": "Tooltip for the button to remove the currently selected file"
+    },
+
+    "@_CHAT_PAGE": {},
+    "chatSendMessageError": "Error sending message: {error}",
+    "@chatSendMessageError": {
+        "description": "Error message shown when sending a chat message fails.",
+        "placeholders": { "error": { "type": "String", "example": "Network error" } }
+    },
+    "chatSelectImageError": "Error selecting image: {error}",
+    "@chatSelectImageError": {
+        "description": "Error message shown when selecting an image for chat fails.",
+        "placeholders": { "error": { "type": "String", "example": "Permission denied" } }
+    },
+    "chatAdminEmptyState": "No messages yet",
+    "@chatAdminEmptyState": {
+        "description": "Placeholder text shown to admins when a conversation has no messages."
+    },
+    "chatErrorGenericRetry": "Please try again later",
+    "@chatErrorGenericRetry": {
+        "description": "Generic error message asking the user to retry the action later."
+    },
+    "chatDefaultSenderName": "User",
+    "@chatDefaultSenderName": {
+        "description": "Default sender name used if the actual name cannot be retrieved."
+    },
+    "chatImageLoadError": "Failed to load image",
+    "@chatImageLoadError": {
+        "description": "Error message shown within an image preview area when the image fails to load."
+    },
+    "chatImageNotAvailable": "Image not available",
+    "@chatImageNotAvailable": {
+        "description": "Placeholder text shown when an image cannot be displayed."
+    },
+    "chatImageLoadFailed": "Image failed to load",
+    "@chatImageLoadFailed": {
+        "description": "Text shown in the error placeholder when an image load fails."
+    },
+    "chatImageRetryLabel": "Tap to retry {count}/{maxRetries}",
+    "@chatImageRetryLabel": {
+        "description": "Label instructing user to tap to retry image loading, showing current attempt number.",
+        "placeholders": {
+            "count": { "type": "int", "example": "1" },
+            "maxRetries": { "type": "int", "example": "3" }
+        }
+    },
+    "chatImageCannotDisplay": "Can't display image",
+    "@chatImageCannotDisplay": {
+        "description": "Text shown when an image cannot be displayed, possibly due to format issues."
+    },
+    "chatImageOpenInBrowser": "Tap to open in browser",
+    "@chatImageOpenInBrowser": {
+        "description": "Instructional text for the user to tap to try opening the image link in a browser."
+    },
+    "chatInputHintAdmin": "Message",
+    "@chatInputHintAdmin": {
+        "description": "Hint text for the chat input field when viewed by an admin."
+    },
+    "chatDebugDialogTitle": "Image Loading Debug Info",
+    "@chatDebugDialogTitle": { "description": "Title for the debug dialog shown for image loading issues." },
+    "chatDebugDialogUrlLabel": "URL:",
+    "@chatDebugDialogUrlLabel": { "description": "Label for the URL field in the debug dialog." },
+    "chatDebugDialogTestsLabel": "Tests:",
+    "@chatDebugDialogTestsLabel": { "description": "Label for the Tests section in the debug dialog." },
+    "chatDebugDialogRunUrlTestButton": "Run URL Tests",
+    "@chatDebugDialogRunUrlTestButton": { "description": "Label for the button to run URL tests in the debug dialog." },
+    "chatDebugDialogImageUrlInfoButton": "Image URL Info",
+    "@chatDebugDialogImageUrlInfoButton": { "description": "Label for the button to show image URL info in the debug dialog." },
+    "chatDebugDialogCloseButton": "Close",
+    "@chatDebugDialogCloseButton": { "description": "Label for the close button in the debug dialog." },
+    "chatDebugDialogFirebaseTitle": "Firebase Storage URL Issue",
+    "@chatDebugDialogFirebaseTitle": { "description": "Title for the Firebase specific debug dialog." },
+    "chatDebugDialogFirebaseContent": "Firebase Storage URLs often have CORS issues in web browsers that prevent direct loading.",
+    "@chatDebugDialogFirebaseContent": { "description": "Explanation of CORS issues in the Firebase debug dialog." },
+    "chatDebugDialogFirebaseSolutionsTitle": "Possible solutions:",
+    "@chatDebugDialogFirebaseSolutionsTitle": { "description": "Title for the solutions section in the Firebase debug dialog." },
+    "chatDebugDialogFirebaseSolution1": "1. Configure Firebase Storage CORS settings",
+    "@chatDebugDialogFirebaseSolution1": { "description": "Solution 1 in the Firebase debug dialog." },
+    "chatDebugDialogFirebaseSolution2": "2. Use a server proxy to bypass CORS",
+    "@chatDebugDialogFirebaseSolution2": { "description": "Solution 2 in the Firebase debug dialog." },
+    "chatDebugDialogFirebaseSolution3": "3. Switch to use a CachedNetworkImageProvider",
+    "@chatDebugDialogFirebaseSolution3": { "description": "Solution 3 in the Firebase debug dialog." }
 } 
