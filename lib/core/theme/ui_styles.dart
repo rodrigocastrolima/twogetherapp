@@ -99,7 +99,7 @@ class AppStyles {
 
   // Badge styles
   static BoxDecoration get notificationBadge =>
-      const BoxDecoration(color: Colors.amber, shape: BoxShape.circle);
+      const BoxDecoration(color: Colors.red, shape: BoxShape.circle);
 
   static BoxDecoration adminNotificationBadge(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -110,9 +110,8 @@ class AppStyles {
   }
 
   static TextStyle badgeTextStyle(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return TextStyle(
-      color: isDark ? AppTheme.darkBackground : Colors.black,
+    return const TextStyle(
+      color: Colors.white,
       fontSize: 10,
       fontWeight: FontWeight.bold,
     );

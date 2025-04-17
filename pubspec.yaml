@@ -88,6 +88,10 @@ dependencies:
   introduction_screen: ^3.1.14
   firebase_messaging: ^14.9.4
 
+  font_awesome_flutter: ^10.7.0
+  rxdart: ^0.28.0 # Added dependency for stream extensions
+  flutter_local_notifications: ^17.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

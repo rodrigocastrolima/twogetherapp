@@ -10,17 +10,17 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import { cleanupExpiredMessages } from './messageCleanup';
-import { onNewMessageNotification } from './notifications';
 import { removeRememberMeField } from './removeRememberMeField';
-import { getResellerOpportunities } from './getResellerOpportunities'; // Import the new function
 import * as jwt from 'jsonwebtoken'; // Added for JWT generation
 import axios from 'axios'; // Added for HTTP requests
 // Import v2 Firestore triggers
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as jsforce from 'jsforce'; // For Salesforce connection
 import * as functions from "firebase-functions"; // Ensure this import exists for functions.config()
-// import { Storage } from "@google-cloud/storage"; // Not needed if using admin.storage()
+import { cleanupExpiredMessages } from './messageCleanup'; // Re-added import
+import { sendMessageNotification } from './notifications'; // Re-added import
+import { getResellerOpportunities } from './getResellerOpportunities'; // Re-added import
+import { resetAndVerifyConversations } from './migrations'; // Re-added import
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -1490,9 +1490,10 @@ export const runMigration = onCall({
   }
 });
 
-// Export Cloud Functions
+// Explicitly re-export functions defined in other files
 export {
-  cleanupExpiredMessages,
-  onNewMessageNotification,
-  getResellerOpportunities, // Export the new function here
+  cleanupExpiredMessages, // From ./messageCleanup
+  sendMessageNotification, // From ./notifications
+  getResellerOpportunities, // From ./getResellerOpportunities
+  resetAndVerifyConversations // From ./migrations
 };

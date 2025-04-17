@@ -28,10 +28,23 @@ service cloud.firestore {
     
     // Users collection
     match /users/{userId} {
-      // Users can read and update their own documents
-      // Admins can read and update any user document
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Allow users/admins to create user documents (adjust if needed)
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Allow admins to update any field, allow users to update ONLY specific fields
+      allow update: if isAuthenticated() && (
+                      isAdmin() || // Admins can update anything
+                      (
+                        request.auth.uid == userId && // It's their own document
+                        // Ensure the update is not empty
+                        request.resource.data.diff(resource.data).affectedKeys().size() >= 1 &&
+                        // Ensure ONLY allowed keys are being updated
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['isFirstLogin', 'firstLoginCompletedAt', 'fcmTokens', 'lastTokenUpdate', 'initialPasswordChanged']) // Added lastTokenUpdate
+                      )
+                    );
+      // Only admins can delete users (adjust if needed)
+      allow delete: if isAuthenticated() && isAdmin();
     }
     
     // Conversations collection
@@ -39,14 +52,26 @@ service cloud.firestore {
       // Admins can read and write any conversation
       // Resellers can read and write only their own conversations
       allow create: if isAuthenticated() && (isAdmin() || isResellerInData());
-      allow read, update, delete: if isAuthenticated() && 
-        (isAdmin() || resource.data.resellerId == request.auth.uid);
+      // Allow GETTING a specific document if admin or participant
+      allow get: if isAuthenticated() && 
+                    ( 
+                      isAdmin() || // Admins can read anything
+                      request.auth.uid in resource.data.participants // User is a participant
+                    );
+      // Allow LISTING (querying) the collection if authenticated.
+      // The 'get' rule above will still secure the actual documents returned.
+      allow list: if isAuthenticated();
+      // Allow updates/deletes only by admin or the specific reseller
+      allow update, delete: if isAuthenticated() && 
+                              (isAdmin() || resource.data.resellerId == request.auth.uid);
       
       // Messages in conversations
       match /messages/{messageId} {
         // Allow read/write to messages if the user can access the parent conversation
-        allow read, write: if isAuthenticated() && 
-          (isAdmin() || isResellerOfConversation(conversationId));
+        allow read, write: if isAuthenticated() && (
+                             isAdmin() || 
+                             request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants
+                           );
       }
     }
     

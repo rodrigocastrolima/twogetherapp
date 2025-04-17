@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../../presentation/layout/main_layout.dart';
 import '../../presentation/layout/admin_layout.dart';
@@ -28,6 +29,7 @@ import '../../core/services/salesforce_auth_service.dart';
 import '../../features/settings/presentation/pages/profile_page.dart';
 import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
+import '../../presentation/screens/admin/dev_tools_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -37,6 +39,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 class AuthNotifier extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   bool _isAuthenticated = false;
   bool _isAdmin = false;
@@ -56,10 +59,11 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> _initAuth() async {
     _auth.authStateChanges().listen((User? user) async {
-      // Add delay before processing state change
-      await Future.delayed(Duration.zero);
-
       if (user != null) {
+        if (kDebugMode)
+          print(
+            'Auth Listener: User is not null (UID: ${user.uid}). Entering try block...',
+          );
         try {
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
@@ -98,6 +102,23 @@ class AuthNotifier extends ChangeNotifier {
             _isFirstLogin = isFirstLogin;
             _initialPasswordChanged = initialPasswordChanged;
             _salesforceId = salesforceIdFromDb; // Store salesforceId
+
+            if (kDebugMode)
+              print(
+                'Auth Listener: User data fetched. Attempting token update...',
+              );
+
+            // *** Start FCM Token Logic ***
+            // Get initial token and save it
+            await _updateFcmToken();
+            // Listen for token refreshes
+            _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+              if (kDebugMode) print('FCM Token Refreshed.');
+              await _updateFcmToken(
+                token: newToken,
+              ); // Pass the new token directly
+            });
+            // *** End FCM Token Logic ***
           } else {
             // Handle case where doc doesn't exist
             // No user data found in Firestore
@@ -113,10 +134,12 @@ class AuthNotifier extends ChangeNotifier {
             _salesforceId = null; // Reset salesforceId
           }
         } catch (e) {
+          if (kDebugMode)
+            print('Auth Listener: ERROR caught in _initAuth try block: $e');
           if (kDebugMode) {
             print('Error fetching user data: $e');
           }
-          _isAuthenticated = true;
+          _isAuthenticated = false;
           _isAdmin = false;
           _isFirstLogin = false;
           _initialPasswordChanged = true;
@@ -124,6 +147,11 @@ class AuthNotifier extends ChangeNotifier {
         }
       } else {
         // User is signed out
+        // *** Start FCM Token Logic ***
+        // Attempt to remove the token on sign out
+        await _removeFcmToken();
+        // *** End FCM Token Logic ***
+
         _isAuthenticated = false;
         _isAdmin = false;
         _isFirstLogin = false;
@@ -131,8 +159,97 @@ class AuthNotifier extends ChangeNotifier {
         _salesforceId = null; // Reset salesforceId on sign out
       }
       // Notify listeners AFTER potential delay and state update
+      if (kDebugMode) {
+        print(
+          'AuthNotifier state updated: isAuthenticated=$_isAuthenticated, isAdmin=$_isAdmin',
+        );
+      }
       notifyListeners();
     });
+  }
+
+  Future<void> _updateFcmToken({String? token}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      if (kDebugMode) print('Cannot update FCM token, user is null.');
+      return;
+    }
+
+    try {
+      // Get token if not provided (e.g., on initial login)
+      final fcmToken = token ?? await _firebaseMessaging.getToken();
+
+      if (fcmToken != null) {
+        final userRef = _firestore.collection('users').doc(user.uid);
+        if (kDebugMode)
+          print('Attempting to add FCM token for user ${user.uid}');
+        await userRef.set(
+          // Use set with merge:true to handle doc creation if needed
+          {
+            'fcmTokens': FieldValue.arrayUnion([fcmToken]),
+            'lastTokenUpdate': FieldValue.serverTimestamp(),
+          },
+          SetOptions(
+            merge: true,
+          ), // Use merge to avoid overwriting other fields
+        );
+        if (kDebugMode)
+          print('Successfully added FCM token for user ${user.uid}');
+      } else {
+        if (kDebugMode)
+          print('FCM token is null, cannot update for user ${user.uid}');
+      }
+    } catch (e) {
+      if (kDebugMode)
+        print('Error updating FCM token for user ${user.uid}: $e');
+      // Decide if you want to rethrow or handle silently
+    }
+  }
+
+  Future<void> _removeFcmToken() async {
+    // Get the UID before potentially signing out completely
+    final uidToRemoveTokenFor = _auth.currentUser?.uid;
+    if (uidToRemoveTokenFor == null) {
+      // No user logged in, nothing to remove. This might happen if called after sign out completes.
+      if (kDebugMode) print('No user logged in, skipping FCM token removal.');
+      return;
+    }
+
+    try {
+      // Get the specific token for this device instance to remove it
+      final fcmToken = await _firebaseMessaging.getToken();
+
+      if (fcmToken != null) {
+        final userRef = _firestore.collection('users').doc(uidToRemoveTokenFor);
+        if (kDebugMode)
+          print(
+            'Attempting to remove FCM token for user ${uidToRemoveTokenFor}',
+          );
+        await userRef.update({
+          'fcmTokens': FieldValue.arrayRemove([fcmToken]),
+        });
+        if (kDebugMode)
+          print(
+            'Successfully removed FCM token for user ${uidToRemoveTokenFor}',
+          );
+      } else {
+        if (kDebugMode)
+          print(
+            'FCM token is null, cannot remove for user ${uidToRemoveTokenFor}',
+          );
+      }
+    } catch (e) {
+      // Log error but don't prevent sign-out
+      if (kDebugMode)
+        print('Error removing FCM token for user ${uidToRemoveTokenFor}: $e');
+      // Check if the error is due to the document not existing (already deleted?)
+      if (e is FirebaseException && e.code == 'not-found') {
+        if (kDebugMode)
+          print(
+            'User document ${uidToRemoveTokenFor} not found during token removal, might have been deleted.',
+          );
+      }
+    }
   }
 
   Future<void> setAuthenticated(bool value, {bool isAdmin = false}) async {
@@ -635,6 +752,14 @@ class AppRouter {
       ),
 
       // --- Top-Level Secondary Routes (No Shell) ---
+      GoRoute(
+        path: '/admin/dev-tools', // Path for the new page
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder:
+            (context, state) => const MaterialPage(
+              child: DevToolsPage(), // Navigate to the new DevToolsPage
+            ),
+      ),
       GoRoute(
         path: '/admin/users/:userId',
         parentNavigatorKey: _rootNavigatorKey,

@@ -743,9 +743,47 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           label: l10n.navClients,
         ),
         BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.bubble_left),
+          icon: Consumer(
+            builder: (context, ref, child) {
+              final count = ref
+                  .watch(unreadMessagesCountProvider)
+                  .maybeWhen(data: (c) => c, orElse: () => 0);
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  child!,
+                  if (count > 0)
+                    Positioned(
+                      top: -5,
+                      right: -8,
+                      child: Container(
+                        padding: const EdgeInsets.all(1),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          count.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+            child: const Icon(CupertinoIcons.bubble_left),
+          ),
           label: l10n.navMessages,
-          // Add badge logic if needed here too, maybe using Stack
         ),
         BottomNavigationBarItem(
           icon: Icon(CupertinoIcons.settings),

@@ -95,10 +95,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _isImageLoading = false;
   bool _hasText = false; // Add this to track whether there's text in the input
   Timer? _debounceTimer; // Add debounce timer to prevent too many updates
+  late final ChatNotifier _chatNotifier; // <-- ADD member variable
 
   @override
   void initState() {
     super.initState();
+    _chatNotifier = ref.read(
+      chatNotifierProvider.notifier,
+    ); // <-- INITIALIZE here
     // Mark conversation as read initially
     _markAsRead();
 
@@ -107,12 +111,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Set user as active in this conversation
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setUserActiveInConversation(true);
+      // Use the stored notifier instance
+      _chatNotifier.setUserActiveInConversation(widget.conversationId, true);
+      // _setUserActiveInConversation(true); // Keep or remove helper? Let's keep for now
     });
   }
 
   @override
   void dispose() {
+    print('--- ChatPage dispose START ---');
     // Remove listener from text controller
     _messageController.removeListener(_updateHasText);
 
@@ -121,35 +128,46 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Set user as inactive in this conversation before disposing
     try {
+      // Use the stored notifier instance directly
+      print('--- ChatPage dispose: Calling setUserActive(false) ---');
+      _chatNotifier.setUserActiveInConversation(widget.conversationId, false);
+      /* --- REMOVE OLD LOGIC ---
       if (mounted) {
-        // Only call the provider if the widget is still mounted
-        final notifier = ref.read(chatNotifierProvider.notifier);
-        notifier.setUserActiveInConversation(widget.conversationId, false);
+        print('--- ChatPage dispose: Calling setUserActive(false) ---');
+        // final notifier = ref.read(chatNotifierProvider.notifier); // <-- Don't read here
+        _chatNotifier.setUserActiveInConversation(widget.conversationId, false);
+      } else {
+          print('--- ChatPage dispose: Widget not mounted! ---'); 
       }
+      */
     } catch (e) {
       if (kDebugMode) {
-        print('Error during dispose: $e');
+        print('--- ChatPage dispose: ERROR calling setUserActive: $e ---');
       }
     }
 
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    print('--- ChatPage dispose END ---');
     super.dispose();
   }
 
   // Track user active status in conversation
   void _setUserActiveInConversation(bool isActive) {
-    ref
-        .read(chatNotifierProvider.notifier)
-        .setUserActiveInConversation(widget.conversationId, isActive);
+    // Use the stored notifier
+    _chatNotifier.setUserActiveInConversation(widget.conversationId, isActive);
+    // ref
+    //     .read(chatNotifierProvider.notifier)
+    //     .setUserActiveInConversation(widget.conversationId, isActive);
   }
 
   void _markAsRead() {
-    // Optimistically update local state if needed
-    ref
-        .read(chatNotifierProvider.notifier)
-        .markConversationAsRead(widget.conversationId);
+    // Use the stored notifier
+    _chatNotifier.markConversationAsRead(widget.conversationId);
+    // ref
+    //     .read(chatNotifierProvider.notifier)
+    //     .markConversationAsRead(widget.conversationId);
   }
 
   Future<void> _sendMessage() async {

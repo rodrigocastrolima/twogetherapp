@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/locale_provider.dart';
@@ -143,7 +144,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               l10n.adminSystemConfigDescription,
               CupertinoIcons.gear_alt_fill,
               () {
-                // Navigate to system configuration
+                // TODO: Navigate to system configuration
               },
             ),
             _buildActionSetting(
@@ -190,10 +191,16 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               statusIndicator: _buildStatusIndicator(statusColor),
               hideChevron: true,
             ),
+            _buildActionSetting(
+              'Developer Tools',
+              'Access admin-only scripts and tools.',
+              CupertinoIcons.hammer_fill,
+              () => context.push('/admin/dev-tools'),
+            ),
           ]),
           const SizedBox(height: 24),
 
-          // --- 4. Standalone Logout Button ---
+          // --- 5. Standalone Logout Button ---
           _buildActionSetting(
             l10n.profileLogout,
             l10n.profileEndSession,

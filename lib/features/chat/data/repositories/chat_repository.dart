@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:rxdart/rxdart.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
 
@@ -437,6 +438,91 @@ class ChatRepository {
     }
   }
 
+  // ---- NEW STREAM METHOD ----
+  Stream<int> getUnreadMessagesCountStream() {
+    final String? currentUserId = _auth.currentUser?.uid;
+    // Determine the user ID field to check in unreadCounts
+    // For resellers, it's their UID. For admin, it's the string 'admin'.
+    // We need to know if the current user IS an admin first.
+
+    // We can't directly call async `isCurrentUserAdmin` here.
+    // One approach is to listen based on the known UID and assume non-admins are resellers.
+    // A more robust approach might involve getting the role from an auth provider/state.
+    // Assuming simple case: if currentUserId exists, check for that ID, otherwise maybe try 'admin'?
+    // Let's refine this: We'll check the user's role AFTER getting the ID.
+
+    if (currentUserId == null) {
+      // If no user is logged in, return a stream of 0
+      return Stream.value(0);
+    }
+
+    // First, get the user role. This requires an async call.
+    // Since streams are synchronous in their definition, we use a Stream.fromFuture
+    // combined with switchMap to transition from the Future<role> to the Stream<count>.
+    return Stream.fromFuture(
+          _firestore.collection('users').doc(currentUserId).get(),
+        )
+        .asyncMap((userDoc) async {
+          // Determine the key to use based on the user's role
+          final userData = userDoc.exists ? userDoc.data() : null;
+          final role =
+              userData?['role'] as String? ??
+              'reseller'; // Default to reseller if role missing
+          final String countKey =
+              (role.toLowerCase() == 'admin') ? 'admin' : currentUserId;
+          final bool isAdmin = (role.toLowerCase() == 'admin');
+          // Use a simple Map or a custom class for clarity
+          return {'countKey': countKey, 'isAdmin': isAdmin};
+        })
+        .switchMap((userData) {
+          // <-- Use rxdart's switchMap extension method
+          final String countKey = userData['countKey']! as String;
+          final bool isAdmin = userData['isAdmin']! as bool;
+
+          // Now that we have the key ('admin' or userId) and isAdmin flag, set up the Firestore listener
+          Query query = _firestore.collection(_conversationsCollection);
+
+          if (!isAdmin) {
+            // Resellers only see their own conversations
+            query = query.where('participants', arrayContains: currentUserId);
+          }
+          // Admins see all conversations (no extra where clause needed)
+
+          return query.snapshots().map((snapshot) {
+            int totalUnread = 0;
+            for (final doc in snapshot.docs) {
+              final data =
+                  doc.data() as Map<String, dynamic>?; // Cast for safety
+              if (data != null && data.containsKey('unreadCounts')) {
+                final unreadCounts =
+                    data['unreadCounts'] as Map<String, dynamic>?;
+                if (unreadCounts != null &&
+                    unreadCounts.containsKey(countKey)) {
+                  // Safely convert to int, defaulting to 0 if null or wrong type
+                  final count = unreadCounts[countKey];
+                  if (count is num) {
+                    totalUnread += count.toInt();
+                  }
+                }
+              }
+              // We ignore the old unreadByAdmin/unreadByReseller fields for the stream
+            }
+            if (kDebugMode) {
+              print('Stream update: Total unread for $countKey: $totalUnread');
+            }
+            return totalUnread;
+          });
+        })
+        .handleError((error) {
+          // Log error and return 0 count on stream error
+          if (kDebugMode) {
+            print('Error in getUnreadMessagesCountStream: $error');
+          }
+          return 0;
+        });
+  }
+  // ---- END NEW STREAM METHOD ----
+
   // Send a text message
   Future<void> sendTextMessage(String conversationId, String content) async {
     if (currentUserId == null) {
@@ -530,24 +616,17 @@ class ChatRepository {
       for (final participantId in participants) {
         // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
-          // Add to the unreadCounts map
-          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
-
-          // Also update old fields for backward compatibility
-          if (participantId == 'admin') {
-            updateData['unreadByAdmin'] = true;
-          } else {
-            updateData['unreadByReseller'] = true;
-          }
+          // --- REMOVE CLIENT-SIDE INCREMENT --- 
+          // Add to the unreadCounts map (KEEP THIS - although CF does it too, immediate feedback might be okay)
+          // If experiencing issues, consider removing this client-side increment too.
+          // updateData['unreadCounts.$participantId'] = FieldValue.increment(1); 
+          // --- END REMOVAL ---
         }
       }
 
       // Always mark conversation as active when sending a message
       // This ensures it will appear in the admin's list
       updateData['active'] = true;
-
-      // Update the total unread count for backward compatibility
-      updateData['unreadCount'] = FieldValue.increment(1);
 
       batch.update(conversationRef, updateData);
 
@@ -816,24 +895,16 @@ class ChatRepository {
       for (final participantId in participants) {
         // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
+          // --- REMOVE CLIENT-SIDE INCREMENT --- 
           // Add to the unreadCounts map
-          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
-
-          // Also update old fields for backward compatibility
-          if (participantId == 'admin') {
-            updateData['unreadByAdmin'] = true;
-          } else {
-            updateData['unreadByReseller'] = true;
-          }
+          // updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
+          // --- END REMOVAL ---
         }
       }
 
       // Always mark conversation as active when sending an image
       // This ensures it will appear in the admin's list
       updateData['active'] = true;
-
-      // Update the total unread count for backward compatibility
-      updateData['unreadCount'] = FieldValue.increment(1);
 
       batch.update(conversationRef, updateData);
 
@@ -1068,68 +1139,49 @@ class ChatRepository {
     if (currentUserId == null) return;
 
     try {
-      if (kDebugMode) {
-        print(
-          'Setting user active status: ${isActive ? 'active' : 'inactive'} '
-          'for conversation: $conversationId',
-        );
-      }
-
-      // Determine if current user is admin
+      // ---> ADD LOGS START <---
+      print('--- setUserActive START ---');
+      print('Conversation ID: $conversationId');
+      print('IsActive flag: $isActive');
       final bool isAdmin = await isCurrentUserAdmin();
-
-      // The "activeUsers" entry to set or remove is 'admin' for admins, or the user's ID for resellers
       final String userActiveId = isAdmin ? 'admin' : currentUserId!;
+      print('Determined userActiveId: $userActiveId (isAdmin: $isAdmin)');
+      // ---> ADD LOGS END <---
 
-      // Get current conversation document
-      final conversationSnapshot =
-          await _firestore
-              .collection(_conversationsCollection)
-              .doc(conversationId)
-              .get();
+      // Use atomic operations
+      final updateData = {
+        'activeUsers':
+            isActive
+                ? FieldValue.arrayUnion([userActiveId]) // Atomically add
+                : FieldValue.arrayRemove([userActiveId]), // Atomically remove
+      };
 
-      if (!conversationSnapshot.exists) {
-        if (kDebugMode) {
-          print('Conversation not found: $conversationId');
-        }
-        return;
-      }
-
-      // Get current active users array
-      final conversationData = conversationSnapshot.data()!;
-      List<dynamic> activeUsers = List<dynamic>.from(
-        conversationData['activeUsers'] ?? [],
-      );
-
-      // Update the active status based on the isActive flag
-      if (isActive && !activeUsers.contains(userActiveId)) {
-        // Add user to active users if they're not already there
-        activeUsers.add(userActiveId);
-      } else if (!isActive && activeUsers.contains(userActiveId)) {
-        // Remove user from active users
-        activeUsers.remove(userActiveId);
-      } else {
-        // No change needed
-        if (kDebugMode) {
-          print('No change needed for active status');
-        }
-        return;
-      }
-
-      // Update the conversation with the new activeUsers array
+      print(
+        '--- Attempting Firestore update: ${isActive ? 'arrayUnion' : 'arrayRemove'} ---',
+      ); // <-- ADD THIS
       await _firestore
           .collection(_conversationsCollection)
           .doc(conversationId)
-          .update({'activeUsers': activeUsers});
+          .update(updateData); // Apply atomic update
 
       if (kDebugMode) {
-        print('Updated active users to: $activeUsers');
+        // print(
+        //     'Applied ${isActive ? 'arrayUnion' : 'arrayRemove'} for $userActiveId'); // Old log
+        print(
+          '--- Firestore update SUCCEEDED: Applied ${isActive ? 'arrayUnion' : 'arrayRemove'} for $userActiveId ---',
+        ); // Modified log
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error setting user active status: $e');
+        // print('Error setting user active status: $e'); // Old log
+        print(
+          '--- setUserActive: ERROR during Firestore update: $e ---',
+        ); // Modified log
       }
       // Don't throw the error to prevent UI disruption
+    } finally {
+      // <-- ADD FINALLY BLOCK
+      print('--- setUserActive END ---');
     }
   }
 

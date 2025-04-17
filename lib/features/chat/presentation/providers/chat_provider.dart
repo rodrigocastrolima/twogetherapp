@@ -39,7 +39,7 @@ final messagesProvider = StreamProvider.family<List<ChatMessage>, String>((
 // Provider for total unread messages count
 final unreadMessagesCountProvider = StreamProvider<int>((ref) {
   final repository = ref.watch(chatRepositoryProvider);
-  return repository.getUnreadMessagesCount();
+  return repository.getUnreadMessagesCountStream();
 });
 
 // NotifierProvider for chat functionality
