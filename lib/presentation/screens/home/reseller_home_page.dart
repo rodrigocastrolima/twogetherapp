@@ -16,9 +16,18 @@ import '../../../features/notifications/presentation/services/notification_servi
 import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../../features/services/presentation/providers/service_submission_provider.dart';
-import '../../widgets/onboarding/app_tutorial_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/constants.dart';
+import '../../../app/router/app_router.dart'; // Import AppRouter to access notifier
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../widgets/onboarding/app_tutorial_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedPreferences again
+
+// Constants for the highlight area (adjust as needed)
+const double _highlightPadding = 8.0;
+const double _iconSize = 22.0; // From _buildCircleIconButton
+const double _iconPadding = 10.0; // From _buildCircleIconButton
+const double _totalIconSpace = (_iconPadding * 2) + _iconSize;
+const double _topRightPadding = 20.0; // Horizontal padding from header
 
 class ResellerHomePage extends ConsumerStatefulWidget {
   const ResellerHomePage({super.key});
@@ -27,11 +36,20 @@ class ResellerHomePage extends ConsumerStatefulWidget {
   ConsumerState<ResellerHomePage> createState() => _ResellerHomePageState();
 }
 
-class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
+// Add SingleTickerProviderStateMixin for AnimationController
+class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
+    with SingleTickerProviderStateMixin {
   bool _isEarningsVisible = true;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  // --- Animation State ---
+  late AnimationController _helpIconAnimationController;
+  late Animation<double> _helpIconAnimation;
+  bool _hasSeenHintLocally = false; // Keep track of local dismissal
+  bool _initCheckDone = false; // Prevent re-checking prefs on every build
+  // ---------------------
 
   @override
   void initState() {
@@ -45,19 +63,40 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
       }
     });
 
-    // Check and show tutorial after the first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        // Ensure widget is still mounted
-        _checkAndShowTutorial(context);
+    // --- Initialize Animation Controller ---
+    _helpIconAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _helpIconAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _helpIconAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    // -------------------------------------
+
+    // --- Check local preference ONCE after first frame ---
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted && !_initCheckDone) {
+        final prefs = await SharedPreferences.getInstance();
+        final seenHint =
+            prefs.getBool(AppConstants.kHasSeenHelpIconHint) ?? false;
+        setState(() {
+          _hasSeenHintLocally = seenHint;
+          _initCheckDone = true;
+        });
+        print('initState - _hasSeenHintLocally: $_hasSeenHintLocally'); // Debug
       }
     });
+    // -----------------------------------------------------
   }
 
   @override
   void dispose() {
     // Make sure to cancel any animations or ongoing operations
     _scrollController.dispose();
+    _helpIconAnimationController.dispose(); // Dispose animation controller
     // Clean up any resources to prevent leaks
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Ensure all resources are properly released
@@ -119,70 +158,43 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     );
   }
 
-  // --- Function to check and show onboarding tutorial ---
-  Future<void> _checkAndShowTutorial(BuildContext context) async {
-    // Check mounted status again inside async function
-    if (!context.mounted) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final bool hasCompletedTutorial =
-          prefs.getBool(AppConstants.kHasCompletedOnboardingTutorial) ?? false;
-
-      bool isFirstLogin = !hasCompletedTutorial;
-
-      if (isFirstLogin && context.mounted) {
-        // Show Tutorial as a full-screen dialog overlay
-        showGeneralDialog(
-          context: context,
-          barrierDismissible: false, // Prevent dismissing by tapping outside
-          barrierLabel: 'Tutorial',
-          barrierColor: Colors.black.withOpacity(0.5), // Dimmed background
-          transitionDuration: const Duration(milliseconds: 300),
-          pageBuilder: (ctx, anim1, anim2) => const AppTutorialScreen(),
-          transitionBuilder: (ctx, anim1, anim2, child) {
-            // Simple fade transition
-            return FadeTransition(opacity: anim1, child: child);
-          },
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error checking/showing tutorial: $e");
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final statusBarHeight = MediaQuery.of(context).padding.top;
     final screenSize = MediaQuery.of(context).size;
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
-    // Calculate the height of the top section (1/3 of screen)
-    final topSectionHeight = screenSize.height * 0.33;
+    // --- WATCH AuthNotifier state ---
+    final authNotifier = ref.watch(authNotifierProvider);
+    final bool isFirstLogin = authNotifier.isFirstLogin;
+    final bool passwordHasBeenChanged =
+        authNotifier
+            .initialPasswordChanged; // Still needed for password reminder
+    // -------------------------------
 
-    // Listener for the success dialog
-    ref.listen<bool>(showSubmissionSuccessDialogProvider, (
-      previousState,
-      shouldShow,
-    ) {
-      // Use WidgetsBinding to defer showing dialog and resetting state until after build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Check if mounted is crucial if this logic moves to initState or dispose
-        // In build, it's generally safe but good practice
-        if (shouldShow && mounted) {
-          _showAutoDismissDialog(context);
-          // Reset the flag immediately after triggering the dialog
-          ref.read(showSubmissionSuccessDialogProvider.notifier).state = false;
-        }
-      });
-    });
+    // --- Determine if animation should run ---
+    final bool shouldAnimate = isFirstLogin && !_hasSeenHintLocally;
+    // Start/stop animation controller based on state
+    if (shouldAnimate && !_helpIconAnimationController.isAnimating) {
+      print(
+        "Build: Starting animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
+      );
+      _helpIconAnimationController.repeat(reverse: true);
+    } else if (!shouldAnimate && _helpIconAnimationController.isAnimating) {
+      print(
+        "Build: Stopping animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
+      );
+      _helpIconAnimationController.stop();
+      // Reset scale immediately when stopping
+      _helpIconAnimationController.value = 0.0;
+    }
+    // ----------------------------------------
 
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
+    // --- Build method no longer needs top-level Stack ---
     return Scaffold(
-      backgroundColor: Colors.transparent, // Make scaffold transparent
+      backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         displacement: 40,
         onRefresh: _onRefresh,
@@ -191,29 +203,25 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-              // Top transparent section - background image will show through from MainLayout
+              // --- Top Section ---
               Container(
-                height: topSectionHeight,
+                height: screenSize.height * 0.33,
                 width: double.infinity,
-                // No background color to keep it transparent
                 child: SafeArea(
                   bottom: false,
                   child: Stack(
                     children: [
-                      // Content
                       Column(
                         children: [
                           SizedBox(height: 20),
-
-                          // Top row with profile and action icons
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20.0,
-                            ),
+                            ), // Use constant if defined
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Profile icon with user's initials
+                                // Profile Icon...
                                 ref
                                     .watch(authStateChangesProvider)
                                     .when(
@@ -314,56 +322,85 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                                 // Action icons row
                                 Row(
                                   children: [
-                                    // Search icon
+                                    // Search...
                                     _buildCircleIconButton(
                                       icon: CupertinoIcons.search,
                                       onTap: () {},
+                                      isHighlighted: false,
                                     ),
                                     const SizedBox(width: 10),
-                                    // Notification bell icon
+                                    // Bell...
                                     _buildCircleIconButton(
                                       icon: CupertinoIcons.bell_fill,
                                       onTap: () {},
+                                      isHighlighted: false,
                                     ),
                                     const SizedBox(width: 8),
-                                    // Help/Tutorial Icon (NEW)
-                                    _buildCircleIconButton(
-                                      icon: CupertinoIcons.question_circle,
-                                      onTap: () {
-                                        // Manually trigger the tutorial screen as a dialog
-                                        showGeneralDialog(
-                                          context: context,
-                                          barrierDismissible: false,
-                                          barrierLabel: 'Tutorial',
-                                          barrierColor: Colors.black
-                                              .withOpacity(0.5),
-                                          transitionDuration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          pageBuilder:
-                                              (ctx, anim1, anim2) =>
-                                                  const AppTutorialScreen(),
-                                          transitionBuilder: (
-                                            ctx,
-                                            anim1,
-                                            anim2,
-                                            child,
-                                          ) {
-                                            return FadeTransition(
-                                              opacity: anim1,
-                                              child: child,
+                                    // --- Help Icon with Animation ---
+                                    ScaleTransition(
+                                      scale: _helpIconAnimation,
+                                      child: _buildCircleIconButton(
+                                        icon: CupertinoIcons.question_circle,
+                                        isHighlighted: shouldAnimate,
+                                        onTap: () async {
+                                          if (shouldAnimate) {
+                                            print(
+                                              'Help icon tapped while animating. Stopping animation.',
                                             );
-                                          },
-                                        );
-                                      },
+                                            _helpIconAnimationController.stop();
+                                            final prefs =
+                                                await SharedPreferences.getInstance();
+                                            await prefs.setBool(
+                                              AppConstants.kHasSeenHelpIconHint,
+                                              true,
+                                            );
+                                            if (mounted) {
+                                              setState(() {
+                                                _hasSeenHintLocally = true;
+                                              });
+                                            }
+                                            print(
+                                              'Saved kHasSeenHelpIconHint=true.',
+                                            );
+                                          }
+
+                                          if (context.mounted) {
+                                            showGeneralDialog(
+                                              context: context,
+                                              barrierDismissible: false,
+                                              barrierLabel: 'Tutorial',
+                                              barrierColor: Colors.black
+                                                  .withOpacity(0.5),
+                                              transitionDuration:
+                                                  const Duration(
+                                                    milliseconds: 300,
+                                                  ),
+                                              pageBuilder:
+                                                  (ctx, anim1, anim2) =>
+                                                      const AppTutorialScreen(),
+                                              transitionBuilder: (
+                                                ctx,
+                                                anim1,
+                                                anim2,
+                                                child,
+                                              ) {
+                                                return FadeTransition(
+                                                  opacity: anim1,
+                                                  child: child,
+                                                );
+                                              },
+                                            );
+                                          }
+                                        },
+                                      ),
                                     ),
+                                    // --------------------------------
                                   ],
                                 ),
                               ],
                             ),
                           ),
-
-                          // Expanded space to vertically center the commission box
+                          // Commission Box...
                           Expanded(
                             child: Center(
                               child: Padding(
@@ -380,8 +417,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                   ),
                 ),
               ),
-
-              // White content area below the top section
+              // --- White content area ---
               Container(
                 width: double.infinity,
                 color: theme.colorScheme.background,
@@ -409,28 +445,54 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     );
   }
 
+  // --- Circle Icon Button remains the same ---
   Widget _buildCircleIconButton({
+    Key? key,
     required IconData icon,
     required VoidCallback onTap,
+    bool isHighlighted = false,
   }) {
     final theme = Theme.of(context);
+    // Define colors based on state
+    final bgColor =
+        isHighlighted
+            ? theme.colorScheme.primary.withOpacity(0.85)
+            : theme.colorScheme.surface.withOpacity(0.15);
+    final iconColor =
+        isHighlighted ? theme.colorScheme.onPrimary : Colors.white;
+    final borderColor =
+        isHighlighted
+            ? theme.colorScheme.primary
+            : Colors.white.withOpacity(0.1);
+
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(10.0), // Use constant if defined
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withOpacity(0.15),
+          color: bgColor, // Use dynamic background color
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color:
+                  isHighlighted
+                      ? theme.colorScheme.primary.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.1),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 0.5),
+          border: Border.all(
+            color: borderColor,
+            width: 0.5,
+          ), // Use dynamic border color
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
+        child: Icon(
+          icon,
+          color: iconColor,
+          size: 22.0,
+        ), // Use dynamic icon color & constant size
       ),
     );
   }
@@ -510,6 +572,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
 
   Widget _buildNotificationsSection(AppLocalizations l10n) {
     final theme = Theme.of(context);
+    // *** Read password change status here as well ***
+    final authNotifier = ref.watch(authNotifierProvider);
+    final bool passwordHasBeenChanged = authNotifier.initialPasswordChanged;
+    // ************************************************
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,8 +747,36 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
             final notificationActions = ref.read(notificationActionsProvider);
 
             return notificationsStream.when(
-              data: (notifications) {
-                if (notifications.isEmpty) {
+              data: (notificationsFromProvider) {
+                // --- Create and Inject Password Reminder ---
+                List<UserNotification> combinedNotifications = [
+                  ...notificationsFromProvider,
+                ];
+
+                // Get current user ID for the fake notification
+                final currentUserId =
+                    FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
+
+                if (!passwordHasBeenChanged) {
+                  final passwordReminder = UserNotification(
+                    id: '__password_reminder__', // Special ID
+                    userId: currentUserId, // <-- ADD userId
+                    title: 'Security Recommendation', // TODO: l10n
+                    message: 'Change your initial password.', // TODO: l10n
+                    type: NotificationType.system, // Use system type for now
+                    createdAt: DateTime.now(), // Timestamp doesn't matter much
+                    isRead: true, // Mark as read so it doesn't affect badge
+                    metadata: {
+                      'isPasswordReminder': true,
+                    }, // Extra flag if needed
+                  );
+                  // Add reminder to the beginning of the list
+                  combinedNotifications.insert(0, passwordReminder);
+                }
+                // -----------------------------------------
+
+                if (combinedNotifications.isEmpty) {
+                  // Use the original empty state logic
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -694,7 +789,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No notifications',
+                            'No notifications', // TODO: l10n
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: theme.colorScheme.onSurface.withOpacity(
                                 0.7,
@@ -707,9 +802,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
                   );
                 }
 
+                // Build list using the combined list
                 return Column(
                   children:
-                      notifications.map((notification) {
+                      combinedNotifications.map((notification) {
+                        // Use combinedNotifications
                         return _buildNotificationItem(
                           notification: notification,
                           onTap: () {
@@ -726,7 +823,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
               error:
                   (_, __) => Center(
                     child: Text(
-                      'Failed to load notifications',
+                      'Failed to load notifications', // TODO: l10n
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
@@ -742,7 +839,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
     UserNotification notification,
     NotificationActions actions,
   ) async {
-    // Mark notification as read
+    // --- Check for special password reminder ID ---
+    if (notification.id == '__password_reminder__') {
+      context.push('/profile-details');
+      return; // Don't proceed with marking as read etc.
+    }
+    // --------------------------------------------
+
+    // Mark notification as read (only for real notifications)
     await actions.markAsRead(notification.id);
 
     // Navigate based on notification type and metadata
@@ -756,7 +860,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
       case NotificationType.rejection:
         if (notification.metadata.containsKey('submissionId')) {
           final submissionId = notification.metadata['submissionId'];
-          context.push('/notifications/$submissionId');
+          context.push(
+            '/notifications/$submissionId',
+          ); // Should this be submission detail?
         }
         break;
       case NotificationType.payment:
@@ -765,7 +871,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage> {
         break;
       case NotificationType.system:
       default:
-        // For system notifications, just mark as read but don't navigate
+        // For system notifications (like our reminder, though handled above),
+        // just mark as read but don't navigate
         break;
     }
   }

@@ -12,6 +12,9 @@ class AppConstants {
   static const String onboardingCompleteKey = 'onboarding_complete';
   static const String kHasCompletedOnboardingTutorial =
       'hasCompletedOnboardingTutorial';
+  // --- NEW Constant for Help Icon Hint ---
+  static const String kHasSeenHelpIconHint = 'hasSeenHelpIconHint';
+  // -------------------------------------
   // Add other shared preferences keys here
 
   // --- API Endpoints or Base URLs ---

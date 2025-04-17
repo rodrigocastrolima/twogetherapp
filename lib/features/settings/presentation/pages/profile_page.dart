@@ -363,7 +363,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               _buildActionItem(
                 'Alterar Senha',
                 icon: Icons.lock_outline,
-                onTap: _showPasswordChangeDialog,
+                onTap: () => context.push('/change-password'),
                 theme: theme,
               ),
             ], theme),

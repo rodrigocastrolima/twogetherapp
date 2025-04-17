@@ -19,9 +19,14 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
   final int currentIndex;
+  final String location;
 
-  const MainLayout({Key? key, required this.child, required this.currentIndex})
-    : super(key: key);
+  const MainLayout({
+    Key? key,
+    required this.child,
+    required this.currentIndex,
+    required this.location,
+  }) : super(key: key);
 
   @override
   ConsumerState<MainLayout> createState() => _MainLayoutState();
@@ -40,7 +45,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   @override
   void didUpdateWidget(MainLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentIndex != widget.currentIndex) {
+    if (oldWidget.currentIndex != widget.currentIndex ||
+        oldWidget.location != widget.location) {
       setState(() {
         _selectedIndex = widget.currentIndex;
         _isTransitioning = false; // Reset transition state
@@ -107,6 +113,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final Color darkBackgroundColor = Theme.of(context).colorScheme.background;
     final Color darkNavBarColor =
         AppTheme.darkNavBarBackground; // Use the specific nav bar color
+
+    // Determine if we should show the bottom nav bar
+    final bool showBottomNavBar = widget.location != '/change-password';
 
     return Scaffold(
       backgroundColor: isDark ? darkBackgroundColor : lightBackgroundColor,
@@ -236,7 +245,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               _buildMainContent(isSmallScreen),
 
               // Bottom Navigation for Mobile
-              if (isSmallScreen) _buildMobileNavBar(context),
+              if (isSmallScreen && showBottomNavBar)
+                _buildMobileNavBar(context),
 
               // Side Navigation for Desktop
               if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
@@ -712,5 +722,48 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final now = DateTime.now();
     final hour = now.hour;
     return hour >= 9 && hour < 18; // 9am to 6pm
+  }
+
+  Widget _buildMobileNavBarWidget(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final Color unselectedColor = (isDark ? Colors.white : Colors.black)
+        .withOpacity(0.7);
+    final Color selectedColor = Color(0xFFffbe45); // Tulip Tree color
+
+    return BottomNavigationBar(
+      items: <BottomNavigationBarItem>[
+        BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.house),
+          label: l10n.navHome,
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.person_2),
+          label: l10n.navClients,
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.bubble_left),
+          label: l10n.navMessages,
+          // Add badge logic if needed here too, maybe using Stack
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.settings),
+          label: l10n.navSettings,
+        ),
+      ],
+      currentIndex: _selectedIndex,
+      onTap: _handleNavigation,
+      backgroundColor:
+          isDark
+              ? AppTheme.darkNavBarBackground
+              : Colors.white.withOpacity(0.8),
+      selectedItemColor: selectedColor,
+      unselectedItemColor: unselectedColor,
+      type: BottomNavigationBarType.fixed, // Ensures labels are always shown
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      elevation: 0, // Remove default elevation if using custom container/blur
+    );
   }
 }

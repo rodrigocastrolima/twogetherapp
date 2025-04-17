@@ -86,6 +86,7 @@ dependencies:
 
   # Added for introduction_screen
   introduction_screen: ^3.1.14
+  firebase_messaging: ^14.9.4
 
 dev_dependencies:
   flutter_test:

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
-import 'package:collection/collection.dart'; // For distinct reseller names
+import 'package:collection/collection.dart'; // For distinct reseller names AND Set equality
 import '../../../../core/models/service_submission.dart'; // Adjusted path
 import '../../../../core/models/service_types.dart'; // Ensure this line exists and is correct
 import './opportunity_detail_page.dart'; // Import the new detail page
@@ -42,46 +42,51 @@ class OpportunityVerificationPage extends ConsumerStatefulWidget {
 class _OpportunityVerificationPageState
     extends ConsumerState<OpportunityVerificationPage> {
   String _searchQuery = '';
-  String? _selectedReseller;
-  ServiceCategory? _selectedServiceType;
-  EnergyType? _selectedEnergyType; // <-- ADD state for EnergyType
+  Set<String>? _selectedResellers;
+  Set<ServiceCategory>? _selectedServiceTypes;
+  Set<EnergyType>? _selectedEnergyTypes;
   final TextEditingController _searchController = TextEditingController();
 
-  // --- ADD Callback for applying filters from the sheet ---
+  // --- Updated Callback for applying filters from the sheet ---
   void _applyFilters(
-    String? reseller,
-    ServiceCategory? serviceType,
-    EnergyType? energyType,
+    Set<String>? resellers,
+    Set<ServiceCategory>? serviceTypes,
+    Set<EnergyType>? energyTypes,
   ) {
     setState(() {
-      _selectedReseller = reseller;
-      _selectedServiceType = serviceType;
-      _selectedEnergyType = energyType;
+      if (!const SetEquality().equals(_selectedResellers, resellers)) {
+        _selectedResellers = resellers;
+      }
+      if (!const SetEquality().equals(_selectedServiceTypes, serviceTypes)) {
+        _selectedServiceTypes = serviceTypes;
+      }
+      if (!const SetEquality().equals(_selectedEnergyTypes, energyTypes)) {
+        _selectedEnergyTypes = energyTypes;
+      }
     });
   }
-  // -------------------------------------------------------
+  // ---------------------------------------------------------
 
-  // --- ADD Method to show the filter sheet ---
+  // Updated Method to show the filter sheet
   void _showFilterSheet(BuildContext context, List<String> availableResellers) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allow sheet to take variable height
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (BuildContext modalContext) {
         return OpportunityFilterSheet(
-          initialReseller: _selectedReseller,
-          initialServiceType: _selectedServiceType,
-          initialEnergyType: _selectedEnergyType,
+          initialResellers: _selectedResellers,
+          initialServiceTypes: _selectedServiceTypes,
+          initialEnergyTypes: _selectedEnergyTypes,
           availableResellers: availableResellers,
-          onApplyFilters: _applyFilters, // Pass the callback
+          onApplyFilters: _applyFilters,
         );
       },
     );
   }
-  // ------------------------------------------
 
   @override
   void dispose() {
@@ -94,53 +99,60 @@ class _OpportunityVerificationPageState
     return DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal());
   }
 
-  // Helper to calculate if any filters are active
+  // --- Updated Helper to calculate if any filters are active ---
   bool _areFiltersActive() {
-    return _selectedReseller != null ||
-        _selectedServiceType != null ||
-        _selectedEnergyType != null;
+    return (_selectedResellers != null && _selectedResellers!.isNotEmpty) ||
+        (_selectedServiceTypes != null && _selectedServiceTypes!.isNotEmpty) ||
+        (_selectedEnergyTypes != null && _selectedEnergyTypes!.isNotEmpty);
   }
+  // ----------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
-    final l10n = AppLocalizations.of(context)!; // Get localizations
-    final theme = Theme.of(context); // Get theme
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface, // Use surface instead of background
+      backgroundColor: colorScheme.surface,
       body: Padding(
-        // Consistent padding
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
         child: pendingOpportunitiesAsync.when(
           data: (allSubmissions) {
-            // --- Filtering Logic --- Updated
+            // --- Filtering Logic --- Updated for Sets
             final uniqueResellers =
                 allSubmissions
                     .map((s) => s.resellerName)
-                    .nonNulls // Use .nonNulls instead of whereNotNull
-                    .toSet() // Get unique names
+                    .nonNulls
+                    .toSet()
                     .toList()
-                  ..sort(); // Sort alphabetically
+                  ..sort();
 
             final filteredSubmissions =
                 allSubmissions.where((submission) {
                   final resellerMatch =
-                      _selectedReseller == null ||
-                      submission.resellerName == _selectedReseller;
+                      _selectedResellers == null ||
+                      (_selectedResellers?.contains(submission.resellerName) ??
+                          false);
 
-                  // Match service category (compare names)
                   final serviceTypeMatch =
-                      _selectedServiceType == null ||
-                      submission.serviceCategory.name ==
-                          _selectedServiceType!.name;
+                      _selectedServiceTypes == null ||
+                      (_selectedServiceTypes?.contains(
+                            submission.serviceCategory,
+                          ) ??
+                          false);
 
-                  // --- ADD Energy Type Filter Condition ---
-                  final energyTypeMatch =
-                      _selectedEnergyType == null ||
-                      submission.energyType?.name == _selectedEnergyType!.name;
-                  // ---------------------------------------
+                  bool energyTypeMatch = true;
+                  if (_selectedServiceTypes == null ||
+                      _selectedServiceTypes!.contains(ServiceCategory.energy)) {
+                    if (_selectedEnergyTypes != null &&
+                        _selectedEnergyTypes!.isNotEmpty) {
+                      energyTypeMatch =
+                          submission.energyType != null &&
+                          _selectedEnergyTypes!.contains(submission.energyType);
+                    }
+                  }
 
                   final searchMatch =
                       _searchQuery.isEmpty ||
@@ -163,14 +175,10 @@ class _OpportunityVerificationPageState
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                // Define breakpoint for web/desktop layout
-                final bool isWebView =
-                    constraints.maxWidth > 800; // Adjusted breakpoint
-
+                final bool isWebView = constraints.maxWidth > 800;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // --- Header Section --- Updated
                     _buildHeader(
                       context,
                       l10n,
@@ -178,8 +186,7 @@ class _OpportunityVerificationPageState
                       isWebView,
                       uniqueResellers,
                     ),
-                    const SizedBox(height: 24), // Spacing below header
-                    // --- Content Section --- (List builders will be updated next)
+                    const SizedBox(height: 24),
                     Expanded(
                       child:
                           filteredSubmissions.isEmpty
@@ -336,7 +343,7 @@ class _OpportunityVerificationPageState
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
-            child: SizedBox(
+                child: SizedBox(
               height: 40, // Slightly smaller for mobile
               child: Badge(
                 isLabelVisible: _areFiltersActive(),
@@ -348,18 +355,18 @@ class _OpportunityVerificationPageState
                     foregroundColor: theme.colorScheme.onSurfaceVariant,
                     side: BorderSide(color: theme.dividerColor),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8),
                     ),
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   onPressed: () {
                     _showFilterSheet(context, uniqueResellers);
                   },
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
         */
       ],
     );
@@ -816,10 +823,7 @@ class _OpportunityVerificationPageState
             ),
           ),
           const SizedBox(height: 8),
-          if (_searchQuery.isNotEmpty ||
-              _selectedReseller != null ||
-              _selectedServiceType != null ||
-              _selectedEnergyType != null) // <-- ADD EnergyType check
+          if (_areFiltersActive())
             Text(
               // l10n.tryAdjustingFilters, // TODO: Add localization key
               'Try adjusting the search or filters.',

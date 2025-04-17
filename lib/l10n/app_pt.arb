@@ -132,6 +132,96 @@
     "chatDebugDialogFirebaseSolution1": "1. Configurar definições CORS do Firebase Storage",
     "chatDebugDialogFirebaseSolution2": "2. Usar um servidor proxy para contornar o CORS",
     "chatDebugDialogFirebaseSolution3": "3. Mudar para usar um CachedNetworkImageProvider",
-    
-    "@_SERVICES": {}
+    "@_SERVICES": {},
+
+    "reauthErrorUserNotFound": "Não foi possível encontrar o usuário para reautenticar. Por favor, saia e entre novamente.",
+    "@reauthErrorUserNotFound": {
+        "description": "Mensagem de erro quando o usuário não pode ser encontrado para reautenticação."
+    },
+    "reauthRequiredTitle": "Reautenticação Necessária",
+    "@reauthRequiredTitle": {
+        "description": "Título da caixa de diálogo solicitando reautenticação."
+    },
+    "reauthRequiredMessage": "Por segurança, por favor, insira sua senha atual para continuar.",
+    "@reauthRequiredMessage": {
+        "description": "Mensagem de instrução na caixa de diálogo de reautenticação."
+    },
+    "reauthCurrentPasswordLabel": "Senha Atual",
+    "@reauthCurrentPasswordLabel": {
+        "description": "Rótulo para o campo de senha atual na caixa de diálogo de reautenticação."
+    },
+    "cancel": "Cancelar",
+    "@cancel": {
+        "description": "Texto genérico do botão cancelar."
+    },
+    "confirm": "Confirmar",
+    "@confirm": {
+        "description": "Texto genérico do botão confirmar."
+    },
+    "reauthFailedError": "Falha na reautenticação: {code}",
+    "@reauthFailedError": {
+        "description": "Mensagem de erro exibida quando a reautenticação falha com um código de erro específico do Firebase.",
+        "placeholders": {
+            "code": {
+                "type": "String",
+                "example": "wrong-password"
+            }
+        }
+    },
+    "reauthFailedGenericError": "Falha na reautenticação. Por favor, tente novamente.",
+    "@reauthFailedGenericError": {
+        "description": "Mensagem de erro genérica quando a reautenticação falha."
+    },
+    "passwordUpdateFailedAfterReauthError": "Falha ao atualizar senha após reautenticação: {code}",
+    "@passwordUpdateFailedAfterReauthError": {
+        "description": "Mensagem de erro quando a atualização da senha falha após reautenticação bem-sucedida, mostrando um código específico.",
+        "placeholders": {
+            "code": {
+                "type": "String",
+                "example": "invalid-credential"
+            }
+        }
+    },
+    "passwordUpdateFailedAfterReauthGenericError": "Falha ao atualizar senha após reautenticação. Por favor, tente novamente.",
+    "@passwordUpdateFailedAfterReauthGenericError": {
+        "description": "Mensagem de erro genérica quando a atualização da senha falha após reautenticação bem-sucedida."
+    },
+    "reauthCancelledError": "Reautenticação cancelada.",
+    "@reauthCancelledError": {
+        "description": "Mensagem exibida se o usuário cancelar a caixa de diálogo de reautenticação."
+    },
+    "passwordUpdateSuccessMessage": "Senha atualizada com sucesso",
+    "@passwordUpdateSuccessMessage": {
+        "description": "Mensagem do Snackbar exibida após a atualização bem-sucedida da senha."
+    },
+    "passwordUpdateCompleteFirstLoginError": "Senha atualizada, mas falha ao marcar a configuração como completa. Por favor, tente novamente.",
+    "@passwordUpdateCompleteFirstLoginError": {
+        "description": "Mensagem de erro se a atualização da senha funcionar, mas a atualização do sinalizador de primeiro login falhar."
+    },
+    "validationPasswordEmpty": "Por favor, insira uma nova senha",
+    "@validationPasswordEmpty": {
+        "description": "Mensagem de erro de validação quando o campo de nova senha está vazio."
+    },
+    "validationPasswordMismatch": "As senhas não coincidem",
+    "@validationPasswordMismatch": {
+        "description": "Mensagem de erro de validação quando os campos de nova senha e confirmação de senha não coincidem."
+    },
+    "validationPasswordTooShort": "A senha deve ter pelo menos 8 caracteres",
+    "@validationPasswordTooShort": {
+        "description": "Mensagem de erro de validação quando a nova senha tem menos de 8 caracteres."
+    },
+    "firebaseAuthError": "Ocorreu um erro: {code}",
+    "@firebaseAuthError": {
+        "description": "Mensagem de erro genérica exibindo um código de erro do Firebase.",
+        "placeholders": {
+            "code": {
+                "type": "String",
+                "example": "network-request-failed"
+            }
+        }
+    },
+    "passwordUpdateFailedGenericError": "Falha ao atualizar a senha. Por favor, tente novamente.",
+    "@passwordUpdateFailedGenericError": {
+        "description": "Mensagem de erro genérica quando a atualização da senha falha por um motivo desconhecido."
+    }
 } 

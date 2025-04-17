@@ -29,6 +29,10 @@ import '../../features/settings/presentation/pages/profile_page.dart';
 import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
 
+// *** USE this Global Navigator Key consistently ***
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+// *******************************
+
 // Create a ChangeNotifier for authentication
 class AuthNotifier extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -37,22 +41,25 @@ class AuthNotifier extends ChangeNotifier {
   bool _isAuthenticated = false;
   bool _isAdmin = false;
   bool _isFirstLogin = false;
-  String? _salesforceId; // Add field for Salesforce ID
+  bool _initialPasswordChanged = false;
+  String? _salesforceId;
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isAdmin => _isAdmin;
   bool get isFirstLogin => _isFirstLogin;
-  String? get salesforceId => _salesforceId; // Add getter
+  bool get initialPasswordChanged => _initialPasswordChanged;
+  String? get salesforceId => _salesforceId;
 
   AuthNotifier() {
     _initAuth();
   }
 
   Future<void> _initAuth() async {
-    // Listen to Firebase Auth state changes
     _auth.authStateChanges().listen((User? user) async {
+      // Add delay before processing state change
+      await Future.delayed(Duration.zero);
+
       if (user != null) {
-        // Check user role in Firestore
         try {
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
@@ -60,8 +67,9 @@ class AuthNotifier extends ChangeNotifier {
             final roleData = data['role'];
             final String roleString = roleData is String ? roleData : 'unknown';
             final isFirstLogin = data['isFirstLogin'] as bool? ?? false;
-            final salesforceIdFromDb =
-                data['salesforceId'] as String?; // Read salesforceId
+            final initialPasswordChanged =
+                data['initialPasswordChanged'] as bool? ?? true;
+            final salesforceIdFromDb = data['salesforceId'] as String?;
 
             _isAuthenticated = true;
 
@@ -88,6 +96,7 @@ class AuthNotifier extends ChangeNotifier {
             }
 
             _isFirstLogin = isFirstLogin;
+            _initialPasswordChanged = initialPasswordChanged;
             _salesforceId = salesforceIdFromDb; // Store salesforceId
           } else {
             // Handle case where doc doesn't exist
@@ -100,6 +109,7 @@ class AuthNotifier extends ChangeNotifier {
             _isAuthenticated = true;
             _isAdmin = false;
             _isFirstLogin = true;
+            _initialPasswordChanged = false;
             _salesforceId = null; // Reset salesforceId
           }
         } catch (e) {
@@ -109,6 +119,7 @@ class AuthNotifier extends ChangeNotifier {
           _isAuthenticated = true;
           _isAdmin = false;
           _isFirstLogin = false;
+          _initialPasswordChanged = true;
           _salesforceId = null; // Reset salesforceId on error
         }
       } else {
@@ -116,8 +127,10 @@ class AuthNotifier extends ChangeNotifier {
         _isAuthenticated = false;
         _isAdmin = false;
         _isFirstLogin = false;
+        _initialPasswordChanged = false;
         _salesforceId = null; // Reset salesforceId on sign out
       }
+      // Notify listeners AFTER potential delay and state update
       notifyListeners();
     });
   }
@@ -139,6 +152,7 @@ class AuthNotifier extends ChangeNotifier {
 
   // Sign in with email and password
   Future<void> signInWithEmailAndPassword(String email, String password) async {
+    print('AuthNotifier: signInWithEmailAndPassword called.'); // LOG
     try {
       // For web platforms, always use local persistence
       if (kIsWeb) {
@@ -156,7 +170,8 @@ class AuthNotifier extends ChangeNotifier {
         try {
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
-            final roleData = doc.data()?['role'];
+            final data = doc.data()!;
+            final roleData = data['role'];
             final String roleString = roleData is String ? roleData : 'unknown';
             final normalizedRole = roleString.trim().toLowerCase();
 
@@ -172,71 +187,90 @@ class AuthNotifier extends ChangeNotifier {
               print('Full user data: ${doc.data()}');
             }
 
-            // Update the state immediately for faster UI response
-            _isAdmin = normalizedRole == 'admin';
-            _isAuthenticated = true;
-            _isFirstLogin = doc.data()?['isFirstLogin'] as bool? ?? false;
-
             // Ensure a reseller user has a conversation
-            if (normalizedRole == 'reseller') {
-              try {
-                if (kDebugMode) {
-                  print('Ensuring reseller has a default conversation');
-                }
-
-                // Create a chat repository and ensure the reseller has a conversation
-                final chatRepository = ChatRepository();
-                await chatRepository.ensureResellerHasConversation(user.uid);
-              } catch (e) {
-                // Don't block login if chat creation fails
-                if (kDebugMode) {
-                  print('Failed to ensure conversation: $e');
-                }
-              }
+            // if (normalizedRole == 'reseller') {
+            //   print('AuthNotifier: User is a reseller.'); // LOG
+            //   try {
+            //     final chatRepository = ChatRepository();
+            //     await chatRepository.ensureResellerHasConversation(user.uid);
+            //     print('Ensuring reseller conversation finished.'); // Hypothetical log
+            //   } catch (e) {
+            //     // Don't block login if chat creation fails
+            //     if (kDebugMode) {
+            //       print('Failed to ensure conversation: $e');
+            //     }
+            //   }
+            // }
+          } else {
+            // Handle case where user exists in Auth but not Firestore (rare)
+            if (kDebugMode) {
+              print(
+                'Login successful but no Firestore doc found - assuming first login/password change needed.',
+              );
             }
           }
         } catch (e) {
           if (kDebugMode) {
-            print('Error fetching user role after login: $e');
+            print('Error fetching user role/data after login: $e');
           }
-          // Don't block the login process on error, rely on the auth state listener
+          // Don't block login, but set defaults cautiously
         }
       }
     } catch (e) {
+      print('AuthNotifier: Error during sign in: $e'); // LOG
       rethrow;
     }
+    print('AuthNotifier: signInWithEmailAndPassword finished.'); // LOG
   }
 
   // Mark first login as completed
   Future<void> completeFirstLogin() async {
+    print(
+      'AuthNotifier: completeFirstLogin called (now also sets initialPasswordChanged).',
+    ); // LOG
     final user = _auth.currentUser;
     if (user != null) {
       try {
         await _firestore.collection('users').doc(user.uid).update({
           'isFirstLogin': false,
+          'initialPasswordChanged': true,
           'firstLoginCompletedAt': FieldValue.serverTimestamp(),
         });
         _isFirstLogin = false;
+        _initialPasswordChanged = true;
         notifyListeners();
+        print(
+          'AuthNotifier: State updated - isFirstLogin: false, initialPasswordChanged: true.',
+        ); // LOG
       } catch (e) {
         if (kDebugMode) {
-          print('Error updating first login status: $e');
+          print('Error updating first login / password changed status: $e');
         }
+        // Rethrow? Or handle more gracefully?
+        rethrow; // Rethrow for ChangePasswordPage to catch
       }
     }
+    print('AuthNotifier: completeFirstLogin finished.'); // LOG
   }
 
   // Update password
   Future<void> updatePassword(String newPassword) async {
+    print('AuthNotifier: updatePassword called.'); // LOG
     final user = _auth.currentUser;
     if (user != null) {
       try {
         await user.updatePassword(newPassword);
+        print('AuthNotifier: Firebase password updated.'); // LOG
         await completeFirstLogin();
+        print('AuthNotifier: updatePassword finished successfully.'); // LOG
       } catch (e) {
+        print('AuthNotifier: Error updating password: $e'); // LOG
         rethrow;
       }
     } else {
+      print(
+        'AuthNotifier: Error updating password - No authenticated user.',
+      ); // LOG
       throw Exception('No authenticated user');
     }
   }
@@ -317,8 +351,20 @@ class AuthNotifier extends ChangeNotifier {
   }
 }
 
+// *** ADD Provider for the AuthNotifier ***
+final authNotifierProvider = ChangeNotifierProvider<AuthNotifier>((ref) {
+  // Return the existing static instance from AppRouter
+  // Note: This assumes AppRouter.authNotifier is initialized before this provider is first read.
+  // A better approach might be to instantiate AuthNotifier directly here and pass it to AppRouter.
+  return AppRouter.authNotifier;
+});
+// ***************************************
+
 class AppRouter {
-  static final rootNavigatorKey = GlobalKey<NavigatorState>();
+  // *** REMOVE potentially duplicate static key if it exists ***
+  // static final rootNavigatorKey = GlobalKey<NavigatorState>();
+  // Use the global _rootNavigatorKey directly
+
   static final _shellNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'ShellReseller',
   );
@@ -347,11 +393,15 @@ class AppRouter {
 
   // Initialization of router
   static final GoRouter _router = GoRouter(
-    navigatorKey: rootNavigatorKey,
+    // Use the global key consistently
+    navigatorKey: _rootNavigatorKey,
     initialLocation: '/login',
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
     redirect: (context, state) {
+      print(
+        'GoRouter Redirect: Checking auth state... Current location: ${state.uri.toString()}',
+      ); // LOG
       try {
         final container = ProviderScope.containerOf(context);
         final salesforceAuthState = container.read(salesforceAuthProvider);
@@ -359,39 +409,35 @@ class AppRouter {
         // Get current auth states
         final isAuthenticated = authNotifier.isAuthenticated;
         final isAdmin = authNotifier.isAdmin;
-        final isFirstLogin = authNotifier.isFirstLogin;
         final currentRoute = state.matchedLocation;
         final isLoginPage = currentRoute == '/login';
-        final isChangePasswordPage = currentRoute == '/change-password';
 
         // --- 1. User Not Authenticated ---
         if (!isAuthenticated) {
-          return isLoginPage ? null : '/login';
+          print(
+            'GoRouter Redirect: Not logged in, redirecting to /login from ${state.uri.toString()}',
+          ); // LOG
+          return isLoginPage ? null : '/login'; // Stay if already on login
         }
 
         // --- User IS Authenticated ---
 
-        // --- 2. Handle First Login ---
-        if (isFirstLogin) {
-          // If it's the first login, must go to change password.
-          // If already there, stay. Otherwise, redirect.
-          return isChangePasswordPage ? null : '/change-password';
-        }
-
-        // --- User IS Authenticated & NOT First Login ---
-
-        // --- 3. Redirect AWAY from Login/ChangePassword page ---
-        if (isLoginPage || isChangePasswordPage) {
+        // --- 3. Redirect AWAY from Login page ONLY ---
+        if (isLoginPage) {
           if (kDebugMode) {
             print(
-              '[Redirect] Authenticated, not first login. Redirecting from $currentRoute...',
+              '[Redirect] Authenticated. Redirecting from $currentRoute...',
             );
           }
           // Redirect to the appropriate home page based on role.
-          return isAdmin ? '/admin' : '/';
+          final target = isAdmin ? '/admin' : '/';
+          print(
+            'GoRouter Redirect: Logged in, redirecting to $target from ${state.uri.toString()}',
+          ); // LOG
+          return target;
         }
 
-        // --- 4. Apply Role-Based Routing & Salesforce Checks (User is Authenticated, NOT First Login, and NOT on Login/ChangePassword) ---
+        // --- 4. Apply Role-Based Routing & Salesforce Checks ---
         if (isAdmin) {
           // --- Admin Flow (already on an internal page) ---
 
@@ -402,6 +448,9 @@ class AppRouter {
                 '[Redirect] Admin detected outside /admin routes. Forcing to /admin.',
               );
             }
+            print(
+              'GoRouter Redirect: Admin detected outside /admin routes, redirecting to /admin from ${state.uri.toString()}',
+            ); // LOG
             return '/admin';
           }
 
@@ -447,7 +496,10 @@ class AppRouter {
                 '[Redirect] Reseller detected on admin route. Forcing to /.',
               );
             }
-            return '/';
+            print(
+              'GoRouter Redirect: Reseller detected on admin route, redirecting to /reseller from ${state.uri.toString()}',
+            ); // LOG
+            return '/reseller';
           }
           // Allow reseller to stay on any non-admin page.
           return null;
@@ -474,8 +526,12 @@ class AppRouter {
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
       GoRoute(
         path: '/change-password',
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const ChangePasswordPage(),
+        pageBuilder:
+            (context, state) => MaterialPage(
+              key: const ValueKey('__changePasswordPageKey__'),
+              fullscreenDialog: true,
+              child: const ChangePasswordPage(),
+            ),
       ),
 
       // Reseller routes SHELL
@@ -484,7 +540,12 @@ class AppRouter {
         builder: (context, state, child) {
           // Determine the current index dynamically
           final currentIndex = _calculateCurrentIndex(state);
-          return MainLayout(currentIndex: currentIndex, child: child);
+          final location = state.matchedLocation;
+          return MainLayout(
+            currentIndex: currentIndex,
+            location: location,
+            child: child,
+          );
         },
         routes: [
           GoRoute(
@@ -576,31 +637,33 @@ class AppRouter {
       // --- Top-Level Secondary Routes (No Shell) ---
       GoRoute(
         path: '/admin/users/:userId',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final user = state.extra as AppUser?;
           if (user == null) {
-            // Simple fallback, ideally show an error or fetch user
-            return const MaterialPage(
+            return MaterialPage(
+              key: ValueKey(state.uri.toString()),
               child: Scaffold(body: Center(child: Text("User not found"))),
             );
           }
-          // Use MaterialPage for default transitions or CustomTransitionPage
-          return MaterialPage(child: UserDetailPage(user: user));
+          return MaterialPage(
+            key: ValueKey(state.uri.toString()),
+            child: UserDetailPage(user: user),
+          );
         },
       ),
       GoRoute(
         path: '/profile-details',
-        parentNavigatorKey: rootNavigatorKey,
         pageBuilder:
-            (context, state) => const MaterialPage(
+            (context, state) => MaterialPage(
+              key: const ValueKey('__profilePageKey__'),
               fullscreenDialog: true,
               child: ProfilePage(),
             ),
       ),
       GoRoute(
         path: '/services',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final preFilledData = state.extra as Map<String, dynamic>?;
           return MaterialPage(
@@ -611,7 +674,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/client-details',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final clientData = state.extra as Map<String, dynamic>?;
           // Handle potentially null extra data
@@ -628,7 +691,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/proposals/:id',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // This should likely navigate to a ProposalDetailsPage, not ClientsPage
@@ -640,7 +703,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/document-submission',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           // Should likely point to a dedicated document submission page
           // Placeholder:
@@ -653,7 +716,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/notifications/:id',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // Should point to a NotificationDetailsPage
@@ -667,7 +730,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/resubmission-form/:id',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           // Should point to a specific ResubmissionForm page, potentially pre-filled
@@ -679,7 +742,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/admin/stats-detail',
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           // Extract data from 'extra'
           final Map<String, dynamic>? args =
@@ -706,7 +769,7 @@ class AppRouter {
       GoRoute(
         path:
             '/dashboard', // Is this admin or reseller specific? Assuming reseller for now.
-        parentNavigatorKey: rootNavigatorKey,
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           // Should point to DashboardPage directly
           return const MaterialPage(child: DashboardPage());
@@ -724,4 +787,8 @@ class AppRouter {
   );
 
   static GoRouter get router => _router;
+
+  // *** Make the root key accessible for ChangePasswordPage ***
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
+  // **********************************************************
 }

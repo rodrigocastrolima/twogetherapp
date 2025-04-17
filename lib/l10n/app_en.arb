@@ -375,5 +375,96 @@
     "chatDebugDialogFirebaseSolution2": "2. Use a server proxy to bypass CORS",
     "@chatDebugDialogFirebaseSolution2": { "description": "Solution 2 in the Firebase debug dialog." },
     "chatDebugDialogFirebaseSolution3": "3. Switch to use a CachedNetworkImageProvider",
-    "@chatDebugDialogFirebaseSolution3": { "description": "Solution 3 in the Firebase debug dialog." }
+    "@chatDebugDialogFirebaseSolution3": { "description": "Solution 3 in the Firebase debug dialog." },
+
+    "reauthErrorUserNotFound": "Could not find user to re-authenticate. Please log out and back in.",
+    "@reauthErrorUserNotFound": {
+      "description": "Error message when the user cannot be found for re-authentication."
+    },
+    "reauthRequiredTitle": "Re-authentication Required",
+    "@reauthRequiredTitle": {
+      "description": "Title of the dialog asking for re-authentication."
+    },
+    "reauthRequiredMessage": "For security, please enter your current password to continue.",
+    "@reauthRequiredMessage": {
+      "description": "Instructional message in the re-authentication dialog."
+    },
+    "reauthCurrentPasswordLabel": "Current Password",
+    "@reauthCurrentPasswordLabel": {
+      "description": "Label for the current password input field in the re-authentication dialog."
+    },
+    "cancel": "Cancel",
+    "@cancel": {
+      "description": "Generic cancel button text."
+    },
+    "confirm": "Confirm",
+    "@confirm": {
+      "description": "Generic confirm button text."
+    },
+    "reauthFailedError": "Re-authentication failed: {code}",
+    "@reauthFailedError": {
+      "description": "Error message shown when re-authentication fails with a specific Firebase error code.",
+      "placeholders": {
+        "code": {
+          "type": "String",
+          "example": "wrong-password"
+        }
+      }
+    },
+    "reauthFailedGenericError": "Re-authentication failed. Please try again.",
+    "@reauthFailedGenericError": {
+      "description": "Generic error message when re-authentication fails."
+    },
+    "passwordUpdateFailedAfterReauthError": "Password update failed after re-authentication: {code}",
+    "@passwordUpdateFailedAfterReauthError": {
+      "description": "Error message when password update fails after successful re-authentication, showing a specific code.",
+      "placeholders": {
+        "code": {
+          "type": "String",
+          "example": "invalid-credential"
+        }
+      }
+    },
+    "passwordUpdateFailedAfterReauthGenericError": "Password update failed after re-authentication. Please try again.",
+    "@passwordUpdateFailedAfterReauthGenericError": {
+      "description": "Generic error message when password update fails after successful re-authentication."
+    },
+    "reauthCancelledError": "Re-authentication cancelled.",
+    "@reauthCancelledError": {
+      "description": "Message shown if the user cancels the re-authentication dialog."
+    },
+    "passwordUpdateSuccessMessage": "Password updated successfully",
+    "@passwordUpdateSuccessMessage": {
+      "description": "Snackbar message shown after successful password update."
+    },
+    "passwordUpdateCompleteFirstLoginError": "Password updated, but failed to mark setup as complete. Please try again.",
+    "@passwordUpdateCompleteFirstLoginError": {
+      "description": "Error message if updating password works but updating the first login flag fails."
+    },
+    "validationPasswordEmpty": "Please enter a new password",
+    "@validationPasswordEmpty": {
+      "description": "Validation error message when the new password field is empty."
+    },
+    "validationPasswordMismatch": "Passwords do not match",
+    "@validationPasswordMismatch": {
+      "description": "Validation error message when the new password and confirm password fields do not match."
+    },
+    "validationPasswordTooShort": "Password must be at least 8 characters",
+    "@validationPasswordTooShort": {
+      "description": "Validation error message when the new password is less than 8 characters."
+    },
+    "firebaseAuthError": "An error occurred: {code}",
+    "@firebaseAuthError": {
+      "description": "Generic error message displaying a Firebase error code.",
+      "placeholders": {
+        "code": {
+          "type": "String",
+          "example": "network-request-failed"
+        }
+      }
+    },
+    "passwordUpdateFailedGenericError": "Failed to update password. Please try again.",
+    "@passwordUpdateFailedGenericError": {
+      "description": "Generic error message when password update fails for an unknown reason."
+    }
 } 
