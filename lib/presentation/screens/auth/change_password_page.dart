@@ -4,11 +4,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
+import '../../../core/theme/ui_styles.dart';
 import '../../../app/router/app_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/chat/data/repositories/chat_repository.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../widgets/success_dialog.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   const ChangePasswordPage({super.key});
@@ -179,6 +181,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
   Future<void> _handleSuccessfulPasswordUpdate() async {
     final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
+
     if (user != null) {
       try {
         final userDoc =
@@ -209,16 +212,17 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       await AppRouter.authNotifier.completeFirstLogin();
       print('ChangePasswordPage: completeFirstLogin finished.');
 
-      final rootContext = AppRouter.rootNavigatorKey.currentContext;
-      if (rootContext != null && mounted) {
-        ScaffoldMessenger.of(rootContext).showSnackBar(
-          SnackBar(content: Text(l10n.passwordUpdateSuccessMessage)),
-        );
-      }
+      if (!mounted) return;
 
-      if (mounted) {
-        context.pop();
-      }
+      await showSuccessDialog(
+        context: context,
+        message: l10n.passwordUpdateSuccessMessage,
+        onDismissed: () {
+          if (mounted) {
+            context.go('/');
+          }
+        },
+      );
     } catch (e) {
       print('ChangePasswordPage: Error during completeFirstLogin: $e');
       if (mounted) {
@@ -300,77 +304,75 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
-    final double padding = size.width < 400 ? 16.0 : 24.0;
+    final double horizontalPadding = isSmallScreen ? 24.0 : 32.0;
+    final double verticalPadding = isSmallScreen ? 32.0 : 48.0;
 
     Widget pageContent = Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: isSmallScreen ? size.width * 0.8 : 360,
-            ),
-            child: AspectRatio(
-              aspectRatio: 2.0,
-              child: Image.asset(
-                'assets/images/twogether_logo_light_br.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 32 : 48),
-
-        Text(
-          'Change Password',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
-            'Please set a new password for your account.',
-            textAlign: TextAlign.center,
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 24 : 32),
-
-        Container(
+        ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: isSmallScreen ? size.width * 0.8 : 320,
+            maxWidth: isSmallScreen ? size.width * 0.9 : 400,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                l10n.changePasswordTitle,
+                textAlign: TextAlign.center,
+                style: textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onBackground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  l10n.changePasswordSubtitle,
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 32 : 40),
+
               _buildPasswordField(
                 context: context,
                 controller: _newPasswordController,
-                labelText: 'New Password',
+                labelText: l10n.changePasswordNewLabel,
+                obscureText: _obscureNewPassword,
+                onToggleObscure: () {
+                  setState(() {
+                    _obscureNewPassword = !_obscureNewPassword;
+                  });
+                },
               ),
               const SizedBox(height: 16),
               _buildPasswordField(
                 context: context,
                 controller: _confirmPasswordController,
-                labelText: 'Confirm Password',
+                labelText: l10n.changePasswordConfirmLabel,
+                obscureText: _obscureConfirmPassword,
+                onToggleObscure: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
               ),
 
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Text(
@@ -388,9 +390,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               FilledButton(
                 onPressed: _isLoading ? null : _handleChangePassword,
                 style: FilledButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  minimumSize: const Size(double.infinity, 48),
+                  minimumSize: const Size(double.infinity, 52),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -409,10 +409,10 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                           ),
                         )
                         : Text(
-                          'Change Password',
+                          l10n.changePasswordButton,
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onPrimary,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
               ),
@@ -426,47 +426,28 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(CupertinoIcons.chevron_back),
           color: colorScheme.onSurface,
           onPressed: () => context.pop(),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         ),
       ),
       extendBodyBehindAppBar: true,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
-        top: false,
-        child: Stack(
-          children: [
-            Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: padding,
-                  vertical: padding * 2,
-                ).copyWith(top: kToolbarHeight + padding),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: isSmallScreen ? size.width * 0.9 : 400,
-                  ),
-                  child: Container(child: pageContent),
-                ),
-              ),
+        top: true,
+        bottom: false,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: IconButton(
-                  icon: Icon(Icons.logout, color: colorScheme.onSurfaceVariant),
-                  tooltip: 'Logout',
-                  onPressed: () async {
-                    print('ChangePasswordPage: Logout button pressed.');
-                    await AppRouter.authNotifier.setAuthenticated(false);
-                  },
-                ),
-              ),
-            ),
-          ],
+            child: pageContent,
+          ),
         ),
       ),
     );
@@ -476,20 +457,17 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     required BuildContext context,
     required TextEditingController controller,
     required String labelText,
+    required bool obscureText,
+    required VoidCallback onToggleObscure,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
     final InputDecoration effectiveDecoration = InputDecoration(
-      labelText: labelText,
-      labelStyle: textTheme.bodyMedium?.copyWith(
-        color: colorScheme.onSurfaceVariant,
-      ),
-      prefixIcon: Icon(
-        Icons.lock_outline,
-        color: colorScheme.onSurfaceVariant,
-        size: 20,
+      hintText: labelText,
+      hintStyle: textTheme.bodyLarge?.copyWith(
+        color: colorScheme.onSurfaceVariant.withOpacity(0.6),
       ),
       filled: true,
       fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
@@ -503,23 +481,27 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
-      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      suffixIcon: IconButton(
+        icon: Icon(obscureText ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
+        color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+        iconSize: 20,
+        tooltip: obscureText ? 'Show password' : 'Hide password',
+        onPressed: onToggleObscure,
+      ),
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: TextField(
-          controller: controller,
-          decoration: effectiveDecoration,
-          style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
-          obscureText: true,
-        ),
-      ),
+    return TextField(
+      controller: controller,
+      decoration: effectiveDecoration,
+      style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
+      obscureText: obscureText,
+      keyboardType: TextInputType.visiblePassword,
+      autocorrect: false,
+      enableSuggestions: false,
+      obscuringCharacter: '●',
     );
   }
 }

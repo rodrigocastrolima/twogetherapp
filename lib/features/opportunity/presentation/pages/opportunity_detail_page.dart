@@ -9,6 +9,8 @@ import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
+import 'package:twogether/core/theme/theme.dart'; // Import AppTheme for context access if needed indirectly
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
@@ -29,6 +31,13 @@ class _OpportunityDetailFormViewState
   late TextEditingController _nameController;
   late TextEditingController _nifController;
   late TextEditingController _fechoController;
+  // --- ADDED: Controllers for Read-Only Fields ---
+  late TextEditingController _agenteRetailController;
+  late TextEditingController _dataCriacaoController;
+  late TextEditingController _dataUltimaAtualizacaoController;
+  late TextEditingController _faseController;
+  late TextEditingController _tipoOportunidadeController;
+  // --- END ADDED ---
 
   // State variables for dropdowns and date picker
   String? _selectedSegmentoCliente;
@@ -73,6 +82,10 @@ class _OpportunityDetailFormViewState
   @override
   void initState() {
     super.initState();
+    final l10n =
+        AppLocalizations.of(
+          context,
+        )!; // Assuming context is available or passed
 
     // Initialize controllers
     final potentialOpportunityName =
@@ -81,8 +94,23 @@ class _OpportunityDetailFormViewState
     _nifController = TextEditingController(text: widget.submission.nif);
     _fechoController = TextEditingController(); // Initialize empty
 
+    // --- Initialize Read-Only Controllers ---
+    _agenteRetailController = TextEditingController(text: 'Loading...');
+    _dataCriacaoController = TextEditingController(
+      text: DateFormat.yMd(l10n.localeName).format(DateTime.now()),
+    );
+    _dataUltimaAtualizacaoController = TextEditingController(
+      text: DateFormat.yMd(l10n.localeName).format(DateTime.now()),
+    );
+    _faseController = TextEditingController(text: _faseValue);
+    _tipoOportunidadeController =
+        TextEditingController(); // Set after determining
+    // --- END Initialize ---
+
     // Initialize derived picklist values
     _determineTipoOportunidade();
+    _tipoOportunidadeController.text =
+        _tipoOportunidadeValue ?? 'Not Determined'; // Set controller text
 
     // Start fetching reseller display name
     _fetchResellerName();
@@ -94,6 +122,13 @@ class _OpportunityDetailFormViewState
     _nameController.dispose();
     _nifController.dispose();
     _fechoController.dispose();
+    // --- Dispose Read-Only Controllers ---
+    _agenteRetailController.dispose();
+    _dataCriacaoController.dispose();
+    _dataUltimaAtualizacaoController.dispose();
+    _faseController.dispose();
+    _tipoOportunidadeController.dispose();
+    // --- END Dispose ---
     super.dispose();
   }
 
@@ -113,6 +148,7 @@ class _OpportunityDetailFormViewState
       _isLoadingReseller = true;
       _resellerDisplayName = null; // Reset on fetch start
       _resellerSalesforceId = null; // Reset on fetch start
+      _agenteRetailController.text = 'Loading...'; // Update controller
     });
     try {
       final resellerDoc =
@@ -121,24 +157,31 @@ class _OpportunityDetailFormViewState
               .doc(widget.submission.resellerId)
               .get();
       if (mounted && resellerDoc.exists) {
+        final displayName = resellerDoc.data()?['displayName'] as String?;
+        final salesforceId = resellerDoc.data()?['salesforceId'] as String?;
+
         setState(() {
-          _resellerDisplayName = resellerDoc.data()?['displayName'] as String?;
-          _resellerSalesforceId =
-              resellerDoc.data()?['salesforceId']
-                  as String?; // Fetch Salesforce ID
+          _resellerDisplayName = displayName;
+          _resellerSalesforceId = salesforceId; // Fetch Salesforce ID
           _isLoadingReseller = false;
+
+          // Add check if Salesforce ID is missing after fetch
+          if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
+            print("Warning: Reseller found but missing Salesforce ID.");
+            // Optionally update display name to show an error state
+            _agenteRetailController.text =
+                (_resellerDisplayName ?? "Reseller") + " (Missing SF ID!)";
+            // Optionally disable submit button or show persistent warning here
+          } else {
+            _agenteRetailController.text =
+                _resellerDisplayName ?? 'N/A'; // Update controller
+          }
+
           if (kDebugMode) {
             print("Fetched reseller display name: $_resellerDisplayName");
             print(
               "Fetched reseller Salesforce ID: $_resellerSalesforceId",
             ); // Log fetched ID
-          }
-          // Add check if Salesforce ID is missing after fetch
-          if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
-            print("Warning: Reseller found but missing Salesforce ID.");
-            // Optionally update display name to show an error state
-            _resellerDisplayName =
-                (_resellerDisplayName ?? "Reseller") + " (Missing SF ID!)";
           }
         });
       } else if (mounted) {
@@ -149,6 +192,8 @@ class _OpportunityDetailFormViewState
         }
         setState(() {
           _resellerDisplayName = "Error: Not Found"; // Indicate error fetching
+          _agenteRetailController.text =
+              "Error: Not Found"; // Update controller
           _isLoadingReseller = false;
         });
       }
@@ -159,6 +204,8 @@ class _OpportunityDetailFormViewState
       if (mounted) {
         setState(() {
           _resellerDisplayName = "Error: Fetch Failed";
+          _agenteRetailController.text =
+              "Error: Fetch Failed"; // Update controller
           _isLoadingReseller = false;
         });
       }
@@ -305,1138 +352,822 @@ class _OpportunityDetailFormViewState
   @override
   Widget build(BuildContext context) {
     // Calculate status bar height
-    final statusBarHeight = MediaQuery.of(context).padding.top;
+    // final statusBarHeight = MediaQuery.of(context).padding.top; // No longer needed
+    final theme = Theme.of(context); // Get theme
+    final colorScheme = theme.colorScheme; // Get color scheme
+    final textTheme = theme.textTheme; // Get text theme
+    final l10n = AppLocalizations.of(context)!; // Get localizations
 
     // Reintroduce Scaffold for proper context and structure
     return Scaffold(
-      backgroundColor: Colors.white, // Ensure background matches
-      appBar: null, // No standard AppBar
-      body: Column(
-        // Body is a Column containing our custom header and the scrollable content
-        children: [
-          // Custom navigation bar Container
-          Container(
-            color: Colors.white, // Match background
-            margin: EdgeInsets.zero,
-            padding: EdgeInsets.only(
-              top: statusBarHeight,
-            ), // Pad inside for status bar
-            height: statusBarHeight + 48, // Total height including status bar
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Back button (should work now with Scaffold context)
-                IconButton(
-                  padding: const EdgeInsets.only(left: 8.0),
-                  icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                  onPressed: () => Navigator.of(context).pop(),
+      backgroundColor: colorScheme.surface, // Use theme surface color
+      appBar: AppBar(
+        // Use AppBarTheme from main theme.dart
+        title: Text(
+          l10n.opportunityDetailTitle, // Use localization key
+          // Style defaults to AppBarTheme's titleTextStyle
+        ),
+        // backgroundColor defaults to AppBarTheme
+        // elevation defaults to AppBarTheme
+        // iconTheme defaults to AppBarTheme
+        leading: IconButton(
+          // Explicit back button if needed, AppBar provides one by default
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: SingleChildScrollView(
+        // Make SingleChildScrollView the direct body
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.opportunityDetailHeadline, // Use localization key
+                style: textTheme.headlineSmall, // Use theme text style
+              ),
+              const SizedBox(height: 16),
+
+              // --- Simplified Reference & Required Fields ---
+              // Removed: Original Submission ID, Original Reseller Name, Email, Phone
+              // --- Refactored Read-Only Field ---
+              TextFormField(
+                controller: _agenteRetailController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailAgentLabel, // Use localization key
+                  // Inherits border, fill, etc. from global theme
                 ),
-                // Title text
-                Expanded(
-                  child: Text(
-                    'Opportunity: ${widget.submission.id}',
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+              ),
+              const Divider(height: 32),
+
+              // --- Salesforce Opportunity Fields ---
+              Text(
+                l10n.opportunityDetailSalesforceSectionTitle, // Use localization key
+                style: textTheme.titleLarge, // Use theme text style
+              ),
+              const SizedBox(height: 16),
+
+              // Opportunity Name (Auto-calculated, but editable)
+              // --- Removed custom Column/Padding/SizedBox wrapper ---
+              TextFormField(
+                controller: _nameController,
+                // style: textTheme.bodyLarge, // Inherited via InputDecorator
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailNameLabel, // Use localization key
+                  // Inherits border, fill, padding etc. from global theme
                 ),
-                // Spacer
-                const SizedBox(width: 16),
-              ],
-            ),
-          ),
-          // Content Area
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Review and Complete Opportunity Details',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 16),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return l10n
+                        .opportunityDetailNameRequiredError; // Use localization key
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
 
-                    // --- Simplified Reference & Required Fields ---
-                    // Removed: Original Submission ID, Original Reseller Name, Email, Phone
-                    _buildReadOnlyField(
-                      'Agente Retail (Salesforce User Name)', // Kept for context
-                      _isLoadingReseller
-                          ? 'Loading...'
-                          : (_resellerDisplayName ?? 'Not Found/Error'),
-                    ),
-                    const Divider(height: 32),
+              // NIF (From submission, editable, mandatory)
+              // --- Removed custom Column/Padding/SizedBox wrapper ---
+              TextFormField(
+                controller: _nifController,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailNifLabel, // Use localization key
+                  // Inherits border, fill, padding etc. from global theme
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return l10n
+                        .opportunityDetailNifRequiredError; // Use localization key
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
 
-                    // --- Salesforce Opportunity Fields ---
-                    Text(
-                      'Salesforce Opportunity Fields',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
+              // Data de Criação (Auto-set based on view time)
+              // --- Refactored Read-Only Field ---
+              TextFormField(
+                controller: _dataCriacaoController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailCreationDateLabel, // Use localization key
+                ),
+              ),
+              const SizedBox(height: 16),
 
-                    // Opportunity Name (Auto-calculated, but editable)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Label above the field
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8.0,
-                            left: 4.0,
+              // Data da última actualização de Fase (Auto-set based on view time)
+              // --- Refactored Read-Only Field ---
+              TextFormField(
+                controller: _dataUltimaAtualizacaoController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailLastUpdateLabel, // Use localization key
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Fase (Fixed value - Display as read-only)
+              // --- Refactored Read-Only Field ---
+              TextFormField(
+                controller: _faseController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailPhaseLabel, // Use localization key
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Tipo de Oportunidade (Derived value - Display as read-only)
+              // --- Refactored Read-Only Field ---
+              TextFormField(
+                controller: _tipoOportunidadeController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailTypeLabel, // Use localization key
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Segmento de Cliente (Picklist - Required)
+              // --- Removed custom Column/Padding/SizedBox wrapper ---
+              DropdownButtonFormField<String>(
+                value: _selectedSegmentoCliente,
+                // style: textTheme.bodyLarge, // Inherited via InputDecorator
+                // dropdownColor: colorScheme.surfaceVariant, // Use theme surface variant
+                // borderRadius: BorderRadius.circular(AppTheme.defaultBorderRadiusValue), // Use theme constant if available
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailSegmentLabel, // Use localization key
+                  // Inherits border, fill, padding etc. from global theme
+                ),
+                // Populate items from _segmentoOptions
+                items:
+                    _segmentoOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  // Update state variable on change
+                  setState(() {
+                    _selectedSegmentoCliente = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value == '--None--') {
+                    return l10n
+                        .opportunityDetailSegmentRequiredError; // Use localization key
+                  }
+                  return null;
+                },
+                hint: Text(
+                  l10n.opportunityDetailSegmentHint,
+                ), // Use localization key
+              ),
+              const SizedBox(height: 16),
+
+              // Solução (Picklist - Required)
+              // --- Removed custom Column/Padding/SizedBox wrapper ---
+              DropdownButtonFormField<String>(
+                value: _selectedSolucao,
+                // style: textTheme.bodyLarge, // Inherited via InputDecorator
+                // dropdownColor: colorScheme.surfaceVariant, // Use theme surface variant
+                // borderRadius: BorderRadius.circular(AppTheme.defaultBorderRadiusValue), // Use theme constant
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailSolutionLabel, // Use localization key
+                  // Inherits border, fill, padding etc. from global theme
+                ),
+                // Populate items from _solucaoOptions
+                items:
+                    _solucaoOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  // Update state variable on change
+                  setState(() {
+                    _selectedSolucao = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value == '--None--') {
+                    return l10n
+                        .opportunityDetailSolutionRequiredError; // Use localization key
+                  }
+                  return null;
+                },
+                hint: Text(
+                  l10n.opportunityDetailSolutionHint,
+                ), // Use localization key
+              ),
+              const SizedBox(height: 16),
+
+              // Data de Previsão de Fecho (Date - Required)
+              // --- Removed custom Column/Padding/SizedBox wrapper ---
+              TextFormField(
+                controller: _fechoController,
+                decoration: InputDecoration(
+                  labelText:
+                      l10n.opportunityDetailCloseDateLabel, // Use localization key
+                  hintText:
+                      l10n.opportunityDetailCloseDateHint, // Use localization key
+                  // Inherits border, fill, padding etc. from global theme
+                  suffixIcon: const Icon(Icons.calendar_today),
+                ),
+                keyboardType: TextInputType.datetime,
+                readOnly: true, // Prevent manual text input, use picker
+                onTap: () async {
+                  // Implement Date Picker logic
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedFechoDate ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                    // Use theme colors for picker
+                    builder: (context, child) {
+                      return Theme(
+                        data: theme.copyWith(
+                          colorScheme: theme.colorScheme.copyWith(
+                            primary:
+                                colorScheme.primary, // header background color
+                            onPrimary:
+                                colorScheme.onPrimary, // header text color
+                            onSurface: colorScheme.onSurface, // body text color
                           ),
-                          child: Text(
-                            'Oportunidade *',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Theme.of(context).hintColor),
+                          textButtonTheme: TextButtonThemeData(
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  colorScheme.primary, // button text color
+                            ),
                           ),
                         ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (pickedDate != null && pickedDate != _selectedFechoDate) {
+                    // Update state/controller with pickedDate (formatted as YYYY-MM-DD)
+                    setState(() {
+                      _selectedFechoDate = pickedDate;
+                      _fechoController.text = DateFormat(
+                        'yyyy-MM-dd',
+                      ).format(pickedDate);
+                    });
+                    print(
+                      'Date selected: ${DateFormat('yyyy-MM-dd').format(pickedDate)}',
+                    );
+                  }
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return l10n
+                        .opportunityDetailCloseDateRequiredError; // Use localization key
+                  }
+                  // Optional: Validate date format if needed, though picker ensures it
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // --- Invoice --- Updated with Preview & Tap Action
+              const Divider(height: 32),
+              Text(
+                l10n.opportunityDetailInvoiceSectionTitle, // Use localization key
+                style: textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              // Use FutureBuilder to fetch URL and display preview/link
+              FutureBuilder<String?>(
+                future: _fetchInvoiceDownloadUrl(),
+                builder: (context, snapshot) {
+                  // Check connection state
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Row(
+                      children: [
                         SizedBox(
-                          height: 48, // Fixed height for all field types
-                          child: TextFormField(
-                            controller: _nameController,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F0F4),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Opportunity Name is required';
-                              }
-                              return null;
-                            },
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary, // Use theme color
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.opportunityDetailInvoiceLoading, // Use localization key
+                          style: textTheme.bodyMedium,
+                        ),
+                      ],
+                    );
+                  }
+
+                  // Check for errors
+                  if (snapshot.hasError) {
+                    return Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: colorScheme.error,
+                        ), // Use theme color
+                        const SizedBox(width: 8),
+                        Text(
+                          l10n.opportunityDetailInvoiceError, // Use localization key
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error, // Use theme color
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
+                    );
+                  }
 
-                    // NIF (From submission, editable, mandatory)
-                    Column(
+                  // Check if data (URL) exists and is not null
+                  final downloadUrl = snapshot.data;
+                  final invoicePhoto = widget.submission.invoicePhoto;
+
+                  if (downloadUrl == null || invoicePhoto == null) {
+                    return Text(
+                      l10n.opportunityDetailInvoiceNotAvailable, // Use localization key
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant, // Use theme color
+                      ),
+                    );
+                  }
+
+                  // --- Display Image Preview (Tappable) ---
+                  final contentType = invoicePhoto.contentType.toLowerCase();
+                  final fileName = invoicePhoto.fileName;
+
+                  if (contentType.startsWith('image/')) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Label above the field
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8.0,
-                            left: 4.0,
-                          ),
-                          child: Text(
-                            'NIF *',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Theme.of(context).hintColor),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 48, // Fixed height for all field types
-                          child: TextFormField(
-                            controller: _nifController,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
+                        GestureDetector(
+                          onTap: () {
+                            // Navigate to full-screen viewer on tap, using ROOT navigator
+                            Navigator.of(context, rootNavigator: true).push(
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => FullScreenImageViewer(
+                                      imageUrl: downloadUrl,
+                                      imageName:
+                                          fileName, // Pass name for context
+                                    ),
+                                fullscreenDialog:
+                                    true, // Treat as a fullscreen dialog
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F0F4),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
+                            );
+                          },
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: 200, // Keep preview height reasonable
+                              maxWidth: double.infinity,
                             ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'NIF is required';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Criação (Auto-set based on view time)
-                    _buildReadOnlyField(
-                      'Data de Criação da Oportunidade',
-                      DateFormat.yMd().format(
-                        DateTime.now(),
-                      ), // Set to current date
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data da última actualização de Fase (Auto-set based on view time)
-                    _buildReadOnlyField(
-                      'Data da última actualização de Fase',
-                      DateFormat.yMd().format(
-                        DateTime.now(),
-                      ), // Set to current date
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Fase (Fixed value - Display as read-only)
-                    _buildReadOnlyField('Fase', _faseValue),
-                    const SizedBox(height: 16),
-
-                    // Tipo de Oportunidade (Derived value - Display as read-only)
-                    _buildReadOnlyField(
-                      'Tipo de Oportunidade',
-                      _tipoOportunidadeValue ?? 'Not Determined',
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Segmento de Cliente (Picklist - Required)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Label above the field
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8.0,
-                            left: 4.0,
-                          ),
-                          child: Text(
-                            'Segmento de Cliente *',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Theme.of(context).hintColor),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 48, // Fixed height for all field types
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedSegmentoCliente,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            dropdownColor: const Color(0xFFF0F0F4),
-                            borderRadius: BorderRadius.circular(20),
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F0F4),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
-                            ),
-                            // Populate items from _segmentoOptions
-                            items:
-                                _segmentoOptions.map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                            onChanged: (value) {
-                              // Update state variable on change
-                              setState(() {
-                                _selectedSegmentoCliente = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null || value == '--None--') {
-                                return 'Segmento de Cliente is required';
-                              }
-                              return null;
-                            },
-                            hint: const Text('Select Segmento'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Solução (Picklist - Required)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Label above the field
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8.0,
-                            left: 4.0,
-                          ),
-                          child: Text(
-                            'Solução *',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Theme.of(context).hintColor),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 48, // Fixed height for all field types
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedSolucao,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            dropdownColor: const Color(0xFFF0F0F4),
-                            borderRadius: BorderRadius.circular(20),
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F0F4),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
-                            ),
-                            // Populate items from _solucaoOptions
-                            items:
-                                _solucaoOptions.map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                            onChanged: (value) {
-                              // Update state variable on change
-                              setState(() {
-                                _selectedSolucao = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null || value == '--None--') {
-                                return 'Solução is required';
-                              }
-                              return null;
-                            },
-                            hint: const Text('Select Solução'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Data de Previsão de Fecho (Date - Required)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Label above the field
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 8.0,
-                            left: 4.0,
-                          ),
-                          child: Text(
-                            'Data de Previsão de Fecho *',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Theme.of(context).hintColor),
-                          ),
-                        ),
-                        SizedBox(
-                          height: 48, // Fixed height for all field types
-                          child: TextFormField(
-                            controller: _fechoController,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            decoration: InputDecoration(
-                              hintText: 'YYYY-MM-DD',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.5),
-                                ),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(20),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.red.withOpacity(0.5),
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF0F0F4),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              isDense: true,
-                              suffixIcon: const Icon(Icons.calendar_today),
-                            ),
-                            keyboardType: TextInputType.datetime,
-                            readOnly:
-                                true, // Prevent manual text input, use picker
-                            onTap: () async {
-                              // Implement Date Picker logic
-                              DateTime? pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate:
-                                    _selectedFechoDate ?? DateTime.now(),
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime(2101),
-                              );
-                              if (pickedDate != null &&
-                                  pickedDate != _selectedFechoDate) {
-                                // Update state/controller with pickedDate (formatted as YYYY-MM-DD)
-                                setState(() {
-                                  _selectedFechoDate = pickedDate;
-                                  _fechoController.text = DateFormat(
-                                    'yyyy-MM-dd',
-                                  ).format(pickedDate);
-                                });
-                                print(
-                                  'Date selected: ${DateFormat('yyyy-MM-dd').format(pickedDate)}',
-                                );
-                              }
-                            },
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Data de Previsão de Fecho is required';
-                              }
-                              // Optional: Validate date format if needed, though picker ensures it
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // --- Invoice --- Updated with Preview & Tap Action
-                    const Divider(height: 32),
-                    Text(
-                      'Invoice',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    // Use FutureBuilder to fetch URL and display preview/link
-                    FutureBuilder<String?>(
-                      future: _fetchInvoiceDownloadUrl(),
-                      builder: (context, snapshot) {
-                        // Check connection state
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Row(
-                            children: [
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Loading invoice...'),
-                            ],
-                          );
-                        }
-
-                        // Check for errors
-                        if (snapshot.hasError) {
-                          return const Row(
-                            children: [
-                              Icon(Icons.error_outline, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Error loading invoice details.'),
-                            ],
-                          );
-                        }
-
-                        // Check if data (URL) exists and is not null
-                        final downloadUrl = snapshot.data;
-                        final invoicePhoto = widget.submission.invoicePhoto;
-
-                        if (downloadUrl == null || invoicePhoto == null) {
-                          return const Text(
-                            'No invoice submitted or path is invalid.',
-                          );
-                        }
-
-                        // --- Display Image Preview (Tappable) ---
-                        final contentType =
-                            invoicePhoto.contentType.toLowerCase();
-                        final fileName = invoicePhoto.fileName;
-
-                        if (contentType.startsWith('image/')) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  // Navigate to full-screen viewer on tap, using ROOT navigator
-                                  Navigator.of(
-                                    context,
-                                    rootNavigator: true,
-                                  ).push(
-                                    MaterialPageRoute(
-                                      builder:
-                                          (_) => FullScreenImageViewer(
-                                            imageUrl: downloadUrl,
-                                            imageName:
-                                                fileName, // Pass name for context
-                                          ),
-                                      fullscreenDialog:
-                                          true, // Treat as a fullscreen dialog
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.defaultBorderRadiusValue,
+                              ), // Use theme constant
+                              child: Image.network(
+                                downloadUrl,
+                                fit:
+                                    BoxFit
+                                        .cover, // Cover for preview looks better
+                                // Add loading/error builders for the preview image itself
+                                loadingBuilder: (
+                                  context,
+                                  child,
+                                  loadingProgress,
+                                ) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(
+                                    child: CircularProgressIndicator(
+                                      value:
+                                          loadingProgress.expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
+                                              : null,
+                                      color:
+                                          colorScheme
+                                              .primary, // Use theme color
                                     ),
                                   );
                                 },
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight:
-                                        200, // Keep preview height reasonable
-                                    maxWidth: double.infinity,
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      downloadUrl,
-                                      fit:
-                                          BoxFit
-                                              .cover, // Cover for preview looks better
-                                      // Add loading/error builders for the preview image itself
-                                      loadingBuilder: (
-                                        context,
-                                        child,
-                                        loadingProgress,
-                                      ) {
-                                        if (loadingProgress == null)
-                                          return child;
-                                        return Center(
-                                          child: CircularProgressIndicator(
-                                            value:
-                                                loadingProgress
-                                                            .expectedTotalBytes !=
-                                                        null
-                                                    ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
-                                                    : null,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.broken_image,
+                                          color:
+                                              colorScheme
+                                                  .onSurfaceVariant, // Use theme color
+                                          size: 40,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          l10n.opportunityDetailInvoicePreviewError, // Use localization key
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color:
+                                                colorScheme
+                                                    .onSurfaceVariant, // Use theme color
                                           ),
-                                        );
-                                      },
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
-                                        return const Center(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.broken_image,
-                                                color: Colors.grey,
-                                                size: 40,
-                                              ),
-                                              SizedBox(height: 8),
-                                              Text('Preview not available.'),
-                                            ],
-                                          ),
-                                        );
-                                      },
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        } else if (contentType == 'application/pdf') {
-                          return GestureDetector(
-                            onTap: () {
-                              // Navigate to full-screen PDF viewer on tap, using ROOT navigator
-                              Navigator.of(context, rootNavigator: true).push(
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => FullScreenPdfViewer(
-                                        pdfUrl: downloadUrl,
-                                        pdfName: fileName,
-                                      ),
-                                  fullscreenDialog: true,
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.picture_as_pdf,
-                                    color: Colors.red.shade700,
-                                    size: 30,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      fileName,
-                                      style:
-                                          Theme.of(context).textTheme.bodyLarge,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    // Add a visual cue for tapping
-                                    Icons.open_in_new,
-                                    size: 18,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
-                          );
-                        } else {
-                          // Fallback for other types
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.insert_drive_file, size: 30),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      fileName,
-                                      style:
-                                          Theme.of(context).textTheme.bodyLarge,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextButton.icon(
-                                icon: const Icon(Icons.download),
-                                label: const Text('Download File'),
-                                onPressed: () => _launchUrl(downloadUrl),
-                              ),
-                            ],
-                          );
-                        }
+                          ),
+                        ),
+                      ],
+                    );
+                  } else if (contentType == 'application/pdf') {
+                    return GestureDetector(
+                      onTap: () {
+                        // Navigate to full-screen PDF viewer on tap, using ROOT navigator
+                        Navigator.of(context, rootNavigator: true).push(
+                          MaterialPageRoute(
+                            builder:
+                                (_) => FullScreenPdfViewer(
+                                  pdfUrl: downloadUrl,
+                                  pdfName: fileName,
+                                ),
+                            fullscreenDialog: true,
+                          ),
+                        );
                       },
-                    ),
-                    const SizedBox(height: 32),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.picture_as_pdf,
+                              color:
+                                  colorScheme
+                                      .error, // Use theme error color for PDF
+                              size: 30,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                fileName,
+                                style: textTheme.bodyLarge,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              // Add a visual cue for tapping
+                              Icons.open_in_new,
+                              size: 18,
+                              color: colorScheme.primary, // Correct theme usage
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  } else {
+                    // Fallback for other types
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.insert_drive_file,
+                              size: 30,
+                              color:
+                                  colorScheme
+                                      .onSurfaceVariant, // Use theme color
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                fileName,
+                                style: textTheme.bodyLarge,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          icon: const Icon(Icons.download),
+                          label: Text(
+                            l10n.opportunityDetailInvoiceDownloadButton, // Use localization key
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor:
+                                colorScheme.primary, // Use theme color
+                          ),
+                          onPressed: () => _launchUrl(downloadUrl),
+                        ),
+                      ],
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 32),
 
-                    // --- Actions ---
-                    Center(
-                      child: Wrap(
-                        spacing: 16.0, // Horizontal space between buttons
-                        runSpacing: 8.0, // Vertical space if buttons wrap
-                        alignment: WrapAlignment.center,
-                        children: [
-                          // Approve Button (Existing)
-                          ElevatedButton(
-                            onPressed:
-                                _isSubmitting
-                                    ? null
-                                    : () async {
-                                      // Disable button when submitting
-                                      // Validate the form
-                                      if (_formKey.currentState?.validate() ??
-                                          false) {
-                                        // --- Check if essential fetched data is available ---
-                                        if (_isLoadingReseller) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Still loading reseller data...',
-                                              ),
-                                            ),
-                                          );
-                                          return; // Prevent submission while loading
-                                        }
-                                        if (_resellerSalesforceId == null ||
-                                            _resellerSalesforceId!.isEmpty) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Cannot submit: Reseller Salesforce ID is missing or invalid.',
-                                              ),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                          return; // Prevent submission if ID is missing
-                                        }
-                                        // -----------------------------------------------------
+              // --- Actions ---
+              Center(
+                child: Wrap(
+                  spacing: 16.0, // Horizontal space between buttons
+                  runSpacing: 8.0, // Vertical space if buttons wrap
+                  alignment: WrapAlignment.center,
+                  children: [
+                    // Approve Button (Existing)
+                    ElevatedButton(
+                      onPressed:
+                          _isSubmitting
+                              ? null
+                              : () async {
+                                // Disable button when submitting
+                                // Validate the form
+                                if (_formKey.currentState?.validate() ??
+                                    false) {
+                                  // --- Check if essential fetched data is available ---
+                                  if (_isLoadingReseller) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          l10n.opportunitySubmitLoadingAgentError, // Use localization key
+                                        ),
+                                      ),
+                                    );
+                                    return; // Prevent submission while loading
+                                  }
+                                  if (_resellerSalesforceId == null ||
+                                      _resellerSalesforceId!.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          l10n.opportunitySubmitMissingAgentError, // Use localization key
+                                        ),
+                                        backgroundColor: colorScheme.error,
+                                      ),
+                                    );
+                                    return; // Prevent submission if ID is missing
+                                  }
+                                  // -----------------------------------------------------
 
-                                        // Set loading state
-                                        setState(() {
-                                          _isSubmitting = true;
-                                        });
+                                  // Set loading state
+                                  setState(() {
+                                    _isSubmitting = true;
+                                  });
 
-                                        // If valid and ID exists, collect data
-                                        final opportunityData = {
-                                          'Name': _nameController.text,
-                                          'NIF__c': _nifController.text,
-                                          'Data_de_Cria_o_da_Oportunidade__c':
-                                              DateFormat(
-                                                'yyyy-MM-dd',
-                                              ).format(DateTime.now()),
-                                          'Data_da_ltima_actualiza_o_de_Fase__c':
-                                              DateFormat(
-                                                'yyyy-MM-dd',
-                                              ).format(DateTime.now()),
-                                          'Fase__c': _faseValue,
-                                          'tipoOportunidadeValue':
-                                              _tipoOportunidadeValue,
-                                          'Segmento_de_Cliente__c':
-                                              _selectedSegmentoCliente,
-                                          'agenteRetailSalesforceId':
-                                              _resellerSalesforceId, // Send the ID
-                                          'Solu_o__c': _selectedSolucao,
-                                          'Data_de_Previs_o_de_Fecho__c':
-                                              _fechoController.text,
-                                          // Include original submission ID and invoice path for the Cloud Function
-                                          'originalSubmissionId':
-                                              widget.submission.id,
-                                          'invoiceStoragePath':
-                                              widget
-                                                  .submission
-                                                  .invoicePhoto
-                                                  ?.storagePath,
-                                        };
+                                  // If valid and ID exists, collect data
+                                  final opportunityData = {
+                                    'Name': _nameController.text,
+                                    'NIF__c': _nifController.text,
+                                    'Data_de_Cria_o_da_Oportunidade__c':
+                                        DateFormat(
+                                          'yyyy-MM-dd',
+                                        ).format(DateTime.now()),
+                                    'Data_da_ltima_actualiza_o_de_Fase__c':
+                                        DateFormat(
+                                          'yyyy-MM-dd',
+                                        ).format(DateTime.now()),
+                                    'Fase__c': _faseValue,
+                                    'tipoOportunidadeValue':
+                                        _tipoOportunidadeValue,
+                                    'Segmento_de_Cliente__c':
+                                        _selectedSegmentoCliente,
+                                    'agenteRetailSalesforceId':
+                                        _resellerSalesforceId, // Send the ID
+                                    'Solu_o__c': _selectedSolucao,
+                                    'Data_de_Previs_o_de_Fecho__c':
+                                        _fechoController.text,
+                                    // Include original submission ID and invoice path for the Cloud Function
+                                    'originalSubmissionId':
+                                        widget.submission.id,
+                                    'invoiceStoragePath':
+                                        widget
+                                            .submission
+                                            .invoicePhoto
+                                            ?.storagePath,
+                                  };
 
-                                        if (kDebugMode) {
-                                          print(
-                                            "--- Opportunity Data for Submission ---",
-                                          );
-                                          opportunityData.forEach((key, value) {
-                                            print("$key: $value");
-                                          });
-                                          print(
-                                            "---------------------------------------",
-                                          );
-                                        }
+                                  if (kDebugMode) {
+                                    print(
+                                      "--- Opportunity Data for Submission ---",
+                                    );
+                                    opportunityData.forEach((key, value) {
+                                      print("$key: $value");
+                                    });
+                                    print(
+                                      "---------------------------------------",
+                                    );
+                                  }
 
-                                        // --- Call Cloud Function ---
-                                        try {
-                                          final callable =
-                                              FirebaseFunctions.instanceFor(
-                                                region: 'us-central1',
-                                              ) // Ensure region matches function deployment
-                                              .httpsCallable(
-                                                'createSalesforceOpportunity',
-                                              );
-                                          final result = await callable
-                                              .call<Map<String, dynamic>>(
-                                                opportunityData,
-                                              );
-                                          final resultData = result.data;
+                                  // --- Call Cloud Function ---
+                                  try {
+                                    final callable = FirebaseFunctions.instanceFor(
+                                      region: 'us-central1',
+                                    ) // Ensure region matches function deployment
+                                    .httpsCallable(
+                                      'createSalesforceOpportunity',
+                                    );
+                                    final result = await callable
+                                        .call<Map<String, dynamic>>(
+                                          opportunityData,
+                                        );
+                                    final resultData = result.data;
 
-                                          if (kDebugMode) {
-                                            print(
-                                              "Cloud Function Result: $resultData",
-                                            );
-                                          }
+                                    if (kDebugMode) {
+                                      print(
+                                        "Cloud Function Result: $resultData",
+                                      );
+                                    }
 
-                                          if (resultData['success'] == true) {
-                                            // Success!
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Opportunity created successfully! ID: ${resultData['opportunityId'] ?? 'N/A'}',
-                                                  ),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                              // Optionally navigate back or refresh list
-                                              // Navigator.of(context).pop();
-                                            }
-                                          } else {
-                                            // Handle failure reported by the function
-                                            if (mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Failed to create opportunity: ${resultData['error'] ?? 'Unknown error'}',
-                                                  ),
-                                                  backgroundColor:
-                                                      Theme.of(
-                                                        context,
-                                                      ).colorScheme.error,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        } on FirebaseFunctionsException catch (
-                                          e
-                                        ) {
-                                          // Handle Cloud Functions specific errors (e.g., permission denied, not found)
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Cloud Function Error: (${e.code}) ${e.message}',
-                                                ),
-                                                backgroundColor:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.error,
-                                              ),
-                                            );
-                                          }
-                                          if (kDebugMode) {
-                                            print(
-                                              "FirebaseFunctionsException: ${e.code} - ${e.message}",
-                                            );
-                                          }
-                                        } catch (e) {
-                                          // Handle unexpected errors during the call
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'An unexpected error occurred: $e',
-                                                ),
-                                                backgroundColor:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.error,
-                                              ),
-                                            );
-                                          }
-                                          if (kDebugMode) {
-                                            print(
-                                              "Generic Error calling Cloud Function: $e",
-                                            );
-                                          }
-                                        } finally {
-                                          // Reset loading state
-                                          if (mounted) {
-                                            setState(() {
-                                              _isSubmitting = false;
-                                            });
-                                          }
-                                        }
-                                        // -------------------------
-
-                                        // ScaffoldMessenger.of(context).showSnackBar(
-                                        //   const SnackBar(
-                                        //     content: Text(
-                                        //       'Form Valid. Submission logic pending.',
-                                        //     ),
-                                        //     backgroundColor: Colors.green,
-                                        //   ),
-                                        // );
-                                      } else {
-                                        // Form is invalid, show error message
+                                    if (resultData['success'] == true) {
+                                      // Success!
+                                      if (mounted) {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Please fix the errors in the form.',
+                                              // Use l10n with placeholder
+                                              l10n.opportunitySubmitSuccess(
+                                                resultData['opportunityId'] ??
+                                                    'N/A',
+                                              ),
                                             ),
-                                            backgroundColor: Colors.red,
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        // Optionally navigate back or refresh list
+                                        if (Navigator.canPop(context)) {
+                                          Navigator.of(context).pop();
+                                        }
+                                      }
+                                    } else {
+                                      // Handle failure reported by the function
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              // Use l10n with placeholder
+                                              l10n.opportunitySubmitFunctionError(
+                                                resultData['error'] ??
+                                                    l10n.commonUnknownError,
+                                              ),
+                                            ),
+                                            backgroundColor: colorScheme.error,
                                           ),
                                         );
                                       }
-                                    },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 40,
-                                vertical: 15,
-                              ),
-                            ),
-                            child:
-                                _isSubmitting
-                                    ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                                    }
+                                  } on FirebaseFunctionsException catch (e) {
+                                    // Handle Cloud Functions specific errors (e.g., permission denied, not found)
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            // Use l10n with placeholders
+                                            l10n.opportunitySubmitCloudFunctionError(
+                                              e.code,
+                                              e.message ?? '',
+                                            ),
+                                          ),
+                                          backgroundColor: colorScheme.error,
+                                        ),
+                                      );
+                                    }
+                                    if (kDebugMode) {
+                                      print(
+                                        "FirebaseFunctionsException: ${e.code} - ${e.message}",
+                                      );
+                                    }
+                                  } catch (e) {
+                                    // Handle unexpected errors during the call
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            // Use l10n with placeholder
+                                            l10n.opportunitySubmitUnexpectedError(
+                                              e.toString(),
+                                            ),
+                                          ),
+                                          backgroundColor: colorScheme.error,
+                                        ),
+                                      );
+                                    }
+                                    if (kDebugMode) {
+                                      print(
+                                        "Generic Error calling Cloud Function: $e",
+                                      );
+                                    }
+                                  } finally {
+                                    // Reset loading state
+                                    if (mounted) {
+                                      setState(() {
+                                        _isSubmitting = false;
+                                      });
+                                    }
+                                  }
+                                  // -------------------------
+                                } else {
+                                  // Form is invalid, show error message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        l10n.commonFormValidationFixErrors, // Use localization key
                                       ),
-                                    )
-                                    : const Text(
-                                      'Approve & Create Opportunity',
+                                      backgroundColor: colorScheme.error,
                                     ),
-                          ),
+                                  );
+                                }
+                              },
+                      style: ElevatedButton.styleFrom(
+                        // Inherits style from ElevatedButtonTheme
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 15,
+                        ), // Keep padding for emphasis
+                      ),
+                      child:
+                          _isSubmitting
+                              ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color:
+                                      colorScheme
+                                          .onPrimary, // Contrasting color
+                                ),
+                              )
+                              : Text(
+                                l10n.opportunityApproveButton, // Use localization key
+                              ),
+                    ),
 
-                          // --- NEW: Reject Button ---
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.cancel_outlined),
-                            label: const Text('Reject'),
-                            onPressed:
-                                _isSubmitting
-                                    ? null
-                                    : () async {
-                                      // TODO: Call rejection dialog and handling logic
-                                      print('Reject button pressed');
-                                      final reason =
-                                          await _showRejectionDialog();
-                                      if (reason != null && reason.isNotEmpty) {
-                                        // Handle rejection logic
-                                        await _handleRejection(reason);
-                                      }
-                                    },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.error,
-                              side: BorderSide(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.error.withOpacity(0.7),
-                                width: 1.5,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 40,
-                                vertical: 15,
-                              ),
-                            ),
-                          ),
-                        ],
+                    // --- NEW: Reject Button ---
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: Text(
+                        l10n.opportunityRejectButton, // Use localization key
+                      ),
+                      onPressed:
+                          _isSubmitting
+                              ? null
+                              : () async {
+                                print('Reject button pressed');
+                                final reason = await _showRejectionDialog();
+                                if (reason != null && reason.isNotEmpty) {
+                                  // Handle rejection logic
+                                  await _handleRejection(reason);
+                                }
+                              },
+                      style: OutlinedButton.styleFrom(
+                        // Use theme for styling error buttons if defined, else derive
+                        foregroundColor: colorScheme.error,
+                        side: BorderSide(
+                          color: colorScheme.error.withOpacity(0.7),
+                          width: 1.5,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 15,
+                        ), // Keep padding
                       ),
                     ),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
+            ],
           ),
-        ],
-      ),
-    );
+        ),
+      ), // End of Scaffold body (SingleChildScrollView)
+    ); // End of Scaffold
   }
 
   // --- ADDED: Handle Rejection Logic ---
@@ -1477,26 +1208,53 @@ class _OpportunityDetailFormViewState
         'notes': null, // Explicitly set notes to null or handle separately
       };
 
-      await docRef.update({'status': 'rejected', 'reviewDetails': reviewData});
+      // Use Firestore transaction for atomic update
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        transaction.update(docRef, {
+          'status': 'rejected',
+          'reviewDetails': reviewData,
+        });
+      });
+
+      // --- Optional: Create Notification for Reseller ---
+      try {
+        await _createRejectionNotification(
+          widget.submission.resellerId,
+          widget.submission.id!,
+          reason,
+        );
+      } catch (e) {
+        print("Error creating rejection notification: $e");
+        // Non-critical, don't fail the whole rejection
+      }
+      // ---------------------------------------------------
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Submission rejected successfully.'),
+          SnackBar(
+            content: Text(
+              // AppLocalizations.of(context)!.opportunityRejectedSuccess, // TODO l10n
+              'Submission rejected successfully.',
+            ),
             backgroundColor:
                 Colors.orange, // Use orange/yellow for rejection success
           ),
         );
         // Optionally navigate back
-        // Navigator.of(context).pop();
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
       print("Error rejecting submission: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to reject submission: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text(
+              // '${AppLocalizations.of(context)!.opportunityRejectedError}: $e', // TODO l10n
+              'Failed to reject submission: ${e.toString()}',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -1509,51 +1267,43 @@ class _OpportunityDetailFormViewState
     }
   }
 
-  // Helper for read-only fields
-  Widget _buildReadOnlyField(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Label above the field
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).hintColor,
-              ),
-            ),
-          ),
-          // Value in a container styled like a disabled TextFormField
-          SizedBox(
-            height: 48, // Fixed height for all field types
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F0F4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              // Use a properly centered row instead of padding + alignment
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      value,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  // --- ADDED: Create Rejection Notification ---
+  Future<void> _createRejectionNotification(
+    String resellerId,
+    String submissionId,
+    String reason,
+  ) async {
+    try {
+      final notificationRef =
+          FirebaseFirestore.instance
+              .collection('notifications')
+              .doc(); // Auto-generate ID
+
+      final notificationData = {
+        'id': notificationRef.id,
+        'userId': resellerId, // Target the reseller
+        'title':
+            'Opportunity Rejected', // TODO: Localize Title (e.g., l10n.notificationOpportunityRejectedTitle)
+        'body':
+            'Your submission requires attention. Reason: $reason', // TODO: Localize Body (e.g., l10n.notificationOpportunityRejectedBody(reason))
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'type':
+            'opportunity_rejected', // Define a specific type for handling clicks
+        'relatedId': submissionId, // Link to the submission
+        'relatedDataType':
+            'serviceSubmission', // Specify the type of related data
+        'icon': 'warning', // Optional: suggest an icon name
+      };
+
+      await notificationRef.set(notificationData);
+      print(
+        'Rejection notification created for reseller $resellerId, submission $submissionId',
+      );
+    } catch (e) {
+      print('Error creating rejection notification: $e');
+      // Log or handle error, but don't block the main rejection flow
+      rethrow; // Re-throw if needed for upstream handling
+    }
   }
 }

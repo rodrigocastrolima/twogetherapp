@@ -132,6 +132,7 @@
     "chatDebugDialogFirebaseSolution1": "1. Configurar definições CORS do Firebase Storage",
     "chatDebugDialogFirebaseSolution2": "2. Usar um servidor proxy para contornar o CORS",
     "chatDebugDialogFirebaseSolution3": "3. Mudar para usar um CachedNetworkImageProvider",
+    "@chatDebugDialogFirebaseSolution3": { "description": "Solução 3 no diálogo de depuração do Firebase" },
     "@_SERVICES": {},
 
     "reauthErrorUserNotFound": "Não foi possível encontrar o usuário para reautenticar. Por favor, saia e entre novamente.",
@@ -223,5 +224,130 @@
     "passwordUpdateFailedGenericError": "Falha ao atualizar a senha. Por favor, tente novamente.",
     "@passwordUpdateFailedGenericError": {
         "description": "Mensagem de erro genérica quando a atualização da senha falha por um motivo desconhecido."
+    },
+    "appTitle": "Twogether Retail",
+    "loginPageTitle": "Iniciar Sessão",
+    "salesforceSubmissionSuccess": "Submissão de serviço bem-sucedida!",
+    "salesforceSubmissionError": "Erro ao submeter serviço: {error}",
+    "@salesforceSubmissionError": {
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "changePasswordTitle": "Alterar Palavra-passe",
+    "@changePasswordTitle": { "description": "Título para o ecrã de alteração de palavra-passe" },
+    "changePasswordSubtitle": "Por favor, defina uma nova palavra-passe para a sua conta.",
+    "@changePasswordSubtitle": { "description": "Subtítulo/instrução para o ecrã de alteração de palavra-passe" },
+    "changePasswordNewLabel": "Nova Palavra-passe",
+    "@changePasswordNewLabel": { "description": "Rótulo para o campo de nova palavra-passe" },
+    "changePasswordConfirmLabel": "Confirmar Palavra-passe",
+    "@changePasswordConfirmLabel": { "description": "Rótulo para o campo de confirmação de palavra-passe" },
+    "changePasswordButton": "Alterar Palavra-passe",
+    "@changePasswordButton": { "description": "Rótulo para o botão de submeter a alteração de palavra-passe" },
+    "passwordUpdateSuccessMessage": "Palavra-passe atualizada com sucesso!",
+    "@passwordUpdateSuccessMessage": { "description": "Mensagem snackbar mostrada após atualização de palavra-passe bem-sucedida" },
+    "passwordUpdateCompleteFirstLoginError": "Palavra-passe atualizada, mas falhou ao concluir o processo de primeiro login. Por favor, tente iniciar sessão novamente.",
+    "@passwordUpdateCompleteFirstLoginError": { "description": "Mensagem de erro se a atualização da flag de primeiro login falhar após alteração de palavra-passe" },
+    "validationPasswordEmpty": "A palavra-passe não pode estar vazia.",
+    "@validationPasswordEmpty": { "description": "Erro de validação para campo de palavra-passe vazio" },
+    "validationPasswordMismatch": "As palavras-passe não coincidem.",
+    "@validationPasswordMismatch": { "description": "Erro de validação quando a nova palavra-passe e a confirmação não coincidem" },
+    "validationPasswordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres.",
+    "@validationPasswordTooShort": { "description": "Erro de validação quando a palavra-passe tem menos de 8 caracteres" },
+    "reauthRequiredTitle": "Reautenticação Necessária",
+    "@reauthRequiredTitle": { "description": "Título para o diálogo de reautenticação" },
+    "reauthRequiredMessage": "Para sua segurança, por favor introduza a sua palavra-passe atual para continuar.",
+    "@reauthRequiredMessage": { "description": "Mensagem explicando por que a reautenticação é necessária" },
+    "reauthCurrentPasswordLabel": "Palavra-passe Atual",
+    "@reauthCurrentPasswordLabel": { "description": "Rótulo para a introdução da palavra-passe atual no diálogo de reautenticação" },
+    "reauthFailedError": "Reautenticação falhou: {errorCode}.",
+    "@reauthFailedError": { "description": "Mensagem de erro quando a reautenticação falha com um código específico", "placeholders": {"errorCode": {"type": "String"}}},
+    "reauthFailedGenericError": "Reautenticação falhou. Por favor, tente novamente.",
+    "@reauthFailedGenericError": { "description": "Mensagem de erro genérica quando a reautenticação falha" },
+    "reauthErrorUserNotFound": "Não foi possível encontrar informação do utilizador para reautenticação.",
+    "@reauthErrorUserNotFound": { "description": "Mensagem de erro se faltarem dados do utilizador durante a tentativa de reautenticação" },
+    "passwordUpdateFailedAfterReauthError": "Atualização da palavra-passe falhou após reautenticação: {errorCode}.",
+    "@passwordUpdateFailedAfterReauthError": { "description": "Mensagem de erro se a atualização da palavra-passe falhar mesmo após reautenticação bem-sucedida", "placeholders": {"errorCode": {"type": "String"}}},
+    "passwordUpdateFailedAfterReauthGenericError": "Atualização da palavra-passe falhou após reautenticação. Por favor, tente novamente.",
+    "@passwordUpdateFailedAfterReauthGenericError": { "description": "Erro genérico se a atualização da palavra-passe falhar após reautenticação"},
+    "reauthCancelledError": "Alteração de palavra-passe cancelada porque a reautenticação não foi concluída.",
+    "@reauthCancelledError": { "description": "Mensagem de erro mostrada se o utilizador cancelar o processo de reautenticação"},
+    "firebaseAuthError": "Erro de autenticação: {errorCode}",
+    "@firebaseAuthError": { "description": "Mensagem de erro genérica do Firebase Auth", "placeholders": {"errorCode": {"type": "String"}}},
+    "confirm": "Confirmar",
+    "@confirm": { "description": "Rótulo genérico para botão de confirmação" },
+    "cancel": "Cancelar",
+    "@cancel": { "description": "Rótulo genérico para botão de cancelar" },
+    "fileUploadRemoveTooltip": "Remover ficheiro",
+    "@fileUploadRemoveTooltip": {
+        "description": "Tooltip para o botão de remover o ficheiro carregado"
+    },
+    "servicesPageTitle": "Qual tipo de serviço?",
+    "@servicesPageTitle": {},
+    "servicesEnergyPageTitle": "Qual tipo de serviço de energia?",
+    "@servicesEnergyPageTitle": {},
+    "servicesClientTypePageTitle": "Selecione seu fornecedor",
+    "@servicesClientTypePageTitle": {},
+    "servicesClientTypePageSubtitle": "Escolha com base no tipo de cliente",
+    "@servicesClientTypePageSubtitle": {},
+    "servicesClientTypeCommercialTitle": "Clientes Comerciais",
+    "@servicesClientTypeCommercialTitle": {},
+    "servicesClientTypeCommercialSubtitle": "Para empresas e negócios",
+    "@servicesClientTypeCommercialSubtitle": {},
+    "servicesClientTypeResidentialTitle": "Clientes Residenciais",
+    "@servicesClientTypeResidentialTitle": {},
+    "servicesClientTypeResidentialSubtitle": "Para residências e famílias",
+    "@servicesClientTypeResidentialSubtitle": {},
+    "servicesFormTitle": "Dados do Cliente",
+    "@servicesFormTitle": {},
+    "servicesFormCompanyNameLabel": "Nome da Empresa",
+    "@servicesFormCompanyNameLabel": {},
+    "servicesFormCompanyNameHint": "Digite o nome da empresa",
+    "@servicesFormCompanyNameHint": {},
+    "servicesFormResponsibleNameLabel": "Nome do Responsável",
+    "@servicesFormResponsibleNameLabel": {},
+    "servicesFormResponsibleNameHint": "Digite o nome do responsável",
+    "@servicesFormResponsibleNameHint": {},
+    "servicesFormNifLabel": "NIF",
+    "@servicesFormNifLabel": {},
+    "servicesFormNifHint": "Digite o NIF",
+    "@servicesFormNifHint": {},
+    "servicesFormEmailLabel": "Email",
+    "@servicesFormEmailLabel": {},
+    "servicesFormEmailHint": "Digite o email",
+    "@servicesFormEmailHint": {},
+    "servicesFormPhoneLabel": "Telefone",
+    "@servicesFormPhoneLabel": {},
+    "servicesFormPhoneHint": "Digite o telefone",
+    "@servicesFormPhoneHint": {},
+    "servicesSubmitButtonLabel": "Enviar",
+    "@servicesSubmitButtonLabel": {},
+    "servicesStepInvalid": "Passo inválido",
+    "@servicesStepInvalid": {},
+    "servicesSubmissionError": "Erro ao enviar formulário",
+    "@servicesSubmissionError": {},
+    "servicesSubmissionErrorGeneric": "Erro ao enviar formulário: {error}",
+    "@servicesSubmissionErrorGeneric": {
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "servicesUserAuthError": "Utilizador não autenticado",
+    "@servicesUserAuthError": {},
+    "fileUploadHint": "Carregue uma foto ou PDF da fatura",
+    "@fileUploadHint": {
+        "description": "Texto de instrução para o utilizador sobre o que carregar"
+    },
+    "fileUploadButtonLabel": "Carregar Fatura",
+    "@fileUploadButtonLabel": {
+        "description": "Rótulo para o botão de carregar a fatura"
+    },
+    "servicesSubmissionSuccessMessage": "Pedido de serviço enviado com sucesso!",
+    "@servicesSubmissionSuccessMessage": {
+      "description": "Mensagem mostrada num diálogo após submeter com sucesso um pedido de serviço."
     }
 } 

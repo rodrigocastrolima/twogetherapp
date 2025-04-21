@@ -11,6 +11,9 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocal
 import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases
 import '../../../../core/theme/ui_styles.dart'; // Use AppStyles for specific decorations/layouts
 import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
+import 'package:firebase_auth/firebase_auth.dart'; // <-- Add FirebaseAuth import
+import 'package:flutter/cupertino.dart'; // Import Cupertino widgets
+import 'package:go_router/go_router.dart'; // <-- Import GoRouter
 
 // Provider to stream pending opportunity submissions
 final pendingOpportunitiesProvider = StreamProvider<List<ServiceSubmission>>((
@@ -19,15 +22,28 @@ final pendingOpportunitiesProvider = StreamProvider<List<ServiceSubmission>>((
   // Consider adding error handling for the stream itself if needed
   return FirebaseFirestore.instance
       .collection('serviceSubmissions')
-      .where('status', isEqualTo: 'pending_review')
-      .orderBy('submissionTimestamp', descending: true)
+      .where('status', isEqualTo: 'Pending')
+      .orderBy('timestamp', descending: true)
       .snapshots()
-      .map(
-        (snapshot) =>
-            snapshot.docs
-                .map((doc) => ServiceSubmission.fromFirestore(doc))
-                .toList(),
-      );
+      .map((snapshot) {
+        // +++ Add logging INSIDE the map +++
+        debugPrint(
+          '[Provider Map] Received snapshot with ${snapshot.docs.length} docs matching query.',
+        );
+        // ++++++++++++++++++++++++++++++++++++
+        return snapshot.docs
+            .map((doc) => ServiceSubmission.fromFirestore(doc))
+            .toList();
+      })
+      .handleError((error) {
+        // +++ Add specific error handling for the stream +++
+        debugPrint(
+          '[Provider Stream Error] Error fetching submissions: $error',
+        );
+        // Optionally rethrow or return an empty list depending on desired behavior
+        throw error; // Rethrowing to let the .when clause handle it
+        // ++++++++++++++++++++++++++++++++++++++++++++++++
+      });
 });
 
 // New Stateful Widget to handle filters
@@ -46,6 +62,48 @@ class _OpportunityVerificationPageState
   Set<ServiceCategory>? _selectedServiceTypes;
   Set<EnergyType>? _selectedEnergyTypes;
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Force ID token refresh
+    FirebaseAuth.instance.currentUser
+        ?.getIdToken(true)
+        .then((token) {
+          debugPrint(
+            "[OpportunityVerificationPage Init] Forced ID token refresh initiated.",
+          );
+          // After token refresh is initiated, fetch submissions
+          // The SDK should automatically use the latest token for subsequent requests
+          _fetchPendingSubmissions();
+        })
+        .catchError((e) {
+          debugPrint(
+            "[OpportunityVerificationPage Init] Error forcing token refresh: $e",
+          );
+          // Fetch submissions even if token refresh fails, might use cached token
+          _fetchPendingSubmissions();
+        });
+
+    // Existing initState logic
+    _fetchPendingSubmissions();
+    // Note: No need to await the token refresh before fetching,
+    // the SDK should use the latest available token when the query runs.
+  }
+
+  // +++ Add back the _fetchPendingSubmissions method +++
+  // This method might not be strictly necessary if we rely solely on
+  // the StreamProvider rebuilding the widget, but having it clarifies intent.
+  void _fetchPendingSubmissions() {
+    // The actual fetching is done by the StreamProvider (`pendingOpportunitiesProvider`)
+    // This method is called in initState to ensure the provider is listened to early.
+    // We could potentially add manual refresh logic here if needed later.
+    debugPrint(
+      "[OpportunityVerificationPage] _fetchPendingSubmissions called (triggers provider watch).",
+    );
+  }
+  // ++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // --- Updated Callback for applying filters from the sheet ---
   void _applyFilters(
@@ -114,12 +172,25 @@ class _OpportunityVerificationPageState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    // +++ Add Debug Logging +++
+    debugPrint(
+      '[OpportunityVerificationPage Build] Filters: Resellers=${_selectedResellers?.join(', ') ?? 'All'}, Services=${_selectedServiceTypes?.join(', ') ?? 'All'}, Energy=${_selectedEnergyTypes?.join(', ') ?? 'All'}',
+    );
+    // +++++++++++++++++++++++++
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+      body: SafeArea(
+        bottom: false,
+        top: false,
         child: pendingOpportunitiesAsync.when(
           data: (allSubmissions) {
+            // +++ Add Debug Logging +++
+            debugPrint(
+              '[OpportunityVerificationPage Build] Provider Data Received: ${allSubmissions.length} submissions with status "Pending"',
+            );
+            // +++++++++++++++++++++++++
+
             // --- Filtering Logic --- Updated for Sets
             final uniqueResellers =
                 allSubmissions
@@ -179,14 +250,19 @@ class _OpportunityVerificationPageState
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(
-                      context,
-                      l10n,
-                      theme,
-                      isWebView,
-                      uniqueResellers,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0,
+                        vertical: 20.0,
+                      ),
+                      child: _buildHeader(
+                        context,
+                        l10n,
+                        theme,
+                        isWebView,
+                        uniqueResellers,
+                      ),
                     ),
-                    const SizedBox(height: 24),
                     Expanded(
                       child:
                           filteredSubmissions.isEmpty
@@ -379,6 +455,7 @@ class _OpportunityVerificationPageState
     ThemeData theme,
   ) {
     return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0).copyWith(bottom: 0),
       itemCount: submissions.length + 1, // +1 for header row
       separatorBuilder:
           (_, __) => Divider(
@@ -584,7 +661,7 @@ class _OpportunityVerificationPageState
   ) {
     return ListView.builder(
       itemCount: submissions.length,
-      padding: const EdgeInsets.only(bottom: 16), // Padding at the bottom
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       itemBuilder: (context, index) {
         final submission = submissions[index];
         return Card(
@@ -839,12 +916,16 @@ class _OpportunityVerificationPageState
 
   // --- Navigation ---
   void _navigateToDetail(BuildContext context, ServiceSubmission submission) {
+    // Use context.push with the new route and pass submission as extra
+    context.push('/admin/opportunity-detail', extra: submission);
+    /* // Old Navigator.push logic
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => OpportunityDetailFormView(submission: submission),
       ),
     );
+    */
   }
 
   // --- START: Deletion Logic --- Updated

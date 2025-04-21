@@ -4,15 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/models/service_types.dart';
 import '../../../core/models/service_types.dart' as service_types show Provider;
-import '../../../core/theme/theme.dart';
-import '../../../core/theme/text_styles.dart';
 import '../../../core/utils/constants.dart';
-import 'dart:ui';
-import '../../../core/theme/ui_styles.dart';
 import '../../../features/services/presentation/widgets/file_upload_widget.dart';
 import '../../../features/services/presentation/providers/service_submission_provider.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart'
     as repo;
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../../widgets/success_dialog.dart'; // Import the success dialog
 
 class ServicesPage extends ConsumerStatefulWidget {
   final Map<String, dynamic>? preFilledData;
@@ -26,7 +24,6 @@ class ServicesPage extends ConsumerStatefulWidget {
 class ServicesPageState extends ConsumerState<ServicesPage>
     with SingleTickerProviderStateMixin {
   int currentStep = 0; // Start at 0 to not show step indicator initially
-  ServiceCategory? _selectedCategory;
   EnergyType? _selectedEnergyType;
   ClientType? _selectedClientType;
   service_types.Provider? _selectedProvider;
@@ -75,7 +72,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     // Initialize animation controller
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 700), // Pulse duration
+      duration: const Duration(milliseconds: 700),
       vsync: this,
     )..repeat(reverse: true);
 
@@ -99,7 +96,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     if (!category.isAvailable) return;
 
     setState(() {
-      _selectedCategory = category;
       currentStep = 1;
       _selectedEnergyType = null;
       _selectedClientType = null;
@@ -172,6 +168,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
+    final l10n = AppLocalizations.of(context)!;
 
     setState(() {
       _isSubmitting = true;
@@ -183,7 +180,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       final userRepo = ref.read(repo.serviceSubmissionRepositoryProvider);
       final userData = await userRepo.getCurrentUserData();
 
-      if (userData == null) throw Exception('User not authenticated');
+      if (userData == null) throw Exception(l10n.servicesUserAuthError);
 
       final success = await formNotifier.submitServiceRequest(
         resellerId: userData['uid'] ?? '',
@@ -191,44 +188,51 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       );
 
       if (success && mounted) {
-        // Set the global flag to show dialog on destination page
-        ref.read(showSubmissionSuccessDialogProvider.notifier).state = true;
-
-        // Navigate back immediately
-        if (context.canPop()) {
-          context.pop();
-      } else {
-          context.go('/'); // Navigate to home/root
-        }
+        // Show the success dialog FIRST
+        await showSuccessDialog(
+          context: context,
+          message:
+              l10n.servicesSubmissionSuccessMessage, // Use the new l10n key
+          onDismissed: () {
+            // Navigation happens AFTER the dialog is dismissed
+            if (mounted) {
+              // Check mounted again inside callback
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/'); // Fallback navigation
+              }
+            }
+          },
+        );
       } else if (!success && mounted) {
-        // Handle submission failure (error message likely set by notifier)
         final formState = ref.read(serviceSubmissionProvider);
         setState(() {
-          _errorMessage = formState.errorMessage ?? 'Erro ao enviar formulário';
+          _errorMessage =
+              formState.errorMessage ?? l10n.servicesSubmissionError;
         });
       }
     } catch (e) {
       debugPrint('Error submitting form: $e');
       setState(() {
-        _errorMessage = 'Erro ao enviar formulário: ${e.toString()}';
+        _errorMessage = l10n.servicesSubmissionErrorGeneric(e.toString());
       });
     } finally {
       if (mounted) {
-      setState(() {
-        _isSubmitting = false;
-      });
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
 
   void handleBackPress() {
     if (currentStep > 0) {
-    setState(() {
+      setState(() {
         currentStep--;
         // Clear local selections for the step we are going back to
         switch (currentStep) {
           case 0: // Going back to category selection
-            _selectedCategory = null;
             _selectedEnergyType = null;
             _selectedClientType = null;
             _selectedProvider = null;
@@ -273,14 +277,10 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
-    final foregroundColor =
-        isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final destructiveColor =
-        isDark ? AppTheme.darkDestructive : AppTheme.destructive;
-    final primaryForeground =
-        isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
 
     // Watch for error messages from the provider
     ref.listen<ServiceSubmissionState>(serviceSubmissionProvider, (
@@ -309,23 +309,25 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     });
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: foregroundColor),
-          onPressed: handleBackPress, // Use unified back handler
+          icon: Icon(CupertinoIcons.chevron_left, color: colorScheme.onSurface),
+          onPressed: handleBackPress,
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         ),
-        // Remove title conditionally based on step?
-        title: null, // Removed title
+        title: null,
         centerTitle: true,
       ),
       body: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           // Only show step indicator after step 0
-        if (currentStep > 0) _buildStepIndicator(),
-        Expanded(child: _buildCurrentStep()),
+          if (currentStep > 0) _buildStepIndicator(),
+          Expanded(child: _buildCurrentStep()),
         ],
       ),
     );
@@ -334,96 +336,103 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   // --- UI Builder Methods --- //
 
   Widget _buildStepIndicator() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
-    final inactiveColor = isDark ? AppTheme.darkMuted : Colors.grey[300];
-    final textColor = isDark ? AppTheme.darkPrimaryForeground : Colors.white;
-    final inactiveTextColor =
-        isDark ? AppTheme.darkMutedForeground : Colors.grey[600];
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final totalSteps = 3;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppConstants.spacing16),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min, // Keep Row compact
-          children: List<Widget>.generate(5, (index) {
-            // 3 circles + 2 lines = 5 items
-            // Even indices are circles (0, 2, 4), odd are lines (1, 3)
-            if (index.isEven) {
-              final stepIndex = index ~/ 2; // 0, 1, 2
-              final stepNumber = stepIndex + 1;
-              final isActive = currentStep >= stepNumber;
-              final isCurrent = currentStep == stepNumber;
-
-              // Build Circle
-              Widget circleWidget = Container(
-                width: 30, // Revert to fixed size
-                height: 30, // Revert to fixed size
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-                  color: isActive ? primaryColor : inactiveColor,
+      padding: const EdgeInsets.symmetric(
+        vertical: AppConstants.spacing8,
+        horizontal: AppConstants.spacing16,
       ),
-      child: Center(
-        child: Text(
-                    '$stepNumber',
-          style: TextStyle(
-                      color: isActive ? textColor : inactiveTextColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(totalSteps * 2 - 1, (index) {
+          if (index.isEven) {
+            // Circle
+            final stepIndex = index ~/ 2 + 1;
+            final isActive = currentStep >= stepIndex;
+            final isCurrent = currentStep == stepIndex;
+            final isCompleted = currentStep > stepIndex;
+
+            Widget circle = Container(
+              width: isCurrent ? 28 : 24,
+              height: isCurrent ? 28 : 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color:
+                    isActive ? colorScheme.primary : colorScheme.surfaceVariant,
+                border:
+                    isCurrent
+                        ? Border.all(color: colorScheme.primary, width: 2)
+                        : isActive
+                        ? null
+                        : Border.all(color: colorScheme.outlineVariant),
+              ),
+              child: Center(
+                child: Text(
+                  '$stepIndex',
+                  style: textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color:
+                        isActive
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurfaceVariant,
                   ),
                 ),
-              );
+              ),
+            );
 
-              // Apply pulse effect if current
-              if (isCurrent) {
-                return ScaleTransition(
-                  scale: _pulseAnimation,
-                  child: circleWidget,
-                );
-              } else {
-                return circleWidget;
-              }
-            } else {
-              // Build Line
-              final stepIndex = index ~/ 2; // 0, 1
-              final stepNumber = stepIndex + 1;
-              final isActive = currentStep > stepNumber;
-
-              return Container(
-                width: 80, // Increased width for the line
-                height: 1.5, // Thinner line
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                // Use rounded corners for a softer look
+            // Apply pulse animation only if current
+            return isCurrent
+                ? ScaleTransition(scale: _pulseAnimation, child: circle)
+                : circle;
+          } else {
+            // Line
+            final stepIndex = index ~/ 2 + 1;
+            final isActive = currentStep > stepIndex;
+            final isCompleted = currentStep > stepIndex;
+            return Expanded(
+              child: Container(
+                height: 1.5,
+                margin: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: isActive ? primaryColor : inactiveColor,
-                  borderRadius: BorderRadius.circular(1),
+                  color:
+                      isCompleted
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
                 ),
-              );
-            }
-          }),
-        ),
+              ),
+            );
+          }
+        }),
       ),
     );
   }
 
   Widget _buildCurrentStep() {
+    final l10n = AppLocalizations.of(context)!;
     switch (currentStep) {
       case 0:
         return _buildServiceCategoryStep();
       case 1:
-          return _buildEnergyTypeStep();
+        return _buildEnergyTypeStep();
       case 2:
         return _buildClientTypeStep();
       case 3:
         return _buildFormStep();
       default:
-        return const Center(child: Text('Passo inválido'));
+        return Center(child: Text(l10n.servicesStepInvalid));
     }
   }
 
-  // --- Step Builder Methods (Reverted to original structure) ---
+  // --- Step Builder Methods --- //
 
   Widget _buildServiceCategoryStep() {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
+
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -432,10 +441,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Qual tipo de serviço?',
-              style: AppTextStyles.h2.copyWith(
-                color: AppTheme.foreground,
-                fontSize: 28,
+              l10n.servicesPageTitle,
+              style: textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -455,6 +462,10 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildEnergyTypeStep() {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
+
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -462,7 +473,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Qual tipo de serviço de energia?', style: AppTextStyles.h2),
+            Text(l10n.servicesEnergyPageTitle, style: textTheme.headlineMedium),
             const SizedBox(height: AppConstants.spacing24),
             ...EnergyType.values.map(
               (type) => _buildSelectionTile(
@@ -478,36 +489,32 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildClientTypeStep() {
-    // For Solar, show only Commercial client with EDP
-    if (_selectedEnergyType == EnergyType.solar) {
-      return ScrollConfiguration(
-        behavior: const NoScrollbarBehavior(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Selecione seu fornecedor', style: AppTextStyles.h2),
-              Text(
-                'Escolha com base no tipo de cliente',
-                style: AppTextStyles.body2.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spacing24),
-              _buildClientCard(
-                title: 'Clientes Comerciais',
-                subtitle: 'Para empresas e clientes comerciais',
-                imagePath: 'assets/images/edp_logo_br.png',
-                onTap: () => _handleClientTypeSelection(ClientType.commercial),
-              ),
-            ],
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    // Common structure for title and subtitle
+    Widget buildHeader() {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.servicesClientTypePageTitle,
+            style: textTheme.headlineMedium,
           ),
-        ),
+          const SizedBox(height: AppConstants.spacing4),
+          Text(
+            l10n.servicesClientTypePageSubtitle,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppConstants.spacing24),
+        ],
       );
     }
 
-    // Original view for Electricity/Gas
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -515,27 +522,23 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Selecione seu fornecedor', style: AppTextStyles.h2),
-            Text(
-              'Escolha com base no tipo de cliente',
-              style: AppTextStyles.body2.copyWith(
-                color: AppTheme.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: AppConstants.spacing24),
+            buildHeader(),
             _buildClientCard(
-              title: 'Clientes Comerciais',
-              subtitle: 'Para empresas e clientes comerciais',
+              title: l10n.servicesClientTypeCommercialTitle,
+              subtitle: l10n.servicesClientTypeCommercialSubtitle,
               imagePath: 'assets/images/edp_logo_br.png',
               onTap: () => _handleClientTypeSelection(ClientType.commercial),
             ),
-            const SizedBox(height: AppConstants.spacing16),
-            _buildClientCard(
-              title: 'Clientes Residenciais',
-              subtitle: 'Para residências e famílias',
-              imagePath: 'assets/images/repsol_logo_br.png',
-              onTap: () => _handleClientTypeSelection(ClientType.residential),
-            ),
+            // Conditionally show Residential card only if not Solar
+            if (_selectedEnergyType != EnergyType.solar) ...[
+              const SizedBox(height: AppConstants.spacing16),
+              _buildClientCard(
+                title: l10n.servicesClientTypeResidentialTitle,
+                subtitle: l10n.servicesClientTypeResidentialSubtitle,
+                imagePath: 'assets/images/repsol_logo_br.png',
+                onTap: () => _handleClientTypeSelection(ClientType.residential),
+              ),
+            ],
           ],
         ),
       ),
@@ -543,31 +546,27 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildFormStep() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final destructiveColor =
-        isDark ? AppTheme.darkDestructive : AppTheme.destructive;
-    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
-    final primaryForeground =
-        isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
 
-    // Get the notifier reference here for use in onChanged
     final notifier = ref.read(serviceSubmissionProvider.notifier);
 
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppConstants.spacing16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-            Text('Dados do Cliente', style: AppTextStyles.h2),
+        padding: const EdgeInsets.all(AppConstants.spacing16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.servicesFormTitle, style: textTheme.headlineMedium),
             const SizedBox(height: AppConstants.spacing24),
             if (_selectedClientType == ClientType.commercial) ...[
               _buildTextField(
                 controller: _companyNameController,
-                label: 'Nome da Empresa',
-                hint: 'Digite o nome da empresa',
-                // Add onChanged to update provider
+                label: l10n.servicesFormCompanyNameLabel,
+                hint: l10n.servicesFormCompanyNameHint,
                 onChanged:
                     (value) =>
                         notifier.updateFormFields({'companyName': value}),
@@ -576,9 +575,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             ],
             _buildTextField(
               controller: _responsibleNameController,
-              label: 'Nome do Responsável',
-              hint: 'Digite o nome do responsável',
-              // Add onChanged to update provider
+              label: l10n.servicesFormResponsibleNameLabel,
+              hint: l10n.servicesFormResponsibleNameHint,
               onChanged:
                   (value) =>
                       notifier.updateFormFields({'responsibleName': value}),
@@ -586,48 +584,43 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _nifController,
-              label: 'NIF',
-              hint: 'Digite o NIF',
+              label: l10n.servicesFormNifLabel,
+              hint: l10n.servicesFormNifHint,
               keyboardType: TextInputType.number,
-              // Add onChanged to update provider
               onChanged: (value) => notifier.updateFormFields({'nif': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _emailController,
-              label: 'Email',
-              hint: 'Digite o email',
+              label: l10n.servicesFormEmailLabel,
+              hint: l10n.servicesFormEmailHint,
               keyboardType: TextInputType.emailAddress,
-              // Add onChanged to update provider
               onChanged: (value) => notifier.updateFormFields({'email': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _phoneController,
-              label: 'Telefone',
-              hint: 'Digite o telefone',
+              label: l10n.servicesFormPhoneLabel,
+              hint: l10n.servicesFormPhoneHint,
               keyboardType: TextInputType.phone,
-              // Add onChanged to update provider
               onChanged: (value) => notifier.updateFormFields({'phone': value}),
             ),
             const SizedBox(height: AppConstants.spacing24),
 
-            // Document upload widget - Pass required state from provider
+            // Document upload widget
             Consumer(
               builder: (context, ref, child) {
-                final state = ref.watch(serviceSubmissionProvider);
-                return FileUploadWidget(
-                  selectedFile: state.selectedInvoiceFile,
-                  selectedFileName: state.selectedInvoiceFileName,
-                );
+                // FileUploadWidget now reads the provider state internally
+                return const FileUploadWidget();
               },
             ),
 
             if (_errorMessage != null) ...[
               const SizedBox(height: AppConstants.spacing16),
-                        Text(
+              Text(
                 _errorMessage!,
-                style: TextStyle(color: destructiveColor, fontSize: 14),
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
+                textAlign: TextAlign.center,
               ),
             ],
 
@@ -635,20 +628,20 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                // Use isFormValidProvider directly here
                 onPressed:
                     ref.watch(isFormValidProvider) && !_isSubmitting
                         ? _handleSubmit
                         : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: primaryForeground,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(
                     vertical: AppConstants.spacing16,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12.0),
                   ),
+                  minimumSize: const Size(double.infinity, 50),
                 ),
                 child:
                     _isSubmitting
@@ -656,11 +649,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                            color: primaryForeground,
+                            color: colorScheme.onPrimary,
                             strokeWidth: 2,
                           ),
                         )
-                        : const Text('Enviar'),
+                        : Text(
+                          l10n.servicesSubmitButtonLabel,
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onPrimary,
+                          ),
+                        ),
               ),
             ),
           ],
@@ -675,75 +673,58 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required VoidCallback onTap,
     bool isDisabled = false,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final foregroundColor =
-        isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final mutedColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
-    final bgColor =
-        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
-    final borderColor =
-        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppConstants.spacing16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: isDisabled ? null : onTap,
-              child: Container(
-                padding: const EdgeInsets.all(AppConstants.spacing16),
+    final Color effectiveIconColor =
+        isDisabled
+            ? colorScheme.onSurface.withOpacity(0.38)
+            : colorScheme.primary;
+    final Color effectiveTextColor =
+        isDisabled
+            ? colorScheme.onSurface.withOpacity(0.38)
+            : colorScheme.onSurface;
+    final Color effectiveTileColor = colorScheme.surfaceContainerHighest
+        .withOpacity(0.5);
+
+    return Card(
+      elevation: 1.0,
+      margin: const EdgeInsets.only(bottom: AppConstants.spacing12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.spacing16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
+                  color: effectiveIconColor.withOpacity(isDisabled ? 0.1 : 0.2),
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color:
-                            isDisabled
-                                ? (isDark
-                                    ? Colors.white.withAlpha(8)
-                                    : Colors.white.withAlpha(13))
-                                : primaryColor.withAlpha(38),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: isDisabled ? mutedColor : primaryColor,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: AppConstants.spacing16),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          color: isDisabled ? mutedColor : foregroundColor,
-                        ),
-                      ),
-                    ),
-                    if (!isDisabled)
-                      Icon(
-                        Icons.chevron_right,
-                        color: foregroundColor.withAlpha(128),
-                        size: 20,
-                      ),
-                  ],
+                child: Icon(icon, color: effectiveIconColor, size: 24),
+              ),
+              const SizedBox(width: AppConstants.spacing16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: effectiveTextColor,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
+              if (!isDisabled)
+                Icon(
+                  CupertinoIcons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+            ],
           ),
         ),
       ),
@@ -756,68 +737,54 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required String imagePath,
     required VoidCallback onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final foregroundColor =
-        isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final mutedColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final bgColor =
-        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
-    final borderColor =
-        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-      padding: const EdgeInsets.all(AppConstants.spacing16),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-                        Text(
-                          title,
-                          style: AppTextStyles.body1.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: foregroundColor,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: AppTextStyles.body2.copyWith(
-                            color: mutedColor,
-                          ),
-                        ),
-                      ],
+    return Card(
+      elevation: 1.0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.spacing16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: AppConstants.spacing16),
-          SizedBox(
-                    width: 80,
-                    child: Image.asset(imagePath, fit: BoxFit.contain),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: foregroundColor.withAlpha(128),
-                    size: 20,
-                  ),
-                ],
+                    const SizedBox(height: AppConstants.spacing4),
+                    Text(
+                      subtitle,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: AppConstants.spacing16),
+              SizedBox(
+                width: 80,
+                height: 40,
+                child: Image.asset(imagePath, fit: BoxFit.contain),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+            ],
           ),
         ),
       ),
@@ -829,60 +796,44 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     required String label,
     required String hint,
     TextInputType? keyboardType,
-    void Function(String)? onChanged, // Added onChanged parameter
+    void Function(String)? onChanged,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final foregroundColor =
-        isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final mutedColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final bgColor =
-        isDark ? Colors.black.withAlpha(26) : Colors.white.withAlpha(26);
-    final borderColor =
-        isDark ? AppTheme.darkBorder.withAlpha(51) : Colors.white.withAlpha(51);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: foregroundColor,
+        Padding(
+          padding: const EdgeInsets.only(
+            bottom: AppConstants.spacing8,
+            left: AppConstants.spacing4,
           ),
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: TextField(
-                controller: controller,
-                keyboardType: keyboardType,
-                onChanged: onChanged, // Use the passed onChanged callback
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: TextStyle(color: mutedColor),
-                  filled: false,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                style: TextStyle(color: foregroundColor),
-              ),
+          child: Text(
+            label,
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
             ),
           ),
+        ),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: false,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spacing16,
+              vertical: AppConstants.spacing16,
+            ),
+          ),
+          style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
         ),
       ],
     );

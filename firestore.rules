@@ -2,10 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Check if the user is an admin
+    // Check if the user is an admin VIA CUSTOM CLAIMS
     function isAdmin() {
-      return request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Check if the user is authenticated and has the 'admin' custom claim set to true
+      return request.auth != null && request.auth.token.admin == true;
     }
     
     // Check if the user is the reseller associated with a conversation
@@ -116,11 +116,17 @@ service cloud.firestore {
     // Service submissions collection - camelCase version (matches your code)
     match /serviceSubmissions/{submissionId} {
       // Allow authenticated users to create service submissions
-      // Allow users to read and write their own submissions
-      // Allow admins to read all submissions
       allow create: if isAuthenticated();
-      allow read, update: if isAuthenticated() && 
-        (resource.data.resellerId == request.auth.uid || isAdmin());
+
+      // Allow GETTING a specific document if owner or admin
+      allow get: if isAuthenticated() && 
+                   (resource.data.resellerId == request.auth.uid || isAdmin());
+      // Allow LISTING (querying) the collection ONLY if admin
+      allow list: if isAuthenticated() && isAdmin();
+      // Allow update remains the same
+      allow update: if isAuthenticated() && 
+                   (resource.data.resellerId == request.auth.uid || isAdmin());
+      // Allow delete remains the same
       allow delete: if isAuthenticated() && isAdmin();
     }
     

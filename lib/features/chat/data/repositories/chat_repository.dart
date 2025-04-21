@@ -616,10 +616,10 @@ class ChatRepository {
       for (final participantId in participants) {
         // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
-          // --- REMOVE CLIENT-SIDE INCREMENT --- 
+          // --- REMOVE CLIENT-SIDE INCREMENT ---
           // Add to the unreadCounts map (KEEP THIS - although CF does it too, immediate feedback might be okay)
           // If experiencing issues, consider removing this client-side increment too.
-          // updateData['unreadCounts.$participantId'] = FieldValue.increment(1); 
+          // updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
           // --- END REMOVAL ---
         }
       }
@@ -895,7 +895,7 @@ class ChatRepository {
       for (final participantId in participants) {
         // Only increment unread count for participants who are not the sender
         if (participantId != senderId) {
-          // --- REMOVE CLIENT-SIDE INCREMENT --- 
+          // --- REMOVE CLIENT-SIDE INCREMENT ---
           // Add to the unreadCounts map
           // updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
           // --- END REMOVAL ---

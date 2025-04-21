@@ -292,9 +292,9 @@
     "@fileUploadOptionCancel": {
         "description": "Label for the cancel action in the file upload options"
     },
-    "fileUploadRemoveTooltip": "Remove File",
+    "fileUploadRemoveTooltip": "Remove file",
     "@fileUploadRemoveTooltip": {
-        "description": "Tooltip for the button to remove the currently selected file"
+        "description": "Tooltip for the button to remove an uploaded file"
     },
 
     "@_CHAT_PAGE": {},
@@ -466,5 +466,530 @@
     "passwordUpdateFailedGenericError": "Failed to update password. Please try again.",
     "@passwordUpdateFailedGenericError": {
       "description": "Generic error message when password update fails for an unknown reason."
+    },
+    "appTitle": "Twogether Retail",
+    "loginPageTitle": "Login",
+    "salesforceSubmissionSuccess": "Service submission successful!",
+    "salesforceSubmissionError": "Error submitting service: {error}",
+    "@salesforceSubmissionError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "changePasswordTitle": "Change Password",
+    "@changePasswordTitle": { "description": "Title for the change password screen" },
+    "changePasswordSubtitle": "Please set a new password for your account.",
+    "@changePasswordSubtitle": { "description": "Subtitle/instruction for the change password screen" },
+    "changePasswordNewLabel": "New Password",
+    "@changePasswordNewLabel": { "description": "Label for the new password input field" },
+    "changePasswordConfirmLabel": "Confirm Password",
+    "@changePasswordConfirmLabel": { "description": "Label for the confirm password input field" },
+    "changePasswordButton": "Change Password",
+    "@changePasswordButton": { "description": "Label for the button to submit the password change" },
+    "passwordUpdateSuccessMessage": "Password updated successfully!",
+    "@passwordUpdateSuccessMessage": { "description": "Snackbar message shown after successful password update" },
+    "passwordUpdateCompleteFirstLoginError": "Password updated, but failed to complete the first login process. Please try logging in again.",
+    "@passwordUpdateCompleteFirstLoginError": { "description": "Error message if first login flag update fails after password change" },
+    "validationPasswordEmpty": "Password cannot be empty.",
+    "@validationPasswordEmpty": { "description": "Validation error for empty password field" },
+    "validationPasswordMismatch": "Passwords do not match.",
+    "@validationPasswordMismatch": { "description": "Validation error when new and confirm passwords don't match" },
+    "validationPasswordTooShort": "Password must be at least 8 characters long.",
+    "@validationPasswordTooShort": { "description": "Validation error when password is less than 8 characters" },
+    "reauthRequiredTitle": "Re-authentication Required",
+    "@reauthRequiredTitle": { "description": "Title for the re-authentication dialog" },
+    "reauthRequiredMessage": "For your security, please enter your current password to continue.",
+    "@reauthRequiredMessage": { "description": "Message explaining why re-authentication is needed" },
+    "reauthCurrentPasswordLabel": "Current Password",
+    "@reauthCurrentPasswordLabel": { "description": "Label for the current password input in the re-auth dialog" },
+    "reauthFailedError": "Re-authentication failed: {errorCode}.",
+    "@reauthFailedError": { "description": "Error message when re-authentication fails with a specific code", "placeholders": {"errorCode": {"type": "String"}}}, 
+    "reauthFailedGenericError": "Re-authentication failed. Please try again.",
+    "@reauthFailedGenericError": { "description": "Generic error message when re-authentication fails" },
+    "reauthErrorUserNotFound": "Could not find user information for re-authentication.",
+    "@reauthErrorUserNotFound": { "description": "Error message if user data is missing during re-auth attempt" },
+    "passwordUpdateFailedAfterReauthError": "Password update failed after re-authentication: {errorCode}.",
+    "@passwordUpdateFailedAfterReauthError": { "description": "Error message if password update fails even after successful re-auth", "placeholders": {"errorCode": {"type": "String"}}},
+    "passwordUpdateFailedAfterReauthGenericError": "Password update failed after re-authentication. Please try again.",
+    "@passwordUpdateFailedAfterReauthGenericError": { "description": "Generic error if password update fails after re-auth"},
+    "reauthCancelledError": "Password change cancelled because re-authentication was not completed.",
+    "@reauthCancelledError": { "description": "Error message shown if the user cancels the re-auth process"},
+    "firebaseAuthError": "Authentication error: {errorCode}",
+    "@firebaseAuthError": { "description": "Generic Firebase Auth error message", "placeholders": {"errorCode": {"type": "String"}}},
+    "confirm": "Confirm",
+    "@confirm": { "description": "Generic confirmation button label" },
+    "cancel": "Cancel",
+    "@cancel": { "description": "Generic cancel button label" },
+
+    "servicesPageTitle": "What type of service?",
+    "@servicesPageTitle": {},
+    "servicesEnergyPageTitle": "What type of energy service?",
+    "@servicesEnergyPageTitle": {},
+    "servicesClientTypePageTitle": "Select your provider",
+    "@servicesClientTypePageTitle": {},
+    "servicesClientTypePageSubtitle": "Choose based on client type",
+    "@servicesClientTypePageSubtitle": {},
+    "servicesClientTypeCommercialTitle": "Business Clients",
+    "@servicesClientTypeCommercialTitle": {},
+    "servicesClientTypeCommercialSubtitle": "For companies and businesses",
+    "@servicesClientTypeCommercialSubtitle": {},
+    "servicesClientTypeResidentialTitle": "Residential Clients",
+    "@servicesClientTypeResidentialTitle": {},
+    "servicesClientTypeResidentialSubtitle": "For homes and families",
+    "@servicesClientTypeResidentialSubtitle": {},
+    "servicesFormTitle": "Client Data",
+    "@servicesFormTitle": {},
+    "servicesFormCompanyNameLabel": "Company Name",
+    "@servicesFormCompanyNameLabel": {},
+    "servicesFormCompanyNameHint": "Enter company name (optional)",
+    "@servicesFormCompanyNameHint": {},
+    "servicesFormResponsibleNameLabel": "Responsible Name",
+    "@servicesFormResponsibleNameLabel": {},
+    "servicesFormResponsibleNameHint": "Enter responsible person's full name",
+    "@servicesFormResponsibleNameHint": {},
+    "servicesFormNifLabel": "Tax ID (NIF)",
+    "@servicesFormNifLabel": {},
+    "servicesFormNifHint": "Enter the Tax ID (NIF)",
+    "@servicesFormNifHint": {},
+    "servicesFormEmailLabel": "Email",
+    "@servicesFormEmailLabel": {},
+    "servicesFormEmailHint": "Enter the email",
+    "@servicesFormEmailHint": {},
+    "servicesFormPhoneLabel": "Phone",
+    "@servicesFormPhoneLabel": {},
+    "servicesFormPhoneHint": "Enter the phone number",
+    "@servicesFormPhoneHint": {},
+    "servicesSubmitButtonLabel": "Submit",
+    "@servicesSubmitButtonLabel": {},
+    "servicesStepInvalid": "Invalid step",
+    "@servicesStepInvalid": {},
+    "servicesSubmissionError": "Error submitting form",
+    "@servicesSubmissionError": {},
+    "servicesSubmissionErrorGeneric": "Error submitting form: {error}",
+    "@servicesSubmissionErrorGeneric": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "servicesUserAuthError": "User not authenticated",
+    "@servicesUserAuthError": {},
+
+    "servicesSubmissionSuccessMessage": "Service request submitted successfully!",
+    "@servicesSubmissionSuccessMessage": {
+      "description": "Message shown in a dialog after successfully submitting a service request."
+    },
+
+    "loginSubtext": "Log in to manage your opportunities and clients.",
+    "loginEmailLabel": "Email",
+    "loginEmailHint": "Enter your email",
+    "loginPasswordLabel": "Password",
+    "loginPasswordHint": "Enter your password",
+    "loginSendResetEmail": "Send Reset Email",
+    "loginResetEmailSentSuccess": "Password reset email sent successfully. Please check your inbox (and spam folder).",
+    "loginResetEmailSentError": "Error sending password reset email. Please try again later.",
+    "loginCancel": "Cancel",
+    "loginErrorInvalidCredentials": "Login failed. Please check your email and password.",
+    "loginErrorNetwork": "Network error. Please check your connection and try again.",
+    "loginErrorUnknown": "An unknown error occurred. Please try again.",
+    "commonError": "Error",
+    "commonSuccess": "Success",
+    "commonOk": "OK",
+    "commonRetry": "Retry",
+    "commonContinue": "Continue",
+    "commonBack": "Back",
+    "commonNext": "Next",
+    "commonFinish": "Finish",
+    "commonYes": "Yes",
+    "commonNo": "No",
+    "commonConfirm": "Confirm",
+    "commonAdd": "Add",
+    "commonSearchHint": "Search...",
+    "commonNoResults": "No results found.",
+    "commonRequiredError": "This field is required.",
+    "commonInvalidEmailError": "Please enter a valid email address.",
+    "commonFieldCannotBeEmpty": "{fieldName} cannot be empty.",
+    "@commonFieldCannotBeEmpty": {
+      "description": "Generic error message for empty fields",
+      "placeholders": {
+        "fieldName": {
+          "type": "String",
+          "example": "Password"
+        }
+      }
+    },
+    "commonUnknownError": "An unknown error occurred.",
+    "commonFormValidationFixErrors": "Please fix the errors in the form.",
+    "changePasswordCurrentPasswordLabel": "Current Password",
+    "changePasswordCurrentPasswordHint": "Enter your current password",
+    "changePasswordNewPasswordLabel": "New Password",
+    "changePasswordNewPasswordHint": "Enter your new password",
+    "changePasswordConfirmPasswordLabel": "Confirm New Password",
+    "changePasswordConfirmPasswordHint": "Re-enter your new password",
+    "changePasswordSuccessTitle": "Password Changed!",
+    "changePasswordSuccessMessage": "Your password has been updated successfully. You can now log in with your new password.",
+    "changePasswordErrorMismatch": "New passwords do not match.",
+    "changePasswordErrorInvalidCurrent": "Incorrect current password.",
+    "changePasswordErrorSameAsOld": "New password cannot be the same as the old password.",
+    "changePasswordErrorWeak": "Password is too weak. It must meet the required criteria.",
+    "changePasswordErrorUnknown": "An error occurred while changing the password. Please try again.",
+    "bottomNavHome": "Home",
+    "bottomNavClients": "Clients",
+    "bottomNavMessages": "Messages",
+    "bottomNavSettings": "Settings",
+    "homeGreeting": "Hello, {name}!",
+    "@homeGreeting": {
+      "description": "Greeting message on the home screen",
+      "placeholders": {
+        "name": {
+          "type": "String",
+          "example": "John"
+        }
+      }
+    },
+    "homeQuickActions": "Quick Actions",
+    "homeSubmitService": "Submit Service",
+    "homeViewClients": "View Clients",
+    "homeRecentActivity": "Recent Activity",
+    "homeNoRecentActivity": "No recent activity.",
+    "homeDashboardTitle": "Dashboard",
+    "homeOpportunitiesTitle": "Opportunities",
+    "homeClientsTitle": "Clients",
+    "homeServicesTitle": "Services",
+    "homeSeeAll": "See All",
+    "homePerformanceOverview": "Performance Overview",
+    "homeSubmissions": "Submissions",
+    "homeApproved": "Approved",
+    "homeRejected": "Rejected",
+    "homePending": "Pending",
+    "clientsTitle": "Clients",
+    "clientsSearchHint": "Search clients by name or NIF...",
+    "clientsAddButton": "Add Client",
+    "clientsNoClients": "No clients found.",
+    "clientsErrorLoading": "Error loading clients.",
+    "clientDetailsTitle": "Client Details",
+    "clientDetailsName": "Name",
+    "clientDetailsNIF": "NIF",
+    "clientDetailsEmail": "Email",
+    "clientDetailsPhone": "Phone",
+    "clientDetailsAddress": "Address",
+    "clientDetailsHistory": "Service History",
+    "clientDetailsService": "Service",
+    "clientDetailsDate": "Date",
+    "clientDetailsStatus": "Status",
+    "clientDetailsAddService": "Add Service for this Client",
+    "clientDetailsNoHistory": "No service history for this client.",
+    "clientDetailsErrorLoading": "Error loading client details.",
+    "messagesTitle": "Messages",
+    "messagesNoMessages": "You have no new messages.",
+    "messagesErrorLoading": "Error loading messages.",
+    "messagesTypeHint": "Type your message...",
+    "messagesSendButton": "Send",
+    "messagesChatWithAdmin": "Chat with Admin",
+    "messagesChatWithReseller": "Chat with {resellerName}",
+    "@messagesChatWithReseller": {
+      "description": "Title for chat screen with a specific reseller",
+      "placeholders": {
+        "resellerName": {
+          "type": "String",
+          "example": "Jane Doe"
+        }
+      }
+    },
+    "messagesErrorSending": "Error sending message.",
+    "settingsTitle": "Settings",
+    "settingsProfile": "Profile",
+    "settingsNotifications": "Notifications",
+    "settingsLanguage": "Language",
+    "settingsTheme": "Theme",
+    "settingsThemeSystem": "System Default",
+    "settingsThemeLight": "Light",
+    "settingsThemeDark": "Dark",
+    "settingsAbout": "About",
+    "settingsLogout": "Logout",
+    "settingsLogoutConfirmationTitle": "Confirm Logout",
+    "settingsLogoutConfirmationMessage": "Are you sure you want to log out?",
+    "settingsLanguageEnglish": "English",
+    "settingsLanguageSpanish": "Spanish",
+    "settingsLanguagePortuguese": "Portuguese",
+    "settingsProfileTitle": "Edit Profile",
+    "settingsProfileNameLabel": "Name",
+    "settingsProfileEmailLabel": "Email (cannot be changed)",
+    "settingsProfilePhoneLabel": "Phone Number",
+    "settingsProfileChangePasswordButton": "Change Password",
+    "settingsProfileSaveButton": "Save Profile",
+    "settingsProfileUpdateSuccess": "Profile updated successfully.",
+    "settingsProfileUpdateError": "Error updating profile.",
+    "servicesTitle": "Submit New Service",
+    "servicesClientDataStepTitle": "Client Data",
+    "servicesServiceDetailsStepTitle": "Service Details",
+    "servicesDocumentsStepTitle": "Documents",
+    "servicesConfirmationStepTitle": "Confirmation",
+    "servicesFieldCompanyName": "Company Name",
+    "servicesFieldCompanyNameHint": "Enter company name (optional)",
+    "servicesFieldResponsibleName": "Responsible Name",
+    "servicesFieldResponsibleNameHint": "Enter responsible person's full name",
+    "servicesFieldNIF": "NIF/NIE",
+    "servicesFieldNIFHint": "Enter Tax Identification Number",
+    "servicesFieldEmail": "Email Address",
+    "servicesFieldEmailHint": "Enter contact email",
+    "servicesFieldPhone": "Phone Number",
+    "servicesFieldPhoneHint": "Enter contact phone number",
+    "servicesFieldAddress": "Full Address",
+    "servicesFieldAddressHint": "Enter service address",
+    "servicesFieldPostalCode": "Postal Code",
+    "servicesFieldPostalCodeHint": "Enter postal code",
+    "servicesFieldServiceCategory": "Service Category",
+    "servicesFieldServiceCategoryHint": "Select the type of service",
+    "servicesFieldEnergyType": "Energy Type",
+    "servicesFieldEnergyTypeHint": "Select the type of energy",
+    "servicesFieldServicePlan": "Service Plan / Details",
+    "servicesFieldServicePlanHint": "Describe the requested service or plan",
+    "servicesDocumentInvoiceLabel": "Attach Invoice / Contract",
+    "servicesDocumentInvoiceButton": "Select File",
+    "servicesDocumentInvoiceChangeButton": "Change File",
+    "servicesDocumentInvoiceFromCameraButton": "Take Photo",
+    "servicesDocumentInvoiceFromGalleryButton": "Choose from Gallery",
+    "servicesDocumentInvoiceActionSheetTitle": "Select Invoice Source",
+    "servicesDocumentUploadInstructions": "Please upload a clear image or PDF of the latest invoice or relevant contract.",
+    "servicesConfirmationReviewTitle": "Review Your Submission",
+    "servicesConfirmationSubmitButton": "Submit Service Request",
+    "servicesConfirmationBackButton": "Go Back & Edit",
+    "servicesErrorMissingField": "Please fill in all required fields.",
+    "servicesErrorInvalidNIF": "Invalid NIF/NIE format.",
+    "servicesErrorInvalidEmail": "Invalid email format.",
+    "servicesErrorInvalidPhone": "Invalid phone number format.",
+    "servicesErrorNoInvoice": "Please attach the required invoice/document.",
+    "servicesErrorSubmissionFailed": "Submission failed. Please try again.",
+    "servicesSuccessTitle": "Submission Received!",
+    "servicesSuccessMessage": "Your service request has been submitted successfully. We will review it shortly.",
+    "servicesDialogClose": "Close",
+    "servicesCategoryEnergy": "Energy",
+    "servicesCategoryTelecom": "Telecommunications",
+    "servicesCategoryInsurance": "Insurance",
+    "servicesCategoryOther": "Other",
+    "servicesEnergyTypeElectricity": "Electricity",
+    "servicesEnergyTypeGas": "Natural Gas",
+    "servicesEnergyTypeSolar": "Solar Energy",
+    "adminHomeTitle": "Admin Dashboard",
+    "adminHomeWelcome": "Welcome, Admin!",
+    "adminHomePendingOpportunities": "Pending Opportunities",
+    "adminHomeUserManagement": "User Management",
+    "adminHomeSystemSettings": "System Settings",
+    "adminHomeReports": "Reports",
+    "adminHomeViewAll": "View All",
+    "adminHomeNoPending": "No pending opportunities.",
+    "adminSettingsTitle": "Admin Settings",
+    "adminSettingsManageUsers": "Manage Users",
+    "adminSettingsSystemConfig": "System Configuration",
+    "adminSettingsSalesforceIntegration": "Salesforce Integration",
+    "adminSettingsIntegrationStatus": "Status: {status}",
+    "@adminSettingsIntegrationStatus": {
+      "placeholders": {
+        "status": {
+          "type": "String",
+          "example": "Connected"
+        }
+      }
+    },
+    "adminSettingsIntegrationConnect": "Connect to Salesforce",
+    "adminSettingsIntegrationDisconnect": "Disconnect Salesforce",
+    "adminSettingsIntegrationConnecting": "Connecting...",
+    "adminSettingsIntegrationConnected": "Connected",
+    "adminSettingsIntegrationDisconnected": "Disconnected",
+    "adminSettingsIntegrationError": "Connection Error",
+    "adminUserManagementTitle": "User Management",
+    "adminUserManagementSearchHint": "Search users by name or email...",
+    "adminUserManagementAddUserButton": "Add New User",
+    "adminUserManagementRoleFilter": "Filter by Role:",
+    "adminUserManagementAllRoles": "All Roles",
+    "adminUserManagementRoleAdmin": "Admin",
+    "adminUserManagementRoleReseller": "Reseller",
+    "adminUserManagementNoUsers": "No users found matching criteria.",
+    "adminUserManagementErrorLoading": "Error loading users.",
+    "adminUserDetailTitle": "User Details",
+    "adminUserDetailName": "Name",
+    "adminUserDetailEmail": "Email",
+    "adminUserDetailRole": "Role",
+    "adminUserDetailStatus": "Status",
+    "adminUserDetailStatusActive": "Active",
+    "adminUserDetailStatusInactive": "Inactive",
+    "adminUserDetailCreatedAt": "Created At",
+    "adminUserDetailLastLogin": "Last Login",
+    "adminUserDetailActions": "Actions",
+    "adminUserDetailEditUser": "Edit User",
+    "adminUserDetailActivateUser": "Activate User",
+    "adminUserDetailDeactivateUser": "Deactivate User",
+    "adminUserDetailDeleteUser": "Delete User",
+    "adminUserDetailResetPassword": "Send Password Reset",
+    "adminUserDetailConfirmDeactivateTitle": "Confirm Deactivation",
+    "adminUserDetailConfirmDeactivateMessage": "Are you sure you want to deactivate this user?",
+    "adminUserDetailConfirmActivateTitle": "Confirm Activation",
+    "adminUserDetailConfirmActivateMessage": "Are you sure you want to activate this user?",
+    "adminUserDetailConfirmDeleteTitle": "Confirm Deletion",
+    "adminUserDetailConfirmDeleteMessage": "Are you sure you want to permanently delete this user? This action cannot be undone.",
+    "adminUserDetailConfirmResetPasswordTitle": "Confirm Password Reset",
+    "adminUserDetailConfirmResetPasswordMessage": "Are you sure you want to send a password reset email to this user?",
+    "adminUserDetailUpdateSuccess": "User updated successfully.",
+    "adminUserDetailUpdateError": "Error updating user.",
+    "adminUserDetailDeleteSuccess": "User deleted successfully.",
+    "adminUserDetailDeleteError": "Error deleting user.",
+    "adminUserDetailResetSuccess": "Password reset email sent.",
+    "adminUserDetailResetError": "Error sending password reset email.",
+    "adminUserEditTitle": "Edit User",
+    "adminUserAddTitle": "Add New User",
+    "adminUserFormFieldName": "Full Name",
+    "adminUserFormFieldEmail": "Email Address",
+    "adminUserFormFieldRole": "Role",
+    "adminUserFormFieldInitialPassword": "Initial Password",
+    "adminUserFormFieldGeneratePassword": "Generate Strong Password",
+    "adminUserFormFieldSendWelcomeEmail": "Send welcome email with login details",
+    "adminUserSaveButton": "Save User",
+    "adminUserCreateButton": "Create User",
+    "adminUserCreateSuccess": "User created successfully.",
+    "adminUserCreateError": "Error creating user.",
+    "adminOpportunityVerificationTitle": "Opportunity Verification",
+    "adminOpportunityCompanyOrName": "Company / Name",
+    "adminOpportunityNif": "NIF",
+    "adminOpportunityReseller": "Reseller",
+    "adminOpportunitySubmittedDate": "Submitted",
+    "adminOpportunityStatus": "Status",
+    "adminOpportunityActions": "Actions",
+    "adminOpportunityActionView": "View Details",
+    "adminOpportunityActionApprove": "Approve",
+    "adminOpportunityActionReject": "Reject",
+    "adminOpportunityActionDelete": "Delete",
+    "adminOpportunityFilterButton": "Filters",
+    "adminOpportunityFilterSheetTitle": "Filter Opportunities",
+    "adminOpportunityFilterByReseller": "Filter by Reseller",
+    "adminOpportunityFilterByServiceType": "Filter by Service Type",
+    "adminOpportunityFilterByEnergyType": "Filter by Energy Type (if Service is Energy)",
+    "adminOpportunityFilterApplyButton": "Apply Filters",
+    "adminOpportunityFilterClearButton": "Clear Filters",
+    "adminOpportunityFilterResellerHint": "Select Resellers",
+    "adminOpportunityFilterServiceHint": "Select Service Types",
+    "adminOpportunityFilterEnergyHint": "Select Energy Types",
+    "adminOpportunityNoPending": "No pending opportunities found.",
+    "adminOpportunityErrorLoading": "Error loading opportunities.",
+    "adminOpportunityTryAdjustingFilters": "Try adjusting the search or filters.",
+    "adminOpportunityDeleteConfirmTitle": "Confirm Deletion",
+    "adminOpportunityDeleteConfirmMessage": "Are you sure you want to delete the submission for '{submissionName}'?",
+    "@adminOpportunityDeleteConfirmMessage": {
+      "placeholders": {
+        "submissionName": {
+          "type": "String"
+        }
+      }
+    },
+    "adminOpportunityDeleteConfirmWarning": "This action cannot be undone.",
+    "adminOpportunityDeleteSuccess": "Submission deleted successfully.",
+    "adminOpportunityDeleteError": "Error deleting submission: {error}",
+    "@adminOpportunityDeleteError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "adminOpportunityDeleteErrorNotFound": "Submission not found (might be already deleted).",
+    "adminOpportunityDeleteErrorFile": "Error deleting associated file: {error}",
+    "@adminOpportunityDeleteErrorFile": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "opportunityDetailTitle": "Opportunity Details",
+    "opportunityDetailHeadline": "Review and Complete Opportunity Details",
+    "opportunityDetailAgentLabel": "Agent (Reseller)",
+    "opportunityDetailSalesforceSectionTitle": "Salesforce Opportunity Fields",
+    "opportunityDetailNameLabel": "Opportunity Name *",
+    "opportunityDetailNameRequiredError": "Opportunity Name is required.",
+    "opportunityDetailNifLabel": "NIF *",
+    "opportunityDetailNifRequiredError": "NIF is required.",
+    "opportunityDetailCreationDateLabel": "Opportunity Creation Date",
+    "opportunityDetailLastUpdateLabel": "Last Phase Update Date",
+    "opportunityDetailPhaseLabel": "Phase",
+    "opportunityDetailTypeLabel": "Opportunity Type",
+    "opportunityDetailSegmentLabel": "Customer Segment *",
+    "opportunityDetailSegmentRequiredError": "Customer Segment is required.",
+    "opportunityDetailSegmentHint": "Select Segment",
+    "opportunityDetailSolutionLabel": "Solution *",
+    "opportunityDetailSolutionRequiredError": "Solution is required.",
+    "opportunityDetailSolutionHint": "Select Solution",
+    "opportunityDetailCloseDateLabel": "Est. Close Date *",
+    "opportunityDetailCloseDateRequiredError": "Est. Close Date is required.",
+    "opportunityDetailCloseDateHint": "YYYY-MM-DD",
+    "opportunityDetailInvoiceSectionTitle": "Invoice / Document",
+    "opportunityDetailInvoiceLoading": "Loading invoice...",
+    "opportunityDetailInvoiceError": "Error loading invoice details.",
+    "opportunityDetailInvoiceNotAvailable": "No invoice submitted or path is invalid.",
+    "opportunityDetailInvoicePreviewError": "Preview not available.",
+    "opportunityDetailInvoiceDownloadButton": "Download File",
+    "opportunityApproveButton": "Approve & Create Opportunity",
+    "opportunityRejectButton": "Reject",
+    "opportunitySubmitLoadingAgentError": "Still loading reseller data...",
+    "opportunitySubmitMissingAgentError": "Cannot submit: Reseller Salesforce ID is missing or invalid.",
+    "opportunitySubmitSuccess": "Opportunity created successfully! ID: {opportunityId}",
+    "@opportunitySubmitSuccess": {
+      "placeholders": {
+        "opportunityId": {
+          "type": "String"
+        }
+      }
+    },
+    "opportunitySubmitFunctionError": "Failed to create opportunity: {error}",
+    "@opportunitySubmitFunctionError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "opportunitySubmitCloudFunctionError": "Cloud Function Error: ({code}) {message}",
+    "@opportunitySubmitCloudFunctionError": {
+      "placeholders": {
+        "code": {
+          "type": "String"
+        },
+        "message": {
+          "type": "String"
+        }
+      }
+    },
+    "opportunitySubmitUnexpectedError": "An unexpected error occurred: {error}",
+    "@opportunitySubmitUnexpectedError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "opportunityRejectDialogTitle": "Reject Submission",
+    "opportunityRejectDialogPrompt": "Please provide the reason for rejecting this submission.",
+    "opportunityRejectDialogReasonHint": "Enter reason here...",
+    "opportunityRejectDialogReasonRequiredError": "Rejection reason cannot be empty.",
+    "opportunityRejectDialogConfirmButton": "Confirm Rejection",
+    "opportunityRejectedSuccess": "Submission rejected successfully.",
+    "opportunityRejectedError": "Failed to reject submission: {error}",
+    "@opportunityRejectedError": {
+      "placeholders": {
+        "error": {
+          "type": "String"
+        }
+      }
+    },
+    "notificationOpportunityRejectedTitle": "Opportunity Rejected",
+    "notificationOpportunityRejectedBody": "Your submission requires attention. Reason: {reason}",
+    "@notificationOpportunityRejectedBody": {
+      "placeholders": {
+        "reason": {
+          "type": "String"
+        }
+      }
     }
 } 

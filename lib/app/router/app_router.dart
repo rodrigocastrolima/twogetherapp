@@ -30,6 +30,8 @@ import '../../features/settings/presentation/pages/profile_page.dart';
 import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
 import '../../presentation/screens/admin/dev_tools_page.dart';
+import '../../core/models/service_submission.dart';
+import '../../features/opportunity/presentation/pages/opportunity_detail_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -898,6 +900,27 @@ class AppRouter {
         pageBuilder: (context, state) {
           // Should point to DashboardPage directly
           return const MaterialPage(child: DashboardPage());
+        },
+      ),
+      GoRoute(
+        path: '/admin/opportunity-detail', // New route for detail page
+        parentNavigatorKey:
+            _rootNavigatorKey, // Use root navigator to appear above shell
+        pageBuilder: (context, state) {
+          final submission = state.extra as ServiceSubmission?;
+          if (submission == null) {
+            // Handle error case where submission data is missing
+            return const MaterialPage(
+              child: Scaffold(
+                body: Center(child: Text("Submission data missing")),
+              ),
+            );
+          }
+          return MaterialPage(
+            // Consider adding a unique key if needed: key: ValueKey(submission.id),
+            fullscreenDialog: false, // Display as a standard page push
+            child: OpportunityDetailFormView(submission: submission),
+          );
         },
       ),
     ],

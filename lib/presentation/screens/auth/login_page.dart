@@ -300,107 +300,72 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   // --- Helper Widgets for Form States ---
 
   Widget _buildLoginForm(BuildContext context, AppLocalizations l10n) {
+    // Get the input decoration theme defaults from the main context
+    final themeDefaults = Theme.of(context).inputDecorationTheme;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Theme(
-          data: Theme.of(context).copyWith(
-            inputDecorationTheme: InputDecorationTheme(
-              filled: true,
-              fillColor: const Color(0xFFF7F7F7),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withOpacity(0.4),
-                  width: 1.0,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.primary, width: 1),
-              ),
+        // Email TextField
+        TextField(
+          controller: _emailController,
+          // Create InputDecoration based on theme, then override
+          decoration: InputDecoration(
+            // Apply theme defaults first (like fill color, border)
+            filled: themeDefaults.filled,
+            fillColor: themeDefaults.fillColor,
+            border: themeDefaults.border,
+            enabledBorder: themeDefaults.enabledBorder,
+            focusedBorder: themeDefaults.focusedBorder,
+            contentPadding: themeDefaults.contentPadding,
+            isDense: themeDefaults.isDense,
+            // Now apply specific overrides
+            hintText: l10n.loginUsername,
+            hintStyle: TextStyle(
+              color: Colors.black45,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: Icon(
+              Icons.email_outlined,
+              color: Colors.black45,
+              size: 17,
             ),
           ),
-          child: TextField(
-            controller: _emailController,
-            decoration: InputDecoration(
-              hintText: l10n.loginUsername,
-              hintStyle: TextStyle(
-                color: Colors.black45,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              prefixIcon: Icon(
-                Icons.email_outlined,
-                color: Colors.black45,
-                size: 17,
-              ),
-              isDense: true,
-            ),
-            style: TextStyle(color: Colors.black87, fontSize: 13),
-            keyboardType: TextInputType.emailAddress,
-          ),
+          style: TextStyle(color: Colors.black87, fontSize: 13),
+          keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 10),
-        Theme(
-          data: Theme.of(context).copyWith(
-            inputDecorationTheme: InputDecorationTheme(
-              filled: true,
-              fillColor: const Color(0xFFF7F7F7),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.outlineVariant.withAlpha(
-                    (0.4 * 255).round(),
-                  ), // Use withAlpha
-                  width: 1.0,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.primary, width: 1),
-              ),
+        // Password TextField
+        TextField(
+          controller: _passwordController,
+          // Create InputDecoration based on theme, then override
+          decoration: InputDecoration(
+            // Apply theme defaults first
+            filled: themeDefaults.filled,
+            fillColor: themeDefaults.fillColor,
+            border: themeDefaults.border,
+            enabledBorder: themeDefaults.enabledBorder,
+            focusedBorder: themeDefaults.focusedBorder,
+            contentPadding: themeDefaults.contentPadding,
+            isDense: themeDefaults.isDense,
+            // Now apply specific overrides
+            hintText: l10n.loginPassword,
+            hintStyle: TextStyle(
+              color: Colors.black45,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: Icon(
+              Icons.lock_outline,
+              color: Colors.black45,
+              size: 17,
             ),
           ),
-          child: TextField(
-            controller: _passwordController,
-            decoration: InputDecoration(
-              hintText: l10n.loginPassword,
-              hintStyle: TextStyle(
-                color: Colors.black45,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              prefixIcon: Icon(
-                Icons.lock_outline,
-                color: Colors.black45,
-                size: 17,
-              ),
-              isDense: true,
-            ),
-            style: TextStyle(color: Colors.black87, fontSize: 13),
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _handleLogin(),
-          ),
+          style: TextStyle(color: Colors.black87, fontSize: 13),
+          obscureText: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _handleLogin(),
         ),
         const SizedBox(height: 40),
         SizedBox(

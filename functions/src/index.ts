@@ -22,6 +22,9 @@ import { sendMessageNotification } from './notifications'; // Re-added import
 import { getResellerOpportunities } from './getResellerOpportunities'; // Re-added import
 import { resetAndVerifyConversations } from './migrations'; // Re-added import
 
+// Export functions from separate files
+export * from './set-role-claim';
+
 // Export the removeRememberMeField function
 export { removeRememberMeField };
 

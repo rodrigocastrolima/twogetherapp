@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 
 // Provider for the repository
 final serviceSubmissionRepositoryProvider =
@@ -36,365 +37,301 @@ final allSubmissionsProvider = StreamProvider<List<ServiceSubmission>>((ref) {
   return repository.getAllSubmissions();
 });
 
-// State class to manage the form state
+@immutable
 class ServiceSubmissionState {
-  final bool isLoading;
+  final String? serviceCategory;
+  final String? energyType;
+  final String? clientType;
+  final String? provider;
+  final String? companyName;
+  final String? responsibleName;
+  final String? nif;
+  final String? email;
+  final String? phone;
+  final List<PlatformFile> selectedFiles;
+  final bool isSubmitting;
   final String? errorMessage;
-  final String? successMessage;
-  final Map<String, dynamic> formData;
-  final dynamic selectedInvoiceFile; // Supports File or Uint8List
-  final String? selectedInvoiceFileName; // Added to store file name
-  final String? submissionId; // ID of the created submission (if successful)
+  final bool submissionSuccess;
 
-  ServiceSubmissionState({
-    this.isLoading = false,
+  const ServiceSubmissionState({
+    this.serviceCategory,
+    this.energyType,
+    this.clientType,
+    this.provider,
+    this.companyName,
+    this.responsibleName,
+    this.nif,
+    this.email,
+    this.phone,
+    this.selectedFiles = const [],
+    this.isSubmitting = false,
     this.errorMessage,
-    this.successMessage,
-    Map<String, dynamic>? formData,
-    this.selectedInvoiceFile,
-    this.selectedInvoiceFileName, // Added
-    this.submissionId,
-  }) : formData = formData ?? {};
+    this.submissionSuccess = false,
+  });
 
-  // Create a copy with updated fields
   ServiceSubmissionState copyWith({
-    bool? isLoading,
-    String? errorMessage,
-    String? successMessage,
-    Map<String, dynamic>? formData,
-    dynamic selectedInvoiceFile,
-    String? selectedInvoiceFileName, // Added
-    String? submissionId,
-    bool clearError = false,
-    bool clearSuccessMessage = false,
-    bool clearInvoiceFile = false,
+    String? serviceCategory,
+    String? energyType,
+    String? clientType,
+    String? provider,
+    String? companyName,
+    ValueGetter<String?>? responsibleName,
+    ValueGetter<String?>? nif,
+    ValueGetter<String?>? email,
+    ValueGetter<String?>? phone,
+    List<PlatformFile>? selectedFiles,
+    bool? isSubmitting,
+    ValueGetter<String?>? errorMessage,
+    bool? submissionSuccess,
   }) {
     return ServiceSubmissionState(
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      successMessage:
-          clearSuccessMessage ? null : (successMessage ?? this.successMessage),
-      formData: formData ?? Map.from(this.formData),
-      selectedInvoiceFile:
-          clearInvoiceFile
-              ? null
-              : (selectedInvoiceFile ?? this.selectedInvoiceFile),
-      selectedInvoiceFileName: // Added
-          clearInvoiceFile
-              ? null
-              : (selectedInvoiceFileName ?? this.selectedInvoiceFileName),
-      submissionId: submissionId ?? this.submissionId,
+      serviceCategory: serviceCategory ?? this.serviceCategory,
+      energyType: energyType ?? this.energyType,
+      clientType: clientType ?? this.clientType,
+      provider: provider ?? this.provider,
+      companyName: companyName ?? this.companyName,
+      responsibleName:
+          responsibleName != null ? responsibleName() : this.responsibleName,
+      nif: nif != null ? nif() : this.nif,
+      email: email != null ? email() : this.email,
+      phone: phone != null ? phone() : this.phone,
+      selectedFiles: selectedFiles ?? this.selectedFiles,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
+      submissionSuccess: submissionSuccess ?? this.submissionSuccess,
     );
   }
 }
 
-// Notifier to manage the state and business logic
 class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
   final ServiceSubmissionRepository _repository;
+  final ImagePicker _picker = ImagePicker();
 
-  ServiceSubmissionNotifier(this._repository) : super(ServiceSubmissionState());
+  ServiceSubmissionNotifier(this._repository)
+    : super(const ServiceSubmissionState());
 
-  // Update a single form field
-  void updateFormField(String fieldName, dynamic value) {
-    final updatedFormData = Map<String, dynamic>.from(state.formData);
-    updatedFormData[fieldName] = value;
-    state = state.copyWith(formData: updatedFormData, clearError: true);
-  }
-
-  // Update multiple form fields at once
-  void updateFormFields(Map<String, dynamic> fields) {
-    final updatedFormData = Map<String, dynamic>.from(state.formData);
-    updatedFormData.addAll(fields);
-    state = state.copyWith(formData: updatedFormData, clearError: true);
-  }
-
-  // --- REVISED: Pick invoice file using new repository method ---
-  Future<void> pickInvoiceFile() async {
-    state = state.copyWith(isLoading: true, clearError: true); // Show loading
-    try {
-      if (kDebugMode) {
-        print('Calling repository.pickFileFromGalleryAndGetName()');
-      }
-      final result = await _repository.pickFileFromGalleryAndGetName();
-
-      if (result != null) {
-        final fileData = result['fileData'];
-        final fileName = result['fileName'] as String?;
-
-        if (kDebugMode) {
-          print(
-            'File picked: Name = $fileName, Type = ${fileData?.runtimeType}',
-          );
-        }
-
-        if (fileData != null && fileName != null) {
-          state = state.copyWith(
-            selectedInvoiceFile: fileData,
-            selectedInvoiceFileName: fileName,
-            isLoading: false,
-          );
-        } else {
-          // Handle case where file picking succeeded but data/name is missing
-          if (kDebugMode) print('File picking returned null data or name');
-          state = state.copyWith(
-            isLoading: false,
-            errorMessage: 'Failed to get file details.',
-          );
-        }
-      } else {
-        // User likely cancelled the picker
-        if (kDebugMode) print('File picking cancelled by user.');
-        state = state.copyWith(isLoading: false); // Just stop loading, no error
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error picking file via notifier: $e');
-      }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage:
-            'Failed to select file: ${e.toString().replaceFirst("Exception: ", "")}',
-      );
-    }
-  }
-
-  // --- Add method to pick from Camera ---
-  Future<void> pickInvoiceFileFromCamera() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    try {
-      if (kDebugMode) {
-        print('Calling repository.pickImageFromCameraAndGetName()');
-      }
-      // ASSUMPTION: Repository has a method like pickImageFromCameraAndGetName
-      // If not, it needs to be added there using ImagePicker().pickImage(source: ImageSource.camera)
-      final result = await _repository.pickImageFromCameraAndGetName();
-
-      if (result != null) {
-        final fileData = result['fileData']; // Should be File for mobile camera
-        final fileName = result['fileName'] as String?;
-
-        if (kDebugMode) {
-          print(
-            'Camera image picked: Name = $fileName, Type = ${fileData?.runtimeType}',
-          );
-        }
-
-        if (fileData is File && fileName != null) {
-          // Explicitly check for File type
-          state = state.copyWith(
-            selectedInvoiceFile: fileData,
-            selectedInvoiceFileName: fileName,
-            isLoading: false,
-          );
-        } else {
-          if (kDebugMode)
-            print('Camera picking returned null data/name or invalid type');
-          state = state.copyWith(
-            isLoading: false,
-            errorMessage: 'Failed to get image details from camera.',
-          );
-        }
-      } else {
-        if (kDebugMode) print('Camera picking cancelled by user.');
-        state = state.copyWith(isLoading: false);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error picking file from camera via notifier: $e');
-      }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage:
-            'Failed to use camera: ${e.toString().replaceFirst("Exception: ", "")}',
-      );
-    }
-  }
-
-  // --- OLD/REPLACED PICKERS ---
-  // Future<dynamic> pickPdfFile() async { ... }
-  // Future<void> pickInvoiceFromCamera() async { ... } // Original commented out
-
-  // --- REVISED: Clear invoice file state ---
-  void clearInvoiceFile() {
+  void updateFormFields(Map<String, String?> fields) {
     state = state.copyWith(
-      clearInvoiceFile: true,
-    ); // This now clears both file and name
+      serviceCategory:
+          fields.containsKey('serviceCategory')
+              ? fields['serviceCategory']
+              : state.serviceCategory,
+      energyType:
+          fields.containsKey('energyType')
+              ? fields['energyType']
+              : state.energyType,
+      clientType:
+          fields.containsKey('clientType')
+              ? fields['clientType']
+              : state.clientType,
+      provider:
+          fields.containsKey('provider') ? fields['provider'] : state.provider,
+      companyName:
+          fields.containsKey('companyName')
+              ? fields['companyName']
+              : state.companyName,
+      responsibleName:
+          () =>
+              fields.containsKey('responsibleName')
+                  ? fields['responsibleName']
+                  : state.responsibleName,
+      nif: () => fields.containsKey('nif') ? fields['nif'] : state.nif,
+      email: () => fields.containsKey('email') ? fields['email'] : state.email,
+      phone: () => fields.containsKey('phone') ? fields['phone'] : state.phone,
+    );
   }
 
-  // --- REVISED: Submit the form data and file ---
+  Future<void> pickInvoiceFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'heic'],
+        withData: kIsWeb,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final currentFiles = state.selectedFiles;
+        final newFiles = result.files;
+        state = state.copyWith(selectedFiles: [...currentFiles, ...newFiles]);
+        debugPrint(
+          'Selected files: ${state.selectedFiles.map((f) => f.name).toList()}',
+        );
+      } else {
+        debugPrint('File picking cancelled or no files selected.');
+      }
+    } catch (e) {
+      debugPrint('Error picking file(s): $e');
+    }
+  }
+
+  Future<void> pickInvoiceFileFromCamera() async {
+    try {
+      final XFile? photo = await _picker.pickImage(source: ImageSource.camera);
+      if (photo != null) {
+        final bytes = kIsWeb ? await photo.readAsBytes() : null;
+        final platformFile = PlatformFile(
+          name: photo.name,
+          path: kIsWeb ? null : photo.path,
+          bytes: bytes,
+          size: await photo.length(),
+        );
+
+        final currentFiles = state.selectedFiles;
+        state = state.copyWith(selectedFiles: [...currentFiles, platformFile]);
+        debugPrint('Added camera file: ${platformFile.name}');
+        debugPrint(
+          'Selected files: ${state.selectedFiles.map((f) => f.name).toList()}',
+        );
+      } else {
+        debugPrint('Camera picking cancelled.');
+      }
+    } catch (e) {
+      debugPrint('Error picking file from camera: $e');
+    }
+  }
+
+  void removeFile(int index) {
+    if (index < 0 || index >= state.selectedFiles.length) return;
+    final currentFiles = List<PlatformFile>.from(state.selectedFiles);
+    final removedFile = currentFiles.removeAt(index);
+    state = state.copyWith(selectedFiles: currentFiles);
+    debugPrint('Removed file: ${removedFile.name}');
+    debugPrint(
+      'Remaining files: ${state.selectedFiles.map((f) => f.name).toList()}',
+    );
+  }
+
+  void resetForm() {
+    state = const ServiceSubmissionState();
+  }
+
   Future<bool> submitServiceRequest({
     required String resellerId,
     required String resellerName,
   }) async {
-    // Validate required fields
-    if (state.selectedInvoiceFile == null ||
-        state.selectedInvoiceFileName == null) {
-      state = state.copyWith(errorMessage: 'Please select an invoice file');
-      return false;
-    }
-
-    final formData = state.formData;
-    if (!_validateFormData(formData)) {
-      state = state.copyWith(
-        errorMessage: 'Please fill in all required fields',
-      );
-      return false;
-    }
-
-    // Start loading state
     state = state.copyWith(
-      isLoading: true,
-      clearError: true,
-      clearSuccessMessage: true,
+      isSubmitting: true,
+      errorMessage: () => null,
+      submissionSuccess: false,
     );
 
+    // 1. Generate unique submission ID/Ref beforehand using Firestore
+    final docRef = _repository.getNewSubmissionReference(); // Use repo method
+    final submissionId = docRef.id;
+
     try {
-      if (kDebugMode) {
-        print('Starting service submission via notifier');
+      List<String> attachmentUrls = [];
+
+      // 2. --- Upload Loop (Using updated Repository method) ---
+      if (state.selectedFiles.isEmpty) {
+        throw Exception(
+          "No files selected for upload.",
+        ); // Should be caught by validation, but safety check
       }
 
-      // Call repository to submit the request, passing the file data AND name
-      final submissionId = await _repository.submitServiceRequest(
-        clientDetails: formData,
-        invoiceFile: state.selectedInvoiceFile!,
-        invoiceFileName:
-            state.selectedInvoiceFileName!, // Pass the stored file name
-        resellerId: resellerId,
-        resellerName: resellerName,
-      );
+      for (int i = 0; i < state.selectedFiles.length; i++) {
+        final file = state.selectedFiles[i];
+        try {
+          // Call the actual repository upload method
+          final downloadUrl = await _repository.uploadServiceAttachment(
+            submissionId, // Pass the generated ID
+            i, // Pass the file index
+            file, // Pass the PlatformFile object
+          );
+          attachmentUrls.add(downloadUrl);
+          debugPrint('Uploaded ${file.name}, URL: $downloadUrl');
 
-      if (kDebugMode) {
-        print('Notifier: Submission successful with ID: $submissionId');
+          // Remove simulation block
+          // await Future.delayed(const Duration(milliseconds: 100));
+          // final simulatedUrl = 'gs://your-bucket/submissions/$resellerId/file_${i}_${file.name}';
+          // attachmentUrls.add(simulatedUrl);
+          // debugPrint('Simulated upload for ${file.name}, URL: $simulatedUrl');
+        } catch (e) {
+          debugPrint('Error uploading file ${file.name}: $e');
+          // Add more context to the error message shown to the user
+          throw Exception(
+            'Failed to upload file: ${file.name}. Error: ${e.toString()}',
+          );
+        }
       }
+      // --- End Upload Loop ---
 
-      // Update state with success
-      state = state.copyWith(
-        isLoading: false,
-        successMessage: 'Service request submitted successfully',
-        submissionId: submissionId,
-        // Clear the form data and file
-        formData: {}, // Clear form data map
-        clearInvoiceFile: true, // Clear file data and name
+      // 5. Save the final submission data
+      final finalData = {
+        // Spread individual fields instead of formData map
+        'serviceCategory': state.serviceCategory,
+        'energyType': state.energyType,
+        'clientType': state.clientType,
+        'provider': state.provider,
+        'companyName': state.companyName,
+        'responsibleName': state.responsibleName,
+        'nif': state.nif,
+        'email': state.email,
+        'phone': state.phone,
+        // Add other necessary fields
+        'submissionTimestamp': FieldValue.serverTimestamp(),
+        'resellerId': resellerId,
+        'resellerName': resellerName,
+        'attachmentUrls': attachmentUrls,
+        'status': 'pending_review', // Ensure this EXACT string is used
+      };
+
+      await _repository.saveFinalSubmission(
+        docRef, // Pass the reference
+        finalData,
+        resellerName, // Pass details for notification
+        state.responsibleName ?? 'N/A',
+        state.serviceCategory ?? 'N/A',
       );
+
+      // 5. Update state on success
+      state = state.copyWith(isSubmitting: false, submissionSuccess: true);
+      resetForm(); // Reset form on success
       return true;
     } catch (e) {
-      if (kDebugMode) {
-        print('Notifier: Error submitting service request: $e');
-        print('Stack trace: ${StackTrace.current}');
-      }
-      // Update state with error
+      debugPrint('Error submitting service request: $e');
       state = state.copyWith(
-        isLoading: false,
-        errorMessage:
-            'Failed to submit service request: ${e.toString().replaceFirst("Exception: ", "")}',
+        isSubmitting: false,
+        errorMessage: () => e.toString(),
+        submissionSuccess: false,
       );
       return false;
     }
-  }
-
-  // Reset the form to its initial state
-  void resetForm() {
-    state = ServiceSubmissionState();
-  }
-
-  // Private method to validate form data based on requirements
-  bool _validateFormData(Map<String, dynamic> data) {
-    // Log the data map being validated
-    if (kDebugMode) print('[_validateFormData] Validating data: $data');
-
-    // Basic check for essential fields - Adapt as needed!
-    final requiredFields = [
-      'serviceCategory',
-      'clientType',
-      'provider',
-      'responsibleName',
-      'nif',
-      'email',
-      'phone',
-    ];
-
-    for (final field in requiredFields) {
-      final value = data[field];
-      // Checks if value is null OR if it's a String that's empty after trimming
-      if (value == null || (value is String && value.trim().isEmpty)) {
-        // Log specific field failure
-        if (kDebugMode)
-          print(
-            '[_validateFormData] FAILED: Missing or empty required field -> $field',
-          );
-        return false; // Fails if any required field is missing/empty
-      }
-    }
-
-    // Conditional validation
-    final serviceCategory = data['serviceCategory']?.toString();
-    final clientType = data['clientType']?.toString();
-
-    // Check energyType if category is energy
-    if (serviceCategory == service_types.ServiceCategory.energy.name) {
-      final energyType = data['energyType'];
-      // Check if energyType is null OR if it's an empty string
-      if (energyType == null ||
-          (energyType is String && energyType.trim().isEmpty)) {
-        // Log specific field failure
-        if (kDebugMode)
-          print(
-            '[_validateFormData] FAILED: Missing energyType for energy category',
-          );
-        return false;
-      }
-    }
-
-    // Check companyName if client type is commercial
-    if (clientType == service_types.ClientType.commercial.name) {
-      final companyName = data['companyName'];
-      // Check if companyName is null OR if it's an empty string
-      if (companyName == null ||
-          (companyName is String && companyName.trim().isEmpty)) {
-        // Log specific field failure
-        if (kDebugMode)
-          print(
-            '[_validateFormData] FAILED: Missing companyName for commercial client',
-          );
-        return false;
-      }
-    }
-
-    // Log success if all checks pass
-    if (kDebugMode) print('[_validateFormData] PASSED');
-    return true; // Passes only if all checks succeed
   }
 }
 
-// Provider to access the notifier
 final serviceSubmissionProvider =
-    StateNotifierProvider<ServiceSubmissionNotifier, ServiceSubmissionState>(
-      (ref) => ServiceSubmissionNotifier(
-        ref.watch(serviceSubmissionRepositoryProvider),
-      ),
-    );
+    StateNotifierProvider<ServiceSubmissionNotifier, ServiceSubmissionState>((
+      ref,
+    ) {
+      final repository = ref.watch(serviceSubmissionRepositoryProvider);
+      return ServiceSubmissionNotifier(repository);
+    });
 
-// Helper provider to check if the form is valid
 final isFormValidProvider = Provider<bool>((ref) {
   final state = ref.watch(serviceSubmissionProvider);
 
-  // Check if we have an invoice file AND file name
-  if (state.selectedInvoiceFile == null ||
-      state.selectedInvoiceFileName == null) {
-    if (kDebugMode)
-      print('isFormValidProvider: false (missing file or filename)');
-    return false;
+  bool baseValid =
+      state.serviceCategory != null &&
+      state.responsibleName != null &&
+      state.responsibleName!.isNotEmpty &&
+      state.nif != null &&
+      state.nif!.isNotEmpty &&
+      state.email != null &&
+      state.email!.isNotEmpty &&
+      state.phone != null &&
+      state.phone!.isNotEmpty;
+
+  if (state.clientType == 'Commercial') {
+    baseValid =
+        baseValid &&
+        (state.companyName != null && state.companyName!.isNotEmpty);
   }
 
-  // Use the notifier's internal validation logic for form data
-  final notifier = ref.read(serviceSubmissionProvider.notifier);
-  final isDataValid = notifier._validateFormData(state.formData);
+  bool fileValid = state.selectedFiles.isNotEmpty;
 
-  if (kDebugMode)
-    print('isFormValidProvider: File present, Data valid = $isDataValid');
-
-  return isDataValid; // Return true only if file is present AND form data is valid
+  return baseValid && fileValid;
 });
 
-// --- NEW: Provider to signal success dialog display ---
 final showSubmissionSuccessDialogProvider = StateProvider<bool>((ref) => false);

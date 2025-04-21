@@ -176,22 +176,24 @@ class ServiceSubmissionRepository {
     }
   }
 
-  // --- NEW: Firebase Upload Function from Guide ---
-  Future<String> uploadFileToFirebase(
-    dynamic fileData,
+  // --- REVISED Upload Function for Attachments ---
+  Future<String> uploadServiceAttachment(
     String submissionId,
-    String fileName,
+    int fileIndex,
+    PlatformFile file,
   ) async {
-    // Construct the storage path; e.g., submissions/{submissionId}/{fileName}
-    final storagePath = 'submissions/$submissionId/$fileName';
+    final fileName = file.name;
+    // Construct a unique path including index
+    final storagePath =
+        'submissions/$submissionId/attachment_${fileIndex}_$fileName';
     final storageRef = _storage.ref().child(storagePath);
     UploadTask uploadTask;
 
     try {
       SettableMetadata? metadata;
-      // Determine content type based on filename extension
       final extension =
           fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
+      // Content type logic remains the same
       if (extension == 'pdf') {
         metadata = SettableMetadata(contentType: 'application/pdf');
       } else if (['jpg', 'jpeg'].contains(extension)) {
@@ -199,45 +201,45 @@ class ServiceSubmissionRepository {
       } else if (extension == 'png') {
         metadata = SettableMetadata(contentType: 'image/png');
       } else if (extension == 'heic') {
-        metadata = SettableMetadata(
-          contentType: 'image/heic',
-        ); // Optional: HEIC support
+        metadata = SettableMetadata(contentType: 'image/heic');
       }
 
       if (kIsWeb) {
-        // For web, fileData is expected to be Uint8List
-        if (fileData is Uint8List) {
-          uploadTask = storageRef.putData(fileData, metadata);
+        // Web uses bytes directly from PlatformFile
+        if (file.bytes != null) {
+          uploadTask = storageRef.putData(file.bytes!, metadata);
         } else {
-          throw Exception(
-            "Invalid file data type for web upload. Expected Uint8List.",
-          );
+          throw Exception("File bytes are null for web upload: ${file.name}");
         }
       } else {
-        // For mobile, fileData is a File instance
-        if (fileData is File) {
-          uploadTask = storageRef.putFile(fileData, metadata);
+        // Mobile uses path from PlatformFile
+        if (file.path != null) {
+          uploadTask = storageRef.putFile(File(file.path!), metadata);
         } else {
-          throw Exception(
-            "Invalid file data type for mobile upload. Expected File.",
-          );
+          // Fallback: try bytes if path is null (e.g., from camera on some platforms?)
+          if (file.bytes != null) {
+            debugPrint("Mobile upload using bytes fallback for ${file.name}");
+            uploadTask = storageRef.putData(file.bytes!, metadata);
+          } else {
+            throw Exception(
+              "File path and bytes are null for mobile upload: ${file.name}",
+            );
+          }
         }
       }
 
-      // Wait for the upload to complete
       final snapshot = await uploadTask;
-      // Get and return the download URL
       final downloadUrl = await snapshot.ref.getDownloadURL();
       if (kDebugMode) {
-        print('File uploaded successfully: $downloadUrl');
+        print('Attachment uploaded successfully: $downloadUrl');
       }
       return downloadUrl;
     } catch (e) {
       if (kDebugMode) {
-        print("Error uploading file: $e");
-        print("Stack trace: ${StackTrace.current}");
+        print("Error uploading attachment ${file.name}: $e");
       }
-      throw Exception("Error uploading file: $e");
+      // Rethrow a more specific error if needed, or just the original
+      throw Exception("Error uploading attachment ${file.name}: $e");
     }
   }
 
@@ -376,126 +378,64 @@ class ServiceSubmissionRepository {
     }
   }
 
-  // --- REVISED: submitServiceRequest using new upload function ---
+  // --- REVISED: Submission function using the new flow ---
+  // This old method is replaced by the logic in the Notifier + saveFinalSubmission
+  /*
   Future<String> submitServiceRequest({
     required Map<String, dynamic> clientDetails,
-    required dynamic invoiceFile, // Supports File or Uint8List
-    required String invoiceFileName, // Need the original file name
+    required dynamic invoiceFile, // File or Uint8List
+    required String invoiceFileName,
     required String resellerId,
     required String resellerName,
   }) async {
-    // Cast clientDetails to the correct type for safety
-    final details = clientDetails as Map<String, dynamic>;
+    // ... (old logic including upload and saving)
+  }
+  */
 
-    // 1. Generate a new document reference to get the submission ID
-    final docRef = _firestore.collection('serviceSubmissions').doc();
-    final submissionId = docRef.id;
-
-    // 2. Upload the file using the new function
-    // Ensure the file name is unique or handled appropriately if needed
-    final uniqueFileName =
-        '${DateTime.now().millisecondsSinceEpoch}_$invoiceFileName';
-    final downloadUrl = await uploadFileToFirebase(
-      invoiceFile,
-      submissionId,
-      uniqueFileName, // Use the unique name for storage path
-    );
-
-    // 3. Determine content type from the original file name
-    final extension =
-        uniqueFileName.contains('.')
-            ? uniqueFileName.split('.').last.toLowerCase()
-            : '';
-    String contentType = 'application/octet-stream'; // Default
-    if (extension == 'pdf') {
-      contentType = 'application/pdf';
-    } else if (['jpg', 'jpeg'].contains(extension)) {
-      contentType = 'image/jpeg';
-    } else if (extension == 'png') {
-      contentType = 'image/png';
-    } else if (extension == 'heic') {
-      contentType = 'image/heic';
-    }
-
-    // 4. Create the invoice photo metadata
-    final invoicePhoto = InvoicePhoto(
-      // Use the derived storage path used in uploadFileToFirebase
-      storagePath: 'submissions/$submissionId/$uniqueFileName',
-      fileName: uniqueFileName, // Store the potentially modified unique name
-      contentType: contentType,
-      uploadedTimestamp: Timestamp.now(),
-      uploadedBy: resellerId,
-    );
-
-    // 5. Create the service submission object
-    // Use the casted 'details' map here
-    final serviceCategory = _getEnumValueFromString(
-      ServiceCategory.values,
-      details['serviceCategory']?.toString() ?? '', // Ensure string comparison
-    );
-    final energyType =
-        details['energyType'] != null
-            ? _getEnumValueFromString(
-              EnergyType.values,
-              details['energyType']?.toString() ?? '',
-            )
-            : null;
-    final clientType = _getEnumValueFromString(
-      ClientType.values,
-      details['clientType']?.toString() ?? '',
-    );
-    final serviceProvider = _getEnumValueFromString(
-      Provider.values,
-      details['provider']?.toString() ?? '',
-    );
-
-    final submission = ServiceSubmission(
-      id: submissionId,
-      resellerId: resellerId,
-      resellerName: resellerName,
-      serviceCategory: serviceCategory ?? ServiceCategory.energy,
-      energyType: energyType,
-      clientType: clientType ?? ClientType.residential,
-      provider: serviceProvider ?? Provider.repsol,
-      companyName: details['companyName'], // Use 'details' map
-      responsibleName: details['responsibleName'] ?? '',
-      nif: details['nif'] ?? '',
-      email: details['email'] ?? '',
-      phone: details['phone'] ?? '',
-      invoicePhoto: invoicePhoto, // Embed metadata object
-      submissionTimestamp: Timestamp.now(),
-      status: 'pending_review',
-      documentUrls: [downloadUrl], // Store the single download URL
-    );
-
-    // 6. Write to Firestore
-    await docRef.set(submission.toFirestore());
-
-    // 7. Create notification for admins
-    await _createSubmissionNotification(
-      submissionId,
-      resellerName,
-      submission.responsibleName,
-      submission.serviceCategory.displayName,
-    );
-
-    // 8. Return the submission ID
-    return submissionId;
+  // --- NEW: Method to get a fresh document reference ---
+  DocumentReference getNewSubmissionReference() {
+    return _submissionsCollection.doc();
   }
 
-  // Helper method to get enum value from string (Ensure this handles toString() correctly)
-  T? _getEnumValueFromString<T extends Enum>(List<T> enumValues, String value) {
-    if (value.isEmpty) return null;
-    for (final enumValue in enumValues) {
-      // Compare against the name property which is reliable
-      if (enumValue.name == value) {
-        return enumValue;
+  // --- REVISED: Method to save the final submission data map ---
+  Future<void> saveFinalSubmission(
+    DocumentReference submissionRef, // Accept DocumentReference
+    Map<String, dynamic> data,
+    String resellerName,
+    String responsibleName,
+    String serviceCategoryName,
+  ) async {
+    final submissionId = submissionRef.id; // Get ID from reference
+    try {
+      if (kDebugMode) {
+        print('Saving final submission data for ID: $submissionId');
       }
+      // Ensure timestamp is included if not already present (though notifier adds it)
+      final dataToSave = {
+        ...data,
+        'timestamp': data['timestamp'] ?? FieldValue.serverTimestamp(),
+      };
+
+      // Use the passed reference to set the data
+      await submissionRef.set(dataToSave);
+
+      if (kDebugMode) {
+        print('Final submission data saved successfully for ID: $submissionId');
+      }
+
+      // Create notification AFTER successful save
+      await _createSubmissionNotification(
+        submissionId,
+        resellerName,
+        responsibleName,
+        serviceCategoryName,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving final submission data for $submissionId: $e');
+      }
+      throw Exception('Failed to save final submission: $e');
     }
-    if (kDebugMode) {
-      print("Warning: Could not find enum value for string '$value' in $T");
-    }
-    return null; // Return null if no match
   }
 
   // Get a specific submission by ID
