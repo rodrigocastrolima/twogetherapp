@@ -51,14 +51,11 @@ class _OpportunityDetailFormViewState
   final String _faseValue = "0 - Oportunidade Identificada"; // Fixed value
   String? _resellerSalesforceId; // Added to store the fetched Salesforce ID
 
-  // State for invoice button loading
-  bool _isFetchingInvoiceUrl = false;
-
   // State for submission button loading
   bool _isSubmitting = false;
 
   // --- ADDED: State for Invoice Preview ---
-  String? _invoiceDownloadUrl; // To store the fetched URL
+  // String? _invoiceDownloadUrl; // To store the fetched URL
   // Note: FutureBuilder will handle loading state for the URL fetch
 
   // Define picklist options (API Names)
@@ -81,11 +78,10 @@ class _OpportunityDetailFormViewState
 
   @override
   void initState() {
+    // Assuming context is available via WidgetsBinding.instance.addPostFrameCallback or similar
+    // if needed before build, otherwise move l10n initialization inside build.
+    // final l10n = AppLocalizations.of(context)!;
     super.initState();
-    final l10n =
-        AppLocalizations.of(
-          context,
-        )!; // Assuming context is available or passed
 
     // Initialize controllers
     final potentialOpportunityName =
@@ -97,10 +93,14 @@ class _OpportunityDetailFormViewState
     // --- Initialize Read-Only Controllers ---
     _agenteRetailController = TextEditingController(text: 'Loading...');
     _dataCriacaoController = TextEditingController(
-      text: DateFormat.yMd(l10n.localeName).format(DateTime.now()),
+      text: DateFormat.yMd().format(
+        DateTime.now(),
+      ), // Use default locale initially
     );
     _dataUltimaAtualizacaoController = TextEditingController(
-      text: DateFormat.yMd(l10n.localeName).format(DateTime.now()),
+      text: DateFormat.yMd().format(
+        DateTime.now(),
+      ), // Use default locale initially
     );
     _faseController = TextEditingController(text: _faseValue);
     _tipoOportunidadeController =
@@ -167,16 +167,20 @@ class _OpportunityDetailFormViewState
 
           // Add check if Salesforce ID is missing after fetch
           if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
-            print("Warning: Reseller found but missing Salesforce ID.");
+            // Use kDebugMode check for print
+            if (kDebugMode) {
+              print("Warning: Reseller found but missing Salesforce ID.");
+            }
             // Optionally update display name to show an error state
             _agenteRetailController.text =
-                (_resellerDisplayName ?? "Reseller") + " (Missing SF ID!)";
+                "${_resellerDisplayName ?? "Reseller"} (Missing SF ID!)";
             // Optionally disable submit button or show persistent warning here
           } else {
             _agenteRetailController.text =
                 _resellerDisplayName ?? 'N/A'; // Update controller
           }
 
+          // Use kDebugMode check for print
           if (kDebugMode) {
             print("Fetched reseller display name: $_resellerDisplayName");
             print(
@@ -185,6 +189,7 @@ class _OpportunityDetailFormViewState
           }
         });
       } else if (mounted) {
+        // Use kDebugMode check for print
         if (kDebugMode) {
           print(
             "Reseller document not found for ID: ${widget.submission.resellerId}",
@@ -198,6 +203,7 @@ class _OpportunityDetailFormViewState
         });
       }
     } catch (e) {
+      // Use kDebugMode check for print
       if (kDebugMode) {
         print("Error fetching reseller name: $e");
       }
@@ -738,8 +744,8 @@ class _OpportunityDetailFormViewState
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(
-                                AppTheme.defaultBorderRadiusValue,
-                              ), // Use theme constant
+                                8.0,
+                              ), // Use standard radius value
                               child: Image.network(
                                 downloadUrl,
                                 fit:
@@ -906,6 +912,8 @@ class _OpportunityDetailFormViewState
                                     false) {
                                   // --- Check if essential fetched data is available ---
                                   if (_isLoadingReseller) {
+                                    // Add mounted check before showing SnackBar
+                                    if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -917,6 +925,8 @@ class _OpportunityDetailFormViewState
                                   }
                                   if (_resellerSalesforceId == null ||
                                       _resellerSalesforceId!.isEmpty) {
+                                    // Add mounted check before showing SnackBar
+                                    if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -1023,6 +1033,8 @@ class _OpportunityDetailFormViewState
                                     } else {
                                       // Handle failure reported by the function
                                       if (mounted) {
+                                        // Add mounted check before showing SnackBar
+                                        if (!mounted) return;
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
@@ -1042,6 +1054,8 @@ class _OpportunityDetailFormViewState
                                   } on FirebaseFunctionsException catch (e) {
                                     // Handle Cloud Functions specific errors (e.g., permission denied, not found)
                                     if (mounted) {
+                                      // Add mounted check before showing SnackBar
+                                      if (!mounted) return;
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
@@ -1057,6 +1071,7 @@ class _OpportunityDetailFormViewState
                                         ),
                                       );
                                     }
+                                    // Use kDebugMode check for print
                                     if (kDebugMode) {
                                       print(
                                         "FirebaseFunctionsException: ${e.code} - ${e.message}",
@@ -1065,6 +1080,8 @@ class _OpportunityDetailFormViewState
                                   } catch (e) {
                                     // Handle unexpected errors during the call
                                     if (mounted) {
+                                      // Add mounted check before showing SnackBar
+                                      if (!mounted) return;
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
@@ -1079,6 +1096,7 @@ class _OpportunityDetailFormViewState
                                         ),
                                       );
                                     }
+                                    // Use kDebugMode check for print
                                     if (kDebugMode) {
                                       print(
                                         "Generic Error calling Cloud Function: $e",
@@ -1095,6 +1113,8 @@ class _OpportunityDetailFormViewState
                                   // -------------------------
                                 } else {
                                   // Form is invalid, show error message
+                                  // Add mounted check before showing SnackBar
+                                  if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -1139,7 +1159,10 @@ class _OpportunityDetailFormViewState
                           _isSubmitting
                               ? null
                               : () async {
-                                print('Reject button pressed');
+                                // Use kDebugMode check for print
+                                if (kDebugMode) {
+                                  print('Reject button pressed');
+                                }
                                 final reason = await _showRejectionDialog();
                                 if (reason != null && reason.isNotEmpty) {
                                   // Handle rejection logic
@@ -1150,7 +1173,9 @@ class _OpportunityDetailFormViewState
                         // Use theme for styling error buttons if defined, else derive
                         foregroundColor: colorScheme.error,
                         side: BorderSide(
-                          color: colorScheme.error.withOpacity(0.7),
+                          color: colorScheme.error.withAlpha(
+                            (255 * 0.7).round(),
+                          ), // Fix deprecated withOpacity
                           width: 1.5,
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -1283,9 +1308,9 @@ class _OpportunityDetailFormViewState
         'id': notificationRef.id,
         'userId': resellerId, // Target the reseller
         'title':
-            'Opportunity Rejected', // TODO: Localize Title (e.g., l10n.notificationOpportunityRejectedTitle)
+            'Opportunity Rejected', // Placeholder - Use l10n.notificationOpportunityRejectedTitle
         'body':
-            'Your submission requires attention. Reason: $reason', // TODO: Localize Body (e.g., l10n.notificationOpportunityRejectedBody(reason))
+            'Your submission requires attention. Reason: $reason', // Placeholder - Use l10n.notificationOpportunityRejectedBody(reason)
         'timestamp': FieldValue.serverTimestamp(),
         'isRead': false,
         'type':
@@ -1297,11 +1322,17 @@ class _OpportunityDetailFormViewState
       };
 
       await notificationRef.set(notificationData);
-      print(
-        'Rejection notification created for reseller $resellerId, submission $submissionId',
-      );
+      // Use kDebugMode check for print
+      if (kDebugMode) {
+        print(
+          'Rejection notification created for reseller $resellerId, submission $submissionId',
+        );
+      }
     } catch (e) {
-      print('Error creating rejection notification: $e');
+      // Use kDebugMode check for print
+      if (kDebugMode) {
+        print('Error creating rejection notification: $e');
+      }
       // Log or handle error, but don't block the main rejection flow
       rethrow; // Re-throw if needed for upstream handling
     }
