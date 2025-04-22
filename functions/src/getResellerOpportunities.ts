@@ -17,6 +17,7 @@ interface SalesforceOpportunity {
     NIF__c: string | null; // Added NIF field
     Fase__c: string | null;
     CreatedDate: string; // Date field (ISO 8601 format)
+    Nome_Entidade__c: string | null; // Added field for client/account name
     // Removed: AccountId, Account, Solu_o__c, Data_de_Previs_o_de_Fecho__c
 }
 
@@ -100,6 +101,13 @@ export const getResellerOpportunities = onCall(
                 aud: audience,
                 exp: Math.floor(Date.now() / 1000) + (3 * 60) // Expires in 3 minutes
             };
+
+            // --- Debug Logging --- 
+            logger.debug(`GRO: typeof privateKey: ${typeof privateKey}`);
+            logger.debug(`GRO: privateKey start: ${privateKey?.substring(0, 30)}`); // Log start
+            logger.debug(`GRO: privateKey end: ${privateKey?.substring(privateKey.length - 30)}`); // Log end
+            // --- End Debug --- 
+
             const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
 
             logger.debug('getResellerOpportunities: Requesting Salesforce access token...');
@@ -132,7 +140,8 @@ export const getResellerOpportunities = onCall(
                     Name,
                     NIF__c,
                     Fase__c,
-                    CreatedDate
+                    CreatedDate,
+                    Nome_Entidade__c
                 FROM Oportunidade__c
                 WHERE Agente_Retail__c = '${resellerSalesforceId}'
                 ORDER BY CreatedDate DESC

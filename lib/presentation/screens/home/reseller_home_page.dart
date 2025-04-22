@@ -841,7 +841,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  // Helper method to handle notification tap
+  // --- Helper method to handle notification tap
   void _handleNotificationTap(
     UserNotification notification,
     NotificationActions actions,
@@ -849,8 +849,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // --- Check for special password reminder ID ---
     if (notification.id == '__password_reminder__') {
       context.push('/profile-details');
-      return;
+      return; // Don't proceed with marking as read etc.
     }
+    // --------------------------------------------
 
     // Mark notification as read (only for real notifications)
     await actions.markAsRead(notification.id);
@@ -859,90 +860,31 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     switch (notification.type) {
       case NotificationType.statusChange:
         if (notification.metadata.containsKey('submissionId')) {
-          final submissionId = notification.metadata['submissionId'] as String?;
-          if (submissionId != null) {
-            // Need to fetch the submission before navigating
-            _fetchAndNavigateToDetail(submissionId);
-          } else {
-            print("Error: Status change notification missing submissionId");
-          }
+          final submissionId = notification.metadata['submissionId'];
+          context.push('/submissions/$submissionId');
         }
         break;
       case NotificationType.rejection:
-        // --- MODIFIED: Navigate to Detail Page --- //
-        if (notification.metadata.containsKey('submissionId')) {
-          final submissionId = notification.metadata['submissionId'] as String?;
-          if (submissionId != null) {
-            // Fetch the submission and navigate
-            _fetchAndNavigateToDetail(submissionId);
-          } else {
-            print("Error: Rejection notification missing submissionId");
-          }
-        } else {
-          print(
-            "Error: Rejection notification missing submissionId metadata key",
-          );
-        }
-        // --- REMOVED: Old showDialog logic ---
-        // showDialog(
-        //   context: context,
-        //   builder: (dialogContext) {
-        //     return RejectionDetailDialog(notification: notification);
-        //   },
-        // );
+        // Show the dialog instead of navigation
+        showDialog(
+          context: context,
+          // barrierColor: Colors.black.withOpacity(0.3), // Optional: dim background
+          builder: (dialogContext) {
+            return RejectionDetailDialog(notification: notification);
+          },
+        );
         break;
       case NotificationType.payment:
+        // Navigate to payment details or dashboard
         context.push('/dashboard');
         break;
       case NotificationType.system:
       default:
+        // For system notifications (like our reminder, though handled above),
+        // just mark as read but don't navigate
         break;
     }
   }
-
-  // --- NEW HELPER: Fetch Submission and Navigate --- //
-  Future<void> _fetchAndNavigateToDetail(String submissionId) async {
-    if (!mounted) return; // Check if widget is still in the tree
-
-    // Optional: Show a loading indicator
-    // Consider using a state management solution for better loading UI
-    print("Fetching submission details for ID: $submissionId");
-
-    try {
-      final docSnapshot =
-          await FirebaseFirestore.instance
-              .collection('serviceSubmissions')
-              .doc(submissionId)
-              .get();
-
-      if (!mounted) return;
-
-      if (docSnapshot.exists) {
-        final submission = ServiceSubmission.fromFirestore(docSnapshot);
-        // Navigate to the detail page, passing the submission object
-        context.push('/admin/opportunity-detail', extra: submission);
-      } else {
-        print("Error: Submission document not found for ID: $submissionId");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not find the submission details.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } catch (e) {
-      print("Error fetching submission document: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading submission details: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-  // ---------------------------------------------- //
 
   // New method to build a notification item
   Widget _buildNotificationItem({
@@ -950,46 +892,34 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
     IconData icon;
     Color iconColor;
-    Color iconContainerColor;
 
-    // Set icon and color based on notification type using Theme colors
+    // Set icon and color based on notification type
     switch (notification.type) {
       case NotificationType.statusChange:
-        icon = Icons.sync_alt; // Material Icon
+        icon = Icons.swap_horiz_rounded;
         final status = notification.metadata['newStatus'] as String? ?? '';
         if (status == 'approved') {
-          // Assuming 'primary' or a success color for approved
-          iconColor = colorScheme.primary; // Or AppColors.success if defined
-          iconContainerColor = colorScheme.primaryContainer;
+          iconColor = theme.colorScheme.tertiary;
         } else if (status == 'rejected') {
-          iconColor = colorScheme.error;
-          iconContainerColor = colorScheme.errorContainer;
+          iconColor = theme.colorScheme.error;
         } else {
-          // Generic status change color (e.g., 'in progress')
-          iconColor = colorScheme.secondary;
-          iconContainerColor = colorScheme.secondaryContainer;
+          iconColor = theme.colorScheme.secondary;
         }
         break;
       case NotificationType.rejection:
-        icon = Icons.warning_amber_rounded; // Material Icon (like dialog)
-        iconColor = colorScheme.error;
-        iconContainerColor = colorScheme.errorContainer;
+        icon = Icons.warning_amber_rounded;
+        iconColor = theme.colorScheme.error;
         break;
       case NotificationType.payment:
-        icon = Icons.receipt_long; // Material Icon
-        iconColor = colorScheme.tertiary; // Using tertiary for payment
-        iconContainerColor = colorScheme.tertiaryContainer;
+        icon = Icons.payments_rounded;
+        iconColor = theme.colorScheme.tertiary;
         break;
       case NotificationType.system:
       default:
-        icon = Icons.notifications_active_outlined; // Material Icon
-        iconColor = colorScheme.primary;
-        iconContainerColor = colorScheme.primaryContainer;
+        icon = Icons.notifications;
+        iconColor = theme.colorScheme.primary;
     }
 
     // Format date
@@ -1005,14 +935,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface, // Keep using surface
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color:
                 theme.brightness == Brightness.dark
-                    ? colorScheme.shadow.withOpacity(0.2)
-                    : colorScheme.shadow.withOpacity(0.08),
+                    ? theme.colorScheme.shadow.withOpacity(0.2)
+                    : theme.colorScheme.shadow.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
@@ -1021,7 +951,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         border: Border.all(
           color:
               theme.brightness == Brightness.dark
-                  ? colorScheme.onSurface.withOpacity(0.05)
+                  ? theme.colorScheme.onSurface.withOpacity(0.05)
                   : Colors.transparent,
           width: theme.brightness == Brightness.dark ? 1 : 0,
         ),
@@ -1040,22 +970,17 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: iconContainerColor, // Use theme container color
+                    color: iconColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    // Optional: remove shadow if container color is enough
-                    // boxShadow: [
-                    //   BoxShadow(
-                    //     color: iconContainerColor.withOpacity(0.5), // Adjust opacity
-                    //     blurRadius: 4,
-                    //     offset: const Offset(0, 2),
-                    //   ),
-                    // ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    icon,
-                    color: iconColor,
-                    size: 20,
-                  ), // Adjusted size slightly
+                  child: Icon(icon, color: iconColor, size: 18),
                 ),
                 const SizedBox(width: 16),
 
@@ -1069,11 +994,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         children: [
                           Text(
                             dateString,
-                            style: textTheme.labelSmall?.copyWith(
-                              // Use labelSmall
-                              color:
-                                  colorScheme
-                                      .onSurfaceVariant, // Use theme color
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.7,
+                              ),
                             ),
                           ),
                           if (!notification.isRead)
@@ -1081,9 +1006,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color:
-                                    colorScheme
-                                        .primary, // Use theme primary color
+                                color: theme.colorScheme.primary,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1092,18 +1015,17 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                       const SizedBox(height: 4),
                       Text(
                         notification.title,
-                        style: textTheme.titleSmall?.copyWith(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         notification.metadata['clientName']?.toString() ??
                             notification.message,
-                        style: textTheme.bodyMedium?.copyWith(
-                          // Use bodyMedium
-                          color: colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

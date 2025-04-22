@@ -269,7 +269,7 @@ class _OpportunityDetailFormViewState
       final legacyInvoicePhoto = widget.submission.invoicePhoto;
       if (legacyInvoicePhoto?.storagePath != null &&
           legacyInvoicePhoto!.storagePath.isNotEmpty) {
-        if (kDebugMode) {
+      if (kDebugMode) {
           print(
             "Falling back to single legacy invoicePhoto path: ${legacyInvoicePhoto.storagePath}",
           );
@@ -279,14 +279,14 @@ class _OpportunityDetailFormViewState
           legacyInvoicePhoto.storagePath,
         ]; // Treat the path as a list of one
       } else {
-        if (kDebugMode) {
+      if (kDebugMode) {
           print("No valid URLs or paths found in submission data.");
         }
         return []; // No files found
       }
     }
 
-    if (kDebugMode) {
+      if (kDebugMode) {
       print("Processing URLs/Paths: $urlsOrPaths");
     }
 
@@ -346,8 +346,8 @@ class _OpportunityDetailFormViewState
                       ? widget.submission.invoicePhoto?.contentType
                       : null,
             };
-          } catch (e) {
-            if (kDebugMode) {
+    } catch (e) {
+      if (kDebugMode) {
               print("Error processing URL/Path $urlOrPath: $e");
             }
             String fileName = 'Unknown File';
@@ -838,7 +838,7 @@ class _OpportunityDetailFormViewState
                         Expanded(
                           child: Text(
                             '${l10n.opportunityDetailInvoiceError}: ${snapshot.error}',
-                            style: textTheme.bodyMedium?.copyWith(
+                          style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.error,
                             ),
                           ),
@@ -917,10 +917,10 @@ class _OpportunityDetailFormViewState
         border: Border.all(color: theme.colorScheme.errorContainer, width: 0.5),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
               Icon(Icons.info_outline, color: theme.colorScheme.error),
               const SizedBox(width: 8),
               Text(
@@ -928,10 +928,10 @@ class _OpportunityDetailFormViewState
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.error,
-                ),
-              ),
-            ],
-          ),
+                              ),
+                            ),
+                          ],
+                        ),
           const Divider(height: 20, thickness: 0.5),
           Text(
             "Rejection Reason:", // Placeholder
@@ -972,58 +972,58 @@ class _OpportunityDetailFormViewState
   ) {
     final colorScheme = theme.colorScheme;
     return Center(
-      child: Wrap(
+                child: Wrap(
         spacing: 16.0,
         runSpacing: 8.0,
-        alignment: WrapAlignment.center,
-        children: [
+                  alignment: WrapAlignment.center,
+                  children: [
           // Approve Button
-          ElevatedButton(
-            onPressed:
-                _isSubmitting
-                    ? null
-                    : () async {
+                    ElevatedButton(
+                      onPressed:
+                          _isSubmitting
+                              ? null
+                              : () async {
                       // ... (Existing validation and submission logic) ...
-                    },
-            style: ElevatedButton.styleFrom(
+                              },
+                      style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-            child:
-                _isSubmitting
-                    ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.onPrimary,
                       ),
-                    )
+                      child:
+                          _isSubmitting
+                              ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                        color: colorScheme.onPrimary,
+                                ),
+                              )
                     : Text(l10n.opportunityApproveButton),
-          ),
+                              ),
           // Reject Button
-          OutlinedButton.icon(
-            icon: const Icon(Icons.cancel_outlined),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.cancel_outlined),
             label: Text(l10n.opportunityRejectButton),
-            onPressed:
-                _isSubmitting
-                    ? null
-                    : () async {
-                      final reason = await _showRejectionDialog();
-                      if (reason != null && reason.isNotEmpty) {
-                        await _handleRejection(reason);
-                      }
-                    },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.error,
-              side: BorderSide(
+                      onPressed:
+                          _isSubmitting
+                              ? null
+                              : () async {
+                                final reason = await _showRejectionDialog();
+                                if (reason != null && reason.isNotEmpty) {
+                                  await _handleRejection(reason);
+                                }
+                              },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.error,
+                        side: BorderSide(
                 color: colorScheme.error.withAlpha((255 * 0.7).round()),
-                width: 1.5,
-              ),
+                          width: 1.5,
+                        ),
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-          ),
-        ],
-      ),
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
   // --------------------------------------------------------- //

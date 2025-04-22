@@ -7,11 +7,12 @@ part 'salesforce_opportunity.g.dart';
 @freezed
 class SalesforceOpportunity with _$SalesforceOpportunity {
   const factory SalesforceOpportunity({
-    required String Id,
-    required String Name,
+    @JsonKey(name: 'Id') required String id,
+    @JsonKey(name: 'Name') required String name,
     String? NIF__c,
     String? Fase__c,
     required String CreatedDate,
+    String? Nome_Entidade__c,
     // Add other fields from SOQL if needed
   }) = _SalesforceOpportunity;
 

@@ -21,11 +21,14 @@ SalesforceOpportunity _$SalesforceOpportunityFromJson(
 
 /// @nodoc
 mixin _$SalesforceOpportunity {
-  String get Id => throw _privateConstructorUsedError;
-  String get Name => throw _privateConstructorUsedError;
+  @JsonKey(name: 'Id')
+  String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'Name')
+  String get name => throw _privateConstructorUsedError;
   String? get NIF__c => throw _privateConstructorUsedError;
   String? get Fase__c => throw _privateConstructorUsedError;
   String get CreatedDate => throw _privateConstructorUsedError;
+  String? get Nome_Entidade__c => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -40,11 +43,12 @@ abstract class $SalesforceOpportunityCopyWith<$Res> {
       _$SalesforceOpportunityCopyWithImpl<$Res, SalesforceOpportunity>;
   @useResult
   $Res call(
-      {String Id,
-      String Name,
+      {@JsonKey(name: 'Id') String id,
+      @JsonKey(name: 'Name') String name,
       String? NIF__c,
       String? Fase__c,
-      String CreatedDate});
+      String CreatedDate,
+      String? Nome_Entidade__c});
 }
 
 /// @nodoc
@@ -61,20 +65,21 @@ class _$SalesforceOpportunityCopyWithImpl<$Res,
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? Id = null,
-    Object? Name = null,
+    Object? id = null,
+    Object? name = null,
     Object? NIF__c = freezed,
     Object? Fase__c = freezed,
     Object? CreatedDate = null,
+    Object? Nome_Entidade__c = freezed,
   }) {
     return _then(_value.copyWith(
-      Id: null == Id
-          ? _value.Id
-          : Id // ignore: cast_nullable_to_non_nullable
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
               as String,
-      Name: null == Name
-          ? _value.Name
-          : Name // ignore: cast_nullable_to_non_nullable
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
               as String,
       NIF__c: freezed == NIF__c
           ? _value.NIF__c
@@ -88,6 +93,10 @@ class _$SalesforceOpportunityCopyWithImpl<$Res,
           ? _value.CreatedDate
           : CreatedDate // ignore: cast_nullable_to_non_nullable
               as String,
+      Nome_Entidade__c: freezed == Nome_Entidade__c
+          ? _value.Nome_Entidade__c
+          : Nome_Entidade__c // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -102,11 +111,12 @@ abstract class _$$SalesforceOpportunityImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {String Id,
-      String Name,
+      {@JsonKey(name: 'Id') String id,
+      @JsonKey(name: 'Name') String name,
       String? NIF__c,
       String? Fase__c,
-      String CreatedDate});
+      String CreatedDate,
+      String? Nome_Entidade__c});
 }
 
 /// @nodoc
@@ -121,20 +131,21 @@ class __$$SalesforceOpportunityImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? Id = null,
-    Object? Name = null,
+    Object? id = null,
+    Object? name = null,
     Object? NIF__c = freezed,
     Object? Fase__c = freezed,
     Object? CreatedDate = null,
+    Object? Nome_Entidade__c = freezed,
   }) {
     return _then(_$SalesforceOpportunityImpl(
-      Id: null == Id
-          ? _value.Id
-          : Id // ignore: cast_nullable_to_non_nullable
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
               as String,
-      Name: null == Name
-          ? _value.Name
-          : Name // ignore: cast_nullable_to_non_nullable
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
               as String,
       NIF__c: freezed == NIF__c
           ? _value.NIF__c
@@ -148,6 +159,10 @@ class __$$SalesforceOpportunityImplCopyWithImpl<$Res>
           ? _value.CreatedDate
           : CreatedDate // ignore: cast_nullable_to_non_nullable
               as String,
+      Nome_Entidade__c: freezed == Nome_Entidade__c
+          ? _value.Nome_Entidade__c
+          : Nome_Entidade__c // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -156,29 +171,34 @@ class __$$SalesforceOpportunityImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$SalesforceOpportunityImpl implements _SalesforceOpportunity {
   const _$SalesforceOpportunityImpl(
-      {required this.Id,
-      required this.Name,
+      {@JsonKey(name: 'Id') required this.id,
+      @JsonKey(name: 'Name') required this.name,
       this.NIF__c,
       this.Fase__c,
-      required this.CreatedDate});
+      required this.CreatedDate,
+      this.Nome_Entidade__c});
 
   factory _$SalesforceOpportunityImpl.fromJson(Map<String, dynamic> json) =>
       _$$SalesforceOpportunityImplFromJson(json);
 
   @override
-  final String Id;
+  @JsonKey(name: 'Id')
+  final String id;
   @override
-  final String Name;
+  @JsonKey(name: 'Name')
+  final String name;
   @override
   final String? NIF__c;
   @override
   final String? Fase__c;
   @override
   final String CreatedDate;
+  @override
+  final String? Nome_Entidade__c;
 
   @override
   String toString() {
-    return 'SalesforceOpportunity(Id: $Id, Name: $Name, NIF__c: $NIF__c, Fase__c: $Fase__c, CreatedDate: $CreatedDate)';
+    return 'SalesforceOpportunity(id: $id, name: $name, NIF__c: $NIF__c, Fase__c: $Fase__c, CreatedDate: $CreatedDate, Nome_Entidade__c: $Nome_Entidade__c)';
   }
 
   @override
@@ -186,18 +206,20 @@ class _$SalesforceOpportunityImpl implements _SalesforceOpportunity {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$SalesforceOpportunityImpl &&
-            (identical(other.Id, Id) || other.Id == Id) &&
-            (identical(other.Name, Name) || other.Name == Name) &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.name, name) || other.name == name) &&
             (identical(other.NIF__c, NIF__c) || other.NIF__c == NIF__c) &&
             (identical(other.Fase__c, Fase__c) || other.Fase__c == Fase__c) &&
             (identical(other.CreatedDate, CreatedDate) ||
-                other.CreatedDate == CreatedDate));
+                other.CreatedDate == CreatedDate) &&
+            (identical(other.Nome_Entidade__c, Nome_Entidade__c) ||
+                other.Nome_Entidade__c == Nome_Entidade__c));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, Id, Name, NIF__c, Fase__c, CreatedDate);
+  int get hashCode => Object.hash(
+      runtimeType, id, name, NIF__c, Fase__c, CreatedDate, Nome_Entidade__c);
 
   @JsonKey(ignore: true)
   @override
@@ -216,25 +238,30 @@ class _$SalesforceOpportunityImpl implements _SalesforceOpportunity {
 
 abstract class _SalesforceOpportunity implements SalesforceOpportunity {
   const factory _SalesforceOpportunity(
-      {required final String Id,
-      required final String Name,
+      {@JsonKey(name: 'Id') required final String id,
+      @JsonKey(name: 'Name') required final String name,
       final String? NIF__c,
       final String? Fase__c,
-      required final String CreatedDate}) = _$SalesforceOpportunityImpl;
+      required final String CreatedDate,
+      final String? Nome_Entidade__c}) = _$SalesforceOpportunityImpl;
 
   factory _SalesforceOpportunity.fromJson(Map<String, dynamic> json) =
       _$SalesforceOpportunityImpl.fromJson;
 
   @override
-  String get Id;
+  @JsonKey(name: 'Id')
+  String get id;
   @override
-  String get Name;
+  @JsonKey(name: 'Name')
+  String get name;
   @override
   String? get NIF__c;
   @override
   String? get Fase__c;
   @override
   String get CreatedDate;
+  @override
+  String? get Nome_Entidade__c;
   @override
   @JsonKey(ignore: true)
   _$$SalesforceOpportunityImplCopyWith<_$SalesforceOpportunityImpl>

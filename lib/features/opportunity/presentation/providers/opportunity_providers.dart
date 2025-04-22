@@ -74,12 +74,21 @@ final filteredOpportunitiesProvider =
 
           // Filter opportunities based on search query
           return opportunities.where((opportunity) {
-            // Search by name
-            final nameMatch = opportunity.Name.toLowerCase().contains(query);
+            // Search by opportunity name
+            final nameMatch = opportunity.name.toLowerCase().contains(query);
 
-            // Add more fields here as needed
+            // Search by client/account name
+            final clientNameMatch =
+                opportunity.Nome_Entidade__c != null &&
+                opportunity.Nome_Entidade__c!.toLowerCase().contains(query);
 
-            return nameMatch;
+            // Search by NIF if available
+            final nifMatch =
+                opportunity.NIF__c != null &&
+                opportunity.NIF__c!.toLowerCase().contains(query);
+
+            // Return true if any field matches
+            return nameMatch || clientNameMatch || nifMatch;
           }).toList();
         },
         loading: () => [],

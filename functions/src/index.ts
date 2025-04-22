@@ -20,6 +20,7 @@ import * as functions from "firebase-functions"; // Ensure this import exists fo
 import { cleanupExpiredMessages } from './messageCleanup'; // Re-added import
 import { sendMessageNotification } from './notifications'; // Re-added import
 import { getResellerOpportunities } from './getResellerOpportunities'; // Re-added import
+import { getOpportunityProposals } from './getOpportunityProposals'; // <-- ADD THIS IMPORT
 import { resetAndVerifyConversations } from './migrations'; // Re-added import
 
 // Export functions from separate files
@@ -27,6 +28,16 @@ export * from './set-role-claim';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
+
+// Export the other functions
+export {
+    getResellerOpportunities,
+    getOpportunityProposals, // <-- ADD THIS EXPORT
+    resetAndVerifyConversations,
+    sendMessageNotification,
+    cleanupExpiredMessages
+    // Add other callable functions here as you create them
+};
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -1492,11 +1503,3 @@ export const runMigration = onCall({
     );
   }
 });
-
-// Explicitly re-export functions defined in other files
-export {
-  cleanupExpiredMessages, // From ./messageCleanup
-  sendMessageNotification, // From ./notifications
-  getResellerOpportunities, // From ./getResellerOpportunities
-  resetAndVerifyConversations // From ./migrations
-};

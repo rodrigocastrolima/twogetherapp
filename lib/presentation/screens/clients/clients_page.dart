@@ -90,7 +90,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                       return _buildOpportunityCard(
                         context,
                         opportunity,
-                        key: ValueKey(opportunity.Id),
+                        key: ValueKey(opportunity.id),
                       );
                     },
                   );
@@ -263,7 +263,8 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    opportunity.Name,
+                    // Use client name if available, otherwise fall back to opportunity name
+                    opportunity.Nome_Entidade__c ?? opportunity.name,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -355,14 +356,8 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   }
 
   void _showOpportunityDetails(SalesforceOpportunity opportunity) {
-    // TODO: Implement opportunity detail view
-    // For now, just show information in a bottom sheet
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _OpportunityDetailsSheet(opportunity: opportunity),
-    );
+    // Navigate to the opportunity details page instead of showing a bottom sheet
+    context.push('/opportunity-details', extra: opportunity);
   }
 }
 
@@ -440,7 +435,7 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        opportunity.Name,
+                        opportunity.name,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -474,7 +469,7 @@ class _OpportunityDetailsSheet extends StatelessWidget {
                 children: [
                   // Opportunity Information Section
                   _buildSectionTitle(context, 'Informações da Oportunidade'),
-                  _buildInfoItem(context, 'Nome', opportunity.Name),
+                  _buildInfoItem(context, 'Nome', opportunity.name),
                   _buildInfoItem(context, 'Fase', opportunity.Fase__c ?? 'N/A'),
                   _buildInfoItem(context, 'NIF', opportunity.NIF__c ?? 'N/A'),
                   _buildInfoItem(context, 'Data Criação', formattedCreatedDate),

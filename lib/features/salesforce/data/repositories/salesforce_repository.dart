@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../opportunity/presentation/pages/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
+import '../../../../core/models/service_submission.dart';
+import '../../../proposal/data/models/salesforce_proposal.dart';
 
 /// Repository for interacting with Salesforce data through Firebase Cloud Functions
 class SalesforceRepository {
@@ -205,6 +207,82 @@ class SalesforceRepository {
         print('Error fetching opportunities: $e');
       }
       throw Exception('Failed to fetch opportunities: $e');
+    }
+  }
+
+  /// Fetches proposals related to a specific opportunity from Salesforce
+  ///
+  /// [opportunityId] is the Salesforce Opportunity ID.
+  /// Returns a list of [SalesforceProposal] objects or throws an exception.
+  Future<List<SalesforceProposal>> getOpportunityProposals(
+    String opportunityId,
+  ) async {
+    if (kDebugMode) {
+      print('Fetching proposals for Opportunity ID: $opportunityId');
+    }
+    // Validate input
+    if (opportunityId.isEmpty) {
+      throw Exception('Opportunity ID cannot be empty');
+    }
+
+    try {
+      // Call the Cloud Function
+      final callable = _functions.httpsCallable('getOpportunityProposals');
+      final result = await callable.call<Map<String, dynamic>>({
+        'opportunityId': opportunityId,
+      });
+
+      // Parse the response
+      final data = result.data;
+      if (kDebugMode) {
+        print('getOpportunityProposals Cloud Function response: $data');
+      }
+
+      if (data['success'] == true) {
+        final proposalsJson = data['proposals'] as List<dynamic>?;
+
+        if (proposalsJson == null || proposalsJson.isEmpty) {
+          return []; // Return empty list if no proposals
+        }
+
+        // Convert each JSON object to a SalesforceProposal
+        return proposalsJson.map((json) {
+          if (json is Map) {
+            return SalesforceProposal.fromJson(Map<String, dynamic>.from(json));
+          } else {
+            if (kDebugMode) {
+              print(
+                'Skipping unexpected item type in proposals list: ${json?.runtimeType}',
+              );
+            }
+            throw Exception(
+              'Unexpected item type found in proposals list: ${json?.runtimeType}',
+            );
+          }
+        }).toList();
+      } else {
+        // Handle error response from the function
+        final errorMessage =
+            data['error'] as String? ?? 'Unknown error from function';
+        final errorCode = data['errorCode'] as String? ?? 'FUNCTION_ERROR';
+        throw Exception(
+          'Failed to fetch proposals: [$errorCode] $errorMessage',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          'getOpportunityProposals Firebase Functions error: [${e.code}] ${e.message}',
+        );
+      }
+      throw Exception(
+        'Cloud function error fetching proposals: [${e.code}] ${e.message ?? "Unknown error"}',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('getOpportunityProposals General error: $e');
+      }
+      throw Exception('Failed to fetch proposals: $e');
     }
   }
 }

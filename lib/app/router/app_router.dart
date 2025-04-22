@@ -12,7 +12,7 @@ import '../../presentation/screens/auth/login_page.dart';
 import '../../presentation/screens/auth/change_password_page.dart';
 import '../../presentation/screens/home/reseller_home_page.dart';
 import '../../presentation/screens/clients/clients_page.dart';
-import '../../presentation/screens/clients/client_details_page.dart';
+import '../../presentation/screens/clients/opportunity_details_page.dart';
 import '../../presentation/screens/messages/messages_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../presentation/screens/services/services_page.dart';
@@ -32,6 +32,7 @@ import '../../core/models/enums.dart';
 import '../../presentation/screens/admin/dev_tools_page.dart';
 import '../../core/models/service_submission.dart';
 import '../../features/opportunity/presentation/pages/opportunity_detail_page.dart';
+import '../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -803,16 +804,10 @@ class AppRouter {
         path: '/client-details',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          final clientData = state.extra as Map<String, dynamic>?;
-          // Handle potentially null extra data
-          if (clientData == null) {
-            return const MaterialPage(
-              child: Scaffold(body: Center(child: Text("Client data missing"))),
-            );
-          }
+          // This route is currently not used since we've refactored to opportunity details
+          // We'll keep it for backwards compatibility but redirect to home
           return MaterialPage(
-            fullscreenDialog: true,
-            child: ClientDetailsPage(clientData: clientData),
+            child: Scaffold(body: Center(child: Text("Page has been moved"))),
           );
         },
       ),
@@ -920,6 +915,24 @@ class AppRouter {
             // Consider adding a unique key if needed: key: ValueKey(submission.id),
             fullscreenDialog: false, // Display as a standard page push
             child: OpportunityDetailFormView(submission: submission),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/opportunity-details',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final opportunity = state.extra as SalesforceOpportunity?;
+          if (opportunity == null) {
+            return const MaterialPage(
+              child: Scaffold(
+                body: Center(child: Text("Opportunity data missing")),
+              ),
+            );
+          }
+          return MaterialPage(
+            fullscreenDialog: false,
+            child: OpportunityDetailsPage(opportunity: opportunity),
           );
         },
       ),
