@@ -110,6 +110,17 @@ class NotificationRepository {
           .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .snapshots()
+          .map((snapshot) {
+            if (kDebugMode) {
+              print(
+                '[DEBUG] Raw snapshot received. Docs count: ${snapshot.docs.length}',
+              );
+              for (var doc in snapshot.docs) {
+                print('[DEBUG] Doc ID: ${doc.id}, Data: ${doc.data()}');
+              }
+            }
+            return snapshot; // Pass the snapshot through
+          })
           .handleError((error) {
             if (kDebugMode) {
               print('Error in notifications stream: $error');

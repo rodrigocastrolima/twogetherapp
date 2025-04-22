@@ -15,15 +15,17 @@ import 'package:firebase_auth/firebase_auth.dart'; // <-- Add FirebaseAuth impor
 import 'package:flutter/cupertino.dart'; // Import Cupertino widgets
 import 'package:go_router/go_router.dart'; // <-- Import GoRouter
 
-// Provider to stream pending opportunity submissions
+// Provider to stream pending AND rejected opportunity submissions
 final pendingOpportunitiesProvider = StreamProvider<List<ServiceSubmission>>((
   ref,
 ) {
   // Consider adding error handling for the stream itself if needed
   return FirebaseFirestore.instance
       .collection('serviceSubmissions')
-      .where('status', isEqualTo: 'Pending')
-      .orderBy('timestamp', descending: true)
+      // Fetch documents where status is either 'pending_review' OR 'rejected'
+      .where('status', whereIn: ['pending_review', 'rejected'])
+      // Keep ordering by timestamp
+      .orderBy('submissionTimestamp', descending: true)
       .snapshots()
       .map((snapshot) {
         // +++ Add logging INSIDE the map +++
@@ -476,7 +478,6 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 3,
                   child: Text(
-                    // l10n.opportunityCompanyOrName, // TODO: Add localization key
                     'Company / Name',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -486,7 +487,6 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    // l10n.opportunityNif, // TODO: Add localization key
                     'NIF',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -496,7 +496,6 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    // l10n.opportunityReseller, // TODO: Add localization key
                     'Reseller',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -506,8 +505,16 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    // l10n.opportunitySubmittedDate, // TODO: Add localization key
                     'Submitted',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1, // Add flex for Status column
+                  child: Text(
+                    'Status', // Add Status header
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -521,6 +528,18 @@ class _OpportunityVerificationPageState
 
         // Data Rows
         final submission = submissions[index - 1];
+        // --- Determine status color --- //
+        Color statusColor;
+        if (submission.status == 'rejected') {
+          statusColor = theme.colorScheme.error;
+        } else {
+          // pending_review
+          statusColor =
+              theme
+                  .colorScheme
+                  .secondary; // Or primary, or a specific pending color
+        }
+        // ------------------------------ //
         return Material(
           color:
               index % 2 != 0
@@ -541,8 +560,7 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 3,
                     child: Text(
-                      submission.companyName ??
-                          submission.responsibleName, // Use expression directly
+                      submission.companyName ?? submission.responsibleName,
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -550,15 +568,14 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 2,
                     child: Text(
-                      submission.nif ?? '-', // Keep ?? '-' for nif
+                      submission.nif ?? '-',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      submission
-                          .resellerName, // Remove ?? '-', resellerName is non-nullable
+                      submission.resellerName,
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -568,6 +585,25 @@ class _OpportunityVerificationPageState
                     child: Text(
                       _formatDate(submission.submissionDate),
                       style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 1, // Add flex for Status column
+                    child: Text(
+                      // Display formatted status
+                      submission.status
+                          .replaceAll('_', ' ')
+                          .split(' ')
+                          .map(
+                            (word) =>
+                                '${word[0].toUpperCase()}${word.substring(1)}',
+                          )
+                          .join(' '),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: statusColor, // Use determined color
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   SizedBox(
@@ -664,6 +700,18 @@ class _OpportunityVerificationPageState
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       itemBuilder: (context, index) {
         final submission = submissions[index];
+        // --- Determine status color and background --- //
+        Color statusColor;
+        Color statusBgColor;
+        if (submission.status == 'rejected') {
+          statusColor = theme.colorScheme.error;
+          statusBgColor = theme.colorScheme.errorContainer.withOpacity(0.7);
+        } else {
+          // pending_review
+          statusColor = theme.colorScheme.secondary; // Match web list
+          statusBgColor = theme.colorScheme.secondaryContainer.withOpacity(0.7);
+        }
+        // --------------------------------------------- //
         return Card(
           // Use Card for better mobile appearance
           elevation: 1.0, // Subtle elevation
@@ -698,9 +746,7 @@ class _OpportunityVerificationPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          submission.companyName ??
-                              submission
-                                  .responsibleName, // Use expression directly
+                          submission.companyName ?? submission.responsibleName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurface,
@@ -711,15 +757,14 @@ class _OpportunityVerificationPageState
                         _buildMobileInfoRow(
                           context,
                           'NIF',
-                          submission.nif ?? '-', // Keep ?? '-' for nif
+                          submission.nif ?? '-',
                           theme,
                         ),
                         const SizedBox(height: 4),
                         _buildMobileInfoRow(
                           context,
                           'Reseller',
-                          submission
-                              .resellerName, // Remove ?? '-', resellerName is non-nullable
+                          submission.resellerName,
                           theme,
                         ),
                         const SizedBox(height: 4),
@@ -729,7 +774,9 @@ class _OpportunityVerificationPageState
                           _formatDate(submission.submissionDate),
                           theme,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(
+                          height: 8,
+                        ), // Increased spacing before status
                         Row(
                           children: [
                             Text(
@@ -747,16 +794,23 @@ class _OpportunityVerificationPageState
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer
-                                    .withOpacity(0.7),
+                                color:
+                                    statusBgColor, // Use determined background color
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
+                                // Display formatted status
                                 submission.status
                                     .replaceAll('_', ' ')
-                                    .toUpperCase(),
+                                    .split(' ')
+                                    .map(
+                                      (word) =>
+                                          '${word[0].toUpperCase()}${word.substring(1)}',
+                                    )
+                                    .join(' '),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSecondaryContainer,
+                                  color:
+                                      statusColor, // Use determined text color
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
                                 ),

@@ -8,6 +8,7 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/service_submission_provider.dart';
 // import '../../../../core/theme/ui_styles.dart'; // Unused import
+import 'package:file_picker/file_picker.dart'; // Ensure PlatformFile is available
 
 // Define callback types
 typedef OnFilePickedCallback = void Function(dynamic fileData, String fileName);
@@ -20,7 +21,7 @@ class FileUploadWidget extends ConsumerWidget {
   // final String? selectedFileName;
 
   // Make the constructor const and parameterless
-  const FileUploadWidget({Key? key}) : super(key: key);
+  const FileUploadWidget({super.key});
 
   // --- Method to trigger file picking logic (handles platform differences) ---
   void _triggerFilePick(BuildContext context, WidgetRef ref) {
@@ -31,7 +32,7 @@ class FileUploadWidget extends ConsumerWidget {
       // Use platform-specific picker options for mobile
       if (Platform.isIOS || Platform.isAndroid) {
         // Be explicit about mobile
-      _showMobilePickerOptions(context, ref);
+        _showMobilePickerOptions(context, ref);
       } else {
         // Fallback for other non-web platforms if needed
         notifier.pickInvoiceFile();
@@ -72,8 +73,8 @@ class FileUploadWidget extends ConsumerWidget {
               onPressed: () {
                 Navigator.pop(modalContext);
                 notifier.pickInvoiceFile();
-                },
-              ),
+              },
+            ),
             CupertinoActionSheetAction(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -93,8 +94,8 @@ class FileUploadWidget extends ConsumerWidget {
               onPressed: () {
                 Navigator.pop(modalContext);
                 notifier.pickInvoiceFileFromCamera();
-                },
-              ),
+              },
+            ),
           ],
           cancelButton: CupertinoActionSheetAction(
             child: Text(
@@ -135,127 +136,225 @@ class FileUploadWidget extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Label for the upload section - Now includes the add button
+        Padding(
+          padding: const EdgeInsets.only(
+            left: 4.0, // Align with text field labels
+            right: 0, // No right padding needed here
+            bottom: 8.0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                // l10n.fileUploadSectionTitle, // Add a key for this in .arb files
+                'Attach Documents', // Placeholder title
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              // Add IconButton here
+              IconButton(
+                icon: Icon(
+                  CupertinoIcons.add_circled,
+                  color: colorScheme.primary,
+                ),
+                padding: EdgeInsets.zero, // Remove default padding
+                constraints:
+                    const BoxConstraints(), // Remove default constraints
+                visualDensity: VisualDensity.compact, // Make it smaller
+                tooltip: l10n.fileUploadButtonLabel,
+                onPressed: () => _triggerFilePick(context, ref),
+              ),
+            ],
+          ),
+        ),
         // --- Combined Add/Display Box ---
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16), // Consistent padding
-              decoration: BoxDecoration(
-                border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.all(12), // Slightly reduced padding
+          constraints: const BoxConstraints(
+            minHeight: 150,
+          ), // Ensure minimum height
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+            borderRadius: BorderRadius.circular(12),
             color:
                 colorScheme.surfaceContainerHighest, // Use a subtle background
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-              // --- Conditional Hint Text ---
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Allow column to shrink
+            mainAxisAlignment: MainAxisAlignment.center, // Center hint text
+            children: [
+              // --- Grid/Wrap for Previews --- (No Add Button here anymore)
+              if (files.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 0,
+                  ), // No bottom padding needed if files exist
+                  child: Wrap(
+                    spacing: 8.0, // Horizontal spacing between items
+                    runSpacing: 8.0, // Vertical spacing between lines
+                    children: List.generate(files.length, (index) {
+                      return _buildFilePreview(
+                        context,
+                        ref,
+                        files[index],
+                        index,
+                      );
+                    }),
+                    // _buildAddButton removed from here
+                  ),
+                ),
+
+              // --- Hint Text (Show only when no files) ---
               if (files.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                    child: Text(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
                     l10n.fileUploadHint,
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
                     ),
+                    textAlign: TextAlign.center,
                   ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-              // --- List of Selected Files (if any) ---
-              // Use ClipRect to prevent overflow if list gets long before scrolling is added
-              if (files.isNotEmpty)
-                ClipRect(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxHeight: 150,
-                    ), // Limit height inside box
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: files.length,
-                      itemBuilder: (context, index) {
-                        final file = files[index];
-                        // Use a simpler tile or row inside the box
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _getFileIcon(file.name),
-                                color: colorScheme.primary,
-                                size: 20,
+  // --- Widget Builder for individual file preview ---
+  Widget _buildFilePreview(
+    BuildContext context,
+    WidgetRef ref,
+    PlatformFile file,
+    int index,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isImage = _isImageFile(file.name);
+    final filePath =
+        kIsWeb ? null : file.path; // path is only available on mobile
+
+    // Use a fixed size for the preview container
+    const double previewSize = 70.0;
+
+    return SizedBox(
+      width: previewSize,
+      height: previewSize, // Only height for content, remove button space
+      child: Stack(
+        clipBehavior: Clip.none, // Allow overflow for the button
+        children: [
+          // --- Content: Image or Icon/Text ---
+          Positioned.fill(
+            child: Container(
+              width: previewSize,
+              height: previewSize,
+              clipBehavior: Clip.antiAlias, // Clip the image/icon
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.dividerColor.withOpacity(0.3),
+                  width: 0.5,
+                ),
+              ),
+              child:
+                  isImage && filePath != null
+                      ? Image.file(
+                        File(filePath),
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) => Center(
+                              child: Icon(
+                                CupertinoIcons.photo,
+                                color: colorScheme.onSurfaceVariant,
+                                size: 30,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  file.name,
-                                  style: textTheme.bodyMedium,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  CupertinoIcons.xmark_circle_fill,
-                                  color: colorScheme.error,
-                                  size: 20,
-                                ),
-                                visualDensity:
-                                    VisualDensity
-                                        .compact, // Make IconButton smaller
-                                padding: EdgeInsets.zero,
-                                tooltip: l10n.fileUploadRemoveTooltip,
-                                onPressed: () {
-                                  ref
-                                      .read(serviceSubmissionProvider.notifier)
-                                      .removeFile(index);
-                                },
-                              ),
-                            ],
+                            ),
+                      )
+                      : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min, // Prevent stretching
+                        children: [
+                          Icon(
+                            CupertinoIcons.doc_text_fill,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 30,
                           ),
-                        );
-                      },
-                    ),
+                          // Removed filename display from here for cleaner preview
+                        ],
+                      ),
+            ),
+          ),
+
+          // --- Remove Button ---
+          Positioned(
+            top: -8, // Adjust position to overlap slightly
+            right: -8,
+            child: Material(
+              // Use Material for InkWell effect
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  ref
+                      .read(serviceSubmissionProvider.notifier)
+                      .removeFile(index);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer.withOpacity(0.9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.xmark,
+                    size: 14, // Smaller icon
+                    color: colorScheme.onErrorContainer,
                   ),
                 ),
-
-              // Separator if files exist
-              if (files.isNotEmpty) const SizedBox(height: 12),
-
-              // --- Always visible Add Button ---
-                  IconButton(
-                icon: Icon(
-                  CupertinoIcons.add_circled,
-                  size: 36,
-                  color: colorScheme.primary,
-                ),
-                tooltip: l10n.fileUploadButtonLabel,
-                    onPressed: () => _triggerFilePick(context, ref),
-                  ),
-                ],
               ),
             ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
   // Helper function to determine file icon
   IconData _getFileIcon(String fileName) {
-    final lowerCaseFileName = fileName.toLowerCase();
-    if (lowerCaseFileName.endsWith('.pdf')) {
-      return CupertinoIcons.doc_text_fill;
-    } else if (lowerCaseFileName.endsWith('.jpg') ||
-        lowerCaseFileName.endsWith('.jpeg') ||
-        lowerCaseFileName.endsWith('.png') ||
-        lowerCaseFileName.endsWith('.heic')) {
+    if (_isImageFile(fileName)) {
       return CupertinoIcons.photo_fill;
-      } else {
-      return CupertinoIcons.doc_fill; // Default document icon
+    } else if (fileName.toLowerCase().endsWith('.pdf')) {
+      return CupertinoIcons.doc_text_fill;
     }
+    return CupertinoIcons.doc; // Default icon
   }
 
-  // --- File Preview Widget Logic (REMOVED as previews are now in the list) ---
-  // Widget _buildFilePreview(...) { ... }
-  // Widget _buildImagePreview(...) { ... }
-  // Widget _buildPdfPreview(...) { ... }
-  // Widget _buildErrorPreview(...) { ... }
+  // Helper function to check if a file is an image based on extension
+  bool _isImageFile(String fileName) {
+    final lowerCaseFileName = fileName.toLowerCase();
+    return lowerCaseFileName.endsWith('.jpg') ||
+        lowerCaseFileName.endsWith('.jpeg') ||
+        lowerCaseFileName.endsWith('.png') ||
+        lowerCaseFileName.endsWith('.gif') || // Added gif
+        lowerCaseFileName.endsWith('.heic') || // Added heic
+        lowerCaseFileName.endsWith('.webp'); // Added webp
+  }
 }
+
+// TODO: Add l10n key 'fileUploadSectionTitle' to app_en.arb, app_es.arb, app_pt.arb
+// Example for app_en.arb:
+// "fileUploadSectionTitle": "Attach Documents",
+// "@fileUploadSectionTitle": {
+//   "description": "Label for the file upload section in the service form"
+// }

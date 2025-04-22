@@ -40,34 +40,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
       ),
       body: Column(
-      children: [
-        // Period Selector - More compact and higher up
-        Padding(
+        children: [
+          // Period Selector - More compact and higher up
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [_buildPeriodSelector(context)],
+            ),
           ),
-        ),
-        // Main Content
-        Expanded(
-          child: NoScrollbarBehavior.noScrollbars(
-            context,
-            SingleChildScrollView(
+          // Main Content
+          Expanded(
+            child: NoScrollbarBehavior.noScrollbars(
+              context,
+              SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     _buildEarningsCard(context),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     _buildEarningsGraph(context),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     _buildStatsGrid(context),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     _buildProcessesSection(context),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     _buildSubmissionsSection(context),
-                ],
+                  ],
                 ),
               ),
             ),
@@ -102,7 +102,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               _buildPeriodOption(context, 'Ciclo', 'month'),
               Container(width: 1, height: 32, color: glassBorderColor),
               _buildPeriodOption(context, 'Total', 'all'),
-      ],
+            ],
           ),
         ),
       ),
@@ -446,186 +446,190 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildProcessesSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
-    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
-    final textColor = theme.colorScheme.onSurfaceVariant;
-    final valueColor = theme.colorScheme.onSurface;
-
-    final processes = {
-      'Em Análise': 12,
-      'Aguardando Documentos': 8,
-      'Pendente Aprovação': 5,
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(context, 'Processos Ativos'),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: AppStyles.standardBlur,
-            child: Container(
-              decoration: BoxDecoration(
-                color: cardBgColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cardBorderColor, width: 0.5),
-              ),
-              child: Column(
-                children:
-                    processes.entries.map((entry) {
-                      final index = processes.keys.toList().indexOf(entry.key);
-                      return _buildListItem(
-                        context,
-                        title: entry.key,
-                        value: entry.value.toString(),
-                        showDivider: index < processes.length - 1,
-                        textColor: textColor,
-                        valueColor: valueColor,
-                        valueBgColor: _getStatusColor(
-                          entry.key,
-                          isDark,
-                        ).withAlpha(38),
-                        valueFgColor: _getStatusColor(entry.key, isDark),
-                      );
-                    }).toList(),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    // Placeholder for processes section
+    return _buildSectionHeader(context, 'Processos Pendentes');
+    // TODO: Add list of pending processes similar to submissions
   }
 
   Widget _buildSubmissionsSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
-    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
-    final textColor = theme.colorScheme.onSurfaceVariant;
-    final valueColor = theme.colorScheme.onSurface;
-
-    final submissions = {'Aprovadas': 18, 'Rejeitadas': 3};
+    // TODO: Replace with actual data fetching
+    final recentSubmissions = [
+      {
+        'title': 'New Submission', // Example title
+        'subtitle': 'Cristina Chirita / abc',
+        'trailing': '4/22/2025 2:40 AM',
+        'isUnread': true,
+      },
+      {
+        'title': 'Submission Updated',
+        'subtitle': 'João Silva / xyz',
+        'trailing': '4/21/2025 11:15 PM',
+        'isUnread': false,
+      },
+      // Add more dummy data if needed
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(context, 'Submissões'),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: AppStyles.standardBlur,
-            child: Container(
-              decoration: BoxDecoration(
-                color: cardBgColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cardBorderColor, width: 0.5),
-              ),
-              child: Column(
-                children:
-                    submissions.entries.map((entry) {
-                      final index = submissions.keys.toList().indexOf(
-                        entry.key,
-                      );
-                      return _buildListItem(
-                        context,
-                        title: entry.key,
-                        value: entry.value.toString(),
-                        showDivider: index < submissions.length - 1,
-                        textColor: textColor,
-                        valueColor: valueColor,
-                        valueBgColor: (entry.key == 'Aprovadas'
-                                ? (isDark
-                                    ? AppTheme.darkSuccess
-                                    : AppTheme.success)
-                                : (isDark
-                                    ? AppTheme.darkDestructive
-                                    : AppTheme.destructive))
-                            .withAlpha(38),
-                        valueFgColor:
-                            entry.key == 'Aprovadas'
-                                ? (isDark
-                                    ? AppTheme.darkSuccess
-                                    : AppTheme.success)
-                                : (isDark
-                                    ? AppTheme.darkDestructive
-                                    : AppTheme.destructive),
-                      );
-                    }).toList(),
-              ),
-            ),
-          ),
+        _buildSectionHeader(context, 'Submissões Recentes'),
+        ListView.builder(
+          itemCount: recentSubmissions.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            final item = recentSubmissions[index];
+            // Call _buildSubmissionItem with data from the map
+            return _buildSubmissionItem(
+              context,
+              title: item['title'] as String,
+              subtitle: item['subtitle'] as String,
+              trailing: item['trailing'] as String,
+              isUnread: item['isUnread'] as bool,
+              // Removed icon/color parameters, will be handled internally
+            );
+          },
         ),
       ],
     );
   }
 
-  Color _getStatusColor(String status, bool isDark) {
-    switch (status) {
-      case 'Em Análise':
-        return isDark ? Colors.blue.shade300 : Colors.blue.shade700;
-      case 'Aguardando Documentos':
-        return isDark ? Colors.orange.shade300 : Colors.orange.shade700;
-      case 'Pendente Aprovação':
-        return isDark ? Colors.purple.shade300 : Colors.purple.shade700;
-      default:
-        return isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    }
-  }
-
-  Widget _buildListItem(
+  // Updated to align styling with notification items
+  Widget _buildSubmissionItem(
     BuildContext context, {
+    // Removed icon, iconColor, iconBgColor parameters
     required String title,
-    required String value,
-    bool showDivider = true,
-    required Color textColor,
-    required Color valueColor,
-    required Color valueBgColor,
-    required Color valueFgColor,
+    required String subtitle,
+    required String trailing,
+    required bool isUnread,
   }) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final dividerColor =
-        isDark
-            ? AppTheme.darkBorder.withAlpha(50)
-            : AppTheme.border.withAlpha(50);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isDark =
+        theme.brightness == Brightness.dark; // Keep for potential future use
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: valueBgColor,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                      value,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: valueFgColor,
-                        fontWeight: FontWeight.w600,
-                    ),
-                ),
-              ),
-            ],
+    // --- Styling derived internally (assuming 'new submission' type for now) ---
+    final IconData icon = Icons.description_outlined; // Standardized icon
+    final Color iconColor = colorScheme.primary;
+    final Color iconContainerColor = colorScheme.primaryContainer;
+    final Color titleColor = colorScheme.onSurface;
+    final Color subtitleColor = colorScheme.onSurfaceVariant;
+    final Color trailingColor = colorScheme.onSurfaceVariant;
+    final Color unreadIndicatorColor = colorScheme.primary;
+    // --------------------------------------------------------------------------
+
+    // Keep using ClipRRect for potential blur/border effects if needed
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(
+          bottom: 12,
+        ), // Add margin like notifications
+        padding: const EdgeInsets.all(12.0),
+        decoration: BoxDecoration(
+          color: colorScheme.surface, // Use surface color like notifications
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            // Add subtle shadow like notifications
+            BoxShadow(
+              color:
+                  isDark
+                      ? colorScheme.shadow.withOpacity(0.2)
+                      : colorScheme.shadow.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: 0,
+            ),
+          ],
+          border: Border.all(
+            // Add border like notifications (for dark mode)
+            color:
+                isDark
+                    ? colorScheme.onSurface.withOpacity(0.05)
+                    : Colors.transparent,
+            width: isDark ? 1 : 0,
           ),
         ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0),
-            child: Divider(height: 0.5, thickness: 0.5, color: dividerColor),
-          ),
-      ],
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              width: 40, // Match notification icon size
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconContainerColor, // Use derived container color
+                borderRadius: BorderRadius.circular(
+                  8,
+                ), // Match notification radius
+                // Removed shape: BoxShape.circle
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 20,
+              ), // Use derived icon/color
+            ),
+            const SizedBox(width: 16), // Match notification spacing
+            // Title & Subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: textTheme.titleSmall?.copyWith(
+                      // Use titleSmall
+                      fontWeight: FontWeight.w600, // Keep bold title
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4), // Match notification spacing
+                  Text(
+                    subtitle,
+                    style: textTheme.bodyMedium?.copyWith(
+                      // Use bodyMedium
+                      color: subtitleColor,
+                    ),
+                    maxLines: 1, // Add overflow handling
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8), // Add spacing before trailing
+            // Trailing & Unread
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center, // Align vertically
+              children: [
+                Text(
+                  trailing,
+                  style: textTheme.labelSmall?.copyWith(
+                    // Use labelSmall
+                    color: trailingColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // Ensure unread indicator container is sized even if empty
+                Container(
+                  width: 8,
+                  height: 8,
+                  child:
+                      isUnread
+                          ? Container(
+                            decoration: BoxDecoration(
+                              color: unreadIndicatorColor,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                          : null, // Render nothing if read
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'service_types.dart';
+import 'package:flutter/foundation.dart';
 
 class ServiceSubmission {
   final String? id; // Null when creating, set when stored
@@ -62,10 +63,17 @@ class ServiceSubmission {
   factory ServiceSubmission.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
-    // Handle documentUrls as a list of strings
-    List<String>? documentUrls;
+    // Handle documentUrls - Read from 'attachmentUrls' if 'documentUrls' is missing
+    List<String>? parsedDocumentUrls;
     if (data['documentUrls'] != null) {
-      documentUrls = List<String>.from(data['documentUrls']);
+      // Prefer the new field name if it exists
+      parsedDocumentUrls = List<String>.from(data['documentUrls']);
+    } else if (data['attachmentUrls'] != null) {
+      // Fallback to the old field name if the new one isn't found
+      if (kDebugMode) {
+        print("Reading file URLs from legacy 'attachmentUrls' field.");
+      }
+      parsedDocumentUrls = List<String>.from(data['attachmentUrls']);
     }
 
     return ServiceSubmission(
@@ -97,7 +105,7 @@ class ServiceSubmission {
               ? SalesforceSync.fromMap(data['salesforceSync'])
               : null,
       submissionTimestamp: data['submissionTimestamp'] ?? Timestamp.now(),
-      documentUrls: documentUrls,
+      documentUrls: parsedDocumentUrls, // Use the correctly parsed list
       status: data['status'] ?? 'pending_review',
     );
   }

@@ -8,14 +8,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
-
-import '../../../core/models/enums.dart';
-import '../../../presentation/widgets/logo.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/models/notification.dart';
+import '../../../core/models/service_submission.dart';
+import '../../../features/notifications/presentation/providers/notification_provider.dart';
+import '../../../features/notifications/presentation/services/notification_service.dart';
 import '../../../core/theme/theme.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/theme/ui_styles.dart';
-import '../../../features/notifications/presentation/providers/notification_provider.dart';
-import '../../../core/models/notification.dart';
+import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
 
 class AdminHomePage extends ConsumerStatefulWidget {
@@ -37,9 +38,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
     // Set up callback to refresh notifications when a new one is created
     ServiceSubmissionRepository.onNotificationCreated = () {
-      if (kDebugMode) {
-        print('AdminHomePage: Notification creation callback triggered');
-      }
+      // if (kDebugMode) { // Removed print
+      //   print('AdminHomePage: Notification creation callback triggered');
+      // }
 
       // Run this in the next frame to ensure it happens after build
       Future.microtask(() {
@@ -59,13 +60,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // REMOVED UNUSED l10n variable
     final theme = Theme.of(context);
     final now = DateTime.now();
     final timeFormatter = DateFormat.jm().format(now);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface, // Use surface, not background
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 24, top: 16),
         child: Column(
@@ -110,13 +111,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
     // Navigation action for the icon button
     void navigateToDetails() {
-      print('Navigating to Statistics Detail - Filter: $_selectedTimeFilter');
+      // print('Navigating to Statistics Detail - Filter: $_selectedTimeFilter'); // Removed print
       context.push(
         '/admin/stats-detail',
-        extra: {
-          // Only pass timeFilter now
-          'timeFilter': _selectedTimeFilter,
-        },
+        extra: {'timeFilter': _selectedTimeFilter},
       );
     }
 
@@ -153,7 +151,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurface,
                       ),
-                      dropdownColor: theme.colorScheme.surfaceVariant,
+                      dropdownColor:
+                          theme
+                              .colorScheme
+                              .surfaceContainerHighest, // Updated deprecated
                       borderRadius: BorderRadius.circular(8),
                       items:
                           TimeFilter.values.map((TimeFilter filter) {
@@ -196,7 +197,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Card(
             elevation: 2,
-            shadowColor: theme.shadowColor.withOpacity(0.1),
+            shadowColor: theme.shadowColor.withAlpha(26), // Use withAlpha
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -342,13 +343,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           verticalInterval: interval, // Align vertical lines with bottom titles
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withAlpha(26), // Use withAlpha
               strokeWidth: 1,
             );
           },
           getDrawingVerticalLine: (value) {
             return FlLine(
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withAlpha(26), // Use withAlpha
               strokeWidth: 1,
             );
           },
@@ -389,7 +390,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         borderData: FlBorderData(
           show: true,
           border: Border.all(
-            color: theme.dividerColor.withOpacity(0.2),
+            color: theme.dividerColor.withAlpha(51), // Use withAlpha
             width: 1,
           ),
         ),
@@ -425,7 +426,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             dotData: FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: theme.colorScheme.primary.withOpacity(0.2),
+              color: theme.colorScheme.primary.withAlpha(51), // Use withAlpha
             ),
           ),
         ],
@@ -459,13 +460,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           verticalInterval: interval,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withAlpha(26), // Use withAlpha
               strokeWidth: 1,
             );
           },
           getDrawingVerticalLine: (value) {
             return FlLine(
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withAlpha(26), // Use withAlpha
               strokeWidth: 1,
             );
           },
@@ -511,7 +512,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         borderData: FlBorderData(
           show: true,
           border: Border.all(
-            color: theme.dividerColor.withOpacity(0.2),
+            color: theme.dividerColor.withAlpha(51), // Use withAlpha
             width: 1,
           ),
         ),
@@ -552,7 +553,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             dotData: FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.green.withOpacity(0.2),
+              color: Colors.green.withAlpha(51), // Use withAlpha
             ),
           ),
         ],
@@ -581,7 +582,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   }
 
   Widget _buildSubmissionsNotificationSection(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // Already removed unused
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,9 +609,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                         child: Icon(
                           CupertinoIcons.refresh,
                           size: 18,
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                            0.7,
-                          ),
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha(
+                            178,
+                          ), // Use withAlpha
                         ),
                         onPressed: () {
                           refreshAdminNotifications(ref);
@@ -623,9 +624,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                         child: Icon(
                           CupertinoIcons.checkmark_circle,
                           size: 18,
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                            0.7,
-                          ),
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha(
+                            178,
+                          ), // Use withAlpha
                         ),
                         onPressed: () {
                           final notificationActions = ref.read(
@@ -664,15 +665,17 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                   Icon(
                     CupertinoIcons.bell_slash,
                     size: 40,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(
+                      153,
+                    ), // Use withAlpha
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No Recent Activity',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                        0.8,
-                      ),
+                      color: theme.colorScheme.onSurfaceVariant.withAlpha(
+                        204,
+                      ), // Use withAlpha
                     ),
                   ),
                 ],
@@ -689,25 +692,22 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
               (context, index) => Divider(
                 height: 1,
                 thickness: 0.5,
-                color: theme.dividerColor.withOpacity(0.5),
+                color: theme.dividerColor.withAlpha(128), // Use withAlpha
                 indent: 16,
                 endIndent: 16,
               ),
           itemBuilder: (context, index) {
             final notification = notifications[index];
+            // --- FIXED: Call the correct handler --- //
             return _buildEnhancedNotificationItem(
               context,
               notification,
-              onTap: () async {
-                await notificationActions.markAsRead(notification.id);
-                if (notification.metadata.containsKey('submissionId')) {
-                  if (context.mounted) {
-                    context.push(
-                      '/admin/opportunities/${notification.metadata['submissionId']}',
-                    );
-                  }
-                }
-              },
+              onTap:
+                  () => _handleAdminNotificationTap(
+                    context,
+                    notification,
+                    notificationActions,
+                  ),
             );
           },
         );
@@ -734,16 +734,16 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                   const SizedBox(height: 16),
                   Text(
                     'Failed to load activity',
-                    style: AppTextStyles.body1.copyWith(
-                      color: AppTheme.foreground,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     error.toString(),
-                    style: AppTextStyles.body2.copyWith(
-                      color: AppTheme.mutedForeground,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -780,7 +780,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
       leading: CircleAvatar(
         radius: 20,
-        backgroundColor: iconColor.withOpacity(0.1),
+        backgroundColor: iconColor.withAlpha(26), // Use withAlpha
         child: Icon(itemIcon, size: 20, color: iconColor),
       ),
       title: Text(
@@ -793,7 +793,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        '${resellerName} / ${clientName}',
+        '$resellerName / $clientName',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),
@@ -900,4 +900,113 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       child: Text(text, style: style, textAlign: TextAlign.left),
     );
   }
+
+  // --- UPDATED: Admin Notification Tap Handler --- //
+  void _handleAdminNotificationTap(
+    BuildContext context,
+    UserNotification notification,
+    NotificationActions actions,
+  ) async {
+    // *** ADDED Logging ***
+    if (kDebugMode) {
+      print("--- Admin Notification Tap Handler ---");
+      print("Notification ID: ${notification.id}");
+      print("Notification Type: ${notification.type}");
+      print("Notification Metadata: ${notification.metadata}");
+    }
+    // **********************
+
+    // Mark as read first
+    await actions.markAsRead(notification.id);
+
+    // Navigate based on type
+    switch (notification.type) {
+      case NotificationType.statusChange:
+      case NotificationType.rejection:
+        if (kDebugMode)
+          print("Type matched (statusChange or rejection)."); // Log type match
+        if (notification.metadata.containsKey('submissionId')) {
+          if (kDebugMode)
+            print("Metadata contains submissionId key."); // Log key found
+          final submissionId = notification.metadata['submissionId'] as String?;
+          if (submissionId != null) {
+            if (kDebugMode)
+              print("Submission ID is not null: $submissionId"); // Log ID value
+            // --- Use the new fetch and navigate logic --- //
+            await _fetchAndNavigateToDetailAdmin(context, submissionId);
+          } else {
+            // print("Error: Notification missing submissionId"); // Keep commented for now
+            if (kDebugMode)
+              print("Error: Submission ID value is null."); // Log null value
+          }
+        } else {
+          // print("Error: Notification missing submissionId metadata key"); // Keep commented for now
+          if (kDebugMode)
+            print(
+              "Error: Metadata does NOT contain submissionId key.",
+            ); // Log key missing
+        }
+        break;
+      // Add cases for other notification types if needed
+      default:
+        // print("Tapped notification type: ${notification.type}, no navigation defined."); // Keep commented
+        if (kDebugMode)
+          print(
+            "Notification type (${notification.type}) does not trigger navigation.",
+          ); // Log other types
+        break;
+    }
+    if (kDebugMode)
+      print("--- End Admin Notification Tap Handler ---"); // Log end
+  }
+
+  // --- NEW HELPER: Fetch Submission and Navigate (Admin version) --- //
+  Future<void> _fetchAndNavigateToDetailAdmin(
+    BuildContext context,
+    String submissionId,
+  ) async {
+    // print("Fetching submission details for ID (Admin): $submissionId"); // Removed print
+    try {
+      final docSnapshot =
+          await FirebaseFirestore.instance
+              .collection('serviceSubmissions')
+              .doc(submissionId)
+              .get();
+
+      // Check context validity again after async gap using context.mounted
+      if (!context.mounted) {
+        // CORRECT mounted check
+        return;
+      }
+
+      if (docSnapshot.exists) {
+        final submission = ServiceSubmission.fromFirestore(docSnapshot);
+        context.push('/admin/opportunity-detail', extra: submission);
+      } else {
+        // print("Error: Submission document not found for ID: $submissionId"); // Removed print
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not find the submission details.',
+            ), // TODO: l10n
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      // print("Error fetching submission document: $e"); // Removed print
+      // Check context validity again after async gap
+      if (context.mounted) {
+        // CORRECT mounted check
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading submission details: $e'), // TODO: l10n
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // --------------------------------------------------------- //
 }

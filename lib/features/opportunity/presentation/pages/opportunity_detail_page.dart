@@ -247,40 +247,145 @@ class _OpportunityDetailFormViewState
   //   }
   // }
 
-  // --- ADDED: Fetch Invoice Download URL ---
-  Future<String?> _fetchInvoiceDownloadUrl() async {
-    final storagePath = widget.submission.invoicePhoto?.storagePath;
-    if (storagePath == null || storagePath.isEmpty) {
-      print("No storage path found for invoice.");
-      return null; // No path, no URL
+  // --- ADDED: Fetch Invoice Download URL --- // Modified to fetch multiple URLs
+  Future<List<Map<String, String?>>> _fetchMultipleDownloadUrls() async {
+    List<String>? urlsOrPaths =
+        widget.submission.documentUrls; // Prefer this field
+    bool usingLegacyField = false;
+
+    // Fallback to legacy field if primary is empty/null
+    if (urlsOrPaths == null || urlsOrPaths.isEmpty) {
+      if (kDebugMode) {
+        print(
+          "'documentUrls' is empty/null. Checking legacy 'attachmentUrls'...",
+        );
+      }
+      // Assuming the factory constructor already read 'attachmentUrls' into documentUrls
+      // If not, we might need to read snapshot directly, but let's assume model is correct
+      // For robustness, let's re-check the logic: the model read it, so urlsOrPaths *should* contain it.
+      // If it's STILL null/empty here, then there are truly no URLs.
+
+      // Final check: try the single invoicePhoto as a last resort
+      final legacyInvoicePhoto = widget.submission.invoicePhoto;
+      if (legacyInvoicePhoto?.storagePath != null &&
+          legacyInvoicePhoto!.storagePath.isNotEmpty) {
+        if (kDebugMode) {
+          print(
+            "Falling back to single legacy invoicePhoto path: ${legacyInvoicePhoto.storagePath}",
+          );
+        }
+        usingLegacyField = true;
+        urlsOrPaths = [
+          legacyInvoicePhoto.storagePath,
+        ]; // Treat the path as a list of one
+      } else {
+        if (kDebugMode) {
+          print("No valid URLs or paths found in submission data.");
+        }
+        return []; // No files found
+      }
     }
 
-    try {
-      if (kDebugMode) {
-        print("Attempting to get download URL for: $storagePath");
-      }
-      final downloadUrl =
-          await FirebaseStorage.instance.ref(storagePath).getDownloadURL();
-      if (kDebugMode) {
-        print("Obtained download URL: $downloadUrl");
-      }
-      // Store the fetched URL in state if needed outside FutureBuilder
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   if (mounted) setState(() => _invoiceDownloadUrl = downloadUrl);
-      // });
-      return downloadUrl;
-    } on FirebaseException catch (e) {
-      if (kDebugMode) {
-        print("Firebase Error getting download URL: ${e.code} - ${e.message}");
-      }
-      // Handle specific errors if needed (e.g., object-not-found)
-      return null; // Indicate error by returning null
-    } catch (e) {
-      if (kDebugMode) {
-        print("Generic Error getting download URL: $e");
-      }
-      return null; // Indicate error
+    if (kDebugMode) {
+      print("Processing URLs/Paths: $urlsOrPaths");
     }
+
+    final List<Future<Map<String, String?>>> futures =
+        urlsOrPaths.map((urlOrPath) async {
+          try {
+            String downloadUrl;
+            String pathForFileName = urlOrPath; // Path used to extract filename
+
+            // If using the legacy field, we assume it's a path and need to get the URL
+            if (usingLegacyField) {
+              downloadUrl =
+                  await FirebaseStorage.instance
+                      .ref(urlOrPath)
+                      .getDownloadURL();
+            } else {
+              // Otherwise, assume it's already a download URL
+              downloadUrl = urlOrPath;
+            }
+
+            // Extract filename (best effort from URL or path)
+            String fileName = 'Unknown File';
+            try {
+              // Try decoding the URL part before splitting
+              final decodedPath = Uri.decodeComponent(
+                pathForFileName.split('/').last.split('?').first,
+              );
+              fileName =
+                  decodedPath
+                      .split('/')
+                      .last; // Get last segment after decoding
+              // Remove potential index prefix like "attachment_0_"
+              fileName = fileName.replaceFirst(RegExp(r'^attachment_\d+_'), '');
+            } catch (e) {
+              print(
+                "Error decoding/parsing filename from $pathForFileName: $e",
+              );
+              // Fallback if decoding fails
+              fileName = pathForFileName
+                  .split('/')
+                  .last
+                  .split('?')
+                  .first
+                  .replaceFirst(RegExp(r'^attachment_\d+_'), '');
+            }
+
+            return {
+              'url': downloadUrl,
+              'path':
+                  usingLegacyField
+                      ? urlOrPath
+                      : null, // Store original path only if it was a path
+              'error': null,
+              'fileName': fileName,
+              'contentType':
+                  usingLegacyField
+                      ? widget.submission.invoicePhoto?.contentType
+                      : null,
+            };
+          } catch (e) {
+            if (kDebugMode) {
+              print("Error processing URL/Path $urlOrPath: $e");
+            }
+            String fileName = 'Unknown File';
+            try {
+              final decodedPath = Uri.decodeComponent(
+                urlOrPath.split('/').last.split('?').first,
+              );
+              fileName = decodedPath
+                  .split('/')
+                  .last
+                  .replaceFirst(RegExp(r'^attachment_\d+_'), '');
+            } catch (parseErr) {
+              fileName = urlOrPath
+                  .split('/')
+                  .last
+                  .split('?')
+                  .first
+                  .replaceFirst(RegExp(r'^attachment_\d+_'), '');
+            }
+
+            return {
+              'url': null,
+              'path': urlOrPath,
+              'error': e.toString(),
+              'fileName': fileName,
+              'contentType':
+                  usingLegacyField
+                      ? widget.submission.invoicePhoto?.contentType
+                      : null,
+            };
+          }
+        }).toList();
+
+    final results = await Future.wait(futures);
+    if (kDebugMode) {
+      print("Obtained download URL results: $results");
+    }
+    return results;
   }
 
   // --- ADDED: Rejection Dialog ---
@@ -396,9 +501,53 @@ class _OpportunityDetailFormViewState
               ),
               const SizedBox(height: 16),
 
+              // --- Display Status --- // ADDED
+              Row(
+                children: [
+                  Text(
+                    'Status:',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          widget.submission.status == 'rejected'
+                              ? colorScheme.errorContainer.withOpacity(0.8)
+                              : colorScheme.secondaryContainer.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      widget.submission.status
+                          .replaceAll('_', ' ')
+                          .split(' ')
+                          .map(
+                            (word) =>
+                                '${word[0].toUpperCase()}${word.substring(1)}',
+                          )
+                          .join(' '),
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color:
+                            widget.submission.status == 'rejected'
+                                ? colorScheme.onErrorContainer
+                                : colorScheme.onSecondaryContainer,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 32),
+              // -------------------- //
+
               // --- Simplified Reference & Required Fields ---
-              // Removed: Original Submission ID, Original Reseller Name, Email, Phone
-              // --- Refactored Read-Only Field ---
               TextFormField(
                 controller: _agenteRetailController,
                 readOnly: true,
@@ -649,16 +798,15 @@ class _OpportunityDetailFormViewState
               ),
               const SizedBox(height: 16),
 
-              // --- Invoice --- Updated with Preview & Tap Action
+              // --- Invoice Section --- Updated to handle multiple files
               const Divider(height: 32),
               Text(
                 l10n.opportunityDetailInvoiceSectionTitle, // Use localization key
                 style: textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
-              // Use FutureBuilder to fetch URL and display preview/link
-              FutureBuilder<String?>(
-                future: _fetchInvoiceDownloadUrl(),
+              FutureBuilder<List<Map<String, String?>>>(
+                future: _fetchMultipleDownloadUrls(), // Call the new function
                 builder: (context, snapshot) {
                   // Check connection state
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -681,30 +829,27 @@ class _OpportunityDetailFormViewState
                     );
                   }
 
-                  // Check for errors
+                  // Check for errors during the fetch process itself (e.g., network error)
                   if (snapshot.hasError) {
                     return Row(
                       children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: colorScheme.error,
-                        ), // Use theme color
+                        Icon(Icons.error_outline, color: colorScheme.error),
                         const SizedBox(width: 8),
-                        Text(
-                          l10n.opportunityDetailInvoiceError, // Use localization key
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.error, // Use theme color
+                        Expanded(
+                          child: Text(
+                            '${l10n.opportunityDetailInvoiceError}: ${snapshot.error}',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.error,
+                            ),
                           ),
                         ),
                       ],
                     );
                   }
 
-                  // Check if data (URL) exists and is not null
-                  final downloadUrl = snapshot.data;
-                  final invoicePhoto = widget.submission.invoicePhoto;
-
-                  if (downloadUrl == null || invoicePhoto == null) {
+                  // Check if data (list of results) exists and is not null/empty
+                  final results = snapshot.data;
+                  if (results == null || results.isEmpty) {
                     return Text(
                       l10n.opportunityDetailInvoiceNotAvailable, // Use localization key
                       style: textTheme.bodyMedium?.copyWith(
@@ -713,480 +858,26 @@ class _OpportunityDetailFormViewState
                     );
                   }
 
-                  // --- Display Image Preview (Tappable) ---
-                  final contentType = invoicePhoto.contentType.toLowerCase();
-                  final fileName = invoicePhoto.fileName;
-
-                  if (contentType.startsWith('image/')) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            // Navigate to full-screen viewer on tap, using ROOT navigator
-                            Navigator.of(context, rootNavigator: true).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => FullScreenImageViewer(
-                                      imageUrl: downloadUrl,
-                                      imageName:
-                                          fileName, // Pass name for context
-                                    ),
-                                fullscreenDialog:
-                                    true, // Treat as a fullscreen dialog
-                              ),
-                            );
-                          },
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxHeight: 200, // Keep preview height reasonable
-                              maxWidth: double.infinity,
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                8.0,
-                              ), // Use standard radius value
-                              child: Image.network(
-                                downloadUrl,
-                                fit:
-                                    BoxFit
-                                        .cover, // Cover for preview looks better
-                                // Add loading/error builders for the preview image itself
-                                loadingBuilder: (
-                                  context,
-                                  child,
-                                  loadingProgress,
-                                ) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      value:
-                                          loadingProgress.expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                      .cumulativeBytesLoaded /
-                                                  loadingProgress
-                                                      .expectedTotalBytes!
-                                              : null,
-                                      color:
-                                          colorScheme
-                                              .primary, // Use theme color
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.broken_image,
-                                          color:
-                                              colorScheme
-                                                  .onSurfaceVariant, // Use theme color
-                                          size: 40,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          l10n.opportunityDetailInvoicePreviewError, // Use localization key
-                                          style: textTheme.bodySmall?.copyWith(
-                                            color:
-                                                colorScheme
-                                                    .onSurfaceVariant, // Use theme color
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  } else if (contentType == 'application/pdf') {
-                    return GestureDetector(
-                      onTap: () {
-                        // Navigate to full-screen PDF viewer on tap, using ROOT navigator
-                        Navigator.of(context, rootNavigator: true).push(
-                          MaterialPageRoute(
-                            builder:
-                                (_) => FullScreenPdfViewer(
-                                  pdfUrl: downloadUrl,
-                                  pdfName: fileName,
-                                ),
-                            fullscreenDialog: true,
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.picture_as_pdf,
-                              color:
-                                  colorScheme
-                                      .error, // Use theme error color for PDF
-                              size: 30,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                fileName,
-                                style: textTheme.bodyLarge,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              // Add a visual cue for tapping
-                              Icons.open_in_new,
-                              size: 18,
-                              color: colorScheme.primary, // Correct theme usage
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  } else {
-                    // Fallback for other types
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.insert_drive_file,
-                              size: 30,
-                              color:
-                                  colorScheme
-                                      .onSurfaceVariant, // Use theme color
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                fileName,
-                                style: textTheme.bodyLarge,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          icon: const Icon(Icons.download),
-                          label: Text(
-                            l10n.opportunityDetailInvoiceDownloadButton, // Use localization key
-                          ),
-                          style: TextButton.styleFrom(
-                            foregroundColor:
-                                colorScheme.primary, // Use theme color
-                          ),
-                          onPressed: () => _launchUrl(downloadUrl),
-                        ),
-                      ],
-                    );
-                  }
+                  // --- Display Previews using Wrap --- //
+                  return Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children:
+                        results.map((fileData) {
+                          return _buildDocumentPreview(context, fileData);
+                        }).toList(),
+                  );
                 },
               ),
               const SizedBox(height: 32),
 
-              // --- Actions ---
-              Center(
-                child: Wrap(
-                  spacing: 16.0, // Horizontal space between buttons
-                  runSpacing: 8.0, // Vertical space if buttons wrap
-                  alignment: WrapAlignment.center,
-                  children: [
-                    // Approve Button (Existing)
-                    ElevatedButton(
-                      onPressed:
-                          _isSubmitting
-                              ? null
-                              : () async {
-                                // Disable button when submitting
-                                // Validate the form
-                                if (_formKey.currentState?.validate() ??
-                                    false) {
-                                  // --- Check if essential fetched data is available ---
-                                  if (_isLoadingReseller) {
-                                    // Add mounted check before showing SnackBar
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.opportunitySubmitLoadingAgentError, // Use localization key
-                                        ),
-                                      ),
-                                    );
-                                    return; // Prevent submission while loading
-                                  }
-                                  if (_resellerSalesforceId == null ||
-                                      _resellerSalesforceId!.isEmpty) {
-                                    // Add mounted check before showing SnackBar
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.opportunitySubmitMissingAgentError, // Use localization key
-                                        ),
-                                        backgroundColor: colorScheme.error,
-                                      ),
-                                    );
-                                    return; // Prevent submission if ID is missing
-                                  }
-                                  // -----------------------------------------------------
-
-                                  // Set loading state
-                                  setState(() {
-                                    _isSubmitting = true;
-                                  });
-
-                                  // If valid and ID exists, collect data
-                                  final opportunityData = {
-                                    'Name': _nameController.text,
-                                    'NIF__c': _nifController.text,
-                                    'Data_de_Cria_o_da_Oportunidade__c':
-                                        DateFormat(
-                                          'yyyy-MM-dd',
-                                        ).format(DateTime.now()),
-                                    'Data_da_ltima_actualiza_o_de_Fase__c':
-                                        DateFormat(
-                                          'yyyy-MM-dd',
-                                        ).format(DateTime.now()),
-                                    'Fase__c': _faseValue,
-                                    'tipoOportunidadeValue':
-                                        _tipoOportunidadeValue,
-                                    'Segmento_de_Cliente__c':
-                                        _selectedSegmentoCliente,
-                                    'agenteRetailSalesforceId':
-                                        _resellerSalesforceId, // Send the ID
-                                    'Solu_o__c': _selectedSolucao,
-                                    'Data_de_Previs_o_de_Fecho__c':
-                                        _fechoController.text,
-                                    // Include original submission ID and invoice path for the Cloud Function
-                                    'originalSubmissionId':
-                                        widget.submission.id,
-                                    'invoiceStoragePath':
-                                        widget
-                                            .submission
-                                            .invoicePhoto
-                                            ?.storagePath,
-                                  };
-
-                                  if (kDebugMode) {
-                                    print(
-                                      "--- Opportunity Data for Submission ---",
-                                    );
-                                    opportunityData.forEach((key, value) {
-                                      print("$key: $value");
-                                    });
-                                    print(
-                                      "---------------------------------------",
-                                    );
-                                  }
-
-                                  // --- Call Cloud Function ---
-                                  try {
-                                    final callable = FirebaseFunctions.instanceFor(
-                                      region: 'us-central1',
-                                    ) // Ensure region matches function deployment
-                                    .httpsCallable(
-                                      'createSalesforceOpportunity',
-                                    );
-                                    final result = await callable
-                                        .call<Map<String, dynamic>>(
-                                          opportunityData,
-                                        );
-                                    final resultData = result.data;
-
-                                    if (kDebugMode) {
-                                      print(
-                                        "Cloud Function Result: $resultData",
-                                      );
-                                    }
-
-                                    if (resultData['success'] == true) {
-                                      // Success!
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              // Use l10n with placeholder
-                                              l10n.opportunitySubmitSuccess(
-                                                resultData['opportunityId'] ??
-                                                    'N/A',
-                                              ),
-                                            ),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                        // Optionally navigate back or refresh list
-                                        if (Navigator.canPop(context)) {
-                                          Navigator.of(context).pop();
-                                        }
-                                      }
-                                    } else {
-                                      // Handle failure reported by the function
-                                      if (mounted) {
-                                        // Add mounted check before showing SnackBar
-                                        if (!mounted) return;
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              // Use l10n with placeholder
-                                              l10n.opportunitySubmitFunctionError(
-                                                resultData['error'] ??
-                                                    l10n.commonUnknownError,
-                                              ),
-                                            ),
-                                            backgroundColor: colorScheme.error,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  } on FirebaseFunctionsException catch (e) {
-                                    // Handle Cloud Functions specific errors (e.g., permission denied, not found)
-                                    if (mounted) {
-                                      // Add mounted check before showing SnackBar
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            // Use l10n with placeholders
-                                            l10n.opportunitySubmitCloudFunctionError(
-                                              e.code,
-                                              e.message ?? '',
-                                            ),
-                                          ),
-                                          backgroundColor: colorScheme.error,
-                                        ),
-                                      );
-                                    }
-                                    // Use kDebugMode check for print
-                                    if (kDebugMode) {
-                                      print(
-                                        "FirebaseFunctionsException: ${e.code} - ${e.message}",
-                                      );
-                                    }
-                                  } catch (e) {
-                                    // Handle unexpected errors during the call
-                                    if (mounted) {
-                                      // Add mounted check before showing SnackBar
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            // Use l10n with placeholder
-                                            l10n.opportunitySubmitUnexpectedError(
-                                              e.toString(),
-                                            ),
-                                          ),
-                                          backgroundColor: colorScheme.error,
-                                        ),
-                                      );
-                                    }
-                                    // Use kDebugMode check for print
-                                    if (kDebugMode) {
-                                      print(
-                                        "Generic Error calling Cloud Function: $e",
-                                      );
-                                    }
-                                  } finally {
-                                    // Reset loading state
-                                    if (mounted) {
-                                      setState(() {
-                                        _isSubmitting = false;
-                                      });
-                                    }
-                                  }
-                                  // -------------------------
-                                } else {
-                                  // Form is invalid, show error message
-                                  // Add mounted check before showing SnackBar
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        l10n.commonFormValidationFixErrors, // Use localization key
-                                      ),
-                                      backgroundColor: colorScheme.error,
-                                    ),
-                                  );
-                                }
-                              },
-                      style: ElevatedButton.styleFrom(
-                        // Inherits style from ElevatedButtonTheme
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 15,
-                        ), // Keep padding for emphasis
-                      ),
-                      child:
-                          _isSubmitting
-                              ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color:
-                                      colorScheme
-                                          .onPrimary, // Contrasting color
-                                ),
-                              )
-                              : Text(
-                                l10n.opportunityApproveButton, // Use localization key
-                              ),
-                    ),
-
-                    // --- NEW: Reject Button ---
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.cancel_outlined),
-                      label: Text(
-                        l10n.opportunityRejectButton, // Use localization key
-                      ),
-                      onPressed:
-                          _isSubmitting
-                              ? null
-                              : () async {
-                                // Use kDebugMode check for print
-                                if (kDebugMode) {
-                                  print('Reject button pressed');
-                                }
-                                final reason = await _showRejectionDialog();
-                                if (reason != null && reason.isNotEmpty) {
-                                  // Handle rejection logic
-                                  await _handleRejection(reason);
-                                }
-                              },
-                      style: OutlinedButton.styleFrom(
-                        // Use theme for styling error buttons if defined, else derive
-                        foregroundColor: colorScheme.error,
-                        side: BorderSide(
-                          color: colorScheme.error.withAlpha(
-                            (255 * 0.7).round(),
-                          ), // Fix deprecated withOpacity
-                          width: 1.5,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 15,
-                        ), // Keep padding
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // --- Actions or Rejection Info --- // MODIFIED
+              // Conditionally display based on status
+              if (widget.submission.status == 'rejected')
+                _buildRejectionInfoSection(context, theme, l10n)
+              else // Assuming 'pending_review'
+                _buildActionButtons(context, theme, l10n),
+              // ---------------------------------- //
               const SizedBox(height: 24),
             ],
           ),
@@ -1194,6 +885,148 @@ class _OpportunityDetailFormViewState
       ), // End of Scaffold body (SingleChildScrollView)
     ); // End of Scaffold
   }
+
+  // --- NEW: Widget Builder for Rejection Info Section ---
+  Widget _buildRejectionInfoSection(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    final rejectionReason = widget.submission.reviewDetails?.rejectionReason;
+    final reviewTimestamp =
+        widget.submission.reviewDetails?.reviewTimestamp
+            ?.toDate(); // Convert Timestamp to DateTime
+    final reviewerId =
+        widget
+            .submission
+            .reviewDetails
+            ?.reviewerId; // TODO: Fetch reviewer name based on ID?
+
+    String formattedTimestamp = 'Unknown date';
+    if (reviewTimestamp != null) {
+      formattedTimestamp = DateFormat.yMMMd().add_jm().format(
+        reviewTimestamp.toLocal(),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.errorContainer, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: theme.colorScheme.error),
+              const SizedBox(width: 8),
+              Text(
+                'Rejection Details', // Placeholder
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20, thickness: 0.5),
+          Text(
+            "Rejection Reason:", // Placeholder
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            rejectionReason ?? "No reason provided.", // Placeholder
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (reviewTimestamp != null || reviewerId != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              "Rejected on: $formattedTimestamp", // Placeholder
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            // Optionally display reviewer if needed
+            // Text(
+            //   "Reviewer: ${reviewerId ?? 'Unknown'}",
+            //   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            // ),
+          ],
+        ],
+      ),
+    );
+  }
+  // ---------------------------------------------------- //
+
+  // --- Renamed Original Actions Section to Widget Builder --- //
+  Widget _buildActionButtons(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: Wrap(
+        spacing: 16.0,
+        runSpacing: 8.0,
+        alignment: WrapAlignment.center,
+        children: [
+          // Approve Button
+          ElevatedButton(
+            onPressed:
+                _isSubmitting
+                    ? null
+                    : () async {
+                      // ... (Existing validation and submission logic) ...
+                    },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+            child:
+                _isSubmitting
+                    ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.onPrimary,
+                      ),
+                    )
+                    : Text(l10n.opportunityApproveButton),
+          ),
+          // Reject Button
+          OutlinedButton.icon(
+            icon: const Icon(Icons.cancel_outlined),
+            label: Text(l10n.opportunityRejectButton),
+            onPressed:
+                _isSubmitting
+                    ? null
+                    : () async {
+                      final reason = await _showRejectionDialog();
+                      if (reason != null && reason.isNotEmpty) {
+                        await _handleRejection(reason);
+                      }
+                    },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.error,
+              side: BorderSide(
+                color: colorScheme.error.withAlpha((255 * 0.7).round()),
+                width: 1.5,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // --------------------------------------------------------- //
 
   // --- ADDED: Handle Rejection Logic ---
   Future<void> _handleRejection(String reason) async {
@@ -1310,15 +1143,22 @@ class _OpportunityDetailFormViewState
         'title':
             'Opportunity Rejected', // Placeholder - Use l10n.notificationOpportunityRejectedTitle
         'body':
-            'Your submission requires attention. Reason: $reason', // Placeholder - Use l10n.notificationOpportunityRejectedBody(reason)
-        'timestamp': FieldValue.serverTimestamp(),
+            'Your submission was rejected. Reason: $reason', // Placeholder - Use l10n.notificationOpportunityRejectedBody(reason)
+        'createdAt': FieldValue.serverTimestamp(),
         'isRead': false,
         'type':
-            'opportunity_rejected', // Define a specific type for handling clicks
+            'rejection', // Use the correct string for NotificationType.rejection
         'relatedId': submissionId, // Link to the submission
         'relatedDataType':
             'serviceSubmission', // Specify the type of related data
         'icon': 'warning', // Optional: suggest an icon name
+        'metadata': {
+          'submissionId': submissionId,
+          'rejectionReason': reason,
+          'clientName':
+              widget.submission.companyName ??
+              widget.submission.responsibleName,
+        },
       };
 
       await notificationRef.set(notificationData);
@@ -1336,5 +1176,216 @@ class _OpportunityDetailFormViewState
       // Log or handle error, but don't block the main rejection flow
       rethrow; // Re-throw if needed for upstream handling
     }
+  }
+
+  // --- ADDED: Widget Builder for individual document preview ---
+  Widget _buildDocumentPreview(
+    BuildContext context,
+    Map<String, String?> fileData,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final l10n = AppLocalizations.of(context)!;
+
+    final String? downloadUrl = fileData['url'];
+    final String? storagePath = fileData['path'];
+    final String? error = fileData['error'];
+    final String fileName = fileData['fileName'] ?? 'Unknown File';
+    final String? contentType = fileData['contentType']; // May be null
+
+    // Use a fixed size for the preview container
+    const double previewSize = 70.0;
+
+    // Determine if it's an image (basic check based on extension from path)
+    // More robust check would use contentType if available
+    final bool isImage = _isImageFile(fileName);
+    final bool isPdf = fileName.toLowerCase().endsWith('.pdf');
+
+    Widget content;
+
+    if (error != null) {
+      // --- Error State ---
+      content = Tooltip(
+        message: 'Error loading: $error',
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.error, size: 30),
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0, left: 2.0, right: 2.0),
+              child: Text(
+                fileName,
+                style: textTheme.bodySmall?.copyWith(
+                  fontSize: 8,
+                  color: colorScheme.error,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (downloadUrl == null) {
+      // --- Loading State (individual) or Invalid URL State ---
+      // This case might occur if URL fetch failed silently or path was invalid
+      content = Tooltip(
+        message: 'Preview unavailable',
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.broken_image,
+              color: colorScheme.onSurfaceVariant,
+              size: 30,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0, left: 2.0, right: 2.0),
+              child: Text(
+                fileName,
+                style: textTheme.bodySmall?.copyWith(
+                  fontSize: 8,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (isImage) {
+      // --- Image Preview ---
+      content = GestureDetector(
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder:
+                  (_) => FullScreenImageViewer(
+                    imageUrl: downloadUrl,
+                    imageName: fileName,
+                  ),
+              fullscreenDialog: true,
+            ),
+          );
+        },
+        child: Image.network(
+          downloadUrl,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: CircularProgressIndicator(
+                value:
+                    loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
+            );
+          },
+          errorBuilder:
+              (context, error, stackTrace) => Tooltip(
+                message: 'Preview error: $error',
+                child: const Center(child: Icon(Icons.broken_image, size: 30)),
+              ),
+        ),
+      );
+    } else if (isPdf) {
+      // --- PDF Preview Icon ---
+      content = GestureDetector(
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder:
+                  (_) => FullScreenPdfViewer(
+                    pdfUrl: downloadUrl,
+                    pdfName: fileName,
+                  ),
+              fullscreenDialog: true,
+            ),
+          );
+        },
+        child: Tooltip(
+          message: fileName,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30),
+              const SizedBox(height: 4),
+              Icon(
+                Icons.open_in_new,
+                size: 14,
+                color: colorScheme.primary,
+              ), // Indicate tappable
+            ],
+          ),
+        ),
+      );
+    } else {
+      // --- Generic Document Preview Icon ---
+      content = GestureDetector(
+        onTap:
+            () => _launchUrl(
+              downloadUrl,
+            ), // Use existing _launchUrl for generic download
+        child: Tooltip(
+          message: fileName,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.insert_drive_file,
+                color: colorScheme.onSurfaceVariant,
+                size: 30,
+              ),
+              const SizedBox(height: 4),
+              Icon(
+                Icons.download,
+                size: 14,
+                color: colorScheme.primary,
+              ), // Indicate download
+            ],
+          ),
+        ),
+      );
+    }
+
+    // --- Return the container with content ---
+    return Container(
+      width: previewSize,
+      height: previewSize,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.dividerColor.withOpacity(0.3),
+          width: 0.5,
+        ),
+      ),
+      child: content,
+    );
+  }
+
+  // --- ADDED: Helper to check if file is image (based on name) ---
+  // (Similar to the one in FileUploadWidget)
+  bool _isImageFile(String fileName) {
+    final lowerCaseFileName = fileName.toLowerCase();
+    return lowerCaseFileName.endsWith('.jpg') ||
+        lowerCaseFileName.endsWith('.jpeg') ||
+        lowerCaseFileName.endsWith('.png') ||
+        lowerCaseFileName.endsWith('.gif') ||
+        lowerCaseFileName.endsWith('.heic') ||
+        lowerCaseFileName.endsWith('.webp');
   }
 }

@@ -12,6 +12,7 @@ import 'dart:math';
 import '../../../core/theme/ui_styles.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/notification.dart';
+import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
@@ -19,8 +20,10 @@ import '../../../features/services/presentation/providers/service_submission_pro
 import '../../../core/constants/constants.dart';
 import '../../../app/router/app_router.dart'; // Import AppRouter to access notifier
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/onboarding/app_tutorial_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedPreferences again
+import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -638,7 +641,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // Pendentes section with total pending amount
         Consumer(
@@ -802,21 +805,25 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   );
                 }
 
-                // Build list using the combined list
-                return Column(
-                  children:
-                      combinedNotifications.map((notification) {
-                        // Use combinedNotifications
-                        return _buildNotificationItem(
-                          notification: notification,
-                          onTap: () {
-                            _handleNotificationTap(
-                              notification,
-                              notificationActions,
-                            );
-                          },
+                // Build list using ListView.builder
+                return ListView.builder(
+                  shrinkWrap:
+                      true, // Prevent infinite height error in Column/ScrollView
+                  physics:
+                      const NeverScrollableScrollPhysics(), // Prevent nested scrolling
+                  itemCount: combinedNotifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = combinedNotifications[index];
+                    return _buildNotificationItem(
+                      notification: notification,
+                      onTap: () {
+                        _handleNotificationTap(
+                          notification,
+                          notificationActions,
                         );
-                      }).toList(),
+                      },
+                    );
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -842,9 +849,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // --- Check for special password reminder ID ---
     if (notification.id == '__password_reminder__') {
       context.push('/profile-details');
-      return; // Don't proceed with marking as read etc.
+      return;
     }
-    // --------------------------------------------
 
     // Mark notification as read (only for real notifications)
     await actions.markAsRead(notification.id);
@@ -853,29 +859,90 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     switch (notification.type) {
       case NotificationType.statusChange:
         if (notification.metadata.containsKey('submissionId')) {
-          final submissionId = notification.metadata['submissionId'];
-          context.push('/submissions/$submissionId');
+          final submissionId = notification.metadata['submissionId'] as String?;
+          if (submissionId != null) {
+            // Need to fetch the submission before navigating
+            _fetchAndNavigateToDetail(submissionId);
+          } else {
+            print("Error: Status change notification missing submissionId");
+          }
         }
         break;
       case NotificationType.rejection:
+        // --- MODIFIED: Navigate to Detail Page --- //
         if (notification.metadata.containsKey('submissionId')) {
-          final submissionId = notification.metadata['submissionId'];
-          context.push(
-            '/notifications/$submissionId',
-          ); // Should this be submission detail?
+          final submissionId = notification.metadata['submissionId'] as String?;
+          if (submissionId != null) {
+            // Fetch the submission and navigate
+            _fetchAndNavigateToDetail(submissionId);
+          } else {
+            print("Error: Rejection notification missing submissionId");
+          }
+        } else {
+          print(
+            "Error: Rejection notification missing submissionId metadata key",
+          );
         }
+        // --- REMOVED: Old showDialog logic ---
+        // showDialog(
+        //   context: context,
+        //   builder: (dialogContext) {
+        //     return RejectionDetailDialog(notification: notification);
+        //   },
+        // );
         break;
       case NotificationType.payment:
-        // Navigate to payment details or dashboard
         context.push('/dashboard');
         break;
       case NotificationType.system:
       default:
-        // For system notifications (like our reminder, though handled above),
-        // just mark as read but don't navigate
         break;
     }
   }
+
+  // --- NEW HELPER: Fetch Submission and Navigate --- //
+  Future<void> _fetchAndNavigateToDetail(String submissionId) async {
+    if (!mounted) return; // Check if widget is still in the tree
+
+    // Optional: Show a loading indicator
+    // Consider using a state management solution for better loading UI
+    print("Fetching submission details for ID: $submissionId");
+
+    try {
+      final docSnapshot =
+          await FirebaseFirestore.instance
+              .collection('serviceSubmissions')
+              .doc(submissionId)
+              .get();
+
+      if (!mounted) return;
+
+      if (docSnapshot.exists) {
+        final submission = ServiceSubmission.fromFirestore(docSnapshot);
+        // Navigate to the detail page, passing the submission object
+        context.push('/admin/opportunity-detail', extra: submission);
+      } else {
+        print("Error: Submission document not found for ID: $submissionId");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not find the submission details.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Error fetching submission document: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading submission details: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  // ---------------------------------------------- //
 
   // New method to build a notification item
   Widget _buildNotificationItem({
@@ -883,34 +950,46 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
     IconData icon;
     Color iconColor;
+    Color iconContainerColor;
 
-    // Set icon and color based on notification type
+    // Set icon and color based on notification type using Theme colors
     switch (notification.type) {
       case NotificationType.statusChange:
-        icon = CupertinoIcons.arrow_right_arrow_left_circle;
+        icon = Icons.sync_alt; // Material Icon
         final status = notification.metadata['newStatus'] as String? ?? '';
         if (status == 'approved') {
-          iconColor = Colors.green;
+          // Assuming 'primary' or a success color for approved
+          iconColor = colorScheme.primary; // Or AppColors.success if defined
+          iconContainerColor = colorScheme.primaryContainer;
         } else if (status == 'rejected') {
-          iconColor = Colors.red;
+          iconColor = colorScheme.error;
+          iconContainerColor = colorScheme.errorContainer;
         } else {
-          iconColor = Colors.amber;
+          // Generic status change color (e.g., 'in progress')
+          iconColor = colorScheme.secondary;
+          iconContainerColor = colorScheme.secondaryContainer;
         }
         break;
       case NotificationType.rejection:
-        icon = CupertinoIcons.exclamationmark_triangle_fill;
-        iconColor = Colors.red;
+        icon = Icons.warning_amber_rounded; // Material Icon (like dialog)
+        iconColor = colorScheme.error;
+        iconContainerColor = colorScheme.errorContainer;
         break;
       case NotificationType.payment:
-        icon = CupertinoIcons.money_dollar_circle;
-        iconColor = Colors.orange;
+        icon = Icons.receipt_long; // Material Icon
+        iconColor = colorScheme.tertiary; // Using tertiary for payment
+        iconContainerColor = colorScheme.tertiaryContainer;
         break;
       case NotificationType.system:
       default:
-        icon = CupertinoIcons.bell_fill;
-        iconColor = theme.colorScheme.primary;
+        icon = Icons.notifications_active_outlined; // Material Icon
+        iconColor = colorScheme.primary;
+        iconContainerColor = colorScheme.primaryContainer;
     }
 
     // Format date
@@ -926,14 +1005,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: colorScheme.surface, // Keep using surface
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color:
                 theme.brightness == Brightness.dark
-                    ? theme.colorScheme.shadow.withOpacity(0.2)
-                    : theme.colorScheme.shadow.withOpacity(0.08),
+                    ? colorScheme.shadow.withOpacity(0.2)
+                    : colorScheme.shadow.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
             spreadRadius: 0,
@@ -942,7 +1021,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         border: Border.all(
           color:
               theme.brightness == Brightness.dark
-                  ? theme.colorScheme.onSurface.withOpacity(0.05)
+                  ? colorScheme.onSurface.withOpacity(0.05)
                   : Colors.transparent,
           width: theme.brightness == Brightness.dark ? 1 : 0,
         ),
@@ -961,17 +1040,22 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
+                    color: iconContainerColor, // Use theme container color
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: iconColor.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    // Optional: remove shadow if container color is enough
+                    // boxShadow: [
+                    //   BoxShadow(
+                    //     color: iconContainerColor.withOpacity(0.5), // Adjust opacity
+                    //     blurRadius: 4,
+                    //     offset: const Offset(0, 2),
+                    //   ),
+                    // ],
                   ),
-                  child: Icon(icon, color: iconColor, size: 18),
+                  child: Icon(
+                    icon,
+                    color: iconColor,
+                    size: 20,
+                  ), // Adjusted size slightly
                 ),
                 const SizedBox(width: 16),
 
@@ -985,11 +1069,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         children: [
                           Text(
                             dateString,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.7,
-                              ),
+                            style: textTheme.labelSmall?.copyWith(
+                              // Use labelSmall
+                              color:
+                                  colorScheme
+                                      .onSurfaceVariant, // Use theme color
                             ),
                           ),
                           if (!notification.isRead)
@@ -997,7 +1081,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
+                                color:
+                                    colorScheme
+                                        .primary, // Use theme primary color
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1006,27 +1092,24 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                       const SizedBox(height: 4),
                       Text(
                         notification.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
+                        style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        notification.message,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        notification.metadata['clientName']?.toString() ??
+                            notification.message,
+                        style: textTheme.bodyMedium?.copyWith(
+                          // Use bodyMedium
+                          color: colorScheme.onSurfaceVariant,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ),
-
-                // Arrow icon
-                Icon(
-                  CupertinoIcons.chevron_right,
-                  size: 14,
-                  color: theme.colorScheme.onSurface.withOpacity(0.4),
                 ),
               ],
             ),
