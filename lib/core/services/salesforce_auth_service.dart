@@ -2,18 +2,34 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+// Import dart:html conditionally for web
+import 'dart:html' as html;
 
 // --- Configuration ---
 const String _clientId =
     '3MVG9T46ZAw5GTfWlGzpUr1bL14rAr48fglmDfgf4oWyIBerrrJBQz21SWPWmYoRGJqBzULovmWZ2ROgCyixB';
-// TODO: Verify this redirect URI matches the Salesforce Connected App configuration
-const String _redirectUri = 'com.twogether.app://oauth-callback';
+
+// Define platform-specific redirect URIs
+const String _mobileRedirectUri = 'com.twogether.app://oauth-callback';
+// !! IMPORTANT: Using hash-based redirect for web !!
+// !! IMPORTANT: Ensure this exact URI is added to Salesforce Connected App Callback URLs !!
+const String _webRedirectUri =
+    'http://localhost:5000/#/callback'; // Changed path to hash fragment
+
+// Select the correct redirect URI based on the platform
+final String _redirectUri = kIsWeb ? _webRedirectUri : _mobileRedirectUri;
+// Define the callback scheme needed by flutter_web_auth_2 (null for web)
+final String? _callbackUrlScheme =
+    kIsWeb ? null : _mobileRedirectUri.split('://').first;
+
 const String _authorizationEndpoint =
     'https://ldfgrupo.my.salesforce.com/services/oauth2/authorize';
 const String _tokenEndpoint =
@@ -25,6 +41,12 @@ const String _accessTokenKey = 'salesforce_access_token';
 const String _refreshTokenKey = 'salesforce_refresh_token';
 const String _instanceUrlKey = 'salesforce_instance_url';
 const String _tokenExpiryKey = 'salesforce_token_expiry';
+// Key for storing the PKCE code verifier temporarily during web redirect
+const String _codeVerifierSessionKey = 'salesforce_pkce_verifier';
+
+// Define keys used in main.dart for temporary storage
+const String _tempSalesforceCodeKey = 'temp_sf_code';
+const String _tempSalesforceVerifierKey = 'temp_sf_verifier';
 
 // --- State Definition ---
 enum SalesforceAuthState {
@@ -68,10 +90,23 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
       print('SalesforceAuthNotifier: Loading initial state...');
     }
     try {
-      final storedAccessToken = await _storage.read(key: _accessTokenKey);
-      final storedRefreshToken = await _storage.read(key: _refreshTokenKey);
-      final storedInstanceUrl = await _storage.read(key: _instanceUrlKey);
-      final storedExpiry = await _storage.read(key: _tokenExpiryKey);
+      String? storedAccessToken;
+      String? storedRefreshToken;
+      String? storedInstanceUrl;
+      String? storedExpiry;
+
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        storedAccessToken = prefs.getString(_accessTokenKey);
+        storedRefreshToken = prefs.getString(_refreshTokenKey);
+        storedInstanceUrl = prefs.getString(_instanceUrlKey);
+        storedExpiry = prefs.getString(_tokenExpiryKey);
+      } else {
+        storedAccessToken = await _storage.read(key: _accessTokenKey);
+        storedRefreshToken = await _storage.read(key: _refreshTokenKey);
+        storedInstanceUrl = await _storage.read(key: _instanceUrlKey);
+        storedExpiry = await _storage.read(key: _tokenExpiryKey);
+      }
 
       if (storedAccessToken == null ||
           storedRefreshToken == null ||
@@ -157,15 +192,21 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
     final now = DateTime.now();
     // Add a small buffer (e.g., 5 minutes) to the expiry time
     final expiryDate = now.add(Duration(seconds: expiresInSeconds - 300));
+    final expiryString = expiryDate.toIso8601String();
 
     try {
-      await _storage.write(key: _accessTokenKey, value: accessToken);
-      await _storage.write(key: _refreshTokenKey, value: refreshToken);
-      await _storage.write(key: _instanceUrlKey, value: instanceUrl);
-      await _storage.write(
-        key: _tokenExpiryKey,
-        value: expiryDate.toIso8601String(),
-      );
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_accessTokenKey, accessToken);
+        await prefs.setString(_refreshTokenKey, refreshToken);
+        await prefs.setString(_instanceUrlKey, instanceUrl);
+        await prefs.setString(_tokenExpiryKey, expiryString);
+      } else {
+        await _storage.write(key: _accessTokenKey, value: accessToken);
+        await _storage.write(key: _refreshTokenKey, value: refreshToken);
+        await _storage.write(key: _instanceUrlKey, value: instanceUrl);
+        await _storage.write(key: _tokenExpiryKey, value: expiryString);
+      }
 
       // Update internal state
       _accessToken = accessToken;
@@ -189,10 +230,18 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
 
   Future<void> _clearTokens() async {
     try {
-      await _storage.delete(key: _accessTokenKey);
-      await _storage.delete(key: _refreshTokenKey);
-      await _storage.delete(key: _instanceUrlKey);
-      await _storage.delete(key: _tokenExpiryKey);
+      if (kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_accessTokenKey);
+        await prefs.remove(_refreshTokenKey);
+        await prefs.remove(_instanceUrlKey);
+        await prefs.remove(_tokenExpiryKey);
+      } else {
+        await _storage.delete(key: _accessTokenKey);
+        await _storage.delete(key: _refreshTokenKey);
+        await _storage.delete(key: _instanceUrlKey);
+        await _storage.delete(key: _tokenExpiryKey);
+      }
 
       // Clear internal state
       _accessToken = null;
@@ -255,32 +304,183 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
       print('SalesforceAuthNotifier: Launching auth URL: $authorizationUrl');
     }
 
+    if (kIsWeb) {
+      // --- WEB: Same-Tab Redirect Flow ---
+      try {
+        // Store the code verifier in sessionStorage before redirecting
+        html.window.sessionStorage[_codeVerifierSessionKey] = codeVerifier;
+
+        // Redirect the current browser tab to Salesforce
+        html.window.location.href = authorizationUrl.toString();
+
+        // Important: Code execution stops here for web as the page navigates away.
+        // The rest of the flow (token exchange) happens after redirect back.
+      } catch (e) {
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: Web redirect failed: $e');
+        }
+        _lastError = 'Web redirect failed: $e';
+        state = SalesforceAuthState.error;
+      }
+    } else {
+      // --- MOBILE: Use flutter_web_auth_2 (Popup/External Flow) ---
+      try {
+        final result = await FlutterWebAuth2.authenticate(
+          url: authorizationUrl.toString(),
+          callbackUrlScheme: _callbackUrlScheme!,
+        );
+
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: Mobile auth result: $result');
+        }
+
+        final uri = Uri.parse(result);
+        final authorizationCode = uri.queryParameters['code'];
+
+        if (authorizationCode == null || authorizationCode.isEmpty) {
+          throw Exception('Authorization code not found in callback URL.');
+        }
+
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: Received authorization code.');
+        }
+
+        // Exchange code for tokens (passing the original verifier)
+        await _exchangeCodeForTokens(authorizationCode, codeVerifier);
+      } catch (e) {
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: Mobile sign in failed: $e');
+        }
+        _lastError = 'Mobile sign in failed: $e';
+        // Avoid setting error state if user cancelled
+        if (!e.toString().toLowerCase().contains('canceled') &&
+            !e.toString().toLowerCase().contains('cancelled')) {
+          state = SalesforceAuthState.error;
+        } else {
+          state =
+              SalesforceAuthState
+                  .unauthenticated; // Back to unauthenticated if cancelled
+        }
+      }
+    }
+  }
+
+  /// Checks sessionStorage for temporary code/verifier from web callback
+  /// and calls the Cloud Function to complete the login process.
+  /// Should be called AFTER Firebase Auth state is confirmed.
+  Future<void> checkAndCompleteWebLogin() async {
+    if (!kIsWeb || state == SalesforceAuthState.authenticated) {
+      // Only run on web, and only if not already authenticated
+      return;
+    }
+
+    if (kDebugMode) {
+      print('SalesforceAuthNotifier: Checking for pending web login...');
+    }
+
+    // Check sessionStorage for the temporary code and verifier
+    final String? tempCode = html.window.sessionStorage.remove(
+      _tempSalesforceCodeKey,
+    );
+    final String? tempVerifier = html.window.sessionStorage.remove(
+      _tempSalesforceVerifierKey,
+    );
+
+    if (tempCode != null &&
+        tempVerifier != null &&
+        tempCode.isNotEmpty &&
+        tempVerifier.isNotEmpty) {
+      // Found pending login data
+      if (kDebugMode) {
+        print(
+          'SalesforceAuthNotifier: Found pending code and verifier. Calling Cloud Function...',
+        );
+      }
+      // Set state to authenticating while calling function
+      state = SalesforceAuthState.authenticating;
+      _lastError = null;
+
+      try {
+        // Call the Cloud Function
+        final HttpsCallable callable = FirebaseFunctions.instance
+        // .useFunctionsEmulator('localhost', 5001) // Uncomment for emulator
+        .httpsCallable('exchangeSalesforceCode');
+
+        final result = await callable.call<Map<String, dynamic>>({
+          'code': tempCode,
+          'verifier': tempVerifier,
+        });
+
+        // Process successful result
+        final data = result.data;
+        final String? accessToken = data['accessToken'] as String?;
+        final String? instanceUrl = data['instanceUrl'] as String?;
+        final String? refreshToken = data['refreshToken'] as String?;
+        final int? expiresInSeconds = data['expiresInSeconds'] as int?;
+
+        if (accessToken != null &&
+            instanceUrl != null &&
+            refreshToken != null &&
+            expiresInSeconds != null) {
+          if (kDebugMode) {
+            print(
+              'SalesforceAuthNotifier: Cloud Function successful. Storing tokens...',
+            );
+          }
+          // Call _storeTokens with all required parameters
+          await _storeTokens(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            instanceUrl: instanceUrl,
+            expiresInSeconds: expiresInSeconds,
+          );
+          state = SalesforceAuthState.authenticated;
+          _initialSignInAttempted = true; // Mark sign-in as done
+        } else {
+          // Handle case where function succeeded but returned invalid data
+          _lastError = 'Cloud Function returned incomplete token data.';
+          if (kDebugMode) {
+            print('SalesforceAuthNotifier: Error - $_lastError');
+            print('Received data: $data');
+          }
+          state = SalesforceAuthState.error;
+        }
+      } on FirebaseFunctionsException catch (e) {
+        // Handle Cloud Function specific errors
+        _lastError =
+            'Cloud Function call failed: Code [${e.code}] Message [${e.message}] Details [${e.details}]';
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: $_lastError');
+        }
+        state = SalesforceAuthState.error;
+      } catch (e) {
+        // Handle other errors
+        _lastError = 'Error during web login completion: $e';
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: $_lastError');
+        }
+        state = SalesforceAuthState.error;
+      }
+    } else {
+      if (kDebugMode) {
+        // This case is normal if the app loads without a pending callback
+        // print('SalesforceAuthNotifier: No pending web login found in session storage.');
+      }
+      // If state was unknown/authenticating, set to unauthenticated if no code found
+      if (state == SalesforceAuthState.unknown ||
+          state == SalesforceAuthState.authenticating) {
+        state = SalesforceAuthState.unauthenticated;
+      }
+    }
+    // Always notify at the end to reflect final state
+  }
+
+  /// Exchanges mobile auth code for tokens directly (no cloud function)
+  Future<void> _exchangeCodeForTokens(
+    String authorizationCode,
+    String codeVerifier,
+  ) async {
     try {
-      // 3. Launch Web Auth Flow
-      final result = await FlutterWebAuth2.authenticate(
-        url: authorizationUrl.toString(),
-        callbackUrlScheme:
-            Uri.parse(_redirectUri).scheme, // Extract scheme from redirect URI
-        // Optional: preferEphemeral for iOS private session
-        // preferEphemeral: true,
-      );
-
-      if (kDebugMode) {
-        print('SalesforceAuthNotifier: Web auth result: $result');
-      }
-
-      // 4. Extract Authorization Code from the result (which is the full callback URL)
-      final uri = Uri.parse(result);
-      final authorizationCode = uri.queryParameters['code'];
-
-      if (authorizationCode == null || authorizationCode.isEmpty) {
-        throw Exception('Authorization code not found in callback URL.');
-      }
-
-      if (kDebugMode) {
-        print('SalesforceAuthNotifier: Received authorization code.');
-      }
-
       // 5. Exchange Authorization Code for Tokens
       final response = await http.post(
         Uri.parse(_tokenEndpoint),
@@ -289,7 +489,8 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
           'grant_type': 'authorization_code',
           'code': authorizationCode,
           'client_id': _clientId,
-          'redirect_uri': _redirectUri,
+          'redirect_uri':
+              _redirectUri, // Must match the URI used in the auth request
           'code_verifier': codeVerifier, // Send the original verifier
         },
       );
@@ -332,12 +533,8 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
         throw Exception('Token exchange failed: $error ($errorDescription)');
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('SalesforceAuthNotifier: Sign in failed: $e');
-      }
-      _lastError = 'Sign in failed: $e';
-      state = SalesforceAuthState.error;
-      // Don't clear tokens here, as they might not have been set or might be from a previous session
+      // Re-throw the exception to be caught by the calling method (signIn or handleWebCallback)
+      rethrow;
     }
   }
 
@@ -393,90 +590,93 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
   }
 
   Future<bool> _refreshAccessToken() async {
-    if (_refreshToken == null) {
+    if (!kIsWeb && _refreshToken != null) {
+      // --- Original Mobile Refresh Logic ---
       if (kDebugMode) {
-        print('SalesforceAuthNotifier: No refresh token available to refresh.');
+        print('SalesforceAuthNotifier: Attempting to refresh access token...');
       }
-      _lastError = 'Refresh failed: No refresh token available.';
-      return false;
-    }
 
-    if (kDebugMode) {
-      print('SalesforceAuthNotifier: Attempting to refresh access token...');
-    }
+      try {
+        final response = await http.post(
+          Uri.parse(_tokenEndpoint),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'grant_type': 'refresh_token',
+            'refresh_token': _refreshToken!,
+            'client_id': _clientId,
+            // No client_secret needed for refresh token grant if Connected App doesn't require it
+          },
+        );
 
-    try {
-      final response = await http.post(
-        Uri.parse(_tokenEndpoint),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'grant_type': 'refresh_token',
-          'refresh_token': _refreshToken!,
-          'client_id': _clientId,
-          // No client_secret needed for refresh token grant if Connected App doesn't require it
-        },
-      );
+        final responseBody = json.decode(response.body);
 
-      final responseBody = json.decode(response.body);
+        if (response.statusCode == 200) {
+          final newAccessToken = responseBody['access_token'] as String?;
+          final newInstanceUrl = responseBody['instance_url'] as String?;
+          // Salesforce often doesn't return expires_in or a new refresh token on refresh.
+          // Use a default expiry (e.g., 2 hours) and reuse the existing refresh token.
+          const defaultExpiresIn = 7200; // 2 hours in seconds
 
-      if (response.statusCode == 200) {
-        final newAccessToken = responseBody['access_token'] as String?;
-        final newInstanceUrl = responseBody['instance_url'] as String?;
-        // Salesforce often doesn't return expires_in or a new refresh token on refresh.
-        // Use a default expiry (e.g., 2 hours) and reuse the existing refresh token.
-        const defaultExpiresIn = 7200; // 2 hours in seconds
+          if (newAccessToken == null || newInstanceUrl == null) {
+            if (kDebugMode) {
+              print(
+                'SalesforceAuthNotifier: Refresh response missing access_token or instance_url.',
+              );
+            }
+            _lastError = 'Refresh failed: Incomplete token data received.';
+            // Don't clear tokens here, maybe the old refresh token is still valid?
+            return false;
+          }
 
-        if (newAccessToken == null || newInstanceUrl == null) {
+          if (kDebugMode) {
+            print('SalesforceAuthNotifier: Token refresh successful.');
+          }
+          // Store the new access token, reusing the existing refresh token
+          await _storeTokens(
+            accessToken: newAccessToken,
+            refreshToken: _refreshToken!, // Reuse existing refresh token
+            instanceUrl: newInstanceUrl,
+            expiresInSeconds: defaultExpiresIn,
+          );
+          _lastError = null; // Clear previous errors
+          return true;
+        } else {
+          // Handle refresh error (e.g., refresh token revoked)
+          final error = responseBody['error'] as String? ?? 'unknown_error';
+          final errorDescription =
+              responseBody['error_description'] as String? ?? 'No description.';
+          _lastError = 'Refresh failed: $error ($errorDescription)';
           if (kDebugMode) {
             print(
-              'SalesforceAuthNotifier: Refresh response missing access_token or instance_url.',
+              'SalesforceAuthNotifier: Token refresh failed. Status: ${response.statusCode}, Error: $error, Desc: $errorDescription',
             );
           }
-          _lastError = 'Refresh failed: Incomplete token data received.';
-          // Don't clear tokens here, maybe the old refresh token is still valid?
+          // If the grant is invalid (e.g., revoked token), clear everything
+          if (error == 'invalid_grant') {
+            await _clearTokens();
+            // State is set to unauthenticated within _clearTokens
+          } else {
+            // For other errors, maybe don't clear tokens automatically?
+            // Set state to error to indicate a problem
+            state = SalesforceAuthState.error;
+          }
           return false;
         }
-
+      } catch (e) {
+        _lastError = 'Refresh failed: Exception occurred: $e';
         if (kDebugMode) {
-          print('SalesforceAuthNotifier: Token refresh successful.');
+          print('SalesforceAuthNotifier: Exception during token refresh: $e');
         }
-        // Store the new access token, reusing the existing refresh token
-        await _storeTokens(
-          accessToken: newAccessToken,
-          refreshToken: _refreshToken!, // Reuse existing refresh token
-          instanceUrl: newInstanceUrl,
-          expiresInSeconds: defaultExpiresIn,
-        );
-        _lastError = null; // Clear previous errors
-        return true;
-      } else {
-        // Handle refresh error (e.g., refresh token revoked)
-        final error = responseBody['error'] as String? ?? 'unknown_error';
-        final errorDescription =
-            responseBody['error_description'] as String? ?? 'No description.';
-        _lastError = 'Refresh failed: $error ($errorDescription)';
-        if (kDebugMode) {
-          print(
-            'SalesforceAuthNotifier: Token refresh failed. Status: ${response.statusCode}, Error: $error, Desc: $errorDescription',
-          );
-        }
-        // If the grant is invalid (e.g., revoked token), clear everything
-        if (error == 'invalid_grant') {
-          await _clearTokens();
-          // State is set to unauthenticated within _clearTokens
-        } else {
-          // For other errors, maybe don't clear tokens automatically?
-          // Set state to error to indicate a problem
-          state = SalesforceAuthState.error;
-        }
+        state = SalesforceAuthState.error;
         return false;
       }
-    } catch (e) {
-      _lastError = 'Refresh failed: Exception occurred: $e';
+    } else {
+      // Web or no refresh token - cannot refresh client-side
       if (kDebugMode) {
-        print('SalesforceAuthNotifier: Exception during token refresh: $e');
+        print(
+          'SalesforceAuthNotifier: Refresh token not available or on web platform. Cannot refresh client-side.',
+        );
       }
-      state = SalesforceAuthState.error;
       return false;
     }
   }

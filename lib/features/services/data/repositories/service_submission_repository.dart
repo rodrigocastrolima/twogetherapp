@@ -187,7 +187,7 @@ class ServiceSubmissionRepository {
     final storagePath =
         'submissions/$submissionId/attachment_${fileIndex}_$fileName';
     final storageRef = _storage.ref().child(storagePath);
-    UploadTask uploadTask;
+      UploadTask uploadTask;
 
     try {
       SettableMetadata? metadata;
@@ -290,10 +290,10 @@ class ServiceSubmissionRepository {
           'Client'; // Assuming responsibleName is client name
 
       await _submissionsCollection.doc(submissionId).update({
-        'status': newStatus,
+            'status': newStatus,
         // Optionally add a timestamp for status update
         // 'statusUpdatedAt': FieldValue.serverTimestamp(),
-      });
+          });
 
       // Create notification for the reseller
       if (resellerId.isNotEmpty && oldStatus != newStatus) {
@@ -424,9 +424,9 @@ class ServiceSubmissionRepository {
       }
 
       // Create notification AFTER successful save
-      await _createSubmissionNotification(
-        submissionId,
-        resellerName,
+    await _createSubmissionNotification(
+      submissionId,
+      resellerName,
         responsibleName,
         serviceCategoryName,
       );

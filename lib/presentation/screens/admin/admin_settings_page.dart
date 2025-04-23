@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../../core/theme/theme.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/locale_provider.dart';
@@ -26,6 +28,90 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   bool _notificationsEnabled = true;
   bool _securityAlertsEnabled = true;
 
+  Future<void> _testSalesforceApiCall() async {
+    final salesforceNotifier = ref.read(salesforceAuthProvider.notifier);
+    final accessToken = salesforceNotifier.currentAccessToken;
+    final instanceUrl = salesforceNotifier.currentInstanceUrl;
+    final loadingService = ref.read(loadingServiceProvider);
+
+    if (accessToken == null || instanceUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Salesforce is not connected.')),
+      );
+      return;
+    }
+
+    loadingService.show(context, message: 'Testing API Call...');
+
+    try {
+      final url = Uri.parse('$instanceUrl/services/oauth2/userinfo');
+
+      if (kDebugMode) {
+        print('Making GET request to: $url');
+        print('Using Access Token: Bearer $accessToken');
+      }
+
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $accessToken'},
+      );
+
+      if (mounted) {
+        loadingService.hide();
+      }
+
+      if (response.statusCode == 200) {
+        final userInfo = jsonDecode(response.body);
+        final userName = userInfo['name'] ?? 'N/A';
+        final userEmail = userInfo['email'] ?? 'N/A';
+        if (kDebugMode) {
+          print('Salesforce API Call Success!');
+          print('Response: ${response.body}');
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('API Call Success! User: $userName ($userEmail)'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print(
+            'Salesforce API Call Failed: ${response.statusCode} ${response.reasonPhrase}',
+          );
+          print('Response Body: ${response.body}');
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'API Call Failed: ${response.statusCode} - ${response.reasonPhrase}',
+              ),
+              backgroundColor: AppTheme.destructive,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        loadingService.hide();
+      }
+      if (kDebugMode) {
+        print('Error during Salesforce API call: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during API call: $e'),
+            backgroundColor: AppTheme.destructive,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
@@ -36,10 +122,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
 
-    // Watch Salesforce auth state
     final salesforceState = ref.watch(salesforceAuthProvider);
 
-    // Determine status color and text based on state
     Color statusColor;
     String statusSubtitle;
     bool isConnected = false;
@@ -78,9 +162,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ),
           const SizedBox(height: 32),
 
-          // --- 1. Profile Button Section ---
           _buildSettingsGroup(l10n.account, [
-            // Keep group title for consistency, or remove if preferred
             _buildActionSetting(
               l10n.adminProfile,
               l10n.viewEditProfile,
@@ -92,7 +174,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ]),
           const SizedBox(height: 24),
 
-          // --- 2. Common Settings Group ---
           _buildSettingsGroup(l10n.commonSettings, [
             _buildToggleSetting(
               l10n.profileTheme,
@@ -137,7 +218,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ]),
           const SizedBox(height: 24),
 
-          // --- 3. Admin Preferences Group ---
           _buildSettingsGroup(l10n.adminPreferences, [
             _buildActionSetting(
               l10n.adminSystemConfig,
@@ -152,7 +232,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               statusSubtitle,
               CupertinoIcons.cloud,
               () async {
-                // Only trigger sign-in if not connected
                 if (!isConnected) {
                   final loadingService = ref.read(loadingServiceProvider);
                   final salesforceNotifier = ref.read(
@@ -164,9 +243,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   );
                   try {
                     await salesforceNotifier.signIn();
-                    // No navigation needed here, state change will rebuild UI
                   } catch (e) {
-                    // Handle potential errors (e.g., show a snackbar)
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -180,10 +257,11 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     }
                   }
                 } else {
-                  // Optional: Add logic for when already connected (e.g., show info)
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Already connected to Salesforce.'),
+                      content: Text(
+                        'Already connected. Disconnect functionality not implemented yet.',
+                      ),
                     ),
                   );
                 }
@@ -191,6 +269,20 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               statusIndicator: _buildStatusIndicator(statusColor),
               hideChevron: true,
             ),
+            if (isConnected)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Center(
+                  child: ElevatedButton(
+                    onPressed: _testSalesforceApiCall,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Test Salesforce API Call'),
+                  ),
+                ),
+              ),
             _buildActionSetting(
               'Developer Tools',
               'Access admin-only scripts and tools.',
@@ -200,7 +292,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ]),
           const SizedBox(height: 24),
 
-          // --- 5. Standalone Logout Button ---
           _buildActionSetting(
             l10n.profileLogout,
             l10n.profileEndSession,
@@ -388,7 +479,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                         print("Changing language to: $value");
                       }
                       try {
-                        // Make sure to await the setLocale call
                         await localeNotifier.setLocale(value);
                         if (kDebugMode) {
                           print("Language changed successfully to: $value");
@@ -521,7 +611,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 onPressed: () {
                   Navigator.of(dialogContext).pop();
 
-                  // Show loading overlay during sign out
                   final loadingService = ref.read(loadingServiceProvider);
                   loadingService.show(
                     context,
@@ -529,20 +618,16 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     showLogo: true,
                   );
 
-                  // Set authenticated to false and redirect to login
                   AppRouter.authNotifier
                       .setAuthenticated(false)
                       .then((_) {
-                        // Hide loading overlay only if widget is still mounted
                         if (mounted) {
                           loadingService.hide();
                         }
                       })
                       .catchError((error) {
-                        // Hide on error only if widget is still mounted
                         if (mounted) {
                           loadingService.hide();
-                          // Show error message
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Error signing out: $error'),
@@ -564,137 +649,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     );
   }
 
-  void _showBackupDialog(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: AlertDialog(
-            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
-            title: Text(
-              l10n.exportDatabase,
-              style: TextStyle(color: theme.colorScheme.onSurface),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.selectExportFormat,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                RadioListTile(
-                  value: true,
-                  groupValue: true,
-                  title: Text(
-                    l10n.exportFormatJSON,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onChanged: null,
-                  activeColor: theme.colorScheme.primary,
-                ),
-                RadioListTile(
-                  value: false,
-                  groupValue: true,
-                  title: Text(
-                    l10n.exportFormatCSV,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onChanged: null,
-                  activeColor: theme.colorScheme.primary,
-                ),
-                RadioListTile(
-                  value: false,
-                  groupValue: true,
-                  title: Text(
-                    l10n.exportFormatSQL,
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
-                  onChanged: null,
-                  activeColor: theme.colorScheme.primary,
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.primary,
-                ),
-                child: Text(l10n.commonCancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  // Show export success dialog
-                  if (mounted) {
-                    _showExportSuccessDialog(context);
-                  }
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                ),
-                child: Text(l10n.export),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showExportSuccessDialog(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: AlertDialog(
-            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
-            title: Row(
-              children: [
-                Icon(Icons.check_circle, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.exportSuccessful,
-                  style: TextStyle(color: theme.colorScheme.onSurface),
-                ),
-              ],
-            ),
-            content: Text(
-              l10n.exportSuccessfulDescription,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                ),
-                child: Text(l10n.ok),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Helper to build status indicator dot
   Widget _buildStatusIndicator(Color color) {
     return Container(
       width: 10,

@@ -80,6 +80,7 @@ This document tracks pending issues, bugs, and future enhancements for the Twoge
 
 ## Security
 
+- [ ] **Implement Backend-for-Frontend (BFF) for Web Auth:** Refactor Salesforce authentication for the web platform to use a BFF. Store sensitive refresh tokens server-side instead of in browser storage (localStorage) to mitigate XSS risks. This is crucial for production security.
 - [ ] **Sensitive data handling**: Review how sensitive user data is stored and processed
 - [ ] **Firebase security rules**: Audit and enhance security rules
 - [ ] **Role-based routing**: Enhance role-based routing to ensure admins cannot access reseller pages and vice versa, possibly by implementing additional server-side validation

@@ -624,6 +624,14 @@ class AppRouter {
           // Allow reseller to stay on any non-admin page.
           return null;
         }
+
+        // Allow access
+        if (kDebugMode)
+          print(
+            'GoRouter Redirect: Role matches route or route is allowed. Allowing access.',
+          );
+
+        return null; // Allow navigation
       } catch (e) {
         if (kDebugMode) {
           print(

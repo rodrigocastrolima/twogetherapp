@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
+// Import the centralized provider
+import 'shared_preferences_provider.dart';
 
 /// A provider that manages the locale state of the application
 class LocaleNotifier extends StateNotifier<Locale> {
@@ -56,15 +58,9 @@ class LocaleNotifier extends StateNotifier<Locale> {
   }
 }
 
-/// Provider for shared preferences instance
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError(
-    'SharedPreferences provider must be initialized externally',
-  );
-});
-
 /// Provider for the locale state
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
+  // Watch the imported, centralized provider
   final prefs = ref.watch(sharedPreferencesProvider);
   return LocaleNotifier(prefs);
 });
