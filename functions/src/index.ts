@@ -11,20 +11,20 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { removeRememberMeField } from './removeRememberMeField';
-import * as jwt from 'jsonwebtoken'; // Added for JWT generation
-import axios from 'axios'; // Added for HTTP requests
-// Import v2 Firestore triggers
+import * as jwt from 'jsonwebtoken';
+import axios from 'axios';
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import * as jsforce from 'jsforce'; // For Salesforce connection
-import * as functions from "firebase-functions"; // Ensure this import exists for functions.config()
-import { cleanupExpiredMessages } from './messageCleanup'; // Re-added import
-import { sendMessageNotification } from './notifications'; // Re-added import
-import { getResellerOpportunities } from './getResellerOpportunities'; // Re-added import
-import { getOpportunityProposals } from './getOpportunityProposals'; // <-- ADD THIS IMPORT
-import { resetAndVerifyConversations } from './migrations'; // Re-added import
+import * as jsforce from 'jsforce';
+import * as functions from "firebase-functions";
+import { cleanupExpiredMessages } from './messageCleanup';
+import { sendMessageNotification } from './notifications';
+import { getResellerOpportunities } from './getResellerOpportunities';
+import { getOpportunityProposals } from './getOpportunityProposals';
+import { resetAndVerifyConversations } from './migrations';
 
 // Export functions from separate files
 export * from './set-role-claim';
+export * from './exchangeSalesforceCode';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -32,7 +32,7 @@ export { removeRememberMeField };
 // Export the other functions
 export {
     getResellerOpportunities,
-    getOpportunityProposals, // <-- ADD THIS EXPORT
+    getOpportunityProposals,
     resetAndVerifyConversations,
     sendMessageNotification,
     cleanupExpiredMessages
