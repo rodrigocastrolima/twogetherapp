@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../salesforce/data/repositories/salesforce_repository.dart';
 import '../pages/salesforce_opportunity.dart';
+import '../../data/models/create_opp_models.dart';
 
 /// FutureProvider that fetches Salesforce opportunities for the logged-in reseller
 ///
@@ -95,3 +96,19 @@ final filteredOpportunitiesProvider =
         error: (_, __) => [],
       );
     });
+
+// Provider for the SalesforceRepository itself (assuming it's defined elsewhere or create basic one)
+// Example: final salesforceRepositoryProvider = Provider((ref) => SalesforceRepository());
+// Ensure you have a provider that provides SalesforceRepository instance.
+
+// --- Provider for Creating Salesforce Opportunity ---
+
+final createOpportunityProvider = FutureProvider.family<CreateOppResult, CreateOppParams>(
+  (ref, params) async {
+    // Get the repository instance
+    final repository = ref.watch(salesforceRepositoryProvider); // Ensure this provider exists!
+    
+    // Call the repository method
+    return repository.createSalesforceOpportunity(params);
+  },
+);

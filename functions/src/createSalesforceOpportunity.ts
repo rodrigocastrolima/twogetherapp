@@ -1,0 +1,308 @@
+import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
+import * as admin from "firebase-admin";
+import * as jsforce from "jsforce";
+import axios from "axios"; // Or node-fetch if preferred
+
+// Initialize Firebase Admin SDK (if not already done in index.ts)
+// Consider moving this to index.ts if you have multiple functions
+try {
+  admin.initializeApp();
+} catch (e) {
+  logger.info("Firebase Admin SDK already initialized.");
+}
+
+
+// --- Interfaces ---
+
+interface CreateOppParams {
+  submissionId: string;
+  accessToken: string; // Added
+  instanceUrl: string; // Added
+  resellerSalesforceId: string;
+  opportunityName: string;
+  nif: string;
+  companyName: string; // For Account creation if needed
+  segment: string;
+  solution: string;
+  closeDate: string; // Expect ISO 8601 string from client
+  opportunityType: string;
+  phase: string;
+  fileUrls?: string[]; // Optional list of file URLs/paths
+}
+
+interface CreateOppResult {
+  success: boolean;
+  opportunityId?: string;
+  error?: string;
+  sessionExpired?: boolean; // Added
+}
+
+// --- Cloud Function Definition ---
+
+export const createSalesforceOpportunity = onCall(
+  {
+    timeoutSeconds: 300, // Increase timeout for potential file downloads/uploads
+    memory: "512MiB", // Allocate more memory if needed for file processing
+    // enforceAppCheck: true, // Recommended for production
+  },
+  async (request: CallableRequest<CreateOppParams>): Promise<CreateOppResult> => {
+    logger.info("createSalesforceOpportunity function triggered", { submissionId: request.data.submissionId });
+
+    // 1. Authentication and Authorization Check
+    if (!request.auth) {
+      logger.error("Authentication failed: User is not authenticated.");
+      throw new HttpsError("unauthenticated", "User must be authenticated to perform this action.");
+    }
+
+    // TODO: Implement proper Admin role check based on your custom claims setup
+    const isAdmin = request.auth.token.isAdmin === true; // Example: check custom claim
+    if (!isAdmin) {
+      logger.error("Authorization failed: User is not an admin.", { uid: request.auth.uid });
+      throw new HttpsError("permission-denied", "User does not have permission to perform this action.");
+    }
+    logger.info("User authenticated and authorized as Admin.", { uid: request.auth.uid });
+
+    // 2. Input Validation (Basic)
+    const data = request.data;
+    logger.info("Received data for validation:", data); // Log before checks
+
+    // --- BEGIN Individual Field Checks ---
+    if (!data.submissionId) throw new HttpsError("invalid-argument", "Missing submissionId");
+    if (!data.accessToken) throw new HttpsError("invalid-argument", "Missing accessToken");
+    if (!data.instanceUrl) throw new HttpsError("invalid-argument", "Missing instanceUrl");
+    if (!data.resellerSalesforceId) throw new HttpsError("invalid-argument", "Missing resellerSalesforceId");
+    if (!data.opportunityName) throw new HttpsError("invalid-argument", "Missing opportunityName");
+    if (!data.nif) throw new HttpsError("invalid-argument", "Missing nif");
+    if (!data.companyName) throw new HttpsError("invalid-argument", "Missing companyName");
+    if (!data.segment) throw new HttpsError("invalid-argument", "Missing segment");
+    if (!data.solution) throw new HttpsError("invalid-argument", "Missing solution");
+    if (!data.closeDate) throw new HttpsError("invalid-argument", "Missing closeDate");
+    if (!data.opportunityType) throw new HttpsError("invalid-argument", "Missing opportunityType");
+    if (!data.phase) throw new HttpsError("invalid-argument", "Missing phase");
+    // --- END Individual Field Checks ---
+
+    logger.info("Input validation passed."); // Add log to confirm success
+
+    // --- Steps 4-8 ---
+    try {
+      // Initialize JSforce Connection (Step 4.1, 4.2)
+      const conn = new jsforce.Connection({
+          instanceUrl: data.instanceUrl,
+          accessToken: data.accessToken,
+          // version: '58.0' // Optional: specify API version
+      });
+      logger.info("Salesforce connection initialized using provided token.");
+
+      // --- Step 5: Account Upsert Logic ---
+      logger.info("Attempting Account upsert...", { nif: data.nif, companyName: data.companyName });
+      const accountPayload = { 
+        Name: data.companyName, // Use companyName from submission for Account Name
+        NIF__c: data.nif,
+        EDP__c: true,            // <-- Set EDP checkbox to true
+        EDP_Status__c: "Prospect" // <-- Set EDP Status to Cliente
+      };
+      // Use the helper function to make the call
+      const accountResult = await callSalesforceApi<{id?: string, success?: boolean, errors?: any[]}>(() => 
+        conn.sobject('Account').upsert(accountPayload, 'NIF__c')
+      );
+      
+      // Validate Account Upsert result
+      const accountId = accountResult.id;
+      if (!accountId || !accountResult.success) {
+        logger.error("Account upsert failed.", { result: accountResult });
+        // Throw HttpsError for consistency, even though helper might have thrown for API errors
+        throw new HttpsError("internal", "Failed to upsert Account in Salesforce.", { details: accountResult.errors });
+      }
+      logger.info(`Account upsert successful. Account ID: ${accountId}`);
+      // --- End Step 5 ---
+
+      // --- Step 5.5: Fetch Retail Record Type ID ---
+      let retailRecordTypeId: string;
+      try {
+        logger.info("Fetching Retail Record Type ID for Oportunidade__c...");
+        const rtQuery = `SELECT Id FROM RecordType WHERE SobjectType = 'Oportunidade__c' AND DeveloperName = 'Retail' LIMIT 1`;
+        
+        // Directly execute the query using the connection
+        const rtResult = await conn.query<{ Id: string }>(rtQuery);
+
+        if (rtResult.records && rtResult.records.length > 0 && rtResult.records[0].Id) {
+          retailRecordTypeId = rtResult.records[0].Id;
+          logger.info(`Found Retail Record Type ID: ${retailRecordTypeId}`);
+        } else {
+          logger.error("Retail Record Type ID not found for Oportunidade__c.");
+          throw new HttpsError("failed-precondition", "Configuration Error: Retail Record Type not found in Salesforce.");
+        }
+      } catch (error: any) {
+        // Log the specific error from fetching Record Type ID
+        logger.error("Error fetching Retail Record Type ID:", error);
+        // Handle potential Salesforce API errors from the query
+        if (error.name === 'invalid_grant' || error.errorCode === 'INVALID_SESSION_ID') {
+             throw new HttpsError('unauthenticated', 'Salesforce session expired or invalid during Record Type fetch.', { sessionExpired: true });
+        }
+        // Otherwise, wrap it as an internal error
+        throw new HttpsError("internal", `Failed to fetch Retail Record Type ID: ${error.message || error}`);
+      }
+      // --- End Step 5.5 ---
+
+      // --- Step 6: Opportunity Creation Logic ---
+      logger.info("Attempting Opportunity creation...", { accountId: accountId, recordTypeId: retailRecordTypeId });
+      // Construct the payload, mapping Flutter names/values to SF API names
+      const oppPayload = {
+        Name: data.opportunityName,
+        AccountId: accountId, // Corrected API name (usually AccountId)
+        RecordTypeId: retailRecordTypeId, // <-- Add fetched Record Type ID
+        NIF__c: data.nif,
+        Agente_Retail__c: data.resellerSalesforceId, // Use the ID passed from Flutter
+        Tipo_de_Oportunidade__c: data.opportunityType,
+        Fase__c: data.phase,
+        Segmento_de_Cliente__c: data.segment,
+        Solu_o__c: data.solution,
+        Data_de_Previs_o_de_Fecho__c: data.closeDate, // Assuming client sends 'YYYY-MM-DD'
+        // Add any other mandatory fields here
+      };
+      logger.debug("Opportunity Payload:", { payload: oppPayload });
+
+      // Use the helper function to make the call
+      const oppResult = await callSalesforceApi<{id?: string, success?: boolean, errors?: any[]}>(() => 
+        conn.sobject('Oportunidade__c').create(oppPayload)
+      );
+
+      // Validate Opportunity Create result
+      const opportunityId = oppResult.id;
+      if (!opportunityId || !oppResult.success) {
+        logger.error("Opportunity creation failed.", { result: oppResult });
+        throw new HttpsError("internal", "Failed to create Opportunity in Salesforce.", { details: oppResult.errors });
+      }
+      logger.info(`Opportunity creation successful. Opportunity ID: ${opportunityId}`);
+      // --- End Step 6 ---
+
+      // --- Step 7: File Upload Logic ---
+      const fileUrls = data.fileUrls; // Expecting an array of strings (URLs or paths)
+      if (fileUrls && fileUrls.length > 0) {
+        logger.info(`Starting file uploads for ${fileUrls.length} files to Opportunity ${opportunityId}...`);
+        
+        // Process uploads sequentially for simplicity, can be parallelized if needed
+        for (const fileUrlOrPath of fileUrls) {
+          try {
+            logger.info(`Processing file: ${fileUrlOrPath}`);
+            
+            // 1. Get Filename (basic extraction)
+            let fileName = 'UnknownFile';
+            try {
+               const decodedPath = decodeURIComponent(fileUrlOrPath.split('/').pop()?.split('?')[0] || 'UnknownFile');
+               fileName = decodedPath.split('/').pop()?.replace(/^attachment_\d+_/, '') || 'UnknownFile';
+            } catch(e) {
+               logger.warn(`Could not reliably parse filename from: ${fileUrlOrPath}`, e);
+               fileName = fileUrlOrPath.split('/').pop()?.split('?')[0]?.replace(/^attachment_\d+_/, '') || 'UnknownFile';
+            }
+            logger.info(`Extracted filename: ${fileName}`);
+
+            // 2. Get File Content (assuming direct download URL for now)
+            //    If these are Storage paths, you need Firebase Admin Storage SDK here
+            let fileBuffer: Buffer;
+            try {
+              const response = await axios.get(fileUrlOrPath, { responseType: 'arraybuffer' });
+              if (response.status !== 200) {
+                throw new Error(`Failed to download file ${fileName}: Status ${response.status}`);
+              }
+              fileBuffer = Buffer.from(response.data);
+              logger.info(`Successfully downloaded file content for ${fileName}. Size: ${fileBuffer.length} bytes.`);
+            } catch (downloadError: any) {
+               logger.error(`Error downloading file ${fileName} from ${fileUrlOrPath}:`, downloadError);
+               // Decide: skip this file or fail the whole operation?
+               // Let's skip and log for now.
+               logger.warn(`Skipping upload for ${fileName} due to download error.`);
+               continue; // Move to the next file
+            }
+
+            // 3. Base64 Encode
+            const base64Content = fileBuffer.toString('base64');
+
+            // 4. Create ContentVersion in Salesforce
+            const filePayload = {
+              Title: fileName,
+              PathOnClient: fileName,
+              VersionData: base64Content,
+              FirstPublishLocationId: opportunityId, // Link to the Opportunity
+            };
+            logger.info(`Uploading ${fileName} (${base64Content.length} chars base64) to Salesforce...`);
+            
+            // Use the helper for the API call
+            const fileResult = await callSalesforceApi<{id?: string, success?: boolean, errors?: any[]}>(() => 
+              conn.sobject('ContentVersion').create(filePayload)
+            );
+
+            if (!fileResult.success || !fileResult.id) {
+              logger.error(`Failed to upload file ${fileName} to Salesforce.`, { result: fileResult });
+              // Decide: skip or fail?
+              // Let's throw an error to indicate upload failure for this file
+              throw new HttpsError("internal", `Failed to upload file ${fileName}.`, { details: fileResult.errors });
+            }
+            logger.info(`Successfully uploaded file ${fileName} as ContentVersion ${fileResult.id}`);
+
+          } catch (fileUploadError) {
+            // Catch errors specific to this file's processing/uploading
+            logger.error(`Error processing file ${fileUrlOrPath}:`, fileUploadError);
+            // If the error is an HttpsError (e.g., session expired from callSalesforceApi), rethrow it
+            if (fileUploadError instanceof HttpsError) {
+              throw fileUploadError;
+            }
+            // Otherwise, wrap it and decide if it's fatal
+            // Let's make individual file upload errors fatal for now
+            throw new HttpsError("internal", `Failed during file upload process for ${fileUrlOrPath}.`, fileUploadError);
+          }
+        } // End of for loop
+        logger.info("Finished processing all file uploads.");
+      } else {
+        logger.info("No file URLs provided in the submission, skipping file upload step.");
+      }
+      // --- End Step 7 ---
+
+      // --- Step 8: Return Final Success --- 
+      // If we reached here, all steps were successful
+      logger.info("All steps completed successfully.");
+      return { success: true, opportunityId: opportunityId };
+
+    } catch (error) {
+      logger.error("Error caught in main try block:", error); // Log the caught error
+      if (error instanceof HttpsError) {
+        throw error; // Re-throw HttpsErrors
+      }
+      // Wrap other unexpected errors (e.g., validation errors before API call)
+      throw new HttpsError("internal", "An unexpected error occurred.", error);
+    }
+  }
+);
+
+// --- Step 4.3: API Call Helper Function ---
+async function callSalesforceApi<T>(apiCall: () => Promise<T>): Promise<T> {
+  logger.info("Executing Salesforce API call...");
+  try {
+    const result = await apiCall();
+    logger.info("Salesforce API call successful.");
+    return result;
+  } catch (error: any) {
+    logger.error('Salesforce API Error caught in helper:', { 
+        name: error.name, 
+        code: error.errorCode, 
+        message: error.message, 
+        // stack: error.stack // Optional: include stack trace if needed 
+    });
+    // Check for specific Salesforce session invalidation errors
+    if (error.name === 'invalid_grant' || // Often indicates expired/revoked token
+        error.errorCode === 'INVALID_SESSION_ID' || 
+        (error.errorCode && typeof error.errorCode === 'string' && error.errorCode.includes('INVALID_SESSION_ID'))) 
+    {
+      logger.warn('Detected invalid session ID or grant error.');
+      throw new HttpsError('unauthenticated', 'Salesforce session expired or invalid.', { sessionExpired: true });
+    } else {
+      // Throw a generic internal error for other Salesforce issues
+      const errorMessage = error.message || error.name || 'Unknown Salesforce API error';
+      throw new HttpsError('internal', `Salesforce API call failed: ${errorMessage}`, { 
+          errorCode: error.errorCode, 
+          fields: error.fields // Include fields if available (e.g., validation errors)
+      });
+    }
+  }
+} 

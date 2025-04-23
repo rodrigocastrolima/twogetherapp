@@ -5,6 +5,7 @@ import '../../../opportunity/presentation/pages/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../proposal/data/models/salesforce_proposal.dart';
+import '../../../opportunity/data/models/create_opp_models.dart';
 
 /// Repository for interacting with Salesforce data through Firebase Cloud Functions
 class SalesforceRepository {
@@ -283,6 +284,58 @@ class SalesforceRepository {
         print('getOpportunityProposals General error: $e');
       }
       throw Exception('Failed to fetch proposals: $e');
+    }
+  }
+
+  /// Calls the Cloud Function to create an Account (if needed) and Opportunity in Salesforce.
+  Future<CreateOppResult> createSalesforceOpportunity(
+    CreateOppParams params,
+  ) async {
+    // Get callable function instance
+    final functions = FirebaseFunctions.instance;
+    // Optional: Use emulator
+    // functions.useFunctionsEmulator('localhost', 5001);
+    final callable = functions.httpsCallable('createSalesforceOpportunity');
+
+    print(
+      'Calling createSalesforceOpportunity with params: ${params.toJson()}',
+    ); // Debug log
+
+    try {
+      // Call the function with parameters converted to JSON
+      final HttpsCallableResult result = await callable
+          .call<Map<String, dynamic>>(params.toJson());
+
+      print('Cloud Function result data: ${result.data}'); // Debug log
+
+      // Parse the result using the factory constructor
+      return CreateOppResult.fromJson(result.data as Map<String, dynamic>);
+    } on FirebaseFunctionsException catch (e, stacktrace) {
+      // Handle specific Cloud Function errors
+      print(
+        'FirebaseFunctionsException calling createSalesforceOpportunity: $e',
+      );
+      print('Stacktrace: $stacktrace');
+      // Check if the error details contain the sessionExpired flag
+      bool sessionExpired = false;
+      if (e.details is Map<String, dynamic>) {
+        sessionExpired =
+            (e.details as Map<String, dynamic>)['sessionExpired'] == true;
+      }
+      // Return a failure result
+      return CreateOppResult(
+        success: false,
+        error: '${e.code}: ${e.message}', // Combine code and message
+        sessionExpired: sessionExpired,
+      );
+    } catch (e, stacktrace) {
+      // Handle any other unexpected errors during the call
+      print('Generic error calling createSalesforceOpportunity: $e');
+      print('Stacktrace: $stacktrace');
+      return CreateOppResult(
+        success: false,
+        error: 'An unexpected error occurred: ${e.toString()}',
+      );
     }
   }
 }

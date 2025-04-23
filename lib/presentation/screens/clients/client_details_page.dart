@@ -1,5 +1,5 @@
 // This file is kept as a redirect to prevent build errors.
-// The actual implementation has been moved to opportunity_details_page.dart
+// The actual implementation has been moved to reseller_opportunity_detail_page.dart
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

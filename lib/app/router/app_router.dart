@@ -11,8 +11,8 @@ import '../../presentation/layout/admin_layout.dart';
 import '../../presentation/screens/auth/login_page.dart';
 import '../../presentation/screens/auth/change_password_page.dart';
 import '../../presentation/screens/home/reseller_home_page.dart';
-import '../../presentation/screens/clients/clients_page.dart';
-import '../../presentation/screens/clients/opportunity_details_page.dart';
+import '../../presentation/screens/clients/reseller_opportunity_page.dart';
+import '../../presentation/screens/clients/reseller_opportunity_details_page.dart';
 import '../../presentation/screens/messages/messages_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../presentation/screens/services/services_page.dart';
@@ -31,7 +31,7 @@ import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
 import '../../presentation/screens/admin/dev_tools_page.dart';
 import '../../core/models/service_submission.dart';
-import '../../features/opportunity/presentation/pages/opportunity_detail_page.dart';
+import '../../features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
 import '../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
 
 // *** USE this Global Navigator Key consistently ***

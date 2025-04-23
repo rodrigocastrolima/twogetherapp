@@ -11,6 +11,10 @@ import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; /
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
 import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import 'package:twogether/core/theme/theme.dart'; // Import AppTheme for context access if needed indirectly
+import 'package:twogether/core/services/salesforce_auth_service.dart'; // Import SF Auth Service
+import 'package:twogether/features/opportunity/data/models/create_opp_models.dart'; // Import models
+import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import provider
+import 'package:go_router/go_router.dart'; // For navigation
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
@@ -269,7 +273,7 @@ class _OpportunityDetailFormViewState
       final legacyInvoicePhoto = widget.submission.invoicePhoto;
       if (legacyInvoicePhoto?.storagePath != null &&
           legacyInvoicePhoto!.storagePath.isNotEmpty) {
-      if (kDebugMode) {
+        if (kDebugMode) {
           print(
             "Falling back to single legacy invoicePhoto path: ${legacyInvoicePhoto.storagePath}",
           );
@@ -279,14 +283,14 @@ class _OpportunityDetailFormViewState
           legacyInvoicePhoto.storagePath,
         ]; // Treat the path as a list of one
       } else {
-      if (kDebugMode) {
+        if (kDebugMode) {
           print("No valid URLs or paths found in submission data.");
         }
         return []; // No files found
       }
     }
 
-      if (kDebugMode) {
+    if (kDebugMode) {
       print("Processing URLs/Paths: $urlsOrPaths");
     }
 
@@ -346,8 +350,8 @@ class _OpportunityDetailFormViewState
                       ? widget.submission.invoicePhoto?.contentType
                       : null,
             };
-    } catch (e) {
-      if (kDebugMode) {
+          } catch (e) {
+            if (kDebugMode) {
               print("Error processing URL/Path $urlOrPath: $e");
             }
             String fileName = 'Unknown File';
@@ -457,6 +461,158 @@ class _OpportunityDetailFormViewState
           ],
         );
       },
+    );
+  }
+
+  // --- NEW: Handler for the Approve Action ---
+  Future<void> _approveSubmission() async {
+    // 1. Validate Form
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields.'),
+        ), // TODO: l10n
+      );
+      return;
+    }
+
+    // 2. Validate Reseller Salesforce ID
+    if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot approve: Reseller Salesforce ID is missing.'),
+        ), // TODO: l10n
+      );
+      return;
+    }
+
+    // 3. Get Salesforce Auth Details
+    setState(() => _isSubmitting = true);
+    final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
+    final String? accessToken = await sfAuthNotifier.getValidAccessToken();
+    final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
+
+    if (accessToken == null || instanceUrl == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Salesforce session invalid. Please try logging out and back in, or refresh.',
+            ),
+          ), // TODO: l10n
+        );
+      }
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    // 4. Gather Parameters
+    final params = CreateOppParams(
+      submissionId: widget.submission.id!, // Assume ID is non-null here
+      accessToken: accessToken,
+      instanceUrl: instanceUrl,
+      resellerSalesforceId: _resellerSalesforceId!,
+      opportunityName: _nameController.text,
+      nif: _nifController.text,
+      companyName:
+          widget.submission.companyName ??
+          widget.submission.responsibleName, // Use fallback logic
+      segment: _selectedSegmentoCliente!, // Assume selected
+      solution: _selectedSolucao!, // Assume selected
+      closeDate: _selectedFechoDate!, // Assume selected
+      opportunityType: _tipoOportunidadeValue!, // Assume determined
+      phase: _faseValue, // Use fixed value
+      fileUrls: widget.submission.documentUrls, // Pass the list
+    );
+
+    // 5. Call the Provider
+    try {
+      // We call .future directly as we want to handle the result here, not just display UI based on AsyncValue
+      final result = await ref.read(createOpportunityProvider(params).future);
+      _handleCreateResult(result); // Handle success/failure
+    } catch (e) {
+      // Catch potential errors if the provider itself throws before returning AsyncError
+      _handleCreateError(e);
+    } finally {
+      // Ensure loading state is reset even if error handling fails (though unlikely)
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  // --- NEW: Handler for Cloud Function Result ---
+  Future<void> _handleCreateResult(CreateOppResult result) async {
+    final l10n = AppLocalizations.of(context)!; // Get l10n
+    if (!mounted) return; // Check if widget is still mounted
+
+    if (result.success) {
+      // --- Success Case ---
+      // Update Firestore document
+      try {
+        await FirebaseFirestore.instance
+            .collection('serviceSubmissions')
+            .doc(widget.submission.id)
+            .update({
+              'status': 'approved', // Update status
+              'salesforceOpportunityId': result.opportunityId, // Store SF ID
+              'reviewedAt': FieldValue.serverTimestamp(), // Timestamp approval
+              'reviewDetails': null, // Clear any previous rejection details
+            });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.opportunityApprovedSuccess),
+          ), // TODO: l10n key
+        );
+
+        // Navigate back or to the new opportunity list
+        // context.pop(); // Simple pop back
+        // OR navigate to a different list page, maybe forcing refresh
+        context.go(
+          '/admin',
+        ); // Navigate back to admin home/verification list for now
+      } catch (firestoreError) {
+        print("Error updating Firestore after SF success: $firestoreError");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${l10n.opportunityApprovedSuccessButFirestoreError}: $firestoreError",
+            ),
+          ), // TODO: l10n key
+        );
+        // Still likely want to navigate away or reset state
+        context.go('/admin');
+      }
+    } else {
+      // --- Failure Case ---
+      if (result.sessionExpired) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.errorSalesforceSessionExpired),
+          ), // TODO: l10n key
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${l10n.errorCreatingOpportunity}: ${result.error ?? 'Unknown error'}",
+            ),
+          ), // TODO: l10n key
+        );
+      }
+    }
+  }
+
+  // --- NEW: Handler for Provider Call Errors ---
+  void _handleCreateError(Object e) {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!; // Get l10n
+    print("Error calling createOpportunityProvider: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("${l10n.errorUnexpected}: ${e.toString()}"),
+      ), // TODO: l10n key
     );
   }
 
@@ -838,7 +994,7 @@ class _OpportunityDetailFormViewState
                         Expanded(
                           child: Text(
                             '${l10n.opportunityDetailInvoiceError}: ${snapshot.error}',
-                          style: textTheme.bodyMedium?.copyWith(
+                            style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.error,
                             ),
                           ),
@@ -917,10 +1073,10 @@ class _OpportunityDetailFormViewState
         border: Border.all(color: theme.colorScheme.errorContainer, width: 0.5),
       ),
       child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Icon(Icons.info_outline, color: theme.colorScheme.error),
               const SizedBox(width: 8),
               Text(
@@ -928,10 +1084,10 @@ class _OpportunityDetailFormViewState
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.error,
-                              ),
-                            ),
-                          ],
-                        ),
+                ),
+              ),
+            ],
+          ),
           const Divider(height: 20, thickness: 0.5),
           Text(
             "Rejection Reason:", // Placeholder
@@ -964,7 +1120,7 @@ class _OpportunityDetailFormViewState
   }
   // ---------------------------------------------------- //
 
-  // --- Renamed Original Actions Section to Widget Builder --- //
+  // --- MODIFIED: _buildActionButtons --- //
   Widget _buildActionButtons(
     BuildContext context,
     ThemeData theme,
@@ -972,61 +1128,57 @@ class _OpportunityDetailFormViewState
   ) {
     final colorScheme = theme.colorScheme;
     return Center(
-                child: Wrap(
+      child: Wrap(
         spacing: 16.0,
         runSpacing: 8.0,
-                  alignment: WrapAlignment.center,
-                  children: [
+        alignment: WrapAlignment.center,
+        children: [
           // Approve Button
-                    ElevatedButton(
-                      onPressed:
-                          _isSubmitting
-                              ? null
-                              : () async {
-                      // ... (Existing validation and submission logic) ...
-                              },
-                      style: ElevatedButton.styleFrom(
+          ElevatedButton(
+            // *** MODIFIED: Call the new handler ***
+            onPressed: _isSubmitting ? null : _approveSubmission,
+            style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      ),
-                      child:
-                          _isSubmitting
-                              ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+            ),
+            child:
+                _isSubmitting
+                    ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                         color: colorScheme.onPrimary,
-                                ),
-                              )
-                    : Text(l10n.opportunityApproveButton),
-                              ),
-          // Reject Button
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.cancel_outlined),
-            label: Text(l10n.opportunityRejectButton),
-                      onPressed:
-                          _isSubmitting
-                              ? null
-                              : () async {
-                                final reason = await _showRejectionDialog();
-                                if (reason != null && reason.isNotEmpty) {
-                                  await _handleRejection(reason);
-                                }
-                              },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: colorScheme.error,
-                        side: BorderSide(
-                color: colorScheme.error.withAlpha((255 * 0.7).round()),
-                          width: 1.5,
-                        ),
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                       ),
-                    ),
-                  ],
-                ),
+                    )
+                    : Text(l10n.opportunityApproveButton),
+          ),
+          // Reject Button
+          OutlinedButton.icon(
+            icon: const Icon(Icons.cancel_outlined),
+            label: Text(l10n.opportunityRejectButton),
+            onPressed:
+                _isSubmitting
+                    ? null
+                    : () async {
+                      final reason = await _showRejectionDialog();
+                      if (reason != null && reason.isNotEmpty) {
+                        await _handleRejection(reason);
+                      }
+                    },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colorScheme.error,
+              side: BorderSide(
+                color: colorScheme.error.withAlpha((255 * 0.7).round()),
+                width: 1.5,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+            ),
+          ),
+        ],
+      ),
     );
   }
-  // --------------------------------------------------------- //
+  // ------------------------------------------ //
 
   // --- ADDED: Handle Rejection Logic ---
   Future<void> _handleRejection(String reason) async {

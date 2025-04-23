@@ -25,6 +25,7 @@ import { resetAndVerifyConversations } from './migrations';
 // Export functions from separate files
 export * from './set-role-claim';
 export * from './exchangeSalesforceCode';
+export * from './createSalesforceOpportunity';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };

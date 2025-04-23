@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:url_strategy/url_strategy.dart';
 import 'firebase_options.dart';
 import 'app/router/app_router.dart';
 import 'features/auth/presentation/providers/cloud_functions_provider.dart';
@@ -22,7 +22,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'features/salesforce/data/repositories/salesforce_repository.dart';
 import 'core/services/salesforce_auth_service.dart';
 import 'dart:async'; // Import for StreamSubscription
-import 'dart:html' if (dart.library.io) 'dart:io' as html;
+import 'core/utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -53,62 +54,28 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 void main() async {
-  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Firebase
+  setPathUrlStrategy();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // --- Handle Salesforce Web Callback URL Parameters ---
-  if (kIsWeb) {
-    try {
-      final uri = Uri.base; // Use Uri.base for initial load URL
-      // Check fragment first for /callback (common pattern)
-      // Then check query parameters for 'code'
-      if (uri.fragment.contains('callback') &&
-          uri.queryParameters.containsKey('code')) {
-        final code = uri.queryParameters['code'];
-        if (code != null && code.isNotEmpty) {
-          print(
-            'Main: Detected Salesforce callback fragment/query. Processing...',
-          );
-          // 1. Retrieve verifier stored before redirect
-          final verifier = html.window.sessionStorage[_codeVerifierSessionKey];
-          if (verifier != null && verifier.isNotEmpty) {
-            // 2. Save code & verifier for later exchange
-            html.window.sessionStorage[_tempSalesforceCodeKey] = code;
-            html.window.sessionStorage[_tempSalesforceVerifierKey] = verifier;
+  // Initialize SharedPreferences FIRST
+  final sharedPreferences = await SharedPreferences.getInstance();
 
-            // 3. Clean up original verifier & URL
-            html.window.sessionStorage.remove(_codeVerifierSessionKey);
-            html.window.history.replaceState(null, '', '/'); // Clean URL
-            print(
-              'Main: Salesforce PKCE callback handled: code and verifier cached. URL cleaned.',
-            );
-          } else {
-            print(
-              'Main Error: Salesforce callback detected, but PKCE verifier missing in session storage using key $_codeVerifierSessionKey.',
-            );
-            // Optionally clean URL anyway to avoid infinite loops
-            html.window.history.replaceState(null, '', '/');
-          }
-        } else {
-          print(
-            'Main Warning: Salesforce callback detected, but code parameter is null or empty.',
-          );
-          // Optionally clean URL anyway
-          html.window.history.replaceState(null, '', '/');
-        }
-      } // else: Not the callback URL, proceed normally
-    } catch (e) {
-      print('Main Error: Exception during Salesforce callback check: $e');
-      // Attempt to clean URL as a fallback if possible
-      try {
-        html.window.history.replaceState(null, '', '/');
-      } catch (_) {}
-    }
+  // Create the ProviderContainer WITH the override
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      // You might have other overrides here eventually
+    ],
+  );
+
+  // Handle Salesforce callback immediately on web
+  if (kIsWeb) {
+    await _handleSalesforceWebCallback(container);
   }
-  // --- End Salesforce Callback Handling ---
+
+  // Initialize Salesforce auth state (just read the provider)
+  container.read(salesforceAuthProvider.notifier);
 
   // --- Register Background Handler ---
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -150,9 +117,6 @@ void main() async {
     await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
   }
 
-  // Initialize SharedPreferences
-  final sharedPreferences = await SharedPreferences.getInstance();
-
   // Configure Firebase Functions
   bool cloudFunctionsAvailable = false;
 
@@ -176,25 +140,9 @@ void main() async {
     }
   }
 
-  // Reset authentication on app restart only in debug mode
-  // In production, we'll let Firebase persistence handle sessions
-  if (kDebugMode && false) {
-    // Disabled for now to prevent login issues
-    print('Debug mode: Resetting authentication state');
-    await AppRouter.authNotifier.setAuthenticated(false);
-  }
-
-  // Initialize the app with ProviderScope
   runApp(
-    ProviderScope(
-      overrides: [
-        // Override the provider to indicate whether Cloud Functions are available
-        cloudFunctionsAvailableProvider.overrideWithValue(
-          cloudFunctionsAvailable,
-        ),
-        // Override the IMPORTED shared preferences provider
-        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
-      ],
+    UncontrolledProviderScope(
+      container: container,
       child: const TwogetherApp(),
     ),
   );
@@ -337,5 +285,62 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> {
         Locale('pt', ''), // Portuguese
       ],
     );
+  }
+}
+
+// --- Salesforce Web Callback Handling ---
+Future<void> _handleSalesforceWebCallback(ProviderContainer container) async {
+  if (!kIsWeb) return;
+
+  final uri = Uri.base;
+  final code = uri.queryParameters['code'];
+  final error = uri.queryParameters['error'];
+  final errorDescription = uri.queryParameters['error_description'];
+
+  // If there's an error parameter, log it and clean the URL
+  if (error != null) {
+    if (kDebugMode) {
+      print('Salesforce Callback Error: $error - $errorDescription');
+    }
+    // Clean the URL by removing query parameters
+    html.window.history.replaceState(null, '', '/');
+    return;
+  }
+
+  // If there's a code parameter, handle it
+  if (code != null && code.isNotEmpty) {
+    // Retrieve the original code verifier stored before redirect
+    final verifier = html.window.sessionStorage[_codeVerifierSessionKey];
+
+    if (verifier != null && verifier.isNotEmpty) {
+      // Temporarily store code and verifier for the auth service to pick up
+      html.window.sessionStorage[_tempSalesforceCodeKey] = code;
+      html.window.sessionStorage[_tempSalesforceVerifierKey] = verifier;
+
+      // Remove the original verifier key now that it's copied
+      html.window.sessionStorage.remove(_codeVerifierSessionKey);
+      // Clean the URL by removing query parameters
+      html.window.history.replaceState(null, '', '/');
+
+      if (kDebugMode) {
+        print('Salesforce callback code and verifier stored temporarily.');
+      }
+    } else {
+      if (kDebugMode) {
+        print('Salesforce callback code received, but verifier missing!');
+      }
+      // Clean the URL even if verifier is missing
+      html.window.history.replaceState(null, '', '/');
+    }
+  } else {
+    // If no code and no error, check if we still have temporary code/verifier
+    // This might happen on a page refresh after callback but before completion
+    final tempCode = html.window.sessionStorage[_tempSalesforceCodeKey];
+    if (tempCode == null) {
+      // If no temp code, ensure the URL is clean if it still has params
+      if (uri.hasQuery) {
+        html.window.history.replaceState(null, '', '/');
+      }
+    }
   }
 }

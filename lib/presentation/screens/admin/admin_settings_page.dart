@@ -269,20 +269,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               statusIndicator: _buildStatusIndicator(statusColor),
               hideChevron: true,
             ),
-            if (isConnected)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Center(
-                  child: ElevatedButton(
-                    onPressed: _testSalesforceApiCall,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Test Salesforce API Call'),
-                  ),
-                ),
-              ),
             _buildActionSetting(
               'Developer Tools',
               'Access admin-only scripts and tools.',

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
@@ -10,8 +9,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-// Import dart:html conditionally for web
-import 'dart:html' as html;
+// Conditional import for dart:html
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 
 // --- Configuration ---
 const String _clientId =
@@ -379,12 +378,16 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
     }
 
     // Check sessionStorage for the temporary code and verifier
-    final String? tempCode = html.window.sessionStorage.remove(
+    final String? tempCode = html.window.sessionStorage[_tempSalesforceCodeKey];
+    html.window.sessionStorage.remove(
       _tempSalesforceCodeKey,
-    );
-    final String? tempVerifier = html.window.sessionStorage.remove(
+    ); // Remove after getting
+
+    final String? tempVerifier =
+        html.window.sessionStorage[_tempSalesforceVerifierKey];
+    html.window.sessionStorage.remove(
       _tempSalesforceVerifierKey,
-    );
+    ); // Remove after getting
 
     if (tempCode != null &&
         tempVerifier != null &&

@@ -5,7 +5,7 @@ import 'package:intl/intl.dart'; // For date formatting
 import 'package:collection/collection.dart'; // For distinct reseller names AND Set equality
 import '../../../../core/models/service_submission.dart'; // Adjusted path
 import '../../../../core/models/service_types.dart'; // Ensure this line exists and is correct
-import './opportunity_detail_page.dart'; // Import the new detail page
+import 'admin_opportunity_review_page.dart'; // Import the new detail page
 import '../widgets/opportunity_filter_sheet.dart'; // <-- Import the filter sheet
 import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases

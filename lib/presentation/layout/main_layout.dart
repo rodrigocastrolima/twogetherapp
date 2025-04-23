@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
 import '../../core/utils/constants.dart';
 import '../screens/home/reseller_home_page.dart';
-import '../screens/clients/clients_page.dart';
+import '../screens/clients/reseller_opportunity_page.dart';
 import '../screens/messages/messages_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/chat/presentation/providers/chat_provider.dart';
