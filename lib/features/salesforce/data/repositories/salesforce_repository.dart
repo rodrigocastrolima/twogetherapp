@@ -1,7 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../opportunity/presentation/pages/salesforce_opportunity.dart';
+import '../../../opportunity/data/models/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../proposal/data/models/salesforce_proposal.dart';

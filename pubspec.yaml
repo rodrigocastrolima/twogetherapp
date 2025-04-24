@@ -57,17 +57,17 @@ dependencies:
   image_picker: ^1.1.0
 
   # Firebase
-  firebase_core: ^2.30.0
-  firebase_auth: ^4.19.2
-  cloud_firestore: ^4.16.1
-  firebase_storage: ^11.7.2
+  firebase_core: ^2.27.0
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.8
+  firebase_storage: ^11.6.9
   cloud_functions: ^4.7.6
 
   # Utilities
   logger: ^2.0.2+1
   http: ^1.2.0
   flutter_secure_storage: ^9.0.0
-  url_launcher: ^6.2.6 # Added for launching URLs
+  url_launcher: ^6.2.6
   url_strategy: ^0.2.0
   crypto: ^3.0.3
 
@@ -77,7 +77,7 @@ dependencies:
 
   # --- Added for Salesforce OAuth ---
   flutter_web_auth_2:
-  file_picker: ^8.0.0
+  file_picker: ^6.2.0
   # -------------------------------
 
   # --- Added for Sharing ---
@@ -88,7 +88,7 @@ dependencies:
 
   # Added for introduction_screen
   introduction_screen: ^3.1.14
-  firebase_messaging: ^14.9.4
+  firebase_messaging: ^14.7.19
 
   font_awesome_flutter: ^10.7.0
   rxdart: ^0.28.0 # Added dependency for stream extensions

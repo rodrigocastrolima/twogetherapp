@@ -519,7 +519,8 @@ class _OpportunityDetailFormViewState
           widget.submission.responsibleName, // Use fallback logic
       segment: _selectedSegmentoCliente!, // Assume selected
       solution: _selectedSolucao!, // Assume selected
-      closeDate: _selectedFechoDate!, // Assume selected
+      closeDate:
+          _fechoController.text, // <-- CORRECTED: Pass the formatted string
       opportunityType: _tipoOportunidadeValue!, // Assume determined
       phase: _faseValue, // Use fixed value
       fileUrls: widget.submission.documentUrls, // Pass the list

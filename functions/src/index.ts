@@ -21,11 +21,13 @@ import { sendMessageNotification } from './notifications';
 import { getResellerOpportunities } from './getResellerOpportunities';
 import { getOpportunityProposals } from './getOpportunityProposals';
 import { resetAndVerifyConversations } from './migrations';
+import * as sfOppManagement from './salesforceOpportunityManagement';
 
 // Export functions from separate files
 export * from './set-role-claim';
 export * from './exchangeSalesforceCode';
 export * from './createSalesforceOpportunity';
+export * from './refreshSalesforceToken';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -36,7 +38,8 @@ export {
     getOpportunityProposals,
     resetAndVerifyConversations,
     sendMessageNotification,
-    cleanupExpiredMessages
+    cleanupExpiredMessages,
+    sfOppManagement,
     // Add other callable functions here as you create them
 };
 

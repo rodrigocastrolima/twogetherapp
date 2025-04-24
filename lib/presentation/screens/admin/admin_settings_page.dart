@@ -594,7 +594,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 child: Text(l10n.commonCancel),
               ),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(dialogContext).pop();
 
                   final loadingService = ref.read(loadingServiceProvider);
@@ -604,23 +604,23 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     showLogo: true,
                   );
 
-                  AppRouter.authNotifier
-                      .setAuthenticated(false)
-                      .then((_) {
-                        if (mounted) {
-                          loadingService.hide();
-                        }
-                      })
-                      .catchError((error) {
-                        if (mounted) {
-                          loadingService.hide();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error signing out: $error'),
-                            ),
-                          );
-                        }
-                      });
+                  try {
+                    await ref.read(salesforceAuthProvider.notifier).signOut();
+                    await AppRouter.authNotifier.setAuthenticated(false);
+                    if (mounted) {
+                      loadingService.hide();
+                    }
+                  } catch (error) {
+                    if (mounted) {
+                      loadingService.hide();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error signing out: $error'),
+                          backgroundColor: AppTheme.destructive,
+                        ),
+                      );
+                    }
+                  }
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: theme.colorScheme.error,

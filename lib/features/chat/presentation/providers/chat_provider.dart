@@ -22,22 +22,21 @@ final resellerConversationProvider = FutureProvider<String>((ref) async {
 });
 
 // Provider for all conversations (admin view)
-final conversationsProvider = StreamProvider<List<ChatConversation>>((ref) {
-  final repository = ref.watch(chatRepositoryProvider);
-  return repository.getConversations();
-});
+final conversationsProvider =
+    StreamProvider.autoDispose<List<ChatConversation>>((ref) {
+      final repository = ref.watch(chatRepositoryProvider);
+      return repository.getConversations();
+    });
 
 // Provider for messages in a conversation
-final messagesProvider = StreamProvider.family<List<ChatMessage>, String>((
-  ref,
-  conversationId,
-) {
-  final repository = ref.watch(chatRepositoryProvider);
-  return repository.getMessages(conversationId);
-});
+final messagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, conversationId) {
+      final repository = ref.watch(chatRepositoryProvider);
+      return repository.getMessages(conversationId);
+    });
 
 // Provider for total unread messages count
-final unreadMessagesCountProvider = StreamProvider<int>((ref) {
+final unreadMessagesCountProvider = StreamProvider.autoDispose<int>((ref) {
   final repository = ref.watch(chatRepositoryProvider);
   return repository.getUnreadMessagesCountStream();
 });

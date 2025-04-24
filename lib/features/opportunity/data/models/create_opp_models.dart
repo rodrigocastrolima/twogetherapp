@@ -12,7 +12,7 @@ class CreateOppParams {
   final String companyName;
   final String segment;
   final String solution;
-  final DateTime closeDate; // Use DateTime here
+  final String closeDate; // <-- Changed to String
   final String opportunityType;
   final String phase;
   final List<String>? fileUrls; // Optional
@@ -27,7 +27,7 @@ class CreateOppParams {
     required this.companyName,
     required this.segment,
     required this.solution,
-    required this.closeDate,
+    required this.closeDate, // <-- Expecting String
     required this.opportunityType,
     required this.phase,
     this.fileUrls,
@@ -44,7 +44,7 @@ class CreateOppParams {
     'companyName': companyName,
     'segment': segment,
     'solution': solution,
-    'closeDate': closeDate.toIso8601String(), // Convert DateTime to ISO string
+    'closeDate': closeDate, // <-- Pass string directly
     'opportunityType': opportunityType,
     'phase': phase,
     'fileUrls': fileUrls, // Pass list directly (or null)
@@ -65,7 +65,7 @@ class CreateOppParams {
           companyName == other.companyName &&
           segment == other.segment &&
           solution == other.solution &&
-          closeDate == other.closeDate &&
+          closeDate == other.closeDate && // <-- Compare as String
           opportunityType == other.opportunityType &&
           phase == other.phase &&
           listEquals(fileUrls, other.fileUrls);
@@ -81,7 +81,7 @@ class CreateOppParams {
       companyName.hashCode ^
       segment.hashCode ^
       solution.hashCode ^
-      closeDate.hashCode ^
+      closeDate.hashCode ^ // <-- Hash as String
       opportunityType.hashCode ^
       phase.hashCode ^
       fileUrls.hashCode;

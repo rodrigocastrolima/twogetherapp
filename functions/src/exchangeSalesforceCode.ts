@@ -117,7 +117,7 @@ export const exchangeSalesforceCode = onCall(
            // Provide a default or throw error? Defaulting to 2 hours for safety.
            // throw new HttpsError("internal", "Salesforce did not provide a valid expires_in value."); 
            // Defaulting might be safer for client handling
-            response.data.expires_in = 7200; // 2 hours in seconds
+            response.data.expires_in = 28800; // 2 hours in seconds
         }
 
         // Update return object to include refresh token and expiry
