@@ -11,11 +11,11 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import { removeRememberMeField } from './removeRememberMeField';
-import * as jwt from 'jsonwebtoken';
-import axios from 'axios';
+// import * as jwt from 'jsonwebtoken'; // Unused import
+// import axios from 'axios'; // Unused import
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import * as jsforce from 'jsforce';
-import * as functions from "firebase-functions";
+// import * as jsforce from 'jsforce'; // Unused import
+// import * as functions from "firebase-functions"; // Unused import
 import { cleanupExpiredMessages } from './messageCleanup';
 import { sendMessageNotification } from './notifications';
 import { getResellerOpportunities } from './getResellerOpportunities';
@@ -23,10 +23,12 @@ import { getOpportunityProposals } from './getOpportunityProposals';
 import { resetAndVerifyConversations } from './migrations';
 import * as sfOppManagement from './salesforceOpportunityManagement';
 
+// Import the specific function we want to export explicitly
+import { createSalesforceOpportunity as createOppFunc } from './createSalesforceOpportunity'; 
+
 // Export functions from separate files
 export * from './set-role-claim';
 export * from './exchangeSalesforceCode';
-export * from './createSalesforceOpportunity';
 export * from './refreshSalesforceToken';
 
 // Export the removeRememberMeField function
@@ -42,6 +44,9 @@ export {
     sfOppManagement,
     // Add other callable functions here as you create them
 };
+
+// Export the specific function
+export const createSalesforceOpportunity = createOppFunc;
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -627,338 +632,6 @@ export const deleteUser = onCall({
     );
   }
 });
-
-// Define the expected input data structure from Flutter
-interface OpportunityInputData {
-  Name: string;
-  NIF__c: string;
-  Segmento_de_Cliente__c: string;
-  Solu_o__c: string;
-  Data_de_Previs_o_de_Fecho__c: string; // Expecting 'YYYY-MM-DD' format
-  agenteRetailSalesforceId: string; // Expecting the User ID
-  tipoOportunidadeValue: string; // 'Angariada Energia' or 'Angariada Solar'
-  originalSubmissionId: string;
-  invoiceStoragePath?: string; // Optional
-}
-
-// Define the expected return structure (Moved Before Usage & Renamed)
-interface OpportunityCreationResult {
-  success: boolean;
-  opportunityId?: string;
-  error?: string;
-  errorCode?: string; // Optional Salesforce error code
-}
-
-// Callable function triggered by your Flutter app
-export const createSalesforceOpportunity = onCall(
-  {
-    // Optional: Enforce authentication if only logged-in users should trigger this
-    // enforceAppCheck: true, // Recommended for production
-    region: "us-central1", // Specify region consistently
-  },
-  async (request): Promise<OpportunityCreationResult> => { // Update return type annotation
-
-    const data = request.data as OpportunityInputData; // Assert type here after checks
-    const contextAuth = request.auth; // Use context for auth info
-
-    // --- 1. Authentication/Authorization Check ---
-    // Simplified check - implement proper role check later
-    if (!contextAuth) {
-      logger.error("Unauthenticated call");
-      throw new HttpsError(
-        "unauthenticated",
-        "The function must be called while authenticated."
-      );
-    }
-    // TODO: Add check if the caller is a 'backoffice' user
-    logger.info(`Function called by UID: ${contextAuth.uid}`);
-    logger.info("Received data:", data);
-
-    // --- 2. Input Validation ---
-    // (Validation logic remains the same)
-    if (!data.Name || !data.NIF__c || !data.Segmento_de_Cliente__c ||
-        !data.Solu_o__c || !data.Data_de_Previs_o_de_Fecho__c ||
-        !data.agenteRetailSalesforceId || !data.tipoOportunidadeValue ||
-        !data.originalSubmissionId) {
-      logger.error("Missing required input data.", data);
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing required fields in the input data."
-      );
-    }
-
-    // Define connection variable here, to be initialized after auth
-    let conn: jsforce.Connection;
-
-    try {
-      // --- 3. Salesforce Connection and Login ---
-      // Using OAuth 2.0 JWT Bearer Flow with environment configuration
-
-      // Retrieve configuration values
-      const sfConfig = functions.config().salesforce;
-      if (!sfConfig || !sfConfig.private_key || !sfConfig.consumer_key || !sfConfig.username) {
-          logger.error("Salesforce configuration missing in Firebase environment variables (salesforce.private_key, salesforce.consumer_key, salesforce.username).");
-          throw new HttpsError('internal', 'Server configuration error: Salesforce credentials missing.');
-      }
-
-      // Handle potential escaped newlines in the private key when read from config
-      const privateKey = sfConfig.private_key.replace(/\\n/g, '\\n'); // Keep literal \n for jwt library
-      const consumerKey = sfConfig.consumer_key;
-      const salesforceUsername = sfConfig.username;
-      const tokenEndpoint = "https://login.salesforce.com/services/oauth2/token"; // Keep as is or make config too
-      const audience = "https://login.salesforce.com"; // Keep as is or make config too
-
-      // Generate JWT
-      logger.info('Generating JWT for Salesforce using environment configuration...');
-      const claim = {
-        iss: consumerKey,
-        sub: salesforceUsername,
-        aud: audience,
-        exp: Math.floor(Date.now() / 1000) + (3 * 60) // Expires in 3 minutes
-      };
-      // Use the privateKey read from config
-      const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
-
-      // Request Access Token from Salesforce
-      logger.info('Requesting Salesforce access token using JWT...');
-      const tokenResponse = await axios.post(tokenEndpoint, new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: token
-      }).toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
-
-      const { access_token, instance_url } = tokenResponse.data;
-
-      if (!access_token || !instance_url) {
-        logger.error('Failed to retrieve access token or instance URL from Salesforce.', tokenResponse.data);
-        throw new HttpsError('internal', 'Salesforce JWT authentication failed: Missing token/URL.');
-      }
-
-      logger.info('Salesforce JWT authentication successful. Instance URL:', instance_url);
-
-      // Initialize jsforce connection with the obtained token and URL
-      conn = new jsforce.Connection({
-        instanceUrl: instance_url,
-        accessToken: access_token
-      });
-
-      // --- Rest of the function using the authenticated 'conn' object ---
-
-      // 4. Fetch Required Salesforce IDs
-      let retailRecordTypeId: string | null = null;
-      let accountId: string | null = null;
-      // Get Integration User ID from environment variable (still needed for OwnerId)
-      // const sfIntegrationUserId = process.env.SALESFORCE_INTEGRATION_USER_ID;
-      // if (!sfIntegrationUserId) {
-      //   logger.error('Environment variable SALESFORCE_INTEGRATION_USER_ID is missing.');
-      //   return {
-      //     success: false,
-      //     error: 'Internal Server Error: Salesforce Integration User ID configuration missing.',
-      //   };
-      // }
-      // Use hardcoded ID for now (as requested)
-      const integrationUserId = "005MI00000T7DFxYAN";
-
-      // Get Retail Record Type ID
-      try {
-        logger.info("Fetching Retail Record Type ID...");
-        const rtQuery = `SELECT Id FROM RecordType WHERE SobjectType = 'Oportunidade__c' AND DeveloperName = 'Retail' LIMIT 1`;
-        const rtResult = await conn.query<{ Id: string }>(rtQuery);
-        if (rtResult.records && rtResult.records.length > 0) {
-          retailRecordTypeId = rtResult.records[0].Id;
-          logger.info("Found Retail Record Type ID:", retailRecordTypeId);
-        } else {
-          logger.error("Retail Record Type not found for Oportunidade__c.");
-          return {success: false, error: "Salesforce Config Error: Retail Record Type not found."};
-        }
-      } catch (err: any) {
-        logger.error("Error fetching Record Type ID:", err);
-        return {success: false, error: `Failed to fetch Record Type ID: ${err.message || err}`};
-      }
-
-      // Get Account ID based on NIF
-      try {
-        logger.info(`Fetching Account ID for NIF: ${data.NIF__c}...`);
-        // Refined Type: jsforce returns Records which might have undefined fields
-        // Try using "Accounts" based on user feedback/error message nuance
-        const accResult = await conn.sobject("Accounts")
-            .find({ NIF__c: data.NIF__c }, 'Id') // Select only Id field
-            .limit(1)
-            .execute(); // Returns Array<Record>, where Record fields can be undefined
-
-        // Check if results exist and the first record has a valid Id
-        if (accResult && accResult.length > 0 && typeof accResult[0].Id === 'string' && accResult[0].Id) {
-          accountId = accResult[0].Id;
-          logger.info("Found existing Account ID:", accountId);
-        } else {
-          logger.warn(`Account not found for NIF: ${data.NIF__c} or Id was invalid. Opportunity creation halted.`);
-          return {
-             success: false,
-             error: `No Account found in Salesforce with NIF: ${data.NIF__c}. Please create or verify the Account first.`,
-             errorCode: "ACCOUNT_NOT_FOUND", 
-           };
-        }
-      } catch (err: any) {
-        logger.error("Error fetching Account ID:", err);
-        return {success: false, error: `Failed to fetch Account ID: ${err.message || err}`};
-      }
-
-      logger.info("Successfully fetched all required IDs:", { retailRecordTypeId, accountId, integrationUserId });
-
-      // 5. Prepare Opportunity Payload
-      const currentDate = new Date().toISOString().split('T')[0]; 
-      const opportunityPayload = {
-        Name: data.Name,
-        AccountId: accountId, 
-        RecordTypeId: retailRecordTypeId, 
-        OwnerId: integrationUserId, 
-        NIF__c: data.NIF__c,
-        Fase__c: "0 - Oportunidade Identificada", 
-        Tipo_de_Oportunidade__c: data.tipoOportunidadeValue,
-        Segmento_de_Cliente__c: data.Segmento_de_Cliente__c,
-        Agente_Retail__c: data.agenteRetailSalesforceId,
-        Solu_o__c: data.Solu_o__c,
-        Data_de_Previs_o_de_Fecho__c: data.Data_de_Previs_o_de_Fecho__c,
-        Data_de_Cria_o_da_Oportunidade__c: currentDate,
-        Data_da_ltima_actualiza_o_de_Fase__c: currentDate,
-      };
-      logger.info("Prepared Opportunity Payload:", opportunityPayload);
-
-      // 6. Create Opportunity Record
-      let newOpportunityId: string | null = null;
-      try {
-        logger.info("Attempting to create Opportunity record...");
-        const createResult = await conn.sobject('Oportunidade__c').create(opportunityPayload);
-        if (createResult.success) {
-          newOpportunityId = createResult.id;
-          logger.info("Successfully created Opportunity record, ID:", newOpportunityId);
-        } else {
-          const errors = (createResult as any).errors?.join("; ") || "Unknown creation error";
-          logger.error("Failed to create Opportunity record:", errors);
-          return {
-             success: false,
-             error: `Salesforce Error: Failed to create Opportunity - ${errors}`,
-             errorCode: "SF_CREATE_FAILED",
-           };
-        }
-      } catch (err: any) {
-        logger.error("Error during Opportunity creation:", err);
-        let sfErrorMessage = err.message || "Unknown error";
-        let sfErrorCode = err.errorCode || "SF_CREATE_EXCEPTION";
-        if (err.name && err.fields) {
-            sfErrorMessage = `${err.name} on fields: ${err.fields.join(", ")} - ${err.message}`;
-        }
-        return {
-          success: false,
-          error: `Failed to create Opportunity: ${sfErrorMessage}`,
-          errorCode: sfErrorCode,
-        };
-      }
-
-      if (!newOpportunityId) {
-         logger.error("Opportunity ID null after creation attempt.");
-         return { success: false, error: "Internal Error: Failed to get Opportunity ID after creation." };
-      }
-
-      // 7. --- Download Invoice & Upload to Salesforce ---
-      if (data.invoiceStoragePath) {
-          logger.info(`Invoice found at path: ${data.invoiceStoragePath}. Attempting download and upload...`);
-          try {
-              // 7.1 Download file from Firebase Storage
-              const bucket = admin.storage().bucket(); // Default bucket
-              const file = bucket.file(data.invoiceStoragePath);
-              const [fileBuffer] = await file.download(); // Returns a Promise<[Buffer]> 
-              logger.info(`Successfully downloaded invoice file buffer (${fileBuffer.length} bytes).`);
-
-              // Extract filename for Salesforce
-              const pathParts = data.invoiceStoragePath.split('/');
-              const filename = pathParts[pathParts.length - 1] || `Invoice_${Date.now()}`;
-
-              // 7.2 Upload ContentVersion to Salesforce
-              logger.info(`Uploading ContentVersion with Title: ${filename}`);
-              const cvResult = await conn.sobject('ContentVersion').create({
-                  Title: filename,
-                  PathOnClient: filename,
-                  VersionData: fileBuffer.toString('base64'), // Base64 encode the buffer
-                  // FirstPublishLocationId: newOpportunityId // Optional: Link immediately if API allows
-              });
-
-              if (!cvResult.success) {
-                  const errors = (cvResult as any).errors?.join("; ") || "ContentVersion upload failed";
-                  logger.error("Failed to upload ContentVersion:", errors);
-                  // Decide if this is a critical failure or just a warning
-                  return { success: false, error: `Opportunity created, but failed to upload invoice: ${errors}`, errorCode: "SF_UPLOAD_CV_FAILED" };
-              }
-              const contentVersionId = cvResult.id;
-              logger.info("Successfully uploaded ContentVersion, ID:", contentVersionId);
-
-              // 7.3 Get ContentDocumentId
-              const cvQuery = `SELECT ContentDocumentId FROM ContentVersion WHERE Id = '${contentVersionId}' LIMIT 1`;
-              const cvQueryResult = await conn.query<{ ContentDocumentId: string }>(cvQuery);
-
-              if (!cvQueryResult.records || cvQueryResult.records.length === 0 || !cvQueryResult.records[0].ContentDocumentId) {
-                  logger.error("Could not retrieve ContentDocumentId for ContentVersion:", contentVersionId);
-                  // Decide if this is a critical failure or just a warning
-                  return { success: false, error: "Opportunity created, but failed to link invoice (missing ContentDocumentId).", errorCode: "SF_LINK_CDID_MISSING" };
-              }
-              const contentDocumentId = cvQueryResult.records[0].ContentDocumentId;
-              logger.info("Retrieved ContentDocumentId:", contentDocumentId);
-
-              // 7.4 Create ContentDocumentLink to link file to Opportunity
-              logger.info(`Linking ContentDocument ${contentDocumentId} to Opportunity ${newOpportunityId}`);
-              const cdlResult = await conn.sobject('ContentDocumentLink').create({
-                  ContentDocumentId: contentDocumentId,
-                  LinkedEntityId: newOpportunityId,
-                  ShareType: 'V', // 'V'iewer access
-                  // Visibility: 'AllUsers' // Or 'InternalUsers' if appropriate
-              });
-
-              if (!cdlResult.success) {
-                  const errors = (cdlResult as any).errors?.join("; ") || "ContentDocumentLink creation failed";
-                  logger.error("Failed to create ContentDocumentLink:", errors);
-                  // Decide if this is a critical failure or just a warning
-                  return { success: false, error: `Opportunity created, but failed to link invoice: ${errors}`, errorCode: "SF_LINK_CDL_FAILED" };
-              }
-              logger.info("Successfully created ContentDocumentLink.");
-
-          } catch (err: any) {
-              logger.error("Error during invoice download/upload:", err);
-              // Decide if this is a critical failure or just a warning
-        return {
-                success: false,
-                error: `Opportunity created, but failed during invoice processing: ${err.message || err}`,
-                errorCode: "FILE_PROCESSING_FAILED",
-        };
-          }
-      } else {
-          logger.info("No invoice path provided, skipping file upload.");
-      }
-
-      // 8. --- Respond --- (Success, No Deletion Yet)
-      logger.info(`Process completed successfully for Opportunity ID: ${newOpportunityId}`);
-      return {success: true, opportunityId: newOpportunityId};
-
-    // --- End of main try block --- 
-    } catch (err: any) {
-      // This outer catch handles errors during login or initial setup
-      logger.error("Salesforce operation failed at login or initial setup:", err);
-      let errorMessage = "An unknown error occurred during Salesforce operation.";
-      let errorCode = "UNKNOWN";
-      if (err.name && err.message) {
-         errorMessage = `${err.name}: ${err.message}`;
-         errorCode = err.errorCode || err.name; 
-      } else if (typeof err === 'string') {
-         errorMessage = err;
-      }
-      return {
-        success: false,
-        error: errorMessage,
-        errorCode: errorCode,
-      };
-    }
-  }
-);
 
 /**
  * Resets a conversation to its default state by removing all messages except a default welcome message.

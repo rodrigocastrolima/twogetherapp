@@ -101,7 +101,7 @@ export const getSalesforceOpportunities = onCall(
       logger.info("Salesforce connection initialized.");
 
       const soqlQuery = `
-        SELECT Id, Name, Account.Name, Agente_Retail__r.Name
+        SELECT Id, Name, Entidade__r.Name, Agente_Retail__r.Name 
         FROM Oportunidade__c
         WHERE RecordType.DeveloperName = 'Retail'
         ORDER BY CreatedDate DESC
@@ -117,8 +117,8 @@ export const getSalesforceOpportunities = onCall(
         return {
           id: record.Id,
           name: record.Name,
-          accountName: record.Account ? record.Account.Name : null, // Access nested Account Name
-          resellerName: record.Agente_Retail__r ? record.Agente_Retail__r.Name : null, // Access nested Reseller Name
+          accountName: record.Entidade__r ? record.Entidade__r.Name : null, // Reverted to fetch Account Name via Entidade__r
+          resellerName: record.Agente_Retail__r ? record.Agente_Retail__r.Name : null, // Reverted to fetch Reseller Name via Agente_Retail__r
         };
       });
 

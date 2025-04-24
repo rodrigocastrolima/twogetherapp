@@ -401,10 +401,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ],
                     lineTouchData: LineTouchData(
                       touchTooltipData: LineTouchTooltipData(
-                        tooltipBgColor:
-                            isDark ? AppTheme.darkInput : Colors.white,
-                        getTooltipItems: (touchedSpots) {
-                          return touchedSpots.map((LineBarSpot touchedSpot) {
+                        tooltipRoundedRadius: 8,
+                        tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        tooltipMargin: 8,
+                        getTooltipColor: (LineBarSpot spot) {
+                          return theme.colorScheme.primaryContainer.withOpacity(
+                            0.9,
+                          );
+                        },
+                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                          return touchedBarSpots.map((barSpot) {
                             final textStyle = TextStyle(
                               color:
                                   isDark
@@ -414,7 +423,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               fontSize: 14,
                             );
                             return LineTooltipItem(
-                              '€${touchedSpot.y.toStringAsFixed(0)}',
+                              '€${barSpot.y.toStringAsFixed(0)}',
                               textStyle,
                             );
                           }).toList();

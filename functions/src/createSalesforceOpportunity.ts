@@ -48,41 +48,106 @@ export const createSalesforceOpportunity = onCall(
   },
   async (request: CallableRequest<CreateOppParams>): Promise<CreateOppResult> => {
     logger.info("createSalesforceOpportunity function triggered", { submissionId: request.data.submissionId });
+    logger.info("Function execution started. Checking auth context...");
 
     // 1. Authentication and Authorization Check
     if (!request.auth) {
       logger.error("Authentication failed: User is not authenticated.");
       throw new HttpsError("unauthenticated", "User must be authenticated to perform this action.");
     }
+    logger.info("Authentication check passed. Auth object exists.");
+    const uid = request.auth.uid; // Get uid for Firestore lookup
 
-    // TODO: Implement proper Admin role check based on your custom claims setup
-    const isAdmin = request.auth.token.isAdmin === true; // Example: check custom claim
-    if (!isAdmin) {
-      logger.error("Authorization failed: User is not an admin.", { uid: request.auth.uid });
-      throw new HttpsError("permission-denied", "User does not have permission to perform this action.");
+    // --- AUTHORIZATION CHECK using Firestore 'role' field --- 
+    try {
+      const userDoc = await admin.firestore().collection('users').doc(uid).get();
+      if (!userDoc.exists) {
+        logger.error("Authorization failed: User document not found.", { uid: uid });
+        throw new HttpsError("permission-denied", "User data not found.");
+      }
+      const userData = userDoc.data();
+      const userRole = userData?.role;
+
+      if (userRole !== 'admin') {
+        logger.error("Authorization failed: User role is not 'admin'.", { uid: uid, role: userRole });
+        throw new HttpsError("permission-denied", "User does not have admin permission to perform this action."); // Adjusted message slightly
+      }
+      logger.info("User authorized as Admin based on Firestore role.", { uid: uid });
+
+    } catch (dbError: any) {
+      logger.error("Error fetching user document for authorization:", { uid: uid, error: dbError });
+      throw new HttpsError("internal", "Failed to verify user permissions.");
     }
-    logger.info("User authenticated and authorized as Admin.", { uid: request.auth.uid });
+    // --- END AUTHORIZATION CHECK ---
 
     // 2. Input Validation (Basic)
     const data = request.data;
     logger.info("Received data for validation:", data); // Log before checks
 
-    // --- BEGIN Individual Field Checks ---
-    if (!data.submissionId) throw new HttpsError("invalid-argument", "Missing submissionId");
-    if (!data.accessToken) throw new HttpsError("invalid-argument", "Missing accessToken");
-    if (!data.instanceUrl) throw new HttpsError("invalid-argument", "Missing instanceUrl");
-    if (!data.resellerSalesforceId) throw new HttpsError("invalid-argument", "Missing resellerSalesforceId");
-    if (!data.opportunityName) throw new HttpsError("invalid-argument", "Missing opportunityName");
-    if (!data.nif) throw new HttpsError("invalid-argument", "Missing nif");
-    if (!data.companyName) throw new HttpsError("invalid-argument", "Missing companyName");
-    if (!data.segment) throw new HttpsError("invalid-argument", "Missing segment");
-    if (!data.solution) throw new HttpsError("invalid-argument", "Missing solution");
-    if (!data.closeDate) throw new HttpsError("invalid-argument", "Missing closeDate");
-    if (!data.opportunityType) throw new HttpsError("invalid-argument", "Missing opportunityType");
-    if (!data.phase) throw new HttpsError("invalid-argument", "Missing phase");
+    // --- BEGIN Individual Field Checks --- ADDED DETAILED LOGGING
+    logger.info("Checking submissionId...");
+    if (!data.submissionId) {
+      logger.error("Validation FAILED for submissionId", { value: data.submissionId });
+      throw new HttpsError("invalid-argument", "Missing submissionId");
+    }
+    logger.info("Checking accessToken...");
+    if (!data.accessToken) {
+       logger.error("Validation FAILED for accessToken", { value: data.accessToken });
+      throw new HttpsError("invalid-argument", "Missing accessToken");
+    }
+    logger.info("Checking instanceUrl...");
+    if (!data.instanceUrl) {
+       logger.error("Validation FAILED for instanceUrl", { value: data.instanceUrl });
+      throw new HttpsError("invalid-argument", "Missing instanceUrl");
+    }
+    logger.info("Checking resellerSalesforceId...");
+    if (!data.resellerSalesforceId) {
+       logger.error("Validation FAILED for resellerSalesforceId", { value: data.resellerSalesforceId });
+      throw new HttpsError("invalid-argument", "Missing resellerSalesforceId");
+    }
+    logger.info("Checking opportunityName...");
+    if (!data.opportunityName) {
+       logger.error("Validation FAILED for opportunityName", { value: data.opportunityName });
+      throw new HttpsError("invalid-argument", "Missing opportunityName");
+    }
+    logger.info("Checking nif...");
+    if (!data.nif) {
+       logger.error("Validation FAILED for nif", { value: data.nif });
+      throw new HttpsError("invalid-argument", "Missing nif");
+    }
+    logger.info("Checking companyName...");
+    if (!data.companyName) {
+       logger.error("Validation FAILED for companyName", { value: data.companyName });
+      throw new HttpsError("invalid-argument", "Missing companyName");
+    }
+    logger.info("Checking segment...");
+    if (!data.segment) {
+       logger.error("Validation FAILED for segment", { value: data.segment });
+      throw new HttpsError("invalid-argument", "Missing segment");
+    }
+    logger.info("Checking solution...");
+    if (!data.solution) {
+       logger.error("Validation FAILED for solution", { value: data.solution });
+      throw new HttpsError("invalid-argument", "Missing solution");
+    }
+    logger.info("Checking closeDate...");
+    if (!data.closeDate) {
+       logger.error("Validation FAILED for closeDate", { value: data.closeDate });
+      throw new HttpsError("invalid-argument", "Missing closeDate");
+    }
+    logger.info("Checking opportunityType...");
+    if (!data.opportunityType) {
+       logger.error("Validation FAILED for opportunityType", { value: data.opportunityType });
+      throw new HttpsError("invalid-argument", "Missing opportunityType");
+    }
+    logger.info("Checking phase...");
+    if (!data.phase) {
+       logger.error("Validation FAILED for phase", { value: data.phase });
+      throw new HttpsError("invalid-argument", "Missing phase");
+    }
     // --- END Individual Field Checks ---
 
-    logger.info("Input validation passed."); // Add log to confirm success
+    logger.info("All initial validation checks passed."); // Add log to confirm success
 
     // --- Steps 4-8 ---
     try {
@@ -148,9 +213,10 @@ export const createSalesforceOpportunity = onCall(
       // --- Step 6: Opportunity Creation Logic ---
       logger.info("Attempting Opportunity creation...", { accountId: accountId, recordTypeId: retailRecordTypeId });
       // Construct the payload, mapping Flutter names/values to SF API names
+      const currentDate = new Date().toISOString().split('T')[0]; // Get current date as YYYY-MM-DD
       const oppPayload = {
         Name: data.opportunityName,
-        AccountId: accountId, // Corrected API name (usually AccountId)
+        Entidade__c: accountId, // Use the correct custom lookup field API name
         RecordTypeId: retailRecordTypeId, // <-- Add fetched Record Type ID
         NIF__c: data.nif,
         Agente_Retail__c: data.resellerSalesforceId, // Use the ID passed from Flutter
@@ -159,6 +225,7 @@ export const createSalesforceOpportunity = onCall(
         Segmento_de_Cliente__c: data.segment,
         Solu_o__c: data.solution,
         Data_de_Previs_o_de_Fecho__c: data.closeDate, // Assuming client sends 'YYYY-MM-DD'
+        Data_de_Cria_o_da_Oportunidade__c: currentDate, // ADDED: Set required creation date
         // Add any other mandatory fields here
       };
       logger.debug("Opportunity Payload:", { payload: oppPayload });

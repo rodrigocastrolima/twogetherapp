@@ -3,19 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/notification.dart';
 import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
-import '../../../features/notifications/presentation/services/notification_service.dart';
-import '../../../core/theme/theme.dart';
-import '../../../core/theme/text_styles.dart';
-import '../../../core/theme/ui_styles.dart';
 import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
 
@@ -29,8 +23,6 @@ class AdminHomePage extends ConsumerStatefulWidget {
 class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   // State for the time filter
   TimeFilter _selectedTimeFilter = TimeFilter.monthly; // Default to monthly
-  // State for chart type (default to submissions)
-  ChartType _selectedChartType = ChartType.submissions;
 
   @override
   void initState() {
@@ -401,7 +393,15 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         lineTouchData: LineTouchData(
           // Add touch data
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: theme.colorScheme.secondaryContainer,
+            tooltipRoundedRadius: 8,
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            tooltipMargin: 8,
+            getTooltipColor: (LineBarSpot spot) {
+              return theme.colorScheme.primaryContainer.withOpacity(0.9);
+            },
             getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
               return touchedBarSpots.map((barSpot) {
                 final flSpot = barSpot;
@@ -523,7 +523,15 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         lineTouchData: LineTouchData(
           // Add touch data
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: theme.colorScheme.secondaryContainer,
+            tooltipRoundedRadius: 8,
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            tooltipMargin: 8,
+            getTooltipColor: (LineBarSpot spot) {
+              return theme.colorScheme.secondaryContainer.withOpacity(0.9);
+            },
             getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
               return touchedBarSpots.map((barSpot) {
                 final flSpot = barSpot;
@@ -866,7 +874,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
 
     return SideTitleWidget(
-      axisSide: meta.axisSide,
+      meta: meta,
       space: 8.0,
       child: Text(text, style: style),
     );
@@ -895,7 +903,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
 
     return SideTitleWidget(
-      axisSide: meta.axisSide,
+      meta: meta,
       space: 8.0,
       child: Text(text, style: style, textAlign: TextAlign.left),
     );
@@ -958,6 +966,18 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
     if (kDebugMode)
       print("--- End Admin Notification Tap Handler ---"); // Log end
+
+    // Use mounted check before interacting with context across async gap
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notification marked as read.'), // TODO: l10n
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      // No need to call refresh manually, provider should handle updates
+      // refreshAdminNotifications(ref); // Remove explicit refresh call
+    }
   }
 
   // --- NEW HELPER: Fetch Submission and Navigate (Admin version) --- //
