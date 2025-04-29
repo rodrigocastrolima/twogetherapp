@@ -16,43 +16,16 @@ class App extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeProvider);
 
-    return ScrollConfiguration(
-      behavior: const _NoScrollbarBehavior(),
-      child: NotificationOverlayManager(
-        child: MaterialApp.router(
-          title: 'Twogether',
-          theme: AppTheme.light().copyWith(
-            pageTransitionsTheme: PageTransitionsTheme(
-              builders: {
-                // Use a custom transition that's very quick with minimal animation
-                TargetPlatform.android: _NoTransitionsBuilder(),
-                TargetPlatform.iOS: _NoTransitionsBuilder(),
-                TargetPlatform.windows: _NoTransitionsBuilder(),
-                TargetPlatform.macOS: _NoTransitionsBuilder(),
-                TargetPlatform.linux: _NoTransitionsBuilder(),
-              },
-            ),
-          ),
-          darkTheme: AppTheme.dark().copyWith(
-            pageTransitionsTheme: PageTransitionsTheme(
-              builders: {
-                // Use the same transition for dark theme
-                TargetPlatform.android: _NoTransitionsBuilder(),
-                TargetPlatform.iOS: _NoTransitionsBuilder(),
-                TargetPlatform.windows: _NoTransitionsBuilder(),
-                TargetPlatform.macOS: _NoTransitionsBuilder(),
-                TargetPlatform.linux: _NoTransitionsBuilder(),
-              },
-            ),
-          ),
-          themeMode: themeMode,
-          locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          routerConfig: AppRouter.router,
-        ),
-      ),
-    );
+    // Remove MaterialApp.router, ScrollConfiguration, and NotificationOverlayManager wrappers
+    // The root MaterialApp in main.dart will handle these.
+    // We just need to return the router's target widget.
+    // Since MaterialApp.router itself renders based on the router config,
+    // we can't directly return a single child here. The configuration needs
+    // to happen in the main MaterialApp.
+    // For now, let's return a simple placeholder Container.
+    // The real fix is in main.dart
+    return Container(); // Placeholder - This widget essentially becomes redundant now.
+    // We'll integrate its logic into main.dart's MaterialApp.
   }
 }
 
@@ -67,20 +40,6 @@ class _NoTransitionsBuilder extends PageTransitionsBuilder {
     Widget child,
   ) {
     // Return the child directly with no animations or transitions
-    return child;
-  }
-}
-
-/// Custom ScrollBehavior that removes the scrollbar
-class _NoScrollbarBehavior extends ScrollBehavior {
-  const _NoScrollbarBehavior();
-
-  @override
-  Widget buildViewportChrome(
-    BuildContext context,
-    Widget child,
-    AxisDirection axisDirection,
-  ) {
     return child;
   }
 }

@@ -6,9 +6,8 @@ part of 'salesforce_proposal.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$SalesforceProposalImpl _$$SalesforceProposalImplFromJson(
-        Map<String, dynamic> json) =>
-    _$SalesforceProposalImpl(
+_SalesforceProposal _$SalesforceProposalFromJson(Map<String, dynamic> json) =>
+    _SalesforceProposal(
       id: json['Id'] as String,
       name: json['Name'] as String,
       valorInvestimentoSolar:
@@ -19,8 +18,7 @@ _$SalesforceProposalImpl _$$SalesforceProposalImplFromJson(
       totalComissaoRetail: (json['totalComissaoRetail'] as num?)?.toDouble(),
     );
 
-Map<String, dynamic> _$$SalesforceProposalImplToJson(
-        _$SalesforceProposalImpl instance) =>
+Map<String, dynamic> _$SalesforceProposalToJson(_SalesforceProposal instance) =>
     <String, dynamic>{
       'Id': instance.id,
       'Name': instance.name,

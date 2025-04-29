@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,28 +23,56 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
   // Toggle between light and dark themes
   Future<void> toggleTheme() async {
+    final oldState = state;
     final newState =
         state == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    if (kDebugMode) {
+      print('[ThemeNotifier] Toggling theme from $oldState to $newState');
+    }
     state = newState;
 
-    // Save theme preference
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-      AppConstants.themePreferenceKey,
-      newState == ThemeMode.dark,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(
+        AppConstants.themePreferenceKey,
+        newState == ThemeMode.dark,
+      );
+      if (kDebugMode) {
+        print(
+          '[ThemeNotifier] Saved theme preference: ${newState == ThemeMode.dark}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('[ThemeNotifier] Error saving theme preference: $e');
+      }
+    }
   }
 
   // Set theme to a specific value
   Future<void> setTheme(ThemeMode themeMode) async {
+    final oldState = state;
+    if (kDebugMode) {
+      print('[ThemeNotifier] Setting theme from $oldState to $themeMode');
+    }
     state = themeMode;
 
-    // Save theme preference
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-      AppConstants.themePreferenceKey,
-      themeMode == ThemeMode.dark,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(
+        AppConstants.themePreferenceKey,
+        themeMode == ThemeMode.dark,
+      );
+      if (kDebugMode) {
+        print(
+          '[ThemeNotifier] Saved theme preference: ${themeMode == ThemeMode.dark}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('[ThemeNotifier] Error saving theme preference: $e');
+      }
+    }
   }
 
   // Check if current theme is dark

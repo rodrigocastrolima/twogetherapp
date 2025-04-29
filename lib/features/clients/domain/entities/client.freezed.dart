@@ -1,3 +1,4 @@
+// dart format width=80
 // coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint
@@ -9,285 +10,160 @@ part of 'client.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
-
-Client _$ClientFromJson(Map<String, dynamic> json) {
-  return _Client.fromJson(json);
-}
 
 /// @nodoc
 mixin _$Client {
-  String get id => throw _privateConstructorUsedError;
-  String get name => throw _privateConstructorUsedError;
-  String get email => throw _privateConstructorUsedError;
-  String get phone => throw _privateConstructorUsedError;
-  String get address => throw _privateConstructorUsedError;
-  ClientStatus get status => throw _privateConstructorUsedError;
-  DateTime get createdAt => throw _privateConstructorUsedError;
-  String? get notes => throw _privateConstructorUsedError;
 
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
-  @JsonKey(ignore: true)
-  $ClientCopyWith<Client> get copyWith => throw _privateConstructorUsedError;
+ String get id; String get name; String get email; String get phone; String get address; ClientStatus get status; DateTime get createdAt; String? get notes;
+/// Create a copy of Client
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ClientCopyWith<Client> get copyWith => _$ClientCopyWithImpl<Client>(this as Client, _$identity);
+
+  /// Serializes this Client to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Client&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.address, address) || other.address == address)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.notes, notes) || other.notes == notes));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,email,phone,address,status,createdAt,notes);
+
+@override
+String toString() {
+  return 'Client(id: $id, name: $name, email: $email, phone: $phone, address: $address, status: $status, createdAt: $createdAt, notes: $notes)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $ClientCopyWith<$Res> {
-  factory $ClientCopyWith(Client value, $Res Function(Client) then) =
-      _$ClientCopyWithImpl<$Res, Client>;
-  @useResult
-  $Res call(
-      {String id,
-      String name,
-      String email,
-      String phone,
-      String address,
-      ClientStatus status,
-      DateTime createdAt,
-      String? notes});
-}
+abstract mixin class $ClientCopyWith<$Res>  {
+  factory $ClientCopyWith(Client value, $Res Function(Client) _then) = _$ClientCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name, String email, String phone, String address, ClientStatus status, DateTime createdAt, String? notes
+});
 
+
+
+
+}
 /// @nodoc
-class _$ClientCopyWithImpl<$Res, $Val extends Client>
+class _$ClientCopyWithImpl<$Res>
     implements $ClientCopyWith<$Res> {
-  _$ClientCopyWithImpl(this._value, this._then);
+  _$ClientCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final Client _self;
+  final $Res Function(Client) _then;
 
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? email = null,
-    Object? phone = null,
-    Object? address = null,
-    Object? status = null,
-    Object? createdAt = null,
-    Object? notes = freezed,
-  }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
-      phone: null == phone
-          ? _value.phone
-          : phone // ignore: cast_nullable_to_non_nullable
-              as String,
-      address: null == address
-          ? _value.address
-          : address // ignore: cast_nullable_to_non_nullable
-              as String,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as ClientStatus,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      notes: freezed == notes
-          ? _value.notes
-          : notes // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
-  }
+/// Create a copy of Client
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = null,Object? address = null,Object? status = null,Object? createdAt = null,Object? notes = freezed,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
+as String,phone: null == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
+as String,address: null == address ? _self.address : address // ignore: cast_nullable_to_non_nullable
+as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as ClientStatus,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
 }
 
-/// @nodoc
-abstract class _$$ClientImplCopyWith<$Res> implements $ClientCopyWith<$Res> {
-  factory _$$ClientImplCopyWith(
-          _$ClientImpl value, $Res Function(_$ClientImpl) then) =
-      __$$ClientImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {String id,
-      String name,
-      String email,
-      String phone,
-      String address,
-      ClientStatus status,
-      DateTime createdAt,
-      String? notes});
 }
 
-/// @nodoc
-class __$$ClientImplCopyWithImpl<$Res>
-    extends _$ClientCopyWithImpl<$Res, _$ClientImpl>
-    implements _$$ClientImplCopyWith<$Res> {
-  __$$ClientImplCopyWithImpl(
-      _$ClientImpl _value, $Res Function(_$ClientImpl) _then)
-      : super(_value, _then);
-
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? email = null,
-    Object? phone = null,
-    Object? address = null,
-    Object? status = null,
-    Object? createdAt = null,
-    Object? notes = freezed,
-  }) {
-    return _then(_$ClientImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
-      phone: null == phone
-          ? _value.phone
-          : phone // ignore: cast_nullable_to_non_nullable
-              as String,
-      address: null == address
-          ? _value.address
-          : address // ignore: cast_nullable_to_non_nullable
-              as String,
-      status: null == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as ClientStatus,
-      createdAt: null == createdAt
-          ? _value.createdAt
-          : createdAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      notes: freezed == notes
-          ? _value.notes
-          : notes // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
-  }
-}
 
 /// @nodoc
 @JsonSerializable()
-class _$ClientImpl implements _Client {
-  const _$ClientImpl(
-      {required this.id,
-      required this.name,
-      required this.email,
-      required this.phone,
-      required this.address,
-      required this.status,
-      required this.createdAt,
-      this.notes});
 
-  factory _$ClientImpl.fromJson(Map<String, dynamic> json) =>
-      _$$ClientImplFromJson(json);
+class _Client implements Client {
+  const _Client({required this.id, required this.name, required this.email, required this.phone, required this.address, required this.status, required this.createdAt, this.notes});
+  factory _Client.fromJson(Map<String, dynamic> json) => _$ClientFromJson(json);
 
-  @override
-  final String id;
-  @override
-  final String name;
-  @override
-  final String email;
-  @override
-  final String phone;
-  @override
-  final String address;
-  @override
-  final ClientStatus status;
-  @override
-  final DateTime createdAt;
-  @override
-  final String? notes;
+@override final  String id;
+@override final  String name;
+@override final  String email;
+@override final  String phone;
+@override final  String address;
+@override final  ClientStatus status;
+@override final  DateTime createdAt;
+@override final  String? notes;
 
-  @override
-  String toString() {
-    return 'Client(id: $id, name: $name, email: $email, phone: $phone, address: $address, status: $status, createdAt: $createdAt, notes: $notes)';
-  }
+/// Create a copy of Client
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ClientCopyWith<_Client> get copyWith => __$ClientCopyWithImpl<_Client>(this, _$identity);
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$ClientImpl &&
-            (identical(other.id, id) || other.id == id) &&
-            (identical(other.name, name) || other.name == name) &&
-            (identical(other.email, email) || other.email == email) &&
-            (identical(other.phone, phone) || other.phone == phone) &&
-            (identical(other.address, address) || other.address == address) &&
-            (identical(other.status, status) || other.status == status) &&
-            (identical(other.createdAt, createdAt) ||
-                other.createdAt == createdAt) &&
-            (identical(other.notes, notes) || other.notes == notes));
-  }
-
-  @JsonKey(ignore: true)
-  @override
-  int get hashCode => Object.hash(
-      runtimeType, id, name, email, phone, address, status, createdAt, notes);
-
-  @JsonKey(ignore: true)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$ClientImplCopyWith<_$ClientImpl> get copyWith =>
-      __$$ClientImplCopyWithImpl<_$ClientImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$ClientImplToJson(
-      this,
-    );
-  }
+@override
+Map<String, dynamic> toJson() {
+  return _$ClientToJson(this, );
 }
 
-abstract class _Client implements Client {
-  const factory _Client(
-      {required final String id,
-      required final String name,
-      required final String email,
-      required final String phone,
-      required final String address,
-      required final ClientStatus status,
-      required final DateTime createdAt,
-      final String? notes}) = _$ClientImpl;
-
-  factory _Client.fromJson(Map<String, dynamic> json) = _$ClientImpl.fromJson;
-
-  @override
-  String get id;
-  @override
-  String get name;
-  @override
-  String get email;
-  @override
-  String get phone;
-  @override
-  String get address;
-  @override
-  ClientStatus get status;
-  @override
-  DateTime get createdAt;
-  @override
-  String? get notes;
-  @override
-  @JsonKey(ignore: true)
-  _$$ClientImplCopyWith<_$ClientImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Client&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.email, email) || other.email == email)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.address, address) || other.address == address)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.notes, notes) || other.notes == notes));
 }
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,email,phone,address,status,createdAt,notes);
+
+@override
+String toString() {
+  return 'Client(id: $id, name: $name, email: $email, phone: $phone, address: $address, status: $status, createdAt: $createdAt, notes: $notes)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ClientCopyWith<$Res> implements $ClientCopyWith<$Res> {
+  factory _$ClientCopyWith(_Client value, $Res Function(_Client) _then) = __$ClientCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name, String email, String phone, String address, ClientStatus status, DateTime createdAt, String? notes
+});
+
+
+
+
+}
+/// @nodoc
+class __$ClientCopyWithImpl<$Res>
+    implements _$ClientCopyWith<$Res> {
+  __$ClientCopyWithImpl(this._self, this._then);
+
+  final _Client _self;
+  final $Res Function(_Client) _then;
+
+/// Create a copy of Client
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? email = null,Object? phone = null,Object? address = null,Object? status = null,Object? createdAt = null,Object? notes = freezed,}) {
+  return _then(_Client(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
+as String,phone: null == phone ? _self.phone : phone // ignore: cast_nullable_to_non_nullable
+as String,address: null == address ? _self.address : address // ignore: cast_nullable_to_non_nullable
+as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as ClientStatus,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as DateTime,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+// dart format on

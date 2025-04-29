@@ -500,76 +500,151 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
+  // --- MODIFIED Quick Actions Section ---
   Widget _buildQuickActionsSection(AppLocalizations l10n) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.homeQuickActionsTitle,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onBackground,
-          ),
-        ),
-        const SizedBox(height: 24),
+    // Use LayoutBuilder for responsiveness if buttons might wrap
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool useColumn = constraints.maxWidth < 380; // Example breakpoint
 
-        // Create Service button with smooth gradient and shadow
-        Container(
-          width: double.infinity,
-          height: 50,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-          child: ElevatedButton(
-            onPressed: () => context.push('/services'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.homeQuickActionsTitle,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onBackground,
               ),
             ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primary,
-                    Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
-                        AppTheme.primary,
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Container(
-                alignment: Alignment.center,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            const SizedBox(height: 16),
+            useColumn
+                ? Column(
+                  // Vertical layout for smaller screens
                   children: [
-                    Icon(
-                      CupertinoIcons.add_circled,
-                      size: 20,
-                      color: Colors.white,
+                    _buildQuickActionButton(
+                      l10n: l10n,
+                      theme: theme,
+                      text: l10n.homeCreateNewServiceButton,
+                      icon: CupertinoIcons.add_circled,
+                      gradientColors: [
+                        AppTheme.primary,
+                        Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
+                            AppTheme.primary,
+                      ],
+                      onPressed: () => context.push('/services'),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      l10n.homeCreateNewServiceButton,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
+                    const SizedBox(height: 12),
+                    _buildQuickActionButton(
+                      l10n: l10n,
+                      theme: theme,
+                      text: "Provider Resources", // TODO: l10n
+                      icon: CupertinoIcons.folder_fill,
+                      gradientColors: [
+                        Colors.deepPurple.shade400,
+                        Colors.deepPurple.shade600,
+                      ],
+                      onPressed:
+                          () => context.push('/providers'), // Use reseller path
+                    ),
+                  ],
+                )
+                : Row(
+                  // Horizontal layout for larger screens
+                  children: [
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        l10n: l10n,
+                        theme: theme,
+                        text: l10n.homeCreateNewServiceButton,
+                        icon: CupertinoIcons.add_circled,
+                        gradientColors: [
+                          AppTheme.primary,
+                          Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
+                              AppTheme.primary,
+                        ],
+                        onPressed: () => context.push('/services'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildQuickActionButton(
+                        l10n: l10n,
+                        theme: theme,
+                        text: "Provider Resources", // TODO: l10n
+                        icon: CupertinoIcons.folder_fill,
+                        gradientColors: [
+                          Colors.deepPurple.shade400,
+                          Colors.deepPurple.shade600,
+                        ],
+                        onPressed:
+                            () =>
+                                context.push('/providers'), // Use reseller path
                       ),
                     ),
                   ],
                 ),
-              ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- NEW Helper for Quick Action Button --- //
+  Widget _buildQuickActionButton({
+    required AppLocalizations l10n,
+    required ThemeData theme,
+    required String text,
+    required IconData icon,
+    required List<Color> gradientColors,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: gradientColors,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Container(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  text,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 

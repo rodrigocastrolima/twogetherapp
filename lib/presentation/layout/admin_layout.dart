@@ -38,36 +38,44 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   int _selectedIndex = 0;
   bool _isTransitioning = false;
 
-  final List<Widget> _pages = [
-    const AdminHomePage(),
-    const MessagesPage(),
-    const AdminSettingsPage(),
-  ];
-
   @override
   void initState() {
     super.initState();
 
     // Set the initial selection based on the current route
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateSelectedIndexFromRoute();
+      // Add mounted check before accessing context
+      if (mounted) {
+        _updateSelectedIndexFromRoute();
+      }
     });
   }
 
+  // TODO: Consider calling this method also when route changes (e.g., via didChangeDependencies or a RouteAware mixin)
   void _updateSelectedIndexFromRoute() {
-    final location = GoRouterState.of(context).matchedLocation;
+    if (!mounted) return;
+    // Use GoRouterState.of(context) to get the current state
+    final GoRouterState routerState = GoRouterState.of(context);
+    final location = routerState.matchedLocation;
+
+    int newIndex = 0; // Default to home (index 0)
+
     if (location == '/admin') {
-      setState(() => _selectedIndex = 0);
+      newIndex = 0;
     } else if (location == '/admin/messages') {
-      setState(() => _selectedIndex = 1);
-    } else if (location == '/admin/reports') {
-      setState(() => _selectedIndex = 1);
+      newIndex = 1;
     } else if (location == '/admin/settings') {
-      setState(() => _selectedIndex = 2);
-    } else if (location == '/admin/opportunities') {
-      setState(() => _selectedIndex = 3);
+      newIndex = 2;
+    } else if (location.startsWith('/admin/opportunities') ||
+        location == '/admin/opportunity-detail') {
+      newIndex = 3;
     } else if (location == '/admin/user-management') {
-      setState(() => _selectedIndex = 4);
+      newIndex = 4;
+    }
+
+    // Update state only if the index has changed
+    if (_selectedIndex != newIndex) {
+      setState(() => _selectedIndex = newIndex);
     }
   }
 
@@ -99,16 +107,23 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         }
 
         // Update the state after navigation
-        setState(() {
-          _selectedIndex = index;
-          _isTransitioning = false;
-        });
+        // Check if mounted before setting state across async gap
+        if (mounted) {
+          setState(() {
+            _selectedIndex = index;
+            _isTransitioning = false;
+          });
+        }
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // --- Ensure selected index is updated on build --- //
+    _updateSelectedIndexFromRoute();
+    // --- End Update --- //
+
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600;
     final isDesktop = width >= 1024;
@@ -194,11 +209,23 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
               // Side Navigation for Desktop/Tablet
               if (!isSmallScreen && widget.showNavigation)
-                _buildCollapsibleSidebar(textColor, isDark, l10n),
+                _buildCollapsibleSidebar(
+                  textColor,
+                  isDark,
+                  l10n,
+                  _selectedIndex,
+                  unreadCount,
+                ),
 
               // Bottom Navigation for Mobile
               if (widget.showNavigation && isSmallScreen)
-                _buildMobileNavBar(context, isDark, l10n),
+                _buildMobileNavBar(
+                  context,
+                  isDark,
+                  l10n,
+                  _selectedIndex,
+                  unreadCount,
+                ),
 
               // This Overlay layer will be used for full-screen modals
               // It sits above everything else - navigation bars, app bars, etc.
@@ -219,7 +246,9 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   Widget _buildMainContent(bool isSmallScreen) {
     // Using a key based on the selected index ensures the widget tree is completely rebuilt
     // during page transitions, preventing any leakage between pages
-    final pageKey = ValueKey('page-${_selectedIndex}');
+    // Using the route path as key might be more robust with ShellRoute
+    final routePath = GoRouterState.of(context).matchedLocation;
+    final pageKey = ValueKey('page-$routePath');
 
     return Positioned(
       top: isSmallScreen ? (widget.showBackButton ? 80 : 0) : 0,
@@ -245,10 +274,18 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Main content
+                        // Main content - Use widget.child directly
                         Expanded(
                           child: Container(
-                            child: widget.child ?? _pages[_selectedIndex],
+                            // --- MODIFY to use only widget.child --- //
+                            child:
+                                widget.child ??
+                                const Center(
+                                  child: Text(
+                                    "Error: Child widget not provided by ShellRoute.",
+                                  ),
+                                ),
+                            // --- END MODIFICATION --- //
                           ),
                         ),
                       ],
@@ -263,31 +300,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     Color textColor,
     bool isDark,
     AppLocalizations l10n,
+    int currentIndex,
+    int unreadCount,
   ) {
-    // Get the current location to highlight the correct item
-    final location = GoRouterState.of(context).matchedLocation;
-    int currentIndex = _selectedIndex;
-
-    // Update current index based on route
-    if (location == '/admin') {
-      currentIndex = 0;
-    } else if (location == '/admin/messages') {
-      currentIndex = 1;
-    } else if (location == '/admin/reports') {
-      currentIndex = 1;
-    } else if (location == '/admin/settings') {
-      currentIndex = 2;
-    } else if (location == '/admin/opportunities') {
-      currentIndex = 3;
-    } else if (location == '/admin/user-management') {
-      currentIndex = 4;
-    }
-
-    // Fixed width sidebar
     const sidebarWidth = AppStyles.sidebarWidth;
-    final unreadCount = ref
-        .watch(unreadMessagesCountProvider)
-        .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Positioned(
       top: 0,
@@ -469,15 +485,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     BuildContext context,
     bool isDark,
     AppLocalizations l10n,
+    int currentIndex,
+    int unreadCount,
   ) {
     final textColor = isDark ? Colors.white : Colors.black;
-    final unreadCount = ref
-        .watch(unreadMessagesCountProvider)
-        .maybeWhen(data: (count) => count, orElse: () => 0);
-
-    // Calculate width for each tab based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
-    final tabWidth = screenWidth / 6; // Now using 6 tabs
+    final numTabs = 5; // Changed back to 5 tabs
+    final tabWidth = screenWidth / numTabs;
 
     return Positioned(
       bottom: 0,
@@ -506,14 +520,21 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 _buildTabItem(
                   icon: CupertinoIcons.house,
                   label: l10n.adminDashboard,
-                  isSelected: _selectedIndex == 0,
+                  isSelected: currentIndex == 0,
                   onTap: () => _handleNavigation(0),
+                  width: tabWidth,
+                ),
+                _buildTabItem(
+                  icon: CupertinoIcons.graph_square,
+                  label: l10n.navOpportunities,
+                  isSelected: currentIndex == 3,
+                  onTap: () => _handleNavigation(3),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
                   label: l10n.navMessages,
-                  isSelected: _selectedIndex == 1,
+                  isSelected: currentIndex == 1,
                   onTap: () => _handleNavigation(1),
                   badgeCount: unreadCount,
                   width: tabWidth,
@@ -521,24 +542,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
                   label: l10n.navResellers,
-                  isSelected: _selectedIndex == 4,
+                  isSelected: currentIndex == 4,
                   onTap: () => _handleNavigation(4),
-                  width: tabWidth,
-                ),
-                _buildTabItem(
-                  icon: CupertinoIcons.graph_square,
-                  label: l10n.navOpportunities,
-                  isSelected:
-                      _selectedIndex == 3 ||
-                      GoRouterState.of(context).matchedLocation ==
-                          '/admin/opportunities',
-                  onTap: () => _handleNavigation(3),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.settings,
                   label: l10n.navSettings,
-                  isSelected: _selectedIndex == 2,
+                  isSelected: currentIndex == 2,
                   onTap: () => _handleNavigation(2),
                   width: tabWidth,
                 ),

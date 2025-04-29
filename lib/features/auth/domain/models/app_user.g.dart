@@ -6,32 +6,29 @@ part of 'app_user.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$AppUserImpl _$$AppUserImplFromJson(Map<String, dynamic> json) =>
-    _$AppUserImpl(
-      uid: json['uid'] as String,
-      email: json['email'] as String,
-      role: $enumDecode(_$UserRoleEnumMap, json['role']),
-      displayName: json['displayName'] as String?,
-      photoURL: json['photoURL'] as String?,
-      salesforceId: json['salesforceId'] as String?,
-      isFirstLogin: json['isFirstLogin'] as bool? ?? false,
-      isEmailVerified: json['isEmailVerified'] as bool? ?? false,
-      additionalData:
-          json['additionalData'] as Map<String, dynamic>? ?? const {},
-    );
+_AppUser _$AppUserFromJson(Map<String, dynamic> json) => _AppUser(
+  uid: json['uid'] as String,
+  email: json['email'] as String,
+  role: $enumDecode(_$UserRoleEnumMap, json['role']),
+  displayName: json['displayName'] as String?,
+  photoURL: json['photoURL'] as String?,
+  salesforceId: json['salesforceId'] as String?,
+  isFirstLogin: json['isFirstLogin'] as bool? ?? false,
+  isEmailVerified: json['isEmailVerified'] as bool? ?? false,
+  additionalData: json['additionalData'] as Map<String, dynamic>? ?? const {},
+);
 
-Map<String, dynamic> _$$AppUserImplToJson(_$AppUserImpl instance) =>
-    <String, dynamic>{
-      'uid': instance.uid,
-      'email': instance.email,
-      'role': _$UserRoleEnumMap[instance.role]!,
-      'displayName': instance.displayName,
-      'photoURL': instance.photoURL,
-      'salesforceId': instance.salesforceId,
-      'isFirstLogin': instance.isFirstLogin,
-      'isEmailVerified': instance.isEmailVerified,
-      'additionalData': instance.additionalData,
-    };
+Map<String, dynamic> _$AppUserToJson(_AppUser instance) => <String, dynamic>{
+  'uid': instance.uid,
+  'email': instance.email,
+  'role': _$UserRoleEnumMap[instance.role]!,
+  'displayName': instance.displayName,
+  'photoURL': instance.photoURL,
+  'salesforceId': instance.salesforceId,
+  'isFirstLogin': instance.isFirstLogin,
+  'isEmailVerified': instance.isEmailVerified,
+  'additionalData': instance.additionalData,
+};
 
 const _$UserRoleEnumMap = {
   UserRole.admin: 'admin',

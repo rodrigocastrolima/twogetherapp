@@ -32,7 +32,19 @@ import '../../core/models/enums.dart';
 import '../../presentation/screens/admin/dev_tools_page.dart';
 import '../../core/models/service_submission.dart';
 import '../../features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
-import '../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
+
+import 'package:twogether/features/providers/presentation/pages/admin_provider_list_page.dart';
+import 'package:twogether/features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
+import 'package:twogether/features/providers/presentation/pages/create_provider_page.dart';
+import 'package:twogether/features/providers/presentation/pages/admin_provider_files_page.dart';
+import 'package:twogether/features/providers/presentation/pages/reseller_provider_list_page.dart';
+import 'package:twogether/features/providers/presentation/pages/reseller_provider_files_page.dart';
+import 'package:twogether/features/opportunity/presentation/pages/opportunity_verification_page.dart';
+import 'package:twogether/features/proposal/presentation/pages/proposal_creation_page.dart';
+import 'package:twogether/main.dart';
+import 'package:twogether/features/chat/presentation/pages/admin_chat_page.dart';
+import 'package:twogether/features/opportunity/data/models/salesforce_opportunity.dart'
+    as data_models;
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -561,74 +573,80 @@ class AppRouter {
         if (isAdmin) {
           // --- Admin Flow (already on an internal page) ---
 
-          // Ensure admin stays within /admin routes. Redirect if they somehow land outside.
-          if (!currentRoute.startsWith('/admin')) {
+          // Ensure admin stays within /admin routes, EXCEPT for /proposal/create.
+          if (!currentRoute.startsWith('/admin') &&
+              currentRoute != '/proposal/create') {
             if (kDebugMode) {
               print(
-                '[Redirect] Admin detected outside /admin routes. Forcing to /admin.',
+                '[Redirect] Admin detected outside allowed routes ($currentRoute). Forcing to /admin.',
               );
             }
             print(
-              'GoRouter Redirect: Admin detected outside /admin routes, redirecting to /admin from ${state.uri.toString()}',
+              'GoRouter Redirect: Admin detected outside allowed routes, redirecting to /admin from ${state.uri.toString()}',
             ); // LOG
             return '/admin';
           }
 
-          // Check Salesforce State (only relevant now we are on an admin page)
-          switch (salesforceAuthState) {
-            case SalesforceAuthState.unknown:
-            case SalesforceAuthState.authenticating:
-              if (kDebugMode) {
-                print(
-                  '[Redirect] Admin: SF State $salesforceAuthState. Waiting on current page ($currentRoute).',
-                );
-              }
-              // Stay on the current admin page, UI should show loading based on state.
-              return null;
+          // Check Salesforce State (only relevant now we are on an admin or proposal page)
+          // No SF check needed specifically for /proposal/create itself in redirect
+          if (currentRoute.startsWith('/admin')) {
+            // Only check SF state if actually in /admin section
+            switch (salesforceAuthState) {
+              case SalesforceAuthState.unknown:
+              case SalesforceAuthState.authenticating:
+                if (kDebugMode) {
+                  print(
+                    '[Redirect] Admin: SF State $salesforceAuthState. Waiting on current page ($currentRoute).',
+                  );
+                }
+                // Stay on the current admin page, UI should show loading based on state.
+                return null;
 
-            case SalesforceAuthState.unauthenticated:
-            case SalesforceAuthState.error:
-              if (kDebugMode) {
-                print(
-                  '[Redirect] Admin: SF State $salesforceAuthState on page $currentRoute.',
-                );
-              }
+              case SalesforceAuthState.unauthenticated:
+              case SalesforceAuthState.error:
+                if (kDebugMode) {
+                  print(
+                    '[Redirect] Admin: SF State $salesforceAuthState on page $currentRoute.',
+                  );
+                }
 
-              // Allow navigation to proceed regardless of the trigger attempt
-              return null; // Stay on current admin page
+                // Allow navigation to proceed regardless of the trigger attempt
+                return null; // Stay on current admin page
 
-            case SalesforceAuthState.authenticated:
-              if (kDebugMode) {
-                print(
-                  '[Redirect] Admin: SF State Authenticated on page $currentRoute.',
-                );
-              }
-              // Already authenticated, stay on current admin page.
-              return null;
+              case SalesforceAuthState.authenticated:
+                if (kDebugMode) {
+                  print(
+                    '[Redirect] Admin: SF State Authenticated on page $currentRoute.',
+                  );
+                }
+                // Already authenticated, stay on current admin page.
+                return null;
+            }
           }
         } else {
           // --- Reseller Flow (already on an internal page) ---
 
-          // Ensure reseller does not access admin routes.
-          if (currentRoute.startsWith('/admin')) {
+          // Ensure reseller does not access admin OR proposal routes.
+          if (currentRoute.startsWith('/admin') ||
+              currentRoute == '/proposal/create') {
             if (kDebugMode) {
               print(
-                '[Redirect] Reseller detected on admin route. Forcing to /.',
+                '[Redirect] Reseller detected on admin/proposal route ($currentRoute). Forcing to /reseller.',
               );
             }
             print(
-              'GoRouter Redirect: Reseller detected on admin route, redirecting to /reseller from ${state.uri.toString()}',
+              'GoRouter Redirect: Reseller detected on admin/proposal route, redirecting to /reseller from ${state.uri.toString()}',
             ); // LOG
-            return '/reseller';
+            return '/reseller'; // Use /reseller as base for reseller
           }
-          // Allow reseller to stay on any non-admin page.
+          // Allow reseller to stay on any other non-admin page.
           return null;
         }
 
-        // Allow access
+        // Allow access if no other rule applied
         if (kDebugMode)
           print(
-            'GoRouter Redirect: Role matches route or route is allowed. Allowing access.',
+            'GoRouter Redirect: No specific redirect needed for $currentRoute. Allowing access.',
           );
 
         return null; // Allow navigation
@@ -702,6 +720,31 @@ class AppRouter {
                       SettingsPage(), // This is the main settings *tab* content
                 ),
           ),
+          GoRoute(
+            path: '/providers', // List providers for reseller
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: ResellerProviderListPage()),
+            routes: [
+              GoRoute(
+                path: ':providerId', // View provider files for reseller
+                pageBuilder: (context, state) {
+                  final providerId = state.pathParameters['providerId'];
+                  if (providerId == null) {
+                    return const NoTransitionPage(
+                      child: Scaffold(
+                        body: Center(child: Text('Error: Missing Provider ID')),
+                      ),
+                    );
+                  }
+                  // Point to the actual ResellerProviderFilesPage
+                  return NoTransitionPage(
+                    child: ResellerProviderFilesPage(providerId: providerId),
+                  );
+                },
+              ),
+            ],
+          ),
         ],
       ),
 
@@ -709,57 +752,130 @@ class AppRouter {
       ShellRoute(
         navigatorKey: _adminShellNavigatorKey,
         builder: (context, state, child) {
-          // Admin layout might need its own logic for nav state
-          return AdminLayout(
-            showNavigation: true,
-            showBackButton: false,
-            child: child,
-          );
+          return AdminLayout(child: child);
         },
         routes: [
           GoRoute(
             path: '/admin',
+            parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
                 (context, state) =>
                     const NoTransitionPage(child: AdminHomePage()),
+            routes: [
+              // Nested routes under admin home if any
+            ],
           ),
           GoRoute(
-            path: '/admin/messages',
+            path: '/admin/opportunities',
+            parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
                 (context, state) => const NoTransitionPage(
-                  child: MessagesPage(), // Can reuse MessagesPage if suitable
+                  child: OpportunityVerificationPage(),
                 ),
           ),
           GoRoute(
-            path: '/admin/reports',
-            pageBuilder:
-                (context, state) => const NoTransitionPage(
-                  child: AdminHomePage(), // Placeholder
+            path: '/admin/stats-detail',
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final timeFilter = extra?['timeFilter'] as TimeFilter?;
+              return NoTransitionPage(
+                child: AdminStatsDetailPage(
+                  timeFilter: timeFilter ?? TimeFilter.monthly,
                 ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/admin/opportunity-detail',
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder: (context, state) {
+              final submission = state.extra as ServiceSubmission?;
+              if (submission == null) {
+                // Handle error or redirect, maybe back to admin home?
+                // For now, just show an error placeholder
+                return const NoTransitionPage(
+                  child: Scaffold(
+                    body: Center(child: Text('Error: Submission not found')),
+                  ),
+                );
+              }
+              return NoTransitionPage(
+                child: OpportunityDetailFormView(submission: submission),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/admin/user-management',
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: UserManagementPage()),
+          ),
+          GoRoute(
+            path: '/admin/dev-tools',
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: DevToolsPage()),
           ),
           GoRoute(
             path: '/admin/settings',
+            parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
                 (context, state) =>
                     const NoTransitionPage(child: AdminSettingsPage()),
           ),
           GoRoute(
-            path: '/admin/user-management',
+            path: '/admin/providers',
+            parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
                 (context, state) =>
-                    const NoTransitionPage(child: UserManagementPage()),
+                    NoTransitionPage(child: AdminProviderListPage()),
+            routes: [
+              GoRoute(
+                path: 'create',
+                pageBuilder: (context, state) {
+                  return NoTransitionPage(child: CreateProviderPage());
+                },
+              ),
+              GoRoute(
+                path: ':providerId',
+                pageBuilder: (context, state) {
+                  final providerId = state.pathParameters['providerId'];
+                  if (providerId == null) {
+                    // Handle missing providerId, maybe redirect or show error
+                    return const NoTransitionPage(
+                      child: Scaffold(
+                        body: Center(child: Text('Error: Missing Provider ID')),
+                      ),
+                    );
+                  }
+                  // Point to the actual AdminProviderFilesPage
+                  return NoTransitionPage(
+                    // Pass the extracted providerId
+                    child: AdminProviderFilesPage(providerId: providerId),
+                  );
+                },
+                routes: [
+                  // Routes specific to a provider's files could go here later,
+                  // e.g., /admin/providers/:providerId/files/:fileId/edit
+                ],
+              ),
+            ],
           ),
-          // --- Route to be moved BACK INSIDE ---
+          // --- Use ABSOLUTE path for Messages --- //
           GoRoute(
-            path: '/admin/opportunities',
-            pageBuilder: (context, state) {
-              // Use MaterialPage for default transitions or CustomTransitionPage
-              return const MaterialPage(
-                child: admin_pages.OpportunityVerificationPage(),
-              );
-            },
+            path: '/admin/messages', // Use absolute path
+            name: 'adminMessages',
+            parentNavigatorKey:
+                _adminShellNavigatorKey, // Ensure it uses the admin shell
+            pageBuilder:
+                (context, state) =>
+                    const NoTransitionPage(child: AdminChatPage()),
           ),
-        ],
+          // --- END CHANGE --- //
+        ], // End routes for the Admin ShellRoute
       ),
 
       // --- Top-Level Secondary Routes (No Shell) ---
@@ -871,34 +987,7 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: '/admin/stats-detail',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) {
-          // Extract data from 'extra'
-          final Map<String, dynamic>? args =
-              state.extra as Map<String, dynamic>?;
-          // final ChartType? chartType = args?['chartType'] as ChartType?; // REMOVE ChartType
-          final TimeFilter? timeFilter = args?['timeFilter'] as TimeFilter?;
-
-          // Basic validation
-          if ( /* chartType == null || */ timeFilter == null) {
-            // REMOVE ChartType check
-            return const MaterialPage(
-              child: Scaffold(body: Center(child: Text("Missing chart data"))),
-            );
-          }
-
-          return MaterialPage(
-            child: AdminStatsDetailPage(
-              // chartType: chartType, // REMOVE ChartType
-              timeFilter: timeFilter,
-            ),
-          );
-        },
-      ),
-      GoRoute(
-        path:
-            '/dashboard', // Is this admin or reseller specific? Assuming reseller for now.
+        path: '/dashboard',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           // Should point to DashboardPage directly
@@ -906,31 +995,10 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: '/admin/opportunity-detail', // New route for detail page
-        parentNavigatorKey:
-            _rootNavigatorKey, // Use root navigator to appear above shell
-        pageBuilder: (context, state) {
-          final submission = state.extra as ServiceSubmission?;
-          if (submission == null) {
-            // Handle error case where submission data is missing
-            return const MaterialPage(
-              child: Scaffold(
-                body: Center(child: Text("Submission data missing")),
-              ),
-            );
-          }
-          return MaterialPage(
-            // Consider adding a unique key if needed: key: ValueKey(submission.id),
-            fullscreenDialog: false, // Display as a standard page push
-            child: OpportunityDetailFormView(submission: submission),
-          );
-        },
-      ),
-      GoRoute(
         path: '/opportunity-details',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          final opportunity = state.extra as SalesforceOpportunity?;
+          final opportunity = state.extra as data_models.SalesforceOpportunity?;
           if (opportunity == null) {
             return const MaterialPage(
               child: Scaffold(
@@ -941,6 +1009,58 @@ class AppRouter {
           return MaterialPage(
             fullscreenDialog: false,
             child: OpportunityDetailsPage(opportunity: opportunity),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/proposal/create',
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          if (extra == null) {
+            return const NoTransitionPage(
+              child: Scaffold(
+                body: Center(
+                  child: Text('Error: Missing required proposal data'),
+                ),
+              ), // TODO: l10n
+            );
+          }
+
+          final String? sfOppId = extra['salesforceOpportunityId'] as String?;
+          final String? sfAccId = extra['salesforceAccountId'] as String?;
+          final String? accName = extra['accountName'] as String?;
+          final String? resSfId = extra['resellerSalesforceId'] as String?;
+          final String? resName = extra['resellerName'] as String?;
+          final String? nif = extra['nif'] as String?;
+          final String? oppName = extra['opportunityName'] as String?;
+
+          // Validate required parameters
+          if (sfOppId == null ||
+              sfAccId == null ||
+              accName == null ||
+              resSfId == null ||
+              resName == null ||
+              nif == null ||
+              oppName == null) {
+            return const NoTransitionPage(
+              child: Scaffold(
+                body: Center(
+                  child: Text('Error: Invalid or incomplete proposal data'),
+                ),
+              ), // TODO: l10n
+            );
+          }
+
+          return NoTransitionPage(
+            child: ProposalCreationPage(
+              salesforceOpportunityId: sfOppId,
+              salesforceAccountId: sfAccId,
+              accountName: accName,
+              resellerSalesforceId: resSfId,
+              resellerName: resName,
+              nif: nif,
+              opportunityName: oppName,
+            ),
           );
         },
       ),

@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart'; // Needed for invoice link
 import 'package:flutter/foundation.dart'; // For kDebugMode
 import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
 import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
+import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
+
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
@@ -486,8 +488,11 @@ class _OpportunityDetailFormViewState
       return;
     }
 
-    // 3. Get Salesforce Auth Details
     setState(() => _isSubmitting = true);
+
+    // --- TEMPORARY: Comment out SF Auth check for UI testing --- //
+    /*
+    // 3. Get Salesforce Auth Details
     final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
     final String? accessToken = await sfAuthNotifier.getValidAccessToken();
     final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
@@ -505,12 +510,17 @@ class _OpportunityDetailFormViewState
       setState(() => _isSubmitting = false);
       return;
     }
+    */
+    print("--- SKIPPED Salesforce Auth Check for UI testing ---");
+    // --- END TEMPORARY --- //
 
+    // --- TEMPORARY: Comment out Params creation as it uses skipped vars --- //
+    /*
     // 4. Gather Parameters
     final params = CreateOppParams(
       submissionId: widget.submission.id!, // Assume ID is non-null here
-      accessToken: accessToken,
-      instanceUrl: instanceUrl,
+      accessToken: accessToken, // Would be null/invalid here
+      instanceUrl: instanceUrl, // Would be null/invalid here
       resellerSalesforceId: _resellerSalesforceId!,
       opportunityName: _nameController.text,
       nif: _nifController.text,
@@ -525,83 +535,224 @@ class _OpportunityDetailFormViewState
       phase: _faseValue, // Use fixed value
       fileUrls: widget.submission.documentUrls, // Pass the list
     );
+    */
+    print("--- SKIPPED Param Creation for UI testing ---");
+    // --- END TEMPORARY --- //
 
-    // 5. Call the Provider
+    // 5. Call the Provider (Commented out) & Create Dummy Result
     try {
-      // We call .future directly as we want to handle the result here, not just display UI based on AsyncValue
-      final result = await ref.read(createOpportunityProvider(params).future);
-      _handleCreateResult(result); // Handle success/failure
+      // --- TEMPORARY: Comment out the actual call for UI testing --- //
+      // final result = await ref.read(createOpportunityProvider(params).future);
+      // --- END TEMPORARY --- //
+
+      // --- TEMPORARY: Create a dummy successful result for testing --- //
+      final result = CreateOppResult(
+        success: true,
+        opportunityId: 'DUMMY_OPP_ID_123', // Placeholder SF Opportunity ID
+        error: null,
+        sessionExpired: false,
+      );
+      // --- END TEMPORARY --- //
+
+      _handleCreateResult(
+        result,
+      ); // Handle success/failure using the dummy result
     } catch (e) {
-      // Catch potential errors if the provider itself throws before returning AsyncError
       _handleCreateError(e);
-    } finally {
-      // Ensure loading state is reset even if error handling fails (though unlikely)
+      // If an error happened *before* _handleCreateResult, reset loading state
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+    // No finally block needed, _handleCreateResult manages state
   }
 
   // --- NEW: Handler for Cloud Function Result ---
   Future<void> _handleCreateResult(CreateOppResult result) async {
-    final l10n = AppLocalizations.of(context)!; // Get l10n
-    if (!mounted) return; // Check if widget is still mounted
+    final l10n = AppLocalizations.of(context)!;
+    if (!mounted) return;
+
+    // --- Handle session expiration first ---
+    if (result.sessionExpired) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        // TODO: Add l10n key: salesforceSessionExpiredError
+        const SnackBar(
+          content: Text(
+            'Salesforce session expired. Please refresh or log in again.',
+          ),
+        ),
+      );
+      // Optional: Trigger re-authentication flow
+      // ref.read(salesforceAuthProvider.notifier).authenticate(); // salesforceAuthProvider is from core/services
+      return;
+    }
 
     if (result.success) {
       // --- Success Case ---
-      // Update Firestore document
       try {
+        // --- TEMPORARY: Comment out Firestore update during UI testing --- //
+        /*
         await FirebaseFirestore.instance
             .collection('serviceSubmissions')
             .doc(widget.submission.id)
             .update({
-              'status': 'approved', // Update status
-              'salesforceOpportunityId': result.opportunityId, // Store SF ID
-              'reviewedAt': FieldValue.serverTimestamp(), // Timestamp approval
-              'reviewDetails': null, // Clear any previous rejection details
+              'status': 'approved',
+              'salesforceOpportunityId': result.opportunityId,
+              // 'salesforceAccountId': result.accountId, // TODO: Add accountId to CreateOppResult & backend
+              'adminReviewTimestamp': FieldValue.serverTimestamp(),
+              'adminReviewedBy': FirebaseAuth.instance.currentUser?.uid, // Use direct FirebaseAuth instance
+              'approvedDetails': {
+                'opportunityName': _nameController.text,
+                'nif': _nifController.text,
+                'segmentoCliente': _selectedSegmentoCliente,
+                'solucao': _selectedSolucao,
+                'dataFecho': _fechoController.text,
+                'opportunityType': _tipoOportunidadeValue,
+              }
             });
+        */
+        print("--- SKIPPED Firestore update for UI testing --- ");
+        // --- END TEMPORARY --- //
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.opportunityApprovedSuccess),
-          ), // TODO: l10n key
-        );
+        // --- MODIFICATION START: Show Dialog or Fallback ---
+        if (!mounted) return;
 
-        // Navigate back or to the new opportunity list
-        // context.pop(); // Simple pop back
-        // OR navigate to a different list page, maybe forcing refresh
-        context.go(
-          '/admin',
-        ); // Navigate back to admin home/verification list for now
-      } catch (firestoreError) {
-        print("Error updating Firestore after SF success: $firestoreError");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "${l10n.opportunityApprovedSuccessButFirestoreError}: $firestoreError",
+        final opportunityName = _nameController.text;
+        final accountName =
+            widget.submission.companyName ?? widget.submission.responsibleName;
+        final nif = _nifController.text;
+        final resellerSfId = _resellerSalesforceId;
+        final resellerName = _resellerDisplayName;
+        final sfOpportunityId = result.opportunityId; // Will use dummy ID
+        // TODO: Get sfAccountId from result once backend is updated
+        // Use a dummy Account ID for testing the proposal page navigation
+        const String? sfAccountId =
+            'DUMMY_ACC_ID_456'; // TEMPORARY: Use dummy ID for testing
+
+        // Check if we have essential data for proposal creation
+        // This check should now pass because we provided dummy IDs
+        if (sfOpportunityId == null ||
+            sfAccountId == null ||
+            resellerSfId == null) {
+          // ... (fallback logic remains the same) ...
+          // If essential data is missing (esp. accountId), show standard success and navigate away
+          ScaffoldMessenger.of(context).showSnackBar(
+            // TODO: Add l10n key: submissionApprovedSuccessButProposalDataMissing
+            const SnackBar(
+              content: Text(
+                'Opportunity Approved. Required data for proposal creation missing.',
+              ),
             ),
-          ), // TODO: l10n key
+          );
+          // Reset loading state before navigating
+          if (mounted) setState(() => _isSubmitting = false);
+          context.go('/admin'); // Fallback navigation
+          return;
+        }
+
+        // --- Show Dialog ---
+        // ... (dialog logic remains the same) ...
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              // TODO: Add l10n key: opportunityCreatedTitle
+              title: const Text(
+                'Opportunity Created (Dummy)',
+              ), // Indicate dummy
+              // TODO: Add l10n key: askCreateProposalNow(opportunityName)
+              content: Text(
+                'Opportunity \"$opportunityName\" (Dummy ID: $sfOpportunityId) created. Create a Proposal now?',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  // TODO: Add l10n key: laterButton
+                  child: const Text('Later'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(); // Close dialog
+                    // Show original success message before navigating
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      // TODO: Add l10n key: submissionApprovedSuccess
+                      const SnackBar(
+                        content: Text(
+                          'Opportunity Approved Successfully (Dummy)',
+                        ),
+                      ),
+                    );
+                    // Reset loading state before navigating
+                    if (mounted) setState(() => _isSubmitting = false);
+                    context.go('/admin'); // Navigate away
+                  },
+                ),
+                TextButton(
+                  // TODO: Add l10n key: createProposalButton
+                  child: const Text('Create Proposal'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(); // Close dialog
+                    // Reset loading state before navigating to new page
+                    if (mounted) setState(() => _isSubmitting = false);
+                    // Navigate to the Proposal Creation Page with dummy data
+                    context.push(
+                      '/proposal/create',
+                      extra: {
+                        'salesforceOpportunityId': sfOpportunityId, // Dummy ID
+                        'salesforceAccountId': sfAccountId, // Dummy ID
+                        'accountName': accountName,
+                        'resellerSalesforceId': resellerSfId,
+                        'resellerName': resellerName ?? 'N/A',
+                        'nif': nif,
+                        'opportunityName': opportunityName,
+                      },
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         );
-        // Still likely want to navigate away or reset state
-        context.go('/admin');
+        // --- MODIFICATION END ---
+      } catch (e, s) {
+        // Firestore update failed (or skipped)
+        // ... (error handling remains the same) ...
+        if (kDebugMode) {
+          print("Error updating Firestore after approval: $e");
+          print(s);
+        }
+        if (!mounted) return;
+        // Reset loading state as we are staying on the page
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            // TODO: Add l10n key: firestoreUpdateError(e.toString())
+            content: Text(
+              'Error during Firestore update phase: ${e.toString()}',
+            ), // Modified message
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
       }
     } else {
-      // --- Failure Case ---
-      if (result.sessionExpired) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.errorSalesforceSessionExpired),
-          ), // TODO: l10n key
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "${l10n.errorCreatingOpportunity}: ${result.error ?? 'Unknown error'}",
-            ),
-          ), // TODO: l10n key
-        );
+      // --- Failure Case (from Cloud Function/Provider - OR DUMMY FAILURE) ---
+      // ... (error handling remains the same) ...
+      if (kDebugMode) {
+        print("Create Opportunity Failed: ${result.error}"); // Use result.error
       }
+      // Reset loading state as we are staying on the page
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          // TODO: Add l10n key: opportunityCreationFailedError(result.error ?? l10n.unknownError)
+          content: Text(
+            'Failed to create opportunity: ${result.error ?? 'Unknown error'}', // Use result.error
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 

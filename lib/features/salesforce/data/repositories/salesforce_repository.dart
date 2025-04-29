@@ -168,26 +168,38 @@ class SalesforceRepository {
         }
 
         // Convert each JSON object to a SalesforceOpportunity
-        return opportunitiesJson.map((json) {
-          // Ensure json is treated as a Map before converting
-          if (json is Map) {
-            return SalesforceOpportunity.fromJson(
-              Map<String, dynamic>.from(json),
-            );
-          } else {
-            // Handle unexpected item type (log error, return null, or throw)
-            if (kDebugMode) {
-              print(
-                'Skipping unexpected item type in opportunities list: ${json?.runtimeType}',
-              );
-            }
-            // Option: return a default/empty object or filter out nulls later
-            // For simplicity, let's throw for now to make the issue clear if it happens.
-            throw Exception(
-              'Unexpected item type found in opportunities list: ${json?.runtimeType}',
-            );
-          }
-        }).toList();
+        return opportunitiesJson
+            .map((json) {
+              // Ensure json is treated as a Map before converting
+              if (json is Map) {
+                try {
+                  final mapJson = Map<String, dynamic>.from(json);
+                  // Add specific checks for mandatory fields BEFORE parsing
+                  if (mapJson['Id'] == null || mapJson['Name'] == null) {
+                    print(
+                      '[SalesforceRepository] Error: Record missing Id or Name: $mapJson',
+                    );
+                    return null; // Skip this record
+                  }
+                  return SalesforceOpportunity.fromJson(mapJson);
+                } catch (e) {
+                  print(
+                    '[SalesforceRepository] Error parsing record $json: $e',
+                  );
+                  return null; // Skip records that cause parsing errors
+                }
+              } else {
+                // Handle unexpected item type
+                if (kDebugMode) {
+                  print(
+                    '[SalesforceRepository] Skipping unexpected item type in opportunities list: ${json?.runtimeType}',
+                  );
+                }
+                return null; // Skip non-map items
+              }
+            })
+            .whereType<SalesforceOpportunity>()
+            .toList(); // Filter out nulls
       } else {
         // Handle error response from the function
         final errorMessage = data['error'] as String? ?? 'Unknown error';

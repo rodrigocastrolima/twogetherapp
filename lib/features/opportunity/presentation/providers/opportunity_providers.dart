@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../salesforce/data/repositories/salesforce_repository.dart';
-import '../pages/salesforce_opportunity.dart' as sf_opp_page;
 import '../../data/models/create_opp_models.dart';
 import '../../data/services/opportunity_service.dart';
 import '../../data/models/salesforce_opportunity.dart';

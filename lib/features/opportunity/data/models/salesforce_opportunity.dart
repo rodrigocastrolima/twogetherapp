@@ -7,35 +7,43 @@ class SalesforceOpportunity {
   final String name;
   final String? accountName; // Account.Name can be null
   final String? resellerName; // Agente_Retail__r.Name can be null
+  final String? NIF__c; // Added
+  final String? Fase__c; // Added
+  final String?
+  CreatedDate; // Added - Made nullable for safety, confirm if always present
 
   const SalesforceOpportunity({
     required this.id,
     required this.name,
     this.accountName,
     this.resellerName,
+    this.NIF__c, // Added
+    this.Fase__c, // Added
+    this.CreatedDate, // Added
   });
 
   factory SalesforceOpportunity.fromJson(Map<String, dynamic> json) {
-    // Basic error checking/logging can be added here if needed
-    if (json['id'] == null || json['name'] == null) {
-      // Handle cases where essential data is missing from the function result
-      // This shouldn't happen with the current query, but good for robustness
+    // Check for required Salesforce fields (case-sensitive)
+    if (json['Id'] == null || json['Name'] == null) {
       print(
-        "Error parsing SalesforceOpportunity: Missing 'id' or 'name' in JSON: $json",
+        "Error parsing SalesforceOpportunity: Missing 'Id' or 'Name' in JSON: $json",
       );
-      // Return a default/error state or throw?
-      // Throwing might be better to signal data issues upstream.
       throw FormatException(
-        "Missing required fields (id, name) in SalesforceOpportunity JSON",
+        "Missing required fields (Id, Name) in SalesforceOpportunity JSON",
       );
     }
     return SalesforceOpportunity(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      accountName:
-          json['accountName'] as String?, // Directly cast, handles null
-      resellerName:
-          json['resellerName'] as String?, // Directly cast, handles null
+      id: json['Id'] as String, // Read uppercase 'Id'
+      name: json['Name'] as String, // Read uppercase 'Name'
+      // Assuming Account Name is mapped from 'Nome_Entidade__c'
+      accountName: json['Nome_Entidade__c'] as String?,
+      // Assuming Reseller Name is mapped from 'Agente_Retail__r'?['Name'] to 'resellerName' by the function?
+      // If the key is different, adjust here.
+      resellerName: json['resellerName'] as String?,
+      // Added fields - read from JSON, assuming these keys
+      NIF__c: json['NIF__c'] as String?,
+      Fase__c: json['Fase__c'] as String?,
+      CreatedDate: json['CreatedDate'] as String?,
     );
   }
 
@@ -48,18 +56,24 @@ class SalesforceOpportunity {
           id == other.id &&
           name == other.name &&
           accountName == other.accountName &&
-          resellerName == other.resellerName;
+          resellerName == other.resellerName &&
+          NIF__c == other.NIF__c && // Added
+          Fase__c == other.Fase__c && // Added
+          CreatedDate == other.CreatedDate; // Added
 
   @override
   int get hashCode =>
       id.hashCode ^
       name.hashCode ^
       accountName.hashCode ^
-      resellerName.hashCode;
+      resellerName.hashCode ^
+      NIF__c.hashCode ^ // Added
+      Fase__c.hashCode ^ // Added
+      CreatedDate.hashCode; // Added
 
   // Optional: Add toString for easier debugging
   @override
   String toString() {
-    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, resellerName: $resellerName}';
+    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, resellerName: $resellerName, NIF__c: $NIF__c, Fase__c: $Fase__c, CreatedDate: $CreatedDate}'; // Added
   }
 }

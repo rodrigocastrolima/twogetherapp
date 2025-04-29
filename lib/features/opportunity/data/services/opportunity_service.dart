@@ -42,20 +42,36 @@ class OpportunityService {
 
       // Map the dynamic list to a list of SalesforceOpportunity objects
       final opportunities =
-          data.map((item) {
-            // Ensure each item is a Map before passing to fromJson
-            if (item is Map<String, dynamic>) {
-              return SalesforceOpportunity.fromJson(item);
-            } else {
-              // Log error or throw if the structure isn't as expected
-              print(
-                '[OpportunityService] Error: Received non-map item in list: $item',
-              );
-              throw const FormatException(
-                'Invalid data structure received from Cloud Function.',
-              );
-            }
-          }).toList();
+          data
+              .map((item) {
+                try {
+                  // Ensure each item is a Map before passing to fromJson
+                  if (item is Map<String, dynamic>) {
+                    // Add specific checks for mandatory fields BEFORE parsing
+                    if (item['Id'] == null || item['Name'] == null) {
+                      print(
+                        '[OpportunityService] Error: Record missing Id or Name: $item',
+                      );
+                      return null; // Skip this record
+                    }
+                    return SalesforceOpportunity.fromJson(item);
+                  } else {
+                    // Log error or throw if the structure isn't as expected
+                    print(
+                      '[OpportunityService] Error: Received non-map item in list: $item',
+                    );
+                    // throw const FormatException(
+                    //   'Invalid data structure received from Cloud Function.',
+                    // );
+                    return null; // Skip this record
+                  }
+                } catch (e) {
+                  print('[OpportunityService] Error parsing record $item: $e');
+                  return null; // Skip records that cause parsing errors
+                }
+              })
+              .whereType<SalesforceOpportunity>()
+              .toList(); // Filter out nulls
 
       return opportunities;
     } on FirebaseFunctionsException catch (e) {

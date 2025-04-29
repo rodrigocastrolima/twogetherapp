@@ -23,7 +23,7 @@ interface SalesforceProposalBase {
     Id: string;
     Name: string;
     Valor_Investimento_Solar__c?: number; // Nullable number
-    Data_de_Criacao__c: string; // Date string
+    // Data_de_Criacao__c: string; // Removed - Will be fetched later if needed
     Data_de_Validade__c: string; // Date string
     Status__c: string; // Status field
 }
@@ -148,6 +148,7 @@ export const getOpportunityProposals = onCall(
             const proposalQuery = `
                 SELECT
                     Id,
+                    Name,
                     Data_de_Validade__c,
                     Status__c
                 FROM Proposta__c

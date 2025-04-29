@@ -12,6 +12,7 @@ import '../../../../core/utils/constants.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
+import 'package:flutter/foundation.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -181,6 +182,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               activeColor: theme.colorScheme.primary,
               inactiveTrackColor: theme.colorScheme.onSurface.withOpacity(0.3),
               onChanged: (bool value) {
+                if (kDebugMode) {
+                  print('[SettingsPage] Theme switch toggled: $value');
+                }
                 themeNotifier.setTheme(
                   value ? ThemeMode.dark : ThemeMode.light,
                 );

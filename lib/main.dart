@@ -24,6 +24,9 @@ import 'core/services/salesforce_auth_service.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'core/utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/providers/theme_provider.dart';
+import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
+import 'core/theme/ui_styles.dart';
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -204,87 +207,65 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> {
   Widget build(BuildContext context) {
     // Get router from the App router class
     final router = AppRouter.router;
+    // Watch locale and theme providers
+    final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeProvider);
 
-    return MaterialApp.router(
-      title: 'Twogether',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: AppTheme.background,
-        colorScheme: ColorScheme.light(
-          primary: AppTheme.primary,
-          onPrimary: Colors.white,
-          secondary: AppTheme.secondary,
-          onSecondary: Colors.white,
-          background: AppTheme.background,
-          onBackground: AppTheme.foreground,
-          surface: Colors.white,
-          onSurface: AppTheme.foreground,
-        ),
-        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
-        appBarTheme: AppBarTheme(
-          backgroundColor: AppTheme.background,
-          foregroundColor: AppTheme.foreground,
-          elevation: 0,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            backgroundColor: AppTheme.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+    // The main MaterialApp configuration
+    return ScrollConfiguration(
+      behavior: const NoScrollbarBehavior(),
+      child: NotificationOverlayManager(
+        child: MaterialApp.router(
+          title: 'Twogether',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light().copyWith(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _NoTransitionsBuilder(),
+                TargetPlatform.iOS: _NoTransitionsBuilder(),
+                TargetPlatform.windows: _NoTransitionsBuilder(),
+                TargetPlatform.macOS: _NoTransitionsBuilder(),
+                TargetPlatform.linux: _NoTransitionsBuilder(),
+              },
             ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
           ),
+          darkTheme: AppTheme.dark().copyWith(
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _NoTransitionsBuilder(),
+                TargetPlatform.iOS: _NoTransitionsBuilder(),
+                TargetPlatform.windows: _NoTransitionsBuilder(),
+                TargetPlatform.macOS: _NoTransitionsBuilder(),
+                TargetPlatform.linux: _NoTransitionsBuilder(),
+              },
+            ),
+          ),
+          themeMode: themeMode,
+          routerConfig: router,
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
         ),
       ),
-      // Theme configuration
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        colorScheme: ColorScheme.dark(
-          primary: AppTheme.primary,
-          onPrimary: Colors.white,
-          secondary: AppTheme.secondary,
-          onSecondary: Colors.white,
-          background: Colors.black,
-          onBackground: Colors.white,
-          surface: Colors.grey[900]!,
-          onSurface: Colors.white,
-        ),
-        textTheme: GoogleFonts.interTextTheme(
-          Theme.of(context).textTheme,
-        ).apply(bodyColor: Colors.white, displayColor: Colors.white),
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 0,
-            backgroundColor: AppTheme.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-        ),
-      ),
-      // Router configuration
-      routerConfig: router,
-      // Localization
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en', ''), // English
-        Locale('pt', ''), // Portuguese
-      ],
     );
+  }
+}
+
+/// Custom PageTransitionsBuilder that has minimal transition animation
+/// (Moved from app.dart)
+class _NoTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // No transition, just return the child immediately.
+    return child;
   }
 }
 

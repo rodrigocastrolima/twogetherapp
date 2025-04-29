@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
-import '../../../features/opportunity/presentation/pages/salesforce_opportunity.dart';
+import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
 import '../../../features/proposal/data/models/salesforce_proposal.dart';
 import 'package:intl/intl.dart';
@@ -22,15 +22,17 @@ class OpportunityDetailsPage extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
 
     // Format CreatedDate for the Opportunity
-    String formattedOpportunityDate = '';
-    try {
-      final date = DateTime.parse(opportunity.CreatedDate);
-      formattedOpportunityDate = DateFormat.yMd(
-        l10n?.localeName ?? 'en_US',
-      ).format(date);
-    } catch (e) {
-      formattedOpportunityDate =
-          opportunity.CreatedDate; // Fallback to raw string
+    String formattedOpportunityDate = 'N/A';
+    if (opportunity.CreatedDate != null) {
+      try {
+        final date = DateTime.parse(opportunity.CreatedDate!);
+        formattedOpportunityDate = DateFormat.yMd(
+          l10n?.localeName ?? 'en_US',
+        ).format(date);
+      } catch (e) {
+        formattedOpportunityDate =
+            opportunity.CreatedDate!; // Fallback to raw string if parse fails
+      }
     }
 
     // --- Watch the proposals provider ---
@@ -48,7 +50,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          opportunity.Nome_Entidade__c ?? opportunity.name,
+          opportunity.accountName ?? opportunity.name,
           overflow: TextOverflow.ellipsis,
         ),
         centerTitle: true,
@@ -155,7 +157,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    opportunity.Nome_Entidade__c ?? opportunity.name,
+                    opportunity.accountName ?? opportunity.name,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -203,8 +205,13 @@ class OpportunityDetailsPage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // Keep only relevant rows
+            // Use the new model fields
             _buildDetailRow(context, 'NIF', opportunity.NIF__c ?? 'N/A'),
+            _buildDetailRow(
+              context,
+              'Fase',
+              opportunity.Fase__c ?? 'N/A', // Display Fase__c
+            ),
             _buildDetailRow(
               context,
               'Data de Criação',

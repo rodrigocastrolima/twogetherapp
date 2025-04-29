@@ -12,6 +12,7 @@ import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
+import '../../../core/theme/ui_styles.dart'; // Import AppStyles
 
 class AdminHomePage extends ConsumerStatefulWidget {
   const AdminHomePage({super.key});
@@ -70,6 +71,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
             // --- Updated Statistics Section ---
             _buildStatisticsSection(context),
+            const SizedBox(height: 24),
+
+            // --- NEW: Provider Resources Section ---
+            _buildProviderResourcesSection(context, theme),
             const SizedBox(height: 24),
 
             // --- Recent Activity Section ---
@@ -929,39 +934,35 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
     // Navigate based on type
     switch (notification.type) {
+      case NotificationType.newSubmission:
       case NotificationType.statusChange:
       case NotificationType.rejection:
         if (kDebugMode)
-          print("Type matched (statusChange or rejection)."); // Log type match
+          print(
+            "Type matched (${notification.type}). Checking for submissionId...",
+          );
         if (notification.metadata.containsKey('submissionId')) {
-          if (kDebugMode)
-            print("Metadata contains submissionId key."); // Log key found
+          if (kDebugMode) print("Metadata contains submissionId key.");
           final submissionId = notification.metadata['submissionId'] as String?;
           if (submissionId != null) {
             if (kDebugMode)
-              print("Submission ID is not null: $submissionId"); // Log ID value
-            // --- Use the new fetch and navigate logic --- //
+              print("Submission ID is not null: $submissionId. Navigating...");
+            // Fetch and navigate
             await _fetchAndNavigateToDetailAdmin(context, submissionId);
           } else {
-            // print("Error: Notification missing submissionId"); // Keep commented for now
-            if (kDebugMode)
-              print("Error: Submission ID value is null."); // Log null value
+            if (kDebugMode) print("Error: Submission ID value is null.");
           }
         } else {
-          // print("Error: Notification missing submissionId metadata key"); // Keep commented for now
           if (kDebugMode)
-            print(
-              "Error: Metadata does NOT contain submissionId key.",
-            ); // Log key missing
+            print("Error: Metadata does NOT contain submissionId key.");
         }
         break;
-      // Add cases for other notification types if needed
+      // Add cases for other notification types if needed (e.g., chat message)
       default:
-        // print("Tapped notification type: ${notification.type}, no navigation defined."); // Keep commented
         if (kDebugMode)
           print(
-            "Notification type (${notification.type}) does not trigger navigation.",
-          ); // Log other types
+            "Notification type (${notification.type}) does not trigger navigation in this handler.",
+          );
         break;
     }
     if (kDebugMode)
@@ -975,8 +976,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           duration: const Duration(seconds: 2),
         ),
       );
-      // No need to call refresh manually, provider should handle updates
-      // refreshAdminNotifications(ref); // Remove explicit refresh call
     }
   }
 
@@ -985,7 +984,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     BuildContext context,
     String submissionId,
   ) async {
-    // print("Fetching submission details for ID (Admin): $submissionId"); // Removed print
+    if (kDebugMode)
+      print("Fetching submission details for ID (Admin): $submissionId");
     try {
       final docSnapshot =
           await FirebaseFirestore.instance
@@ -993,17 +993,16 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
               .doc(submissionId)
               .get();
 
-      // Check context validity again after async gap using context.mounted
-      if (!context.mounted) {
-        // CORRECT mounted check
-        return;
-      }
+      if (!context.mounted) return;
 
       if (docSnapshot.exists) {
         final submission = ServiceSubmission.fromFirestore(docSnapshot);
+        // --- REVERTED NAVIGATION PATH --- //
         context.push('/admin/opportunity-detail', extra: submission);
+        // --- END REVERT --- //
       } else {
-        // print("Error: Submission document not found for ID: $submissionId"); // Removed print
+        if (kDebugMode)
+          print("Error: Submission document not found for ID: $submissionId");
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -1014,10 +1013,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         );
       }
     } catch (e) {
-      // print("Error fetching submission document: $e"); // Removed print
-      // Check context validity again after async gap
+      if (kDebugMode) print("Error fetching submission document: $e");
       if (context.mounted) {
-        // CORRECT mounted check
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading submission details: $e'), // TODO: l10n
@@ -1026,6 +1023,67 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         );
       }
     }
+  }
+
+  // --- NEW: Provider Resources Section Widget ---
+  Widget _buildProviderResourcesSection(BuildContext context, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Provider Resources', // TODO: l10n
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 2,
+            shadowColor: theme.shadowColor.withAlpha(26),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            color: theme.colorScheme.surface,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                context.push('/admin/providers'); // Navigate to provider list
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.folder_fill,
+                      color: theme.colorScheme.primary,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Manage Provider Documents', // TODO: l10n
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      CupertinoIcons.chevron_right,
+                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                        0.6,
+                      ),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // --------------------------------------------------------- //

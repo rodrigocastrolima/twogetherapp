@@ -183,6 +183,9 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   : CupertinoIcons.sun_max_fill,
               isDarkMode,
               (value) {
+                if (kDebugMode) {
+                  print('[AdminSettingsPage] Theme switch toggled: $value');
+                }
                 ref.read(themeProvider.notifier).toggleTheme();
               },
             ),
