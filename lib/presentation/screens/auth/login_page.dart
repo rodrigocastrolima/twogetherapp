@@ -177,7 +177,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             height: double.infinity,
             color: Colors.black.withOpacity(0.4),
           ),
-          // Login content
+          // Main Login Content within SafeArea
           SafeArea(
             child: Center(
               child: NoScrollbarBehavior.noScrollbars(
@@ -191,6 +191,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     constraints: BoxConstraints(
                       maxWidth: isSmallScreen ? size.width * 0.8 : 400,
                     ),
+                    // Form content is now just the Column
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -234,17 +235,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   ),
                                 ),
                                 SizedBox(height: isSmallScreen ? 24 : 32),
-
                                 // --- Conditional Content ---
                                 if (!_isForgotPasswordMode)
-                                  // --- Login Mode ---
                                   _buildLoginForm(context, l10n)
                                 else if (_isForgotPasswordMode &&
                                     !_recoveryEmailSent)
-                                  // --- Forgot Password Mode ---
                                   _buildForgotPasswordForm(context, l10n)
-                                else // isForgotPasswordMode && recoveryEmailSent
-                                  // --- Success Message ---
+                                else
                                   _buildSuccessMessage(context, l10n),
                               ],
                             ),
@@ -289,6 +286,34 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ),
+          // Powered by Upgraide Trademark (Outside SafeArea, inside main Stack)
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                right: 20.0,
+                bottom: 0.0,
+              ), // Keep same padding
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'powered by', // TODO: l10n
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 1),
+                  Image.asset(
+                    'assets/images/upgraide.png',
+                    height: 100, // Keep the desired size
+                  ),
+                ],
               ),
             ),
           ),

@@ -23,24 +23,28 @@ class SalesforceOpportunity {
   });
 
   factory SalesforceOpportunity.fromJson(Map<String, dynamic> json) {
-    // Check for required Salesforce fields (case-sensitive)
-    if (json['Id'] == null || json['Name'] == null) {
+    // Use null-coalescing to handle case variations for ID and Name.
+    // Cast the result to String AFTER checking both keys.
+    final String? idValue = json['Id'] ?? json['id'];
+    final String? nameValue = json['Name'] ?? json['name'];
+
+    // Throw if *still* null after checking both cases (defensive check)
+    if (idValue == null || nameValue == null) {
       print(
-        "Error parsing SalesforceOpportunity: Missing 'Id' or 'Name' in JSON: $json",
+        "Error parsing SalesforceOpportunity: Missing 'Id'/'id' or 'Name'/'name' in JSON after case-insensitive check: $json",
       );
       throw FormatException(
-        "Missing required fields (Id, Name) in SalesforceOpportunity JSON",
+        "Missing required fields (Id/id, Name/name) in SalesforceOpportunity JSON",
       );
     }
+
     return SalesforceOpportunity(
-      id: json['Id'] as String, // Read uppercase 'Id'
-      name: json['Name'] as String, // Read uppercase 'Name'
-      // Assuming Account Name is mapped from 'Nome_Entidade__c'
+      id: idValue, // Use the extracted value
+      name: nameValue, // Use the extracted value
       accountName: json['Nome_Entidade__c'] as String?,
-      // Assuming Reseller Name is mapped from 'Agente_Retail__r'?['Name'] to 'resellerName' by the function?
-      // If the key is different, adjust here.
-      resellerName: json['resellerName'] as String?,
-      // Added fields - read from JSON, assuming these keys
+      resellerName:
+          json['resellerName']
+              as String?, // Ensure this key matches function output
       NIF__c: json['NIF__c'] as String?,
       Fase__c: json['Fase__c'] as String?,
       CreatedDate: json['CreatedDate'] as String?,

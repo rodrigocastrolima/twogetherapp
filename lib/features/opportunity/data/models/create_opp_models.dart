@@ -92,12 +92,14 @@ class CreateOppParams {
 class CreateOppResult {
   final bool success;
   final String? opportunityId;
+  final String? accountId;
   final String? error;
   final bool sessionExpired;
 
   const CreateOppResult({
     required this.success,
     this.opportunityId,
+    this.accountId,
     this.error,
     this.sessionExpired = false,
   });
@@ -116,8 +118,15 @@ class CreateOppResult {
     return CreateOppResult(
       success: json['success'] as bool? ?? false, // Provide default
       opportunityId: json['opportunityId'] as String?,
+      accountId: json['accountId'] as String?,
       error: json['error'] as String?,
       sessionExpired: expired, // Use extracted value
     );
+  }
+
+  // Add basic toString for debugging
+  @override
+  String toString() {
+    return 'CreateOppResult{success: $success, opportunityId: $opportunityId, accountId: $accountId, error: $error, sessionExpired: $sessionExpired}';
   }
 }

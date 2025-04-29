@@ -6,6 +6,7 @@ import '../../data/models/create_opp_models.dart';
 import '../../data/services/opportunity_service.dart';
 import '../../data/models/salesforce_opportunity.dart';
 import '../../../../core/services/salesforce_auth_service.dart';
+import '../../data/models/detailed_salesforce_opportunity.dart';
 
 /// FutureProvider that fetches Salesforce opportunities for the logged-in reseller
 ///
@@ -190,6 +191,69 @@ final salesforceOpportunitiesProvider = FutureProvider<
     if (kDebugMode) {
       print(
         '[salesforceOpportunitiesProvider] Error fetching opportunities: $e',
+      );
+    }
+    // Re-throw the error to be handled by the provider's error state
+    rethrow;
+  }
+});
+
+/// FutureProvider.family to fetch the DETAILS of a single Salesforce Opportunity.
+/// Takes the opportunityId as a parameter.
+/// Uses the DetailedSalesforceOpportunity MODEL.
+final opportunityDetailsProvider = FutureProvider.family<
+  DetailedSalesforceOpportunity,
+  String
+>((ref, opportunityId) async {
+  // Watch the Salesforce Auth provider to get token/URL
+  final sfAuthNotifier = ref.watch(salesforceAuthProvider.notifier);
+  final sfAuthState = ref.watch(salesforceAuthProvider);
+
+  // Don't fetch if not authenticated
+  if (sfAuthState != SalesforceAuthState.authenticated) {
+    if (kDebugMode) {
+      print(
+        '[opportunityDetailsProvider($opportunityId)] Not authenticated, throwing error.',
+      );
+    }
+    throw Exception("User is not authenticated with Salesforce.");
+  }
+
+  // Get access token (this might trigger refresh if needed)
+  final String? accessToken = await sfAuthNotifier.getValidAccessToken();
+  final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
+
+  // Check if token/URL retrieval was successful
+  if (accessToken == null || instanceUrl == null) {
+    if (kDebugMode) {
+      print(
+        '[opportunityDetailsProvider($opportunityId)] Failed to get valid access token or instance URL.',
+      );
+    }
+    throw Exception("Could not retrieve valid Salesforce credentials.");
+  }
+
+  // Get the service and call the fetch method
+  final service = ref.read(salesforceOpportunityServiceProvider);
+  try {
+    if (kDebugMode) {
+      print('[opportunityDetailsProvider($opportunityId)] Calling service...');
+    }
+    final details = await service.getOpportunityDetails(
+      accessToken: accessToken,
+      instanceUrl: instanceUrl,
+      opportunityId: opportunityId, // Pass the family parameter
+    );
+    if (kDebugMode) {
+      print(
+        '[opportunityDetailsProvider($opportunityId)] Successfully fetched details.',
+      );
+    }
+    return details;
+  } catch (e) {
+    if (kDebugMode) {
+      print(
+        '[opportunityDetailsProvider($opportunityId)] Error fetching details: $e',
       );
     }
     // Re-throw the error to be handled by the provider's error state

@@ -259,20 +259,40 @@ class SalesforceRepository {
         }
 
         // Convert each JSON object to a SalesforceProposal
-        return proposalsJson.map((json) {
-          if (json is Map) {
-            return SalesforceProposal.fromJson(Map<String, dynamic>.from(json));
-          } else {
-            if (kDebugMode) {
-              print(
-                'Skipping unexpected item type in proposals list: ${json?.runtimeType}',
-              );
-            }
-            throw Exception(
-              'Unexpected item type found in proposals list: ${json?.runtimeType}',
-            );
-          }
-        }).toList();
+        return proposalsJson
+            .map((json) {
+              if (json is Map) {
+                try {
+                  final mapJson = Map<String, dynamic>.from(json);
+                  // Add specific checks for mandatory fields BEFORE parsing
+                  if (mapJson['Id'] == null ||
+                      mapJson['Name'] == null ||
+                      mapJson['Data_de_Validade__c'] == null ||
+                      mapJson['Status__c'] == null) {
+                    print(
+                      '[SalesforceRepository] Proposal record missing required fields (Id, Name, Data_de_Validade__c, Status__c): $mapJson',
+                    );
+                    return null; // Skip this record
+                  }
+                  return SalesforceProposal.fromJson(mapJson);
+                } catch (e) {
+                  print(
+                    '[SalesforceRepository] Error parsing proposal record $json: $e',
+                  );
+                  return null; // Skip records that cause parsing errors
+                }
+              } else {
+                if (kDebugMode) {
+                  print(
+                    '[SalesforceRepository] Skipping unexpected item type in proposals list: ${json?.runtimeType}',
+                  );
+                }
+                // Removed the throw Exception to allow skipping
+                return null; // Skip non-map items
+              }
+            })
+            .whereType<SalesforceProposal>()
+            .toList(); // Filter out nulls
       } else {
         // Handle error response from the function
         final errorMessage =
@@ -350,6 +370,155 @@ class SalesforceRepository {
       );
     }
   }
+
+  // --- Fetch Single Proposal Details ---
+  Future<SalesforceProposal> getProposalDetails(String proposalId) async {
+    if (kDebugMode) {
+      print(
+        '[SalesforceRepository] Fetching details for proposal ID: $proposalId',
+      );
+    }
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instanceFor(
+        region: 'europe-west1',
+      ).httpsCallable('getProposalDetails'); // Assumes Cloud Function exists
+      final result = await callable.call<Map<String, dynamic>>({
+        'proposalId': proposalId,
+      });
+
+      final data = result.data;
+      if (data['success'] == true && data['proposal'] != null) {
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] getProposalDetails Cloud Function response: ${data['proposal']}',
+          );
+        }
+        // Add robust parsing
+        try {
+          final Map<String, dynamic> proposalJson = Map<String, dynamic>.from(
+            data['proposal'],
+          );
+
+          // Basic validation (adjust fields as needed based on actual function response)
+          if (proposalJson['Id'] == null ||
+              proposalJson['Name'] ==
+                  null || // Keep Name for now if needed internally
+              proposalJson['Data_de_Validade__c'] == null ||
+              proposalJson['Status__c'] == null) {
+            print(
+              '[SalesforceRepository] Proposal record missing required fields: $proposalJson',
+            );
+            throw Exception(
+              'Received invalid proposal data from Cloud Function.',
+            );
+          }
+          return SalesforceProposal.fromJson(proposalJson);
+        } catch (e) {
+          print(
+            '[SalesforceRepository] Error parsing single proposal record ${data['proposal']}: $e',
+          );
+          throw Exception('Error processing proposal data.');
+        }
+      } else {
+        final errorMessage =
+            data['error'] ?? 'Unknown error fetching proposal details.';
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] getProposalDetails Cloud Function failed: $errorMessage',
+          );
+        }
+        throw Exception(errorMessage);
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getProposalDetails Firebase Error: ${e.code} - ${e.message}',
+        );
+      }
+      throw Exception('Error communicating with server: ${e.message}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('[SalesforceRepository] getProposalDetails General error: $e');
+      }
+      // TODO: Implement appropriate error handling if needed
+      rethrow; // Rethrow other exceptions
+    }
+  }
+
+  // --- Fetch All-Time Total Commission for Reseller ---
+  Future<double> getTotalResellerCommission(String resellerId) async {
+    if (kDebugMode) {
+      print(
+        '[SalesforceRepository] Fetching total commission for reseller ID: $resellerId',
+      );
+    }
+    if (resellerId.isEmpty) {
+      throw Exception('Reseller Salesforce ID cannot be empty');
+    }
+
+    try {
+      final HttpsCallable callable = FirebaseFunctions.instanceFor(
+        region: 'europe-west1', // Ensure correct region
+      ).httpsCallable('getTotalResellerCommission'); // Assumes CF exists
+      final result = await callable.call<Map<String, dynamic>>({
+        'resellerSalesforceId': resellerId,
+      });
+
+      final data = result.data;
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getTotalResellerCommission CF response: $data',
+        );
+      }
+
+      if (data['success'] == true && data['totalCommission'] != null) {
+        // Ensure the returned value is treated as a number (double or int)
+        final commission = data['totalCommission'];
+        if (commission is num) {
+          return commission.toDouble();
+        } else {
+          print(
+            '[SalesforceRepository] Warning: totalCommission received was not a number: $commission (${commission.runtimeType})',
+          );
+          return 0.0; // Return 0 if type is unexpected
+        }
+      } else if (data['success'] == true && data['totalCommission'] == null) {
+        // Handle case where query returns null (no matching proposals)
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] getTotalResellerCommission returned null sum, likely no matching proposals.',
+          );
+        }
+        return 0.0;
+      } else {
+        final errorMessage =
+            data['error'] ?? 'Unknown error fetching total commission.';
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] getTotalResellerCommission CF failed: $errorMessage',
+          );
+        }
+        throw Exception('Failed to fetch total commission: $errorMessage');
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getTotalResellerCommission Firebase Error: ${e.code} - ${e.message}',
+        );
+      }
+      throw Exception('Error communicating with server: ${e.message}');
+    } catch (e) {
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getTotalResellerCommission General error: $e',
+        );
+      }
+      rethrow;
+    }
+  }
+  // --------------------------------------------------
+
+  // -------------------------------------
 }
 
 /// Provider for the SalesforceRepository

@@ -490,8 +490,7 @@ class _OpportunityDetailFormViewState
 
     setState(() => _isSubmitting = true);
 
-    // --- TEMPORARY: Comment out SF Auth check for UI testing --- //
-    /*
+    // --- RE-ENABLE Salesforce Auth Check --- //
     // 3. Get Salesforce Auth Details
     final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
     final String? accessToken = await sfAuthNotifier.getValidAccessToken();
@@ -510,18 +509,17 @@ class _OpportunityDetailFormViewState
       setState(() => _isSubmitting = false);
       return;
     }
-    */
-    print("--- SKIPPED Salesforce Auth Check for UI testing ---");
-    // --- END TEMPORARY --- //
+    // print("--- SKIPPED Salesforce Auth Check for UI testing ---");
+    // --- END RE-ENABLE --- //
 
-    // --- TEMPORARY: Comment out Params creation as it uses skipped vars --- //
-    /*
+    // --- RE-ENABLE Params creation --- //
     // 4. Gather Parameters
     final params = CreateOppParams(
       submissionId: widget.submission.id!, // Assume ID is non-null here
-      accessToken: accessToken, // Would be null/invalid here
-      instanceUrl: instanceUrl, // Would be null/invalid here
-      resellerSalesforceId: _resellerSalesforceId!,
+      accessToken: accessToken, // Use the fetched token
+      instanceUrl: instanceUrl, // Use the fetched URL
+      resellerSalesforceId:
+          _resellerSalesforceId!, // Use fetched Reseller SF ID
       opportunityName: _nameController.text,
       nif: _nifController.text,
       companyName:
@@ -530,33 +528,34 @@ class _OpportunityDetailFormViewState
       segment: _selectedSegmentoCliente!, // Assume selected
       solution: _selectedSolucao!, // Assume selected
       closeDate:
-          _fechoController.text, // <-- CORRECTED: Pass the formatted string
+          _fechoController.text, // Pass the formatted string from date picker
       opportunityType: _tipoOportunidadeValue!, // Assume determined
       phase: _faseValue, // Use fixed value
-      fileUrls: widget.submission.documentUrls, // Pass the list
+      fileUrls: widget.submission.documentUrls, // Pass the list of URLs/paths
     );
-    */
-    print("--- SKIPPED Param Creation for UI testing ---");
-    // --- END TEMPORARY --- //
+    // print("--- SKIPPED Param Creation for UI testing ---");
+    // --- END RE-ENABLE --- //
 
-    // 5. Call the Provider (Commented out) & Create Dummy Result
+    // 5. Call the Provider & Remove Dummy Result
     try {
-      // --- TEMPORARY: Comment out the actual call for UI testing --- //
-      // final result = await ref.read(createOpportunityProvider(params).future);
-      // --- END TEMPORARY --- //
+      // --- RE-ENABLE the actual call --- //
+      final result = await ref.read(createOpportunityProvider(params).future);
+      // --- END RE-ENABLE --- //
 
-      // --- TEMPORARY: Create a dummy successful result for testing --- //
+      // --- REMOVE Dummy Result --- //
+      /*
       final result = CreateOppResult(
         success: true,
         opportunityId: 'DUMMY_OPP_ID_123', // Placeholder SF Opportunity ID
         error: null,
         sessionExpired: false,
       );
-      // --- END TEMPORARY --- //
+      */
+      // --- END REMOVE --- //
 
       _handleCreateResult(
         result,
-      ); // Handle success/failure using the dummy result
+      ); // Handle the actual success/failure from the function call
     } catch (e) {
       _handleCreateError(e);
       // If an error happened *before* _handleCreateResult, reset loading state
@@ -591,17 +590,20 @@ class _OpportunityDetailFormViewState
     if (result.success) {
       // --- Success Case ---
       try {
-        // --- TEMPORARY: Comment out Firestore update during UI testing --- //
-        /*
+        // --- RE-ENABLE Firestore update --- //
         await FirebaseFirestore.instance
             .collection('serviceSubmissions')
             .doc(widget.submission.id)
             .update({
               'status': 'approved',
               'salesforceOpportunityId': result.opportunityId,
-              // 'salesforceAccountId': result.accountId, // TODO: Add accountId to CreateOppResult & backend
+              'salesforceAccountId': result.accountId,
               'adminReviewTimestamp': FieldValue.serverTimestamp(),
-              'adminReviewedBy': FirebaseAuth.instance.currentUser?.uid, // Use direct FirebaseAuth instance
+              'adminReviewedBy':
+                  FirebaseAuth
+                      .instance
+                      .currentUser
+                      ?.uid, // Use direct FirebaseAuth instance
               'approvedDetails': {
                 'opportunityName': _nameController.text,
                 'nif': _nifController.text,
@@ -609,11 +611,10 @@ class _OpportunityDetailFormViewState
                 'solucao': _selectedSolucao,
                 'dataFecho': _fechoController.text,
                 'opportunityType': _tipoOportunidadeValue,
-              }
+              },
             });
-        */
-        print("--- SKIPPED Firestore update for UI testing --- ");
-        // --- END TEMPORARY --- //
+        // print("--- SKIPPED Firestore update for UI testing --- ");
+        // --- END RE-ENABLE --- //
 
         // --- MODIFICATION START: Show Dialog or Fallback ---
         if (!mounted) return;
@@ -624,16 +625,14 @@ class _OpportunityDetailFormViewState
         final nif = _nifController.text;
         final resellerSfId = _resellerSalesforceId;
         final resellerName = _resellerDisplayName;
-        final sfOpportunityId = result.opportunityId; // Will use dummy ID
-        // TODO: Get sfAccountId from result once backend is updated
-        // Use a dummy Account ID for testing the proposal page navigation
-        const String? sfAccountId =
-            'DUMMY_ACC_ID_456'; // TEMPORARY: Use dummy ID for testing
+        final sfOpportunityId = result.opportunityId; // Will use actual ID now
+        final sfAccountId =
+            result.accountId; // <-- Use the actual account ID from the result
 
         // Check if we have essential data for proposal creation
-        // This check should now pass because we provided dummy IDs
+        // This check should now use the actual accountId
         if (sfOpportunityId == null ||
-            sfAccountId == null ||
+            sfAccountId == null || // Check the actual account ID
             resellerSfId == null) {
           // ... (fallback logic remains the same) ...
           // If essential data is missing (esp. accountId), show standard success and navigate away
@@ -651,8 +650,7 @@ class _OpportunityDetailFormViewState
           return;
         }
 
-        // --- Show Dialog ---
-        // ... (dialog logic remains the same) ...
+        // --- Show Dialog --- // Use actual IDs now
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -663,11 +661,11 @@ class _OpportunityDetailFormViewState
               ),
               // TODO: Add l10n key: opportunityCreatedTitle
               title: const Text(
-                'Opportunity Created (Dummy)',
-              ), // Indicate dummy
+                'Opportunity Created', // Remove (Dummy)
+              ),
               // TODO: Add l10n key: askCreateProposalNow(opportunityName)
               content: Text(
-                'Opportunity \"$opportunityName\" (Dummy ID: $sfOpportunityId) created. Create a Proposal now?',
+                'Opportunity "$opportunityName" (ID: $sfOpportunityId) created. Create a Proposal now?', // Show actual ID
               ),
               actions: <Widget>[
                 TextButton(
@@ -680,7 +678,7 @@ class _OpportunityDetailFormViewState
                       // TODO: Add l10n key: submissionApprovedSuccess
                       const SnackBar(
                         content: Text(
-                          'Opportunity Approved Successfully (Dummy)',
+                          'Opportunity Approved Successfully', // Remove (Dummy)
                         ),
                       ),
                     );
@@ -696,12 +694,12 @@ class _OpportunityDetailFormViewState
                     Navigator.of(dialogContext).pop(); // Close dialog
                     // Reset loading state before navigating to new page
                     if (mounted) setState(() => _isSubmitting = false);
-                    // Navigate to the Proposal Creation Page with dummy data
+                    // Navigate to the Proposal Creation Page with ACTUAL data
                     context.push(
                       '/proposal/create',
                       extra: {
-                        'salesforceOpportunityId': sfOpportunityId, // Dummy ID
-                        'salesforceAccountId': sfAccountId, // Dummy ID
+                        'salesforceOpportunityId': sfOpportunityId, // Actual ID
+                        'salesforceAccountId': sfAccountId, // Actual ID
                         'accountName': accountName,
                         'resellerSalesforceId': resellerSfId,
                         'resellerName': resellerName ?? 'N/A',

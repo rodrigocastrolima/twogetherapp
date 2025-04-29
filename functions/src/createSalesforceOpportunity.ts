@@ -34,6 +34,7 @@ interface CreateOppParams {
 interface CreateOppResult {
   success: boolean;
   opportunityId?: string;
+  accountId?: string;
   error?: string;
   sessionExpired?: boolean; // Added
 }
@@ -159,27 +160,63 @@ export const createSalesforceOpportunity = onCall(
       });
       logger.info("Salesforce connection initialized using provided token.");
 
-      // --- Step 5: Account Upsert Logic ---
-      logger.info("Attempting Account upsert...", { nif: data.nif, companyName: data.companyName });
-      const accountPayload = { 
-        Name: data.companyName, // Use companyName from submission for Account Name
-        NIF__c: data.nif,
-        EDP__c: true,            // <-- Set EDP checkbox to true
-        EDP_Status__c: "Prospect" // <-- Set EDP Status to Cliente
-      };
-      // Use the helper function to make the call
-      const accountResult = await callSalesforceApi<{id?: string, success?: boolean, errors?: any[]}>(() => 
-        conn.sobject('Account').upsert(accountPayload, 'NIF__c')
-      );
+      let accountId: string; // Declare accountId to store the result
+
+      // --- Step 5: Query/Update/Create Account Logic ---
+      logger.info("Checking for existing Account with NIF...", { nif: data.nif });
       
-      // Validate Account Upsert result
-      const accountId = accountResult.id;
-      if (!accountId || !accountResult.success) {
-        logger.error("Account upsert failed.", { result: accountResult });
-        // Throw HttpsError for consistency, even though helper might have thrown for API errors
-        throw new HttpsError("internal", "Failed to upsert Account in Salesforce.", { details: accountResult.errors });
+      // Validate NIF format before querying (basic example)
+      if (!data.nif || typeof data.nif !== 'string' || data.nif.length < 5) { // Basic NIF validation
+           throw new HttpsError("invalid-argument", "Invalid or missing NIF provided.");
       }
-      logger.info(`Account upsert successful. Account ID: ${accountId}`);
+
+      const accountQuery = `SELECT Id FROM Account WHERE NIF__c = '${data.nif}' LIMIT 1`;
+      
+      const existingAccountResult = await callSalesforceApi<{ totalSize: number, records: { Id: string }[] }>(async () => 
+          await conn.query(accountQuery)
+      );
+
+      if (existingAccountResult.totalSize > 0) {
+          // --- Account Found: Update specific fields (NOT Name) ---
+          accountId = existingAccountResult.records[0].Id;
+          logger.info(`Found existing Account. ID: ${accountId}. Updating EDP fields.`);
+          
+          const accountUpdatePayload = {
+              EDP__c: true,           
+              EDP_Status__c: "Prospect" 
+              // DO NOT include Name here
+          };
+          
+          await callSalesforceApi<{ id?: string, success?: boolean, errors?: any[] }>(() => 
+              conn.sobject('Account').update({ 
+                  Id: accountId, 
+                  ...accountUpdatePayload 
+              })
+          );
+          // Note: We might want more robust error checking on the update result here.
+          logger.info(`Successfully updated EDP fields for existing Account: ${accountId}`);
+
+      } else {
+          // --- Account Not Found: Create New Account ---
+          logger.info(`No existing Account found with NIF: ${data.nif}. Creating new Account.`);
+          const accountCreatePayload = { 
+              Name: data.companyName, // Use companyName from submission for Account Name
+              NIF__c: data.nif,
+              EDP__c: true,            
+              EDP_Status__c: "Prospect" 
+          };
+
+          const accountCreateResult = await callSalesforceApi<{ id?: string, success?: boolean, errors?: any[] }>(() => 
+              conn.sobject('Account').create(accountCreatePayload)
+          );
+
+          if (!accountCreateResult.id || !accountCreateResult.success) {
+              logger.error("Failed to create new Account.", { result: accountCreateResult });
+              throw new HttpsError("internal", "Failed to create Account in Salesforce.", { details: accountCreateResult.errors });
+          }
+          accountId = accountCreateResult.id;
+          logger.info(`Successfully created new Account. ID: ${accountId}`);
+      }
       // --- End Step 5 ---
 
       // --- Step 5.5: Fetch Retail Record Type ID ---
@@ -216,7 +253,7 @@ export const createSalesforceOpportunity = onCall(
       const currentDate = new Date().toISOString().split('T')[0]; // Get current date as YYYY-MM-DD
       const oppPayload = {
         Name: data.opportunityName,
-        Entidade__c: accountId, // Use the correct custom lookup field API name
+        Entidade__c: accountId, // Use the STORED accountId
         RecordTypeId: retailRecordTypeId, // <-- Add fetched Record Type ID
         NIF__c: data.nif,
         Agente_Retail__c: data.resellerSalesforceId, // Use the ID passed from Flutter
@@ -329,7 +366,11 @@ export const createSalesforceOpportunity = onCall(
       // --- Step 8: Return Final Success --- 
       // If we reached here, all steps were successful
       logger.info("All steps completed successfully.");
-      return { success: true, opportunityId: opportunityId };
+      return { 
+        success: true, 
+        opportunityId: opportunityId, 
+        accountId: accountId // <-- INCLUDE accountId in the result
+      };
 
     } catch (error) {
       logger.error("Error caught in main try block:", error); // Log the caught error

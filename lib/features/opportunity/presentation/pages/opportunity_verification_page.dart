@@ -191,9 +191,19 @@ class _OpportunityVerificationPageState
       orElse: () => [], // Return empty list if loading or error
     );
 
+    // --- Determine if the Salesforce Refresh button should be visible --- //
+    // Listen to tab changes to rebuild the AppBar actions
+    // Using a simple ValueNotifier + listener approach for simplicity here
+    final isSalesforceTabSelected = ValueNotifier<bool>(
+      _tabController.index == 1,
+    );
+    _tabController.addListener(() {
+      isSalesforceTabSelected.value = _tabController.index == 1;
+    });
+    // --- End Salesforce Refresh Button Visibility Logic --- //
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      // Add AppBar to host the TabBar
       appBar: AppBar(
         title: Text(
           'Opportunity Verification', // TODO: l10n
@@ -205,6 +215,36 @@ class _OpportunityVerificationPageState
             Tab(text: 'Existing Opportunities'), // TODO: l10n
           ],
         ),
+        // --- ADD AppBar Actions for Refresh Button --- //
+        actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: isSalesforceTabSelected,
+            builder: (context, isSelected, child) {
+              // Only show the refresh button if the Salesforce tab is selected
+              if (isSelected) {
+                return IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh Salesforce List', // TODO: l10n
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Refreshing Salesforce opportunities...'),
+                        duration: Duration(seconds: 1),
+                      ), // TODO: l10n
+                    );
+                    ref.refresh(
+                      salesforceOpportunitiesProvider,
+                    ); // Refresh the provider
+                  },
+                );
+              } else {
+                return const SizedBox.shrink(); // Return empty space if not selected
+              }
+            },
+          ),
+          const SizedBox(width: 8), // Spacing before header buttons
+        ],
+        // --- END AppBar Actions --- //
       ),
       body: SafeArea(
         bottom: false,
@@ -916,7 +956,11 @@ class _OpportunityVerificationPageState
                   : theme.colorScheme.onSurface.withOpacity(0.03),
           child: InkWell(
             onTap: () {
-              // TODO: Navigate to Salesforce Opportunity Detail Page (Future)
+              // Navigate to the NEW Admin Salesforce Detail Page
+              context.push(
+                '/admin/salesforce-opportunity-detail/${opportunity.id}',
+              );
+              /* TODO: Navigate to Salesforce Opportunity Detail Page (Future)
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -924,6 +968,7 @@ class _OpportunityVerificationPageState
                   ),
                 ),
               );
+              */
             },
             child: Padding(
               padding: const EdgeInsets.only(
@@ -1034,7 +1079,11 @@ class _OpportunityVerificationPageState
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
-              // TODO: Navigate to Salesforce Opportunity Detail Page (Future)
+              // Navigate to the NEW Admin Salesforce Detail Page
+              context.push(
+                '/admin/salesforce-opportunity-detail/${opportunity.id}',
+              );
+              /* TODO: Navigate to Salesforce Opportunity Detail Page (Future)
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -1042,6 +1091,7 @@ class _OpportunityVerificationPageState
                   ),
                 ),
               );
+              */
             },
             child: Padding(
               padding: const EdgeInsets.only(

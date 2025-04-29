@@ -45,6 +45,10 @@ import 'package:twogether/main.dart';
 import 'package:twogether/features/chat/presentation/pages/admin_chat_page.dart';
 import 'package:twogether/features/opportunity/data/models/salesforce_opportunity.dart'
     as data_models;
+import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'
+    as proposal_models;
+import 'package:twogether/features/proposal/presentation/screens/proposal_detail_page.dart';
+import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -875,7 +879,49 @@ class AppRouter {
                     const NoTransitionPage(child: AdminChatPage()),
           ),
           // --- END CHANGE --- //
-        ], // End routes for the Admin ShellRoute
+          GoRoute(
+            path: 'dev-tools',
+            builder: (context, state) => const DevToolsPage(),
+          ),
+          // REMOVE the duplicate Opportunity Detail Route from Admin Shell
+          /*
+          GoRoute(
+            path: '/opportunity-details',
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder: (context, state) {
+              final opportunity =
+                  state.extra as data_models.SalesforceOpportunity?;
+              if (opportunity == null) {
+                return const MaterialPage(
+                  child: Scaffold(
+                    body: Center(child: Text("Opportunity data missing")),
+                  ),
+                );
+              }
+              return MaterialPage(
+                fullscreenDialog: false,
+                child: OpportunityDetailsPage(opportunity: opportunity),
+              );
+            },
+          ),
+          */
+          GoRoute(
+            path: '/admin/salesforce-opportunity-detail/:opportunityId',
+            builder: (context, state) {
+              final opportunityId = state.pathParameters['opportunityId'];
+              if (opportunityId != null) {
+                return AdminSalesforceOpportunityDetailPage(
+                  opportunityId: opportunityId,
+                );
+              } else {
+                // Handle error: Redirect or show error page
+                return const Scaffold(
+                  body: Center(child: Text('Error: Opportunity ID missing')),
+                );
+              }
+            },
+          ),
+        ],
       ),
 
       // --- Top-Level Secondary Routes (No Shell) ---
@@ -995,24 +1041,6 @@ class AppRouter {
         },
       ),
       GoRoute(
-        path: '/opportunity-details',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) {
-          final opportunity = state.extra as data_models.SalesforceOpportunity?;
-          if (opportunity == null) {
-            return const MaterialPage(
-              child: Scaffold(
-                body: Center(child: Text("Opportunity data missing")),
-              ),
-            );
-          }
-          return MaterialPage(
-            fullscreenDialog: false,
-            child: OpportunityDetailsPage(opportunity: opportunity),
-          );
-        },
-      ),
-      GoRoute(
         path: '/proposal/create',
         pageBuilder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
@@ -1061,6 +1089,47 @@ class AppRouter {
               nif: nif,
               opportunityName: oppName,
             ),
+          );
+        },
+      ),
+      // ADD Proposal Detail Route here
+      GoRoute(
+        path: '/proposal/:index',
+        name: 'proposalDetails',
+        parentNavigatorKey:
+            _rootNavigatorKey, // Ensure it uses the root navigator
+        pageBuilder: (context, state) {
+          final indexString = state.pathParameters['index']!;
+          final index = int.tryParse(indexString) ?? 0;
+          final proposal = state.extra as proposal_models.SalesforceProposal?;
+
+          if (proposal == null) {
+            return const MaterialPage(
+              child: Scaffold(
+                body: Center(child: Text('Proposal data missing')),
+              ),
+            );
+          }
+          return MaterialPage(
+            child: ProposalDetailPage(proposal: proposal, index: index),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/opportunity-details', // Keep this top-level one
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final opportunity = state.extra as data_models.SalesforceOpportunity?;
+          if (opportunity == null) {
+            return const MaterialPage(
+              child: Scaffold(
+                body: Center(child: Text("Opportunity data missing")),
+              ),
+            );
+          }
+          return MaterialPage(
+            fullscreenDialog: false,
+            child: OpportunityDetailsPage(opportunity: opportunity),
           );
         },
       ),

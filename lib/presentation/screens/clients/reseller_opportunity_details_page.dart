@@ -100,7 +100,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final proposal = proposals[index];
-                    return _buildProposalTile(context, proposal);
+                    return _buildProposalTile(context, proposal, index);
                   },
                 );
               },
@@ -306,18 +306,38 @@ class OpportunityDetailsPage extends ConsumerWidget {
 
     if (phase == '6 - Conclusão Ganho') {
       return Row(
-        mainAxisSize: MainAxisSize.min, // Keep Row compact
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             CupertinoIcons.checkmark_seal_fill,
-            color: Colors.green, // Use a success color
+            color: Colors.green,
             size: 16,
           ),
           const SizedBox(width: 4),
           Text(
-            'Concluído', // Display friendly status
+            'Concluído', // TODO: Localize
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.green,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    } else if (phase == '6 - Conclusão Desistência Cliente') {
+      // Added condition for Canceled by Client
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            CupertinoIcons.clear_circled_solid, // Red cross icon
+            color: Colors.red, // Use a error color
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Desistência Cliente', // Display friendly status TODO: Localize
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.red,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -330,23 +350,17 @@ class OpportunityDetailsPage extends ConsumerWidget {
   }
 
   // --- NEW Helper to build a proposal list tile ---
-  Widget _buildProposalTile(BuildContext context, SalesforceProposal proposal) {
+  Widget _buildProposalTile(
+    BuildContext context,
+    SalesforceProposal proposal,
+    int index,
+  ) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final currencyFormat = NumberFormat.currency(
       locale: l10n?.localeName ?? 'pt_PT',
       symbol: '€',
     );
-    final dateFormat = DateFormat.yMd(l10n?.localeName ?? 'pt_PT');
-
-    // Safely parse creation date from the string field
-    String createdDateString = 'N/A';
-    try {
-      final parsedDate = DateTime.parse(proposal.dataDeCriacao);
-      createdDateString = dateFormat.format(parsedDate);
-    } catch (_) {
-      // Handle parsing error or keep 'N/A'
-    }
 
     // Format commission
     String commissionString = 'N/A';
@@ -354,24 +368,77 @@ class OpportunityDetailsPage extends ConsumerWidget {
       commissionString = currencyFormat.format(proposal.totalComissaoRetail);
     }
 
+    // Check if status is "Aceite"
+    final bool isAccepted = proposal.status == 'Aceite';
+
     return ListTile(
-      title: Text(proposal.name, style: theme.textTheme.titleSmall),
+      title: Text(
+        'Proposta #${index + 1}',
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Status: ${proposal.status}'), // TODO: Localize Status
-          Text('Comissão: $commissionString'), // TODO: Localize Comissão
-          Text('Criação: $createdDateString'), // TODO: Localize Criação
-          // Add more details like Valor Investimento if needed
+          const SizedBox(height: 2), // Keep space above commission
+          Text(
+            'Comissão: $commissionString',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
         ],
       ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
+      trailing:
+          isAccepted
+              ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.checkmark_seal_fill,
+                    color: Colors.green,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Aceite', // TODO: Localize
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              )
+              : proposal.status == 'Cancelada'
+              ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.clear_circled_solid,
+                    color: Colors.red,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Cancelada', // TODO: Localize
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              )
+              : Text(
+                proposal.status, // Display only status text here
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ), // TODO: Localize Status
       onTap: () {
-        // TODO: Implement navigation to proposal detail page or action
-        print('Tapped on proposal: ${proposal.id}');
+        // Navigate to proposal detail page, passing proposal object as extra
+        context.push('/proposal/$index', extra: proposal);
       },
     );
   }

@@ -250,7 +250,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      opportunity.name,
+                      opportunity.accountName ?? opportunity.name,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -259,37 +259,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      opportunity.accountName ?? 'N/A',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color:
-                            isDark
-                                ? AppTheme.darkMutedForeground
-                                : AppTheme.mutedForeground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (opportunity.resellerName != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2.0),
-                        child: Text(
-                          'Reseller: ${opportunity.resellerName}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color:
-                                isDark
-                                    ? AppTheme.darkMutedForeground.withAlpha(
-                                      200,
-                                    )
-                                    : AppTheme.mutedForeground.withAlpha(200),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
                   ],
                 ),
               ),

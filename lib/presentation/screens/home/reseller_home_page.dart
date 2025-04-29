@@ -24,6 +24,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/onboarding/app_tutorial_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedPreferences again
 import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
+import '../../../features/proposal/presentation/providers/proposal_providers.dart';
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -112,18 +113,15 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   // Perform the refresh operation
   Future<void> _onRefresh() async {
-    // Simulate a network request
-    await Future.delayed(const Duration(seconds: 2));
+    // Refresh providers instead of just toggling visibility
+    ref.refresh(resellerTotalCommissionProvider);
+    ref.refresh(userNotificationsProvider);
 
-    // Update UI with the refreshed data
-    if (mounted) {
-      setState(() {
-        // For demo, we'll toggle the earnings visibility 70% of the time
-        if (Random().nextInt(10) < 7) {
-          _isEarningsVisible = !_isEarningsVisible;
-        }
-      });
-    }
+    // The UI will update automatically when the providers rebuild.
+    // No need for setState or explicit waiting here unless desired for indicator duration.
+
+    // Optional: Simulate a minimum duration for the refresh indicator if needed
+    // await Future.delayed(const Duration(milliseconds: 500));
   }
 
   // Helper method to get user initials
@@ -1118,226 +1116,297 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   Widget _buildCommissionBox(AppLocalizations l10n) {
     final theme = Theme.of(context);
+    // Watch the commission provider
+    final commissionAsync = ref.watch(resellerTotalCommissionProvider);
+
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.push('/dashboard'),
-        splashColor: Colors.white.withOpacity(0.1),
-        highlightColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            // Enhanced glass effect with gradient
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.brightness == Brightness.dark
-                    ? Colors.black.withOpacity(0.4)
-                    : Colors.white.withOpacity(0.3),
-                theme.brightness == Brightness.dark
-                    ? Colors.black.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-                spreadRadius: -4,
-              ),
+      child: Ink(
+        decoration: BoxDecoration(
+          // Enhanced glass effect with gradient
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.4)
+                  : Colors.white.withOpacity(0.3),
+              theme.brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.white.withOpacity(0.1),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 20,
-                  horizontal: 24,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Account title section with shimmer effect
-                    ShaderMask(
-                      shaderCallback: (bounds) {
-                        return LinearGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.9),
-                            Colors.white,
-                            Colors.white.withOpacity(0.9),
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
-                        ).createShader(bounds);
-                      },
-                      child: Text(
-                        l10n.homeCommissionBoxTitle,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withOpacity(0.9),
-                          letterSpacing: 0.5,
-                        ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Account title section with shimmer effect
+                  ShaderMask(
+                    shaderCallback: (bounds) {
+                      return LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.9),
+                          Colors.white,
+                          Colors.white.withOpacity(0.9),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ).createShader(bounds);
+                    },
+                    child: Text(
+                      l10n.homeCommissionBoxTitle,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withOpacity(0.9),
+                        letterSpacing: 0.5,
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                    // Balance amount with visibility toggle
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isEarningsVisible = !_isEarningsVisible;
-                        });
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Amount section
-                          _isEarningsVisible
-                              ? Row(
-                                children: [
-                                  Text(
-                                    '5500,10',
-                                    style: theme.textTheme.headlineSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          shadows: [
-                                            Shadow(
-                                              color: Colors.black.withOpacity(
-                                                0.2,
+                  // Balance amount with visibility toggle
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isEarningsVisible = !_isEarningsVisible;
+                      });
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Amount section - Use commissionAsync.when
+                        commissionAsync.when(
+                          data: (commissionValue) {
+                            // Format the commission value
+                            final currencyFormat = NumberFormat.currency(
+                              locale: l10n.localeName,
+                              symbol: '€',
+                              decimalDigits: 2,
+                            );
+                            final formattedCommission = currencyFormat.format(
+                              commissionValue,
+                            );
+
+                            return _isEarningsVisible
+                                ? Row(
+                                  children: [
+                                    Text(
+                                      formattedCommission, // Display formatted value
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.2,
+                                                ),
+                                                blurRadius: 3,
+                                                offset: const Offset(0, 1),
                                               ),
-                                              blurRadius: 3,
-                                              offset: const Offset(0, 1),
+                                            ],
+                                          ),
+                                    ),
+                                    // Removed currency symbol text as it's in the format
+                                    const SizedBox(width: 10),
+                                    // Eye icon toggle
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        CupertinoIcons.eye_fill,
+                                        size: 18,
+                                        color: Colors.white.withOpacity(0.9),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                                : _buildHiddenAmountRow(theme, l10n);
+                          },
+                          loading:
+                              () =>
+                                  // Show placeholder while loading
+                                  _isEarningsVisible
+                                      ? Row(
+                                        children: [
+                                          Text(
+                                            '--,-- €', // Loading placeholder
+                                            style: theme.textTheme.headlineSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white
+                                                      .withOpacity(0.7),
+                                                ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              shape: BoxShape.circle,
                                             ),
-                                          ],
-                                        ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    l10n.currencyCodeEUR,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white,
-                                        ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  // Eye icon toggle
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      CupertinoIcons.eye_fill,
-                                      size: 18,
-                                      color: Colors.white.withOpacity(0.9),
-                                    ),
-                                  ),
-                                ],
-                              )
-                              : Row(
-                                children: [
-                                  Container(
-                                    width: 140,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    alignment: Alignment.center,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    l10n.currencyCodeEUR,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white,
-                                        ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  // Eye icon toggle
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      CupertinoIcons.eye_slash_fill,
-                                      size: 18,
-                                      color: Colors.white.withOpacity(0.9),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                            child: Icon(
+                                              CupertinoIcons.eye_fill,
+                                              size: 18,
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                      : _buildHiddenAmountRow(theme, l10n),
+                          error:
+                              (error, stack) =>
+                                  // Show N/A on error
+                                  _isEarningsVisible
+                                      ? Row(
+                                        children: [
+                                          Text(
+                                            'N/A', // Error placeholder
+                                            style: theme.textTheme.headlineSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white
+                                                      .withOpacity(0.7),
+                                                ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              CupertinoIcons.eye_fill,
+                                              size: 18,
+                                              color: Colors.white.withOpacity(
+                                                0.9,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                      : _buildHiddenAmountRow(theme, l10n),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // VIEW DETAILS button with enhanced styling
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: () => context.push('/dashboard'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        side: BorderSide(
+                          color: Colors.white.withOpacity(0.4),
+                          width: 1,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            l10n.homeCommissionBoxDetailsButton,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // VIEW DETAILS button with enhanced styling
-                    SizedBox(
-                      height: 36,
-                      child: ElevatedButton(
-                        onPressed: () => context.push('/dashboard'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.1),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          side: BorderSide(
-                            color: Colors.white.withOpacity(0.4),
-                            width: 1,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              l10n.homeCommissionBoxDetailsButton,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              CupertinoIcons.chevron_right,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // Helper to build the hidden amount row consistently
+  Widget _buildHiddenAmountRow(ThemeData theme, AppLocalizations l10n) {
+    return Row(
+      children: [
+        Container(
+          width: 140,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          l10n.currencyCodeEUR,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Eye icon toggle
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            CupertinoIcons.eye_slash_fill,
+            size: 18,
+            color: Colors.white.withOpacity(0.9),
+          ),
+        ),
+      ],
     );
   }
 }

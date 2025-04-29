@@ -13,8 +13,6 @@ class SalesforceProposal with _$SalesforceProposal {
     required String name,
     @JsonKey(name: 'Valor_Investimento_Solar__c')
     double? valorInvestimentoSolar,
-    @JsonKey(name: 'Data_de_Criacao__c')
-    required String dataDeCriacao, // Keep as String for initial parsing
     @JsonKey(name: 'Data_de_Validade__c')
     required String dataDeValidade, // Keep as String for initial parsing
     @JsonKey(name: 'Status__c') required String status,

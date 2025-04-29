@@ -1,11 +1,22 @@
+import 'dart:io'; // For File (mobile)
+import 'dart:convert'; // For jsonEncode debug logging
+
+import 'package:cloud_functions/cloud_functions.dart'; // <-- ADDED IMPORT
+import 'package:file_picker/file_picker.dart'; // Import file_picker
+import 'package:firebase_auth/firebase_auth.dart'; // For UID
+import 'package:firebase_storage/firebase_storage.dart'; // For Storage
+import 'package:flutter/foundation.dart'; // For kIsWeb
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // <-- ADDED IMPORT
 import 'package:intl/intl.dart'; // For date formatting
-import 'package:twogether/l10n/l10n.dart'; // Import l10n
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Add missing import
-import 'package:file_picker/file_picker.dart'; // Import file_picker
-// TODO: Import other necessary providers/models
+import 'package:path/path.dart' as p; // For basename
+import 'package:twogether/core/services/salesforce_auth_service.dart'; // For notifier provider
+import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // Import Ciclo model
+import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart'; // Import provider
+// import 'package:twogether/l10n/l10n.dart'; // TODO: Re-enable l10n
+// import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // TODO: Re-enable l10n
 
 // --- Helper Class for CPE Input Data --- //
 class _CpeInputData {
@@ -13,7 +24,7 @@ class _CpeInputData {
   final TextEditingController nifController = TextEditingController();
   final TextEditingController consumoController = TextEditingController();
   final TextEditingController fidelizacaoController = TextEditingController();
-  final TextEditingController cicloController = TextEditingController();
+  String? selectedCicloId; // NEW: Store the selected Salesforce ID
   final TextEditingController comissaoController = TextEditingController();
   List<PlatformFile> attachedFiles = []; // List to hold files for this CPE
 
@@ -23,8 +34,8 @@ class _CpeInputData {
     nifController.dispose();
     consumoController.dispose();
     fidelizacaoController.dispose();
-    cicloController.dispose();
     comissaoController.dispose();
+    // selectedCicloId doesn't need disposal
     // attachedFiles doesn't need disposal
   }
 }
@@ -57,6 +68,7 @@ class ProposalCreationPage extends ConsumerStatefulWidget {
 
 class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isSubmitting = false; // Add state variable for loading indicator
 
   // --- Controllers for Informação da Entidade --- //
   late TextEditingController _nifController;
@@ -212,9 +224,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type:
-            FileType
-                .any, // Or specify types: FileType.custom, allowedExtensions: [...]
+        type: FileType.any,
       );
 
       if (result != null) {
@@ -245,11 +255,232 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   }
   // --- End File Picker Logic --- //
 
+  // --- NEW File Upload Helper ---
+  Future<String> _uploadFile(PlatformFile file, String storagePath) async {
+    final storageRef = FirebaseStorage.instance.ref(storagePath);
+    UploadTask uploadTask;
+
+    if (kIsWeb) {
+      // Web uses bytes directly
+      if (file.bytes == null) {
+        // This might happen if file picker on web fails to read bytes, though unlikely with default picker
+        throw Exception('File bytes are null on web for ${file.name}');
+      }
+      uploadTask = storageRef.putData(
+        file.bytes!,
+        // Optional: Set content type based on extension for better handling
+        // You might need a function to map extension to MIME type
+        // SettableMetadata(contentType: _getMimeType(file.extension)),
+      );
+    } else {
+      // Mobile uses file path
+      if (file.path == null) {
+        throw Exception('File path is null on mobile for ${file.name}');
+      }
+      uploadTask = storageRef.putFile(File(file.path!));
+    }
+
+    // Await completion and get URL
+    final snapshot = await uploadTask.whenComplete(() => {});
+    final downloadUrl = await snapshot.ref.getDownloadURL();
+    return downloadUrl;
+  }
+
+  // --- NEW Submit Logic with File Upload & Function Call ---
+  Future<void> _uploadFilesAndSubmit() async {
+    if (_isSubmitting) return; // Prevent double submission
+
+    // Validate form first
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      if (kDebugMode) {
+        print('Form is invalid.');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please correct the errors in the form.'), // TODO: l10n
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Submitting Proposal...')), // TODO: l10n
+    );
+
+    // --- Get Salesforce Credentials ---
+    final sfAuthNotifier = ref.read(salesforceAuthNotifierProvider.notifier);
+    final accessToken = sfAuthNotifier.currentAccessToken;
+    final instanceUrl = sfAuthNotifier.currentInstanceUrl;
+    final authState = ref.read(salesforceAuthNotifierProvider);
+
+    if (authState != SalesforceAuthState.authenticated ||
+        accessToken == null ||
+        instanceUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Salesforce authentication error. Please log out and back in.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+    // --- End Get Credentials ---
+
+    try {
+      final String opportunityId = widget.salesforceOpportunityId;
+
+      // Map to store CPE data with file URLs
+      List<Map<String, dynamic>> processedCpeDataList = [];
+
+      // Upload files for each CPE item
+      for (int i = 0; i < _cpeItems.length; i++) {
+        final cpeData = _cpeItems[i];
+        List<String> fileUrls = [];
+        final String cpeBasePath = 'proposals/$opportunityId/$i';
+
+        for (final file in cpeData.attachedFiles) {
+          try {
+            final String safeFileName = p
+                .basename(file.name)
+                .replaceAll(RegExp(r'[^\w\.-]+'), '_');
+            final String storagePath = '$cpeBasePath/$safeFileName';
+            if (kDebugMode) print("Uploading ${file.name} to $storagePath...");
+            final downloadUrl = await _uploadFile(file, storagePath);
+            fileUrls.add(downloadUrl);
+            if (kDebugMode) print("Upload success: $downloadUrl");
+          } catch (e) {
+            if (kDebugMode) print("Error uploading file ${file.name}: $e");
+            throw Exception(
+              "Failed to upload file: ${file.name}. Please try again.",
+            );
+          }
+        }
+
+        processedCpeDataList.add({
+          'cpe': cpeData.cpeController.text.trim(),
+          'nif': cpeData.nifController.text.trim(),
+          'consumo': cpeData.consumoController.text.trim(),
+          'fidelizacao': cpeData.fidelizacaoController.text.trim(),
+          'cicloId': cpeData.selectedCicloId,
+          'comissao': cpeData.comissaoController.text.trim(),
+          'fileUrls': fileUrls,
+        });
+      } // End of file upload loop
+
+      // --- Collect Proposal Data --- //
+      final proposalPayload = {
+        // Credentials
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        // Linking IDs
+        'salesforceOpportunityId': widget.salesforceOpportunityId,
+        'salesforceAccountId': widget.salesforceAccountId,
+        'resellerSalesforceId': widget.resellerSalesforceId,
+        // Proposal Fields
+        'proposalName': _proposalNameController.text.trim(),
+        'solution': _solutionController.text.trim(),
+        'energiaChecked': _energiaChecked,
+        'validityDate': _validityDateController.text,
+        'bundle':
+            _bundleController.text.trim().isEmpty
+                ? null
+                : _bundleController.text.trim(),
+        'solarChecked': _solarChecked,
+        'solarInvestment':
+            _solarChecked ? _solarInvestmentController.text.trim() : null,
+        'mainNif': _nifController.text.trim(),
+        'responsavelNegocio':
+            _responsavelNegocioController.text.trim().isEmpty
+                ? null
+                : _responsavelNegocioController.text.trim(),
+        // CPE Items
+        'cpeItems': processedCpeDataList,
+      };
+
+      if (kDebugMode) {
+        print("--- Uploads Complete. Calling Cloud Function... ---");
+        // Avoid logging full payload which might contain sensitive info like tokens
+        // print("Payload: ${jsonEncode(proposalPayload)}");
+      }
+
+      // --- Call Cloud Function ---
+      final functions = FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      ); // Use correct region
+      final callable = functions.httpsCallable('createSalesforceProposal');
+      final result = await callable.call<Map<String, dynamic>>(proposalPayload);
+
+      if (kDebugMode) {
+        print("Cloud Function Result: ${result.data}");
+      }
+
+      // --- Process Result ---
+      if (result.data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Proposal created successfully! ID: ${result.data['proposalId']}',
+            ),
+          ), // TODO: l10n
+        );
+        // Navigate back using GoRouter
+        if (GoRouter.of(context).canPop()) {
+          // <-- Use GoRouter
+          GoRouter.of(context).pop(); // <-- Use GoRouter
+        }
+      } else {
+        // Check for session expiry
+        bool sessionExpired = result.data['sessionExpired'] == true;
+        String errorMsg = result.data['error'] ?? 'Failed to create proposal.';
+
+        if (sessionExpired) {
+          errorMsg = 'Salesforce session expired. Please log out and back in.';
+          // Trigger sign out
+          await ref.read(salesforceAuthNotifierProvider.notifier).signOut();
+          // Optionally navigate to login screen - handled by auth listeners usually
+        }
+        // Throw exception to be caught by the outer catch block
+        throw Exception(errorMsg);
+      }
+      // --- End Process Result ---
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error during submission process: $e");
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Submission failed: ${e.toString()}',
+          ), // Show specific error
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
   // --- Widget Builder for a single CPE Block --- //
   Widget _buildCpeInputBlock(int index, _CpeInputData cpeData) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
+    final activationCyclesAsync = ref.watch(
+      activationCyclesProvider,
+    ); // Watch provider
 
     return Card(
       // Use CardTheme from AppTheme
@@ -309,12 +540,12 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
               controller: cpeData.consumoController,
               decoration: const InputDecoration(
                 labelText: 'Consumption or Peak Power',
-              ), // TODO: l10n
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
               ),
+              keyboardType: TextInputType.number,
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'^[0-9]*[\.,]?[0-9]*$'),
+                ),
               ],
               validator:
                   (value) =>
@@ -326,27 +557,69 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
             TextFormField(
               controller: cpeData.fidelizacaoController,
               decoration: const InputDecoration(
-                labelText: 'Loyalty Period (Fidelização)', // TODO: l10n
-                hintText: 'e.g., 12 months, None', // TODO: l10n
+                labelText: 'Loyalty Period (Years)', // Changed Label TODO: l10n
+                hintText: 'e.g., 1, 2, 0', // Changed Hint TODO: l10n
               ),
+              keyboardType: TextInputType.number, // Changed to number
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ], // Allow only digits
               validator:
                   (value) =>
                       (value?.trim().isEmpty ?? true)
-                          ? 'Loyalty period is required'
-                          : null, // TODO: l10n
+                          ? 'Loyalty period (years) is required' // Changed message TODO: l10n
+                          : null,
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: cpeData.cicloController,
-              decoration: const InputDecoration(
-                labelText: 'Activation Cycle (Ciclo)',
-              ), // TODO: l10n
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'Activation cycle is required'
-                          : null, // TODO: l10n
+            // --- Activation Cycle Dropdown ---
+            activationCyclesAsync.when(
+              data:
+                  (cycles) => DropdownButtonFormField<String>(
+                    value: cpeData.selectedCicloId,
+                    hint: const Text('Select Activation Cycle'), // TODO: l10n
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Activation Cycle', // TODO: l10n
+                      border: OutlineInputBorder(), // Consistent styling
+                    ),
+                    items:
+                        cycles.map((SalesforceCiclo ciclo) {
+                          return DropdownMenuItem<String>(
+                            value: ciclo.id,
+                            child: Text(ciclo.name),
+                          );
+                        }).toList(),
+                    onChanged: (String? newValue) {
+                      // Update the state for THIS specific CPE block
+                      setState(() {
+                        cpeData.selectedCicloId = newValue;
+                      });
+                    },
+                    validator:
+                        (value) =>
+                            (value == null || value.isEmpty)
+                                ? 'Activation cycle is required'
+                                : null, // TODO: l10n
+                  ),
+              loading:
+                  () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+              error:
+                  (err, stack) => TextFormField(
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Activation Cycle', // TODO: l10n
+                      hintText: 'Error loading cycles', // TODO: l10n
+                      errorText: err.toString(),
+                      border: const OutlineInputBorder(),
+                      // Style error state maybe?
+                      // errorStyle: TextStyle(color: colorScheme.error),
+                    ),
+                  ),
             ),
+            // --- End Activation Cycle ---
             const SizedBox(height: 16),
             TextFormField(
               controller: cpeData.comissaoController,
@@ -354,11 +627,11 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                 labelText: 'Retail Commission',
                 prefixText: '€ ',
               ), // TODO: l10n
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              keyboardType: TextInputType.number,
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}$'),
+                ),
               ],
               validator:
                   (value) =>
@@ -419,7 +692,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // TODO: Re-enable l10n
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -596,8 +869,8 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
               if (_solarChecked)
                 Padding(
                   padding: const EdgeInsets.only(
-                    top: 8.0,
-                  ), // Add space when it appears
+                    top: fieldSpacing, // Use consistent spacing
+                  ),
                   child: TextFormField(
                     controller: _solarInvestmentController,
                     decoration: const InputDecoration(
@@ -609,7 +882,8 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                     ),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d{0,2}'),
+                        // Allow numbers, optional dot/comma, up to 2 decimals
+                        RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}$'),
                       ),
                     ],
                     validator:
@@ -663,67 +937,21 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                     ), // Example padding
                     textStyle: textTheme.labelLarge,
                   ),
-                  onPressed: () {
-                    if (_formKey.currentState?.validate() ?? false) {
-                      print('Form is valid. Submitting...');
-                      // --- Collect and Print Data --- //
-                      final proposalData = {
-                        'proposalName': _proposalNameController.text,
-                        'solution': _solutionController.text,
-                        'energiaChecked': _energiaChecked,
-                        'creationDate': _creationDateController.text,
-                        'validityDate': _validityDateController.text,
-                        'bundle': _bundleController.text,
-                        'solarChecked': _solarChecked,
-                        'solarInvestment':
-                            _solarChecked
-                                ? _solarInvestmentController.text
-                                : null,
-                        // Include Entidade fields
-                        'nif': _nifController.text,
-                        'responsavelNegocio':
-                            _responsavelNegocioController.text,
-                      };
-                      print("--- Proposal Data ---");
-                      print(proposalData);
-
-                      final cpeDataList =
-                          _cpeItems.map((cpeData) {
-                            return {
-                              'cpe': cpeData.cpeController.text,
-                              'nif': cpeData.nifController.text,
-                              'consumo': cpeData.consumoController.text,
-                              'fidelizacao': cpeData.fidelizacaoController.text,
-                              'ciclo': cpeData.cicloController.text,
-                              'comissao': cpeData.comissaoController.text,
-                              'files':
-                                  cpeData.attachedFiles
-                                      .map((f) => f.name)
-                                      .toList(), // Get file names
-                            };
-                          }).toList();
-                      print("--- CPE Data List ---");
-                      print(cpeDataList);
-                      print("---------------------");
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Data collected (see console). Backend call pending.',
-                          ),
-                        ), // TODO: l10n
-                      );
-                    } else {
-                      print('Form is invalid.');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please correct the errors in the form.',
-                          ),
-                        ), // TODO: l10n
-                      );
-                    }
-                  },
-                  child: const Text('Submit Proposal'), // TODO: l10n
+                  onPressed:
+                      _isSubmitting
+                          ? null
+                          : _uploadFilesAndSubmit, // Disable while submitting
+                  child:
+                      _isSubmitting
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : const Text('Submit Proposal'), // TODO: l10n
                 ),
               ),
             ],

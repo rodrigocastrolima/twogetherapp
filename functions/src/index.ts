@@ -24,7 +24,15 @@ import { resetAndVerifyConversations } from './migrations';
 import * as sfOppManagement from './salesforceOpportunityManagement';
 
 // Import the specific function we want to export explicitly
-import { createSalesforceOpportunity as createOppFunc } from './createSalesforceOpportunity'; 
+import { createSalesforceOpportunity as createOppFunc } from './createSalesforceOpportunity';
+// Import the new commission function
+import { getTotalResellerCommission } from './commissionFunctions';
+// Import the NEW detail function
+import { getSalesforceOpportunityDetails } from './getSalesforceOpportunityDetails';
+// Import the NEW cycle function
+// import { getActivationCycles } from './getActivationCycles'; // No longer needed here
+// Import the NEW proposal creation function
+// import { createSalesforceProposal } from './createSalesforceProposal'; // No longer needed here
 
 // Export functions from separate files
 export * from './set-role-claim';
@@ -42,11 +50,21 @@ export {
     sendMessageNotification,
     cleanupExpiredMessages,
     sfOppManagement,
+    getTotalResellerCommission,
+    getSalesforceOpportunityDetails,
     // Add other callable functions here as you create them
 };
 
 // Export the specific function
 export const createSalesforceOpportunity = createOppFunc;
+
+// Export the cycle function
+// export const getActivationCycles = getActivationCycles; // REMOVE THIS
+export { getActivationCycles } from './getActivationCycles'; // <-- ADD THIS
+
+// Export the proposal creation function
+// export const createSalesforceProposal = createSalesforceProposal; // REMOVE THIS
+export { createSalesforceProposal } from './createSalesforceProposal'; // <-- ADD THIS
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript

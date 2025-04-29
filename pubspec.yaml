@@ -72,8 +72,8 @@ dependencies:
   crypto: ^3.0.3
 
   # Data modeling and serialization
-  freezed_annotation: ^3.0.0
-  json_annotation: ^4.8.1
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.9.0
 
   # --- Added for Salesforce OAuth ---
   flutter_web_auth_2:
@@ -104,9 +104,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  build_runner: ^2.4.8
-  freezed: ^3.0.6
-  json_serializable: ^6.9.5
+  build_runner: ^2.4.11
+  freezed: ^2.5.3
+  json_serializable: ^6.8.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -132,6 +132,7 @@ flutter:
     - assets/documents/proposta_exemplo.pdf
     - assets/documents/contrato_exemplo.pdf
     - assets/images/tutorial/
+    - assets/images/upgraide.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
