@@ -7,6 +7,7 @@ import '../../data/services/opportunity_service.dart';
 import '../../data/models/salesforce_opportunity.dart';
 import '../../../../core/services/salesforce_auth_service.dart';
 import '../../data/models/detailed_salesforce_opportunity.dart';
+import 'package:cloud_functions/cloud_functions.dart'; // Needed for FirebaseFunctions.instance
 
 /// FutureProvider that fetches Salesforce opportunities for the logged-in reseller
 ///
@@ -134,8 +135,12 @@ final createOpportunityProvider =
 final salesforceOpportunityServiceProvider = Provider<OpportunityService>((
   ref,
 ) {
-  // We can simply instantiate it here, assuming it uses the default FirebaseFunctions instance
-  return OpportunityService();
+  // Get dependencies required by OpportunityService constructor
+  final authNotifier = ref.watch(salesforceAuthProvider.notifier);
+  final functions = FirebaseFunctions.instance; // Use default instance
+
+  // Correctly instantiate OpportunityService with dependencies
+  return OpportunityService(authNotifier: authNotifier, functions: functions);
 });
 
 /// FutureProvider to fetch the list of existing Salesforce Opportunities for Admin view.

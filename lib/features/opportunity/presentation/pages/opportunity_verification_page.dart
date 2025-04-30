@@ -138,10 +138,18 @@ class _OpportunityVerificationPageState
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // Use Cupertino dynamic color for background
+      backgroundColor: CupertinoDynamicColor.resolve(
+        CupertinoColors.systemGroupedBackground, // Adapts to light/dark mode
+        context,
+      ),
+      // Remove the dimming effect entirely
+      barrierColor: Colors.transparent, // Set barrier to transparent
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      // Removed explicit theme background color:
+      // backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (BuildContext modalContext) {
         return OpportunityFilterSheet(
           initialResellers: _selectedResellers,

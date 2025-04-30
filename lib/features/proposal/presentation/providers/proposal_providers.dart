@@ -11,6 +11,7 @@ import 'package:twogether/features/opportunity/data/services/opportunity_service
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart';
 import 'package:twogether/features/salesforce/data/repositories/salesforce_repository.dart';
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'; // Keep if opportunityProposalsProvider is used here
+import 'package:twogether/features/proposal/data/models/salesforce_proposal_name_only.dart'; // <-- Import new model
 
 // --- Service/Repository Providers ---
 
@@ -21,9 +22,16 @@ final salesforceRepositoryProvider = Provider<SalesforceRepository>((ref) {
 });
 
 // Provider for OpportunityService
-final opportunityServiceProvider = Provider<OpportunityService>((ref) {
-  // Constructor takes optional FirebaseFunctions instance
-  return OpportunityService(); // Use default instance
+final proposalServiceProvider = Provider<OpportunityService>((ref) {
+  // Get the dependencies needed by OpportunityService
+  final authNotifier = ref.watch(salesforceAuthProvider.notifier);
+  final functions = FirebaseFunctions.instance;
+
+  // Pass the required authNotifier argument
+  return OpportunityService(
+    authNotifier: authNotifier,
+    functions: functions, // Pass functions instance as well
+  );
 });
 
 // Provider for SalesforceAuthNotifier (Assuming FlutterSecureStorage is provided elsewhere or default)
@@ -62,6 +70,20 @@ final opportunityProposalsProvider = FutureProvider.family<
     opportunityId /*, accessToken, instanceUrl */,
   );
 });
+
+// --- NEW Provider for Reseller Proposal Names (JWT Flow) ---
+final resellerOpportunityProposalNamesProvider =
+    FutureProvider.family<List<SalesforceProposalNameOnly>, String>((
+      ref,
+      opportunityId,
+    ) async {
+      // Get the repository instance
+      final repository = ref.watch(salesforceRepositoryProvider);
+
+      // Call the NEW repository method (uses JWT Cloud Function)
+      return repository.getResellerOpportunityProposalNames(opportunityId);
+    });
+// ----------------------------------------------------------
 
 // Provider to get total reseller commission
 final resellerTotalCommissionProvider = FutureProvider<double>((ref) async {
@@ -130,7 +152,7 @@ final activationCyclesProvider = FutureProvider<List<SalesforceCiclo>>((
     throw Exception("Salesforce authentication required.");
   }
 
-  final opportunityService = ref.watch(opportunityServiceProvider);
+  final opportunityService = ref.watch(proposalServiceProvider);
 
   try {
     // Call OpportunityService method which takes credentials

@@ -1,3 +1,6 @@
+import 'dart:convert'; // <-- Import for base64Encode
+import 'dart:typed_data'; // <-- Import for Uint8List
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // <-- Corrected path
@@ -5,13 +8,20 @@ import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // <-
 import '../models/salesforce_opportunity.dart'; // Import the new model
 import '../models/detailed_salesforce_opportunity.dart'; // Import the detail model
 
+// Import the Auth Notifier needed for downloadFile
+import '../../../../core/services/salesforce_auth_service.dart';
+
 class OpportunityService {
   final FirebaseFunctions _functions;
+  // ADD dependency on the auth notifier
+  final SalesforceAuthNotifier _authNotifier;
 
-  // Optional: Pass functions instance for testing/customization
-  OpportunityService({FirebaseFunctions? functions})
-    : _functions =
-          functions ?? FirebaseFunctions.instance; // Use default instance
+  // UPDATE constructor to require SalesforceAuthNotifier
+  OpportunityService({
+    required SalesforceAuthNotifier authNotifier,
+    FirebaseFunctions? functions,
+  }) : _authNotifier = authNotifier, // Initialize _authNotifier
+       _functions = functions ?? FirebaseFunctions.instance;
 
   /// Fetches a list of Salesforce Opportunities (specifically 'Retail' type).
   Future<List<SalesforceOpportunity>> fetchSalesforceOpportunities({
@@ -374,4 +384,402 @@ class OpportunityService {
   }
 
   // --- END NEW Method ---
+
+  // --- START: NEW Methods for Edit Feature ---
+
+  /// Updates fields on a Salesforce Opportunity.
+  Future<void> updateOpportunity({
+    required String accessToken,
+    required String instanceUrl,
+    required String opportunityId,
+    required Map<String, dynamic>
+    fieldsToUpdate, // Use Salesforce API Names as keys
+  }) async {
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Updating Opportunity ID: $opportunityId with fields: ${fieldsToUpdate.keys.join(', ')}',
+      );
+    }
+    try {
+      final HttpsCallable callable = _functions.httpsCallable(
+        'updateSalesforceOpportunity', // Matches the deployed function name
+        options: HttpsCallableOptions(timeout: Duration(seconds: 60)),
+      );
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        'opportunityId': opportunityId,
+        'fieldsToUpdate': fieldsToUpdate,
+      });
+
+      final bool success = result.data['success'] as bool? ?? false;
+      if (!success) {
+        final String errorMsg =
+            result.data['error'] as String? ??
+            'Unknown error updating opportunity.';
+        final dynamic validationErrors =
+            result.data['validationErrors']; // Capture validation details
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] Opportunity update failed via function: $errorMsg',
+          );
+          if (validationErrors != null) {
+            print('[OpportunityService] Validation Errors: $validationErrors');
+          }
+        }
+        // Consider throwing a more specific exception for validation errors
+        throw Exception('Failed to update opportunity: $errorMsg');
+      }
+
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] Opportunity $opportunityId updated successfully.',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] FirebaseFunctionsException updating opportunity:',
+        );
+        print('  Code: ${e.code}');
+        print('  Message: ${e.message}');
+        print('  Details: ${e.details}');
+      }
+      // Handle specific codes
+      if ((e.details as Map<String, dynamic>?)?['sessionExpired'] == true ||
+          e.code == 'unauthenticated') {
+        throw Exception('Salesforce session expired. Please re-authenticate.');
+      }
+      if (e.code == 'permission-denied') {
+        throw Exception('Permission denied to update this opportunity.');
+      }
+      if ((e.details as Map<String, dynamic>?)?['validationErrors'] != null) {
+        // Rethrow with validation info if possible (might need custom exception)
+        final validationDetails =
+            (e.details as Map<String, dynamic>?)?['validationErrors'];
+        throw Exception(
+          'Salesforce validation failed: ${e.message} Details: $validationDetails',
+        );
+      }
+      throw Exception(
+        'Cloud Function error updating opportunity: ${e.message ?? e.code}',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] Generic error updating opportunity: $e');
+      }
+      throw Exception(
+        'An unexpected error occurred while updating the opportunity.',
+      );
+    }
+  }
+
+  /// Uploads a file to Salesforce and links it to a parent record (e.g., Opportunity).
+  /// Returns the ContentDocument ID of the uploaded file, or null on failure.
+  Future<String?> uploadFile({
+    required String accessToken,
+    required String instanceUrl,
+    required String parentId, // The ID of the record to link the file to
+    required String fileName,
+    required Uint8List fileBytes,
+    String? mimeType, // Optional: Helps Salesforce identify file type
+  }) async {
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Uploading file \'$fileName\' to parent ID: $parentId',
+      );
+    }
+    try {
+      final String fileContentBase64 = base64Encode(fileBytes);
+
+      final HttpsCallable callable = _functions.httpsCallable(
+        'uploadSalesforceFile', // Matches the deployed function name
+        options: HttpsCallableOptions(timeout: Duration(seconds: 120)),
+      );
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        'parentId': parentId,
+        'fileName': fileName,
+        'fileContentBase64': fileContentBase64,
+        if (mimeType != null) 'mimeType': mimeType,
+      });
+
+      final bool success = result.data['success'] as bool? ?? false;
+      final String? contentDocumentId =
+          result.data['contentDocumentId'] as String?;
+
+      if (success && contentDocumentId != null) {
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] File uploaded successfully. ContentDocument ID: $contentDocumentId',
+          );
+        }
+        return contentDocumentId;
+      } else {
+        final String errorMsg =
+            result.data['error'] as String? ?? 'Unknown error uploading file.';
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] File upload failed via function: $errorMsg',
+          );
+        }
+        // Throwing null signifies failure to the caller in this implementation
+        // Could throw Exception('Failed to upload file: $errorMsg') instead
+        return null;
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] FirebaseFunctionsException uploading file:',
+        );
+        print('  Code: ${e.code}');
+        print('  Message: ${e.message}');
+        print('  Details: ${e.details}');
+      }
+      if ((e.details as Map<String, dynamic>?)?['sessionExpired'] == true ||
+          e.code == 'unauthenticated') {
+        throw Exception('Salesforce session expired. Please re-authenticate.');
+      }
+      if (e.code == 'permission-denied') {
+        throw Exception('Permission denied to upload files here.');
+      }
+      if (e.code == 'invalid-argument' &&
+          e.message?.contains('limit exceeded') == true) {
+        throw Exception('File size limit exceeded.');
+      }
+      // Throw specific error or return null
+      print(
+        '[OpportunityService] Cloud function error during upload, returning null.',
+      );
+      return null;
+      // throw Exception('Cloud Function error uploading file: ${e.message ?? e.code}');
+    } catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] Generic error uploading file: $e');
+      }
+      // Throw specific error or return null
+      print(
+        '[OpportunityService] Generic error during upload, returning null.',
+      );
+      return null;
+      // throw Exception('An unexpected error occurred while uploading the file.');
+    }
+  }
+
+  /// Deletes a file (ContentDocument) from Salesforce.
+  Future<void> deleteFile({
+    required String accessToken,
+    required String instanceUrl,
+    required String contentDocumentId,
+  }) async {
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Deleting ContentDocument ID: $contentDocumentId',
+      );
+    }
+    try {
+      final HttpsCallable callable = _functions.httpsCallable(
+        'deleteSalesforceFile', // Matches the deployed function name
+        options: HttpsCallableOptions(timeout: Duration(seconds: 60)),
+      );
+
+      final result = await callable.call<Map<String, dynamic>>({
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        'contentDocumentId': contentDocumentId,
+      });
+
+      final bool success = result.data['success'] as bool? ?? false;
+      if (!success) {
+        final String errorMsg =
+            result.data['error'] as String? ?? 'Unknown error deleting file.';
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] File deletion failed via function: $errorMsg',
+          );
+        }
+        throw Exception('Failed to delete file: $errorMsg');
+      }
+
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] File $contentDocumentId deleted successfully.',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] FirebaseFunctionsException deleting file:');
+        print('  Code: ${e.code}');
+        print('  Message: ${e.message}');
+        print('  Details: ${e.details}');
+      }
+      if ((e.details as Map<String, dynamic>?)?['sessionExpired'] == true ||
+          e.code == 'unauthenticated') {
+        throw Exception('Salesforce session expired. Please re-authenticate.');
+      }
+      if (e.code == 'permission-denied') {
+        throw Exception('Permission denied to delete this file.');
+      }
+      if (e.code == 'not-found') {
+        // Maybe handle silently or rethrow depending on UX
+        print(
+          '[OpportunityService] File not found for deletion (maybe already deleted): $contentDocumentId',
+        );
+        // throw Exception('File not found or already deleted.');
+        return; // Treat as success if not found?
+      }
+      throw Exception(
+        'Cloud Function error deleting file: ${e.message ?? e.code}',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] Generic error deleting file: $e');
+      }
+      throw Exception('An unexpected error occurred while deleting the file.');
+    }
+  }
+
+  // --- END: NEW Methods for Edit Feature ---
+
+  // --- ADDED: Download File Data Method ---
+  Future<
+    ({
+      Uint8List? fileData,
+      String? contentType,
+      String? error,
+      bool sessionExpired,
+    })
+  >
+  downloadFile({required String contentVersionId}) async {
+    // NOTE: Using logger requires adding a logger instance to this class
+    // For now, using print for simplicity, consider adding logger later
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Calling downloadSalesforceFile Cloud Function. contentVersionId: $contentVersionId',
+      );
+    }
+    try {
+      // Get credentials from the injected _authNotifier
+      final String? accessToken = await _authNotifier.getValidAccessToken();
+      final String? instanceUrl = _authNotifier.currentInstanceUrl;
+
+      if (accessToken == null || instanceUrl == null) {
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] Missing Salesforce credentials for file download (token or instanceUrl is null)',
+          );
+        }
+        return (
+          fileData: null,
+          contentType: null,
+          error: 'Salesforce credentials missing or invalid.',
+          sessionExpired: true,
+        );
+      }
+
+      final HttpsCallable callable = _functions.httpsCallable(
+        'downloadSalesforceFile', // The name of the Cloud Function
+      );
+      final result = await callable.call<Map<String, dynamic>>({
+        'contentVersionId': contentVersionId,
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+      });
+
+      final Map<String, dynamic>? data =
+          result.data['data'] as Map<String, dynamic>?;
+      final bool success = result.data['success'] as bool? ?? false;
+
+      if (success && data != null && data['fileData'] != null) {
+        final String base64String = data['fileData'] as String;
+        final String? contentType = data['contentType'] as String?;
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] Successfully downloaded file data. contentType: $contentType',
+          );
+        }
+        try {
+          final Uint8List fileBytes = base64Decode(base64String);
+          return (
+            fileData: fileBytes,
+            contentType: contentType,
+            error: null,
+            sessionExpired: false,
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('[OpportunityService] Error decoding Base64 file data: $e');
+          }
+          return (
+            fileData: null,
+            contentType: null,
+            error: 'Failed to process downloaded file data.',
+            sessionExpired: false,
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] downloadSalesforceFile function returned success=false or missing data. Result: ${result.data}',
+          );
+        }
+        return (
+          fileData: null,
+          contentType: null,
+          error: 'Cloud function failed to download file.',
+          sessionExpired: false,
+        );
+      }
+    } on FirebaseFunctionsException catch (e, s) {
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] FirebaseFunctionsException calling downloadSalesforceFile: Code=${e.code}, Msg=${e.message}, Details=${e.details}',
+        );
+        print(s); // Print stack trace
+      }
+      bool sessionExpired =
+          (e.details as Map? ?? {})['sessionExpired'] == true ||
+          e.code == 'unauthenticated';
+      String message =
+          sessionExpired
+              ? 'Salesforce session expired. Please log in again.'
+              : e.message ?? 'Failed to download file.';
+      if (sessionExpired) {
+        _handleSalesforceSessionExpiry();
+      }
+      return (
+        fileData: null,
+        contentType: null,
+        error: message,
+        sessionExpired: sessionExpired,
+      );
+    } catch (e, s) {
+      if (kDebugMode) {
+        print(
+          '[OpportunityService] Unexpected error calling downloadSalesforceFile: $e',
+        );
+        print(s); // Print stack trace
+      }
+      return (
+        fileData: null,
+        contentType: null,
+        error: 'An unexpected error occurred.',
+        sessionExpired: false,
+      );
+    }
+  }
+  // --- END ADDED METHOD ---
+
+  // --- ADDED: Helper to handle session expiry ---
+  Future<void> _handleSalesforceSessionExpiry() async {
+    if (kDebugMode) {
+      print('[OpportunityService] Handling Salesforce session expiry...');
+    }
+    await _authNotifier.signOut();
+  }
+
+  // --- END ADDED HELPER ---
 }

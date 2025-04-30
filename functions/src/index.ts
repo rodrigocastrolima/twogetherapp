@@ -38,6 +38,9 @@ import { getSalesforceOpportunityDetails } from './getSalesforceOpportunityDetai
 export * from './set-role-claim';
 export * from './exchangeSalesforceCode';
 export * from './refreshSalesforceToken';
+export * from './updateSalesforceOpportunity';
+export * from './salesforceFileManagement';
+export * from './downloadSalesforceFile';
 
 // Export the removeRememberMeField function
 export { removeRememberMeField };
@@ -65,6 +68,10 @@ export { getActivationCycles } from './getActivationCycles'; // <-- ADD THIS
 // Export the proposal creation function
 // export const createSalesforceProposal = createSalesforceProposal; // REMOVE THIS
 export { createSalesforceProposal } from './createSalesforceProposal'; // <-- ADD THIS
+
+// --- NEW Export for Reseller Proposal Fetching ---
+export { getResellerOpportunityProposals } from './getResellerOpportunityProposals';
+// -----------------------------------------------
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript

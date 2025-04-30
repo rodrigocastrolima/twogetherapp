@@ -34,4 +34,13 @@ class SalesforceProposal {
 
   @override
   int get hashCode => id.hashCode;
+
+  // Add toJson method
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      // Add other fields here when they exist in the model
+    };
+  }
 }

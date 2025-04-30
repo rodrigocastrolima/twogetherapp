@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
-import '../../../features/proposal/data/models/salesforce_proposal.dart';
+import '../../../features/proposal/data/models/salesforce_proposal_name_only.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
@@ -35,9 +35,9 @@ class OpportunityDetailsPage extends ConsumerWidget {
       }
     }
 
-    // --- Watch the proposals provider ---
+    // --- Watch the NEW proposals provider ---
     final proposalsAsync = ref.watch(
-      opportunityProposalsProvider(opportunity.id),
+      resellerOpportunityProposalNamesProvider(opportunity.id),
     );
     // -------------------------------------
 
@@ -90,17 +90,14 @@ class OpportunityDetailsPage extends ConsumerWidget {
                     ),
                   );
                 }
-                // Use LayoutBuilder to prevent unbounded height in Column
                 return ListView.separated(
-                  shrinkWrap:
-                      true, // Important when inside Column/SingleChildScrollView
-                  physics:
-                      const NeverScrollableScrollPhysics(), // Disable nested scrolling
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: proposals.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final proposal = proposals[index];
-                    return _buildProposalTile(context, proposal, index);
+                    return _buildProposalNameTile(context, proposal, index);
                   },
                 );
               },
@@ -248,59 +245,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
     );
   }
 
-  // Helper to build opportunity phase badge
-  Widget _buildPhaseBadge(BuildContext context, String? phase) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    Color color;
-    String displayPhase;
-
-    // Map Salesforce phases to display text and colors
-    if (phase == null) {
-      color = theme.colorScheme.onSurfaceVariant;
-      displayPhase = 'Não definido';
-    } else if (phase.startsWith('0 -')) {
-      color = Colors.orange;
-      displayPhase = 'Identificada';
-    } else if (phase.startsWith('1 -')) {
-      color = theme.colorScheme.primary;
-      displayPhase = 'Qualificada';
-    } else if (phase.startsWith('2 -')) {
-      color = Colors.blue;
-      displayPhase = 'Proposta';
-    } else if (phase.startsWith('3 -')) {
-      color = Colors.indigo;
-      displayPhase = 'Negociação';
-    } else if (phase.startsWith('4 -')) {
-      color = Colors.green;
-      displayPhase = 'Fechada/Ganha';
-    } else if (phase.startsWith('5 -')) {
-      color = Colors.red;
-      displayPhase = 'Fechada/Perdida';
-    } else {
-      color = theme.colorScheme.onSurfaceVariant;
-      displayPhase = phase;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Text(
-        displayPhase,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  // --- NEW --- Helper to display status based on Phase
+  // --- Updated _buildStatusDisplay to only use needed phases ---
   Widget _buildStatusDisplay(BuildContext context, String? phase) {
     final theme = Theme.of(context);
 
@@ -344,104 +289,41 @@ class OpportunityDetailsPage extends ConsumerWidget {
         ],
       );
     } else {
-      // Fallback to the original phase badge for other statuses
-      return _buildPhaseBadge(context, phase);
+      // For other phases, just display the text if needed, or simplify
+      return Text(
+        phase ?? 'Status não definido', // TODO: Localize
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+      );
     }
   }
+  // ---------------------------------------------------------
 
-  // --- NEW Helper to build a proposal list tile ---
-  Widget _buildProposalTile(
+  // --- NEW Helper to build a proposal list tile for Name Only ---
+  Widget _buildProposalNameTile(
     BuildContext context,
-    SalesforceProposal proposal,
+    SalesforceProposalNameOnly proposal,
     int index,
   ) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
-    final currencyFormat = NumberFormat.currency(
-      locale: l10n?.localeName ?? 'pt_PT',
-      symbol: '€',
-    );
-
-    // Format commission
-    String commissionString = 'N/A';
-    if (proposal.totalComissaoRetail != null) {
-      commissionString = currencyFormat.format(proposal.totalComissaoRetail);
-    }
-
-    // Check if status is "Aceite"
-    final bool isAccepted = proposal.status == 'Aceite';
 
     return ListTile(
       title: Text(
-        'Proposta #${index + 1}',
+        proposal.name,
         style: theme.textTheme.titleSmall?.copyWith(
           fontWeight: FontWeight.w600,
         ),
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 2), // Keep space above commission
-          Text(
-            'Comissão: $commissionString',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-        ],
-      ),
-      trailing:
-          isAccepted
-              ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    CupertinoIcons.checkmark_seal_fill,
-                    color: Colors.green,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Aceite', // TODO: Localize
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.green,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              )
-              : proposal.status == 'Cancelada'
-              ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    CupertinoIcons.clear_circled_solid,
-                    color: Colors.red,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Cancelada', // TODO: Localize
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              )
-              : Text(
-                proposal.status, // Display only status text here
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ), // TODO: Localize Status
       onTap: () {
-        // Navigate to proposal detail page, passing proposal object as extra
-        context.push('/proposal/$index', extra: proposal);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Detalhes da proposta não disponíveis no momento.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
       },
     );
   }
-
-  // -------------------------------------------
 }

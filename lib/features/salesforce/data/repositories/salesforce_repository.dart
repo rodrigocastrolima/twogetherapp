@@ -5,7 +5,9 @@ import '../../../opportunity/data/models/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../proposal/data/models/salesforce_proposal.dart';
+import '../../../proposal/data/models/salesforce_proposal_name_only.dart';
 import '../../../opportunity/data/models/create_opp_models.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 /// Repository for interacting with Salesforce data through Firebase Cloud Functions
 class SalesforceRepository {
@@ -517,6 +519,129 @@ class SalesforceRepository {
     }
   }
   // --------------------------------------------------
+
+  // --- NEW: Fetch Reseller Opportunity Proposal Names (JWT Flow) ---
+  Future<List<SalesforceProposalNameOnly>> getResellerOpportunityProposalNames(
+    String opportunityId,
+  ) async {
+    if (kDebugMode) {
+      print(
+        '[SalesforceRepository] Fetching proposal names for Opportunity ID (Reseller Flow): $opportunityId',
+      );
+    }
+    if (opportunityId.isEmpty) {
+      throw Exception('Opportunity ID cannot be empty');
+    }
+
+    try {
+      // --- Force token refresh before calling --- <-
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] Forcing ID token refresh before calling function...',
+          );
+        }
+        await currentUser.getIdToken(true);
+        if (kDebugMode) {
+          print('[SalesforceRepository] Token refresh attempted.');
+        }
+      } else {
+        // This shouldn't happen if the function requires auth, but good practice
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] Cannot refresh token, no current user.',
+          );
+        }
+        throw Exception('No authenticated user found for token refresh.');
+      }
+      // ---------------------------------------- <-
+
+      // Call the NEW Cloud Function using the JWT flow implicitly
+      final callable = _functions.httpsCallable(
+        'getResellerOpportunityProposals',
+      );
+      final result = await callable.call<Map<String, dynamic>>({
+        'opportunityId': opportunityId,
+      });
+
+      // Parse the response
+      final data = result.data;
+
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getResellerOpportunityProposalNames Cloud Function response: $data',
+        );
+      }
+
+      if (data['success'] == true) {
+        final proposalsJson = data['proposals'] as List<dynamic>?;
+
+        if (proposalsJson == null || proposalsJson.isEmpty) {
+          return []; // Return empty list if no proposals
+        }
+
+        // Convert each JSON object to a SalesforceProposalNameOnly
+        return proposalsJson
+            .map((json) {
+              // Check if the item is a Map, then attempt cast and parse
+              if (json is Map) {
+                // Check if it's a Map first
+                try {
+                  // Explicitly cast to the expected type
+                  final mapJson = Map<String, dynamic>.from(json);
+                  return SalesforceProposalNameOnly.fromJson(mapJson);
+                } catch (e) {
+                  print(
+                    '[SalesforceRepository] Error parsing proposal name record $json: $e',
+                  );
+                  return null; // Skip records that cause parsing errors
+                }
+              } else {
+                // Log if it's not a map at all
+                if (kDebugMode) {
+                  print(
+                    '[SalesforceRepository] Skipping non-map item in proposals list: ${json?.runtimeType}',
+                  );
+                }
+                return null; // Skip non-map items
+              }
+            })
+            .whereType<SalesforceProposalNameOnly>() // Filter out nulls
+            .toList();
+      } else {
+        // Handle error response from the function
+        final errorMessage =
+            data['error'] as String? ?? 'Unknown error from function';
+        final errorCode = data['errorCode'] as String? ?? 'FUNCTION_ERROR';
+        if (kDebugMode) {
+          print(
+            '[SalesforceRepository] getResellerOpportunityProposalNames failed: [$errorCode] $errorMessage',
+          );
+        }
+        throw Exception(
+          'Failed to fetch proposal names: [$errorCode] $errorMessage',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getResellerOpportunityProposalNames Firebase Functions error: [${e.code}] ${e.message}',
+        );
+      }
+      throw Exception(
+        'Cloud function error fetching proposal names: [${e.code}] ${e.message ?? "Unknown error"}',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print(
+          '[SalesforceRepository] getResellerOpportunityProposalNames General error: $e',
+        );
+      }
+      throw Exception('Failed to fetch proposal names: $e');
+    }
+  }
+  // ---------------------------------------------------------------
 
   // -------------------------------------
 }

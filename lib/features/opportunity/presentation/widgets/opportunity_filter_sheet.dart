@@ -62,18 +62,17 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Use Cupertino theme data if available, fallback to Material
+    final cupertinoTheme = CupertinoTheme.of(context);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     const allEnergyTypes = EnergyType.values;
     const allServiceCategories = ServiceCategory.values;
 
-    // Determine checkbox state for "All" options
     bool isAllResellersSelected =
-        _tempSelectedResellers == null ||
-        _tempSelectedResellers!.isEmpty; // Treat empty set as 'All'
+        _tempSelectedResellers == null || _tempSelectedResellers!.isEmpty;
     bool isAllServiceTypesSelected =
-        _tempSelectedServiceTypes == null ||
-        _tempSelectedServiceTypes!.isEmpty; // Treat empty set as 'All'
+        _tempSelectedServiceTypes == null || _tempSelectedServiceTypes!.isEmpty;
 
     // --- Helper function to handle "All" selection logic ---
     void handleAllSelection<T>(
@@ -136,204 +135,200 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
     }
     // -----------------------------------------------------------
 
-    return Container(
-      color: theme.colorScheme.surface,
-      padding: const EdgeInsets.all(
-        16,
-      ).copyWith(bottom: MediaQuery.of(context).viewInsets.bottom + 16, top: 8),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: theme.dividerColor,
-                  borderRadius: BorderRadius.circular(2.5),
-                ),
-              ),
+    // Use CupertinoPageScaffold for basic structure if needed, or just Column
+    // Using Column directly within the bottom sheet container
+    return Padding(
+      // Use safe area padding for bottom notch/insets
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewPadding.bottom,
+        left: 8,
+        right: 8,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Optional: Add a title bar if needed, or rely on sheet context
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 16.0,
             ),
-            // Title
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Text(
-                'Filters', // TODO: l10n
-                style: theme.textTheme.titleLarge,
-              ),
+            child: Text(
+              l10n.adminOpportunityFilterSheetTitle, // Use specific l10n key
+              style: cupertinoTheme.textTheme.navTitleTextStyle,
             ),
+          ),
 
-            // Scrollable Filter Options
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
+          // Scrollable Filter Options using CupertinoListSection
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
                 children: [
-                  // --- Reseller Filter (Checkboxes) ---
-                  _buildFilterSectionTitle(
-                    context,
-                    l10n.resellerRole,
-                  ), // Use existing l10n key
-                  _buildCheckboxListTile(
-                    context,
-                    title: 'All Resellers', // TODO: l10n
-                    value: isAllResellersSelected,
-                    onChanged:
-                        (selected) => handleAllSelection(
-                          selected,
-                          _tempSelectedResellers,
-                          (newSet) => _tempSelectedResellers = newSet,
-                        ),
-                  ),
-                  ...widget.availableResellers.map((reseller) {
-                    return _buildCheckboxListTile(
-                      context,
-                      title: reseller,
-                      value:
-                          !isAllResellersSelected &&
-                          (_tempSelectedResellers?.contains(reseller) ?? false),
-                      onChanged:
-                          (selected) => handleItemSelection(
-                            selected,
-                            reseller,
-                            _tempSelectedResellers,
-                            (newSet) => _tempSelectedResellers = newSet,
-                          ),
-                    );
-                  }).toList(),
-                  Divider(height: 24, thickness: 0.5),
-
-                  // --- Service Type Filter (Checkboxes with Inline Energy) ---
-                  _buildFilterSectionTitle(
-                    context,
-                    l10n.servicesSelectType,
-                  ), // Use existing l10n key
-                  _buildCheckboxListTile(
-                    context,
-                    title: 'All Service Types', // TODO: l10n
-                    value: isAllServiceTypesSelected,
-                    onChanged:
-                        (selected) => handleAllSelection(
-                          selected,
-                          _tempSelectedServiceTypes,
-                          (newSet) => _tempSelectedServiceTypes = newSet,
-                        ),
-                  ),
-                  ...allServiceCategories.expand((serviceType) {
-                    final isSelected =
-                        !isAllServiceTypesSelected &&
-                        (_tempSelectedServiceTypes?.contains(serviceType) ??
-                            false);
-                    return [
-                      _buildCheckboxListTile(
+                  CupertinoListSection.insetGrouped(
+                    header: Text(l10n.resellerRole.toUpperCase()),
+                    backgroundColor: Colors.transparent, // Inherit from sheet
+                    children: <Widget>[
+                      _buildCupertinoCheckboxTile(
                         context,
-                        title: serviceType.displayName,
-                        value: isSelected,
+                        title: 'All Resellers', // TODO: l10n
+                        value: isAllResellersSelected,
                         onChanged:
-                            (selected) => handleItemSelection(
+                            (selected) => handleAllSelection(
                               selected,
-                              serviceType,
+                              _tempSelectedResellers,
+                              (newSet) => _tempSelectedResellers = newSet,
+                            ),
+                      ),
+                      ...widget.availableResellers.map((reseller) {
+                        return _buildCupertinoCheckboxTile(
+                          context,
+                          title: reseller,
+                          value:
+                              !isAllResellersSelected &&
+                              (_tempSelectedResellers?.contains(reseller) ??
+                                  false),
+                          onChanged:
+                              (selected) => handleItemSelection(
+                                selected,
+                                reseller,
+                                _tempSelectedResellers,
+                                (newSet) => _tempSelectedResellers = newSet,
+                              ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                  CupertinoListSection.insetGrouped(
+                    header: Text(l10n.servicesSelectType.toUpperCase()),
+                    backgroundColor: Colors.transparent,
+                    children: <Widget>[
+                      _buildCupertinoCheckboxTile(
+                        context,
+                        title: 'All Service Types', // TODO: l10n
+                        value: isAllServiceTypesSelected,
+                        onChanged:
+                            (selected) => handleAllSelection(
+                              selected,
                               _tempSelectedServiceTypes,
                               (newSet) => _tempSelectedServiceTypes = newSet,
                             ),
                       ),
-                      // --- Inline Energy Type Checkboxes ---
-                      if (serviceType == ServiceCategory.energy && isSelected)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            left: 24.0,
-                            top: 0,
-                            bottom: 8,
+                      ...allServiceCategories.expand((serviceType) {
+                        final isSelected =
+                            !isAllServiceTypesSelected &&
+                            (_tempSelectedServiceTypes?.contains(serviceType) ??
+                                false);
+                        return [
+                          _buildCupertinoCheckboxTile(
+                            context,
+                            title: serviceType.displayName,
+                            value: isSelected,
+                            onChanged:
+                                (selected) => handleItemSelection(
+                                  selected,
+                                  serviceType,
+                                  _tempSelectedServiceTypes,
+                                  (newSet) =>
+                                      _tempSelectedServiceTypes = newSet,
+                                ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // --- Energy Type Sub-section (Checkboxes) ---
-                              ...allEnergyTypes.map((energyType) {
-                                // Determine if this energy type should be checked
-                                // It's checked if the main set is null (meaning all implicitly selected *within* the Energy category)
-                                // OR if the set is not null and contains the type.
-                                final isEnergyTypeChecked =
-                                    _tempSelectedEnergyTypes == null ||
-                                    (_tempSelectedEnergyTypes?.contains(
-                                          energyType,
-                                        ) ??
-                                        false);
-
-                                return _buildCheckboxListTile(
-                                  context,
-                                  title: energyType.displayName,
-                                  value: isEnergyTypeChecked,
-                                  onChanged: (bool? selected) {
-                                    setState(() {
-                                      // When an individual energy type is toggled,
-                                      // initialize the set from ALL types if it was null (implicit all).
-                                      _tempSelectedEnergyTypes ??=
-                                          Set<EnergyType>.from(allEnergyTypes);
-
-                                      if (selected == true) {
-                                        _tempSelectedEnergyTypes!.add(
-                                          energyType,
-                                        );
-                                      } else {
-                                        _tempSelectedEnergyTypes!.remove(
-                                          energyType,
-                                        );
-                                        // If the set becomes empty, revert to implicit 'All' (null)
-                                        if (_tempSelectedEnergyTypes!.isEmpty) {
-                                          _tempSelectedEnergyTypes = null;
-                                        }
-                                      }
-                                    });
-                                  },
-                                  isDense:
-                                      true, // Make nested items more compact
-                                );
-                              }).toList(),
-                            ],
-                          ),
-                        ),
-                    ];
-                  }).toList(),
+                          // --- Inline Energy Type Checkboxes (Nested Section) ---
+                          if (serviceType == ServiceCategory.energy &&
+                              isSelected)
+                            // Use another list section for nesting
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: 15.0,
+                              ), // Indent nested items
+                              child: CupertinoListSection.insetGrouped(
+                                // header: Text('Energy Types'), // Optional sub-header
+                                margin: EdgeInsets.zero,
+                                backgroundColor: Colors.transparent,
+                                children: <Widget>[
+                                  ...allEnergyTypes.map((energyType) {
+                                    final isEnergyTypeChecked =
+                                        _tempSelectedEnergyTypes == null ||
+                                        (_tempSelectedEnergyTypes?.contains(
+                                              energyType,
+                                            ) ??
+                                            false);
+                                    return _buildCupertinoCheckboxTile(
+                                      context,
+                                      title: energyType.displayName,
+                                      value: isEnergyTypeChecked,
+                                      onChanged: (bool? selected) {
+                                        setState(() {
+                                          _tempSelectedEnergyTypes ??=
+                                              Set<EnergyType>.from(
+                                                allEnergyTypes,
+                                              );
+                                          if (selected == true) {
+                                            _tempSelectedEnergyTypes!.add(
+                                              energyType,
+                                            );
+                                          } else {
+                                            _tempSelectedEnergyTypes!.remove(
+                                              energyType,
+                                            );
+                                            if (_tempSelectedEnergyTypes!
+                                                .isEmpty) {
+                                              _tempSelectedEnergyTypes = null;
+                                            }
+                                          }
+                                        });
+                                      },
+                                      // Make nested items slightly smaller text?
+                                      // textStyle: cupertinoTheme.textTheme.textStyle.copyWith(fontSize: 14),
+                                    );
+                                  }).toList(),
+                                ],
+                              ),
+                            ),
+                        ];
+                      }).toList(),
+                    ],
+                  ),
                 ],
               ),
             ),
+          ),
 
-            // Action Buttons (Apply logic needs to handle null sets correctly)
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+          // Action Buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 12.0,
+            ),
+            child: Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween, // Space out buttons
               children: [
-                TextButton(
+                CupertinoButton(
+                  padding:
+                      EdgeInsets
+                          .zero, // Remove default padding for cleaner look
                   onPressed: () {
-                    // Reset temporary selections to null (meaning "All")
                     setState(() {
                       _tempSelectedResellers = null;
                       _tempSelectedServiceTypes = null;
                       _tempSelectedEnergyTypes = null;
                     });
-                    // Apply cleared filters immediately
                     widget.onApplyFilters(null, null, null);
                     Navigator.pop(context);
                   },
                   child: Text(l10n.commonClear),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
+                CupertinoButton.filled(
+                  // Use filled style for primary action
                   onPressed: () {
-                    // Apply the temporary selections
                     widget.onApplyFilters(
-                      _tempSelectedResellers, // null means All
-                      _tempSelectedServiceTypes, // null means All
-                      // If Energy service type is not selected, energy selection is irrelevant (pass null)
+                      _tempSelectedResellers,
+                      _tempSelectedServiceTypes,
                       (_tempSelectedServiceTypes != null &&
                               _tempSelectedServiceTypes!.contains(
                                 ServiceCategory.energy,
                               ))
-                          ? _tempSelectedEnergyTypes // Pass the actual selection (null means All Energy Types)
+                          ? _tempSelectedEnergyTypes
                           : null,
                     );
                     Navigator.pop(context);
@@ -342,41 +337,36 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFilterSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-    );
-  }
-
-  // Updated CheckboxListTile builder
-  Widget _buildCheckboxListTile(
+  // --- NEW: Cupertino Checkbox Tile Builder ---
+  Widget _buildCupertinoCheckboxTile(
     BuildContext context, {
     required String title,
     required bool value,
     required ValueChanged<bool?> onChanged,
-    bool isDense = false, // Added optional density parameter
+    TextStyle? textStyle, // Optional text style
   }) {
-    return CheckboxListTile(
-      title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
-      value: value,
-      onChanged: onChanged,
-      dense: isDense, // Use parameter
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
-      visualDensity: isDense ? VisualDensity.compact : VisualDensity.standard, // Adjust density
+    final theme = CupertinoTheme.of(context);
+    return CupertinoListTile(
+      // Use standard list tile
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      title: Text(
+        title,
+        style:
+            textStyle ??
+            theme.textTheme.textStyle, // Use provided or default style
+      ),
+      leading: CupertinoCheckbox(
+        value: value,
+        onChanged: onChanged,
+        activeColor: theme.primaryColor, // Use theme's primary color
+      ),
+      onTap: () => onChanged(!value), // Toggle checkbox on tap
     );
   }
 }

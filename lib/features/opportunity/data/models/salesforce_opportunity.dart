@@ -38,13 +38,22 @@ class SalesforceOpportunity {
       );
     }
 
+    // --- CORRECTED Parsing for Relationship Fields ---
+    // Access nested 'Name' within 'Entidade__r' object. Use ?. for safety.
+    // final accountNameValue = (json['Entidade__r'] as Map<String, dynamic>?)?['Name'] as String?; // REVERTED
+    // Access nested 'Name' within 'Agente_Retail__r' object. Use ?. for safety.
+    // final resellerNameValue = (json['Agente_Retail__r'] as Map<String, dynamic>?)?['Name'] as String?; // REVERTED
+    // --- END CORRECTION ---
+
     return SalesforceOpportunity(
       id: idValue, // Use the extracted value
       name: nameValue, // Use the extracted value
-      accountName: json['Nome_Entidade__c'] as String?,
+      // --- Read top-level keys provided by the Cloud Function ---
+      accountName:
+          json['accountName'] as String?, // Match Cloud Function output key
       resellerName:
-          json['resellerName']
-              as String?, // Ensure this key matches function output
+          json['resellerName'] as String?, // Match Cloud Function output key
+      // --- End Read top-level keys ---
       NIF__c: json['NIF__c'] as String?,
       Fase__c: json['Fase__c'] as String?,
       CreatedDate: json['CreatedDate'] as String?,

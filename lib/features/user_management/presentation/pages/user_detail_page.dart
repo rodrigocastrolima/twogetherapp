@@ -8,13 +8,12 @@ import 'package:intl/intl.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../../core/models/service_submission.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../features/auth/domain/models/app_user.dart';
 import '../../../../features/auth/domain/repositories/auth_repository.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
-import '../../../../features/services/data/repositories/service_submission_repository.dart';
-import '../../../../features/services/presentation/providers/service_submission_provider.dart';
+import '../../../../features/opportunity/data/models/salesforce_opportunity.dart';
+import '../../../../features/salesforce/presentation/providers/salesforce_providers.dart';
 // Import commented out due to missing file:
 // import '../../../../features/admin/presentation/widgets/submission_details_dialog.dart';
 
@@ -230,8 +229,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   // Profile Tab
                   _buildProfileTab(context, isSmallScreen, l10n),
 
-                  // Opportunities (Submissions) Tab
-                  _buildSubmissionsTab(context),
+                  // Opportunities (Submissions) Tab - Now Salesforce Opportunities
+                  _buildOpportunitiesTab(context),
                 ],
               ),
     );
@@ -695,48 +694,104 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     );
   }
 
-  Widget _buildSubmissionsTab(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('serviceSubmissions')
-              .where('resellerId', isEqualTo: widget.user.uid)
-              .orderBy('submissionTimestamp', descending: true)
-              .snapshots(),
+  Widget _buildOpportunitiesTab(BuildContext context) {
+    // Get the Salesforce ID from the user's additional data
+    final String? salesforceId = _additionalData['salesforceId'] as String?;
+
+    // Check if the Salesforce ID is available
+    if (salesforceId == null || salesforceId.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.nosign, // Corrected icon: Changed from link_slash
+              size: 64,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Salesforce Not Linked', // TODO: l10n
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This user does not have a Salesforce ID linked.', // TODO: l10n
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Use FutureProvider.family or watch directly for simplicity here
+    // We need a way to pass salesforceId to a provider or use FutureBuilder
+    // Using FutureBuilder for direct implementation:
+    final salesforceRepo = ref.read(salesforceRepositoryProvider);
+
+    return FutureBuilder<List<SalesforceOpportunity>>(
+      // Call the repository method to get opportunities for this reseller
+      future: salesforceRepo.getResellerOpportunities(salesforceId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
+          // Display a more user-friendly error message
           return Center(
-            child: Text(
-              'Error loading submissions: ${snapshot.error}',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    CupertinoIcons.exclamationmark_triangle,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error Loading Opportunities', // TODO: l10n
+                    style: Theme.of(context).textTheme.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    // Corrected multi-line string and interpolation
+                    'Could not fetch opportunities from Salesforce. Please try again later.\nError: ${snapshot.error}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
 
-        final submissions = snapshot.data?.docs ?? [];
+        final opportunities = snapshot.data ?? [];
 
-        if (submissions.isEmpty) {
+        if (opportunities.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  CupertinoIcons.doc_text,
+                  CupertinoIcons.briefcase, // Icon for opportunities/work
                   size: 64,
                   color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No submissions yet',
+                  'No Opportunities Found', // TODO: l10n
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This reseller has not submitted any service requests',
+                  'No Salesforce opportunities found for this reseller.', // TODO: l10n
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -745,34 +800,41 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
           );
         }
 
+        // Display the list of opportunities
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: submissions.length,
+          itemCount: opportunities.length,
           itemBuilder: (context, index) {
-            final submissionDoc = submissions[index];
-            final submission = ServiceSubmission.fromFirestore(submissionDoc);
-
-            return _buildSubmissionCard(context, submission);
+            final opportunity = opportunities[index];
+            // Use the new widget to build the card for SalesforceOpportunity
+            return _buildOpportunityCard(context, opportunity);
           },
         );
       },
     );
   }
 
-  Widget _buildSubmissionCard(
+  Widget _buildOpportunityCard(
     BuildContext context,
-    ServiceSubmission submission,
+    SalesforceOpportunity opportunity,
   ) {
-    final statusColor = _getStatusColor(submission.status);
-    final formatter = DateFormat('dd/MM/yyyy');
-    final submissionDate = formatter.format(submission.submissionDate);
+    // Determine color based on Phase (Fase__c) - adapt _getStatusColor
+    final statusColor = _getPhaseColor(opportunity.Fase__c);
+    // Format the creation date
+    final creationDate = _formatSalesforceDate(opportunity.CreatedDate);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          // Navigate to SubmissionDetailPage instead of showing a dialog
-          context.push('/admin/submissions/${submission.id}');
+          // Navigate to the Salesforce Opportunity Detail Page
+          final salesforceOpportunityId = opportunity.id;
+          // Ensure the route matches your GoRouter configuration
+          context.push(
+            '/admin/salesforce/opportunities/$salesforceOpportunityId',
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -782,7 +844,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
             children: [
               Row(
                 children: [
-                  // Category icon
+                  // Category/Type icon - adapt _getCategoryIcon if needed, or use generic
                   Container(
                     width: 40,
                     height: 40,
@@ -794,7 +856,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                     ),
                     child: Center(
                       child: Icon(
-                        _getCategoryIcon(submission.serviceCategory),
+                        // Using briefcase as a generic icon for opportunity
+                        CupertinoIcons.briefcase_fill,
                         size: 20,
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -802,25 +865,28 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   ),
                   const SizedBox(width: 12),
 
-                  // Basic info
+                  // Basic info: Opportunity Name and Account Name
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          submission.responsibleName,
+                          opportunity.name, // Opportunity Name
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '${submission.serviceCategory.displayName} - ${submission.provider.displayName}',
+                          opportunity.accountName ??
+                              'No Account Name', // Account Name
                           style: Theme.of(context).textTheme.bodyMedium,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
 
-                  // Status chip
+                  // Status chip based on Phase (Fase__c)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -831,7 +897,10 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      submission.status.replaceAll('_', ' ').toUpperCase(),
+                      // Display the Phase, replacing underscores and uppercasing
+                      (opportunity.Fase__c ?? 'UNKNOWN')
+                          .replaceAll('_', ' ')
+                          .toUpperCase(),
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
@@ -845,16 +914,17 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               const SizedBox(height: 12),
               const Divider(),
 
-              // Footer
+              // Footer: Creation Date and Short ID
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Submitted: $submissionDate',
+                    'Created: $creationDate', // Display formatted creation date
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   Text(
-                    'ID: ${submission.id?.substring(0, 6) ?? 'N/A'}',
+                    // Display short Salesforce ID
+                    'ID: ${opportunity.id.substring(0, 6)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -957,35 +1027,37 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     return DateFormat('MMM dd, yyyy - HH:mm').format(date);
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'approved':
-        return Colors.green;
-      case 'pending_review':
-        return Colors.amber;
-      case 'rejected':
-        return Colors.red;
-      case 'sync_failed':
-        return Colors.purple;
-      default:
-        return Colors.grey;
+  // New function to format Salesforce Date strings (usually YYYY-MM-DD)
+  String _formatSalesforceDate(String? dateString) {
+    if (dateString == null) return 'N/A';
+    try {
+      final dateTime = DateTime.parse(dateString);
+      // Format as DD/MM/YYYY or another desired format
+      return DateFormat('dd/MM/yyyy').format(dateTime);
+    } catch (e) {
+      return dateString; // Return original if parsing fails
     }
   }
 
-  IconData _getCategoryIcon(dynamic category) {
-    // Handle both String and ServiceCategory enum
-    final categoryStr =
-        category is String ? category : category.toString().split('.').last;
-
-    switch (categoryStr) {
-      case 'energy':
-        return CupertinoIcons.bolt_fill;
-      case 'telecommunications':
-        return CupertinoIcons.phone_fill;
-      case 'insurance':
-        return CupertinoIcons.shield_fill;
+  // Updated to handle Salesforce Opportunity Phases (Fase__c)
+  Color _getPhaseColor(String? phase) {
+    // Define colors based on expected Salesforce Phase values
+    // Adjust these cases based on your actual Salesforce Phase values
+    switch (phase?.toLowerCase()) {
+      case 'closed_won':
+        return Colors.green;
+      case 'proposal_sent':
+      case 'negotiation':
+        return Colors.blue; // Example: Blue for progress
+      case 'qualification':
+      case 'needs_analysis':
+        return Colors.orange; // Example: Orange for early stages
+      case 'closed_lost':
+        return Colors.red;
+      case 'pending_approval': // Example phase
+        return Colors.purple;
       default:
-        return CupertinoIcons.doc_fill;
+        return Colors.grey; // Default for unknown or null phases
     }
   }
 
