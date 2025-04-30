@@ -1205,3 +1205,11 @@ export const runMigration = onCall({
     );
   }
 });
+
+// Ensure getSalesforceProposalDetails is exported if not already covered above
+// (It should be covered by the earlier export block)
+// Example check: ensure './getSalesforceProposalDetails' exports the function
+// and is included in one of the valid export patterns above.
+// If unsure, explicitly export it:
+export { getSalesforceProposalDetails } from "./getSalesforceProposalDetails";
+export { updateSalesforceProposal } from "./updateSalesforceProposal";

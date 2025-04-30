@@ -258,7 +258,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                    ),
+                      ),
                   ],
                 ),
               ),

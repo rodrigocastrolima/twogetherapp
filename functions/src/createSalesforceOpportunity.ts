@@ -200,20 +200,20 @@ export const createSalesforceOpportunity = onCall(
           // --- Account Not Found: Create New Account ---
           logger.info(`No existing Account found with NIF: ${data.nif}. Creating new Account.`);
           const accountCreatePayload = { 
-              Name: data.companyName, // Use companyName from submission for Account Name
-              NIF__c: data.nif,
+        Name: data.companyName, // Use companyName from submission for Account Name
+        NIF__c: data.nif,
               EDP__c: true,            
               EDP_Status__c: "Prospect" 
-          };
+      };
 
           const accountCreateResult = await callSalesforceApi<{ id?: string, success?: boolean, errors?: any[] }>(() => 
               conn.sobject('Account').create(accountCreatePayload)
-          );
-
+      );
+      
           if (!accountCreateResult.id || !accountCreateResult.success) {
               logger.error("Failed to create new Account.", { result: accountCreateResult });
               throw new HttpsError("internal", "Failed to create Account in Salesforce.", { details: accountCreateResult.errors });
-          }
+      }
           accountId = accountCreateResult.id;
           logger.info(`Successfully created new Account. ID: ${accountId}`);
       }

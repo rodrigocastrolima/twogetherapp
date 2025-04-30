@@ -12,6 +12,8 @@ import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart';
 import 'package:twogether/features/salesforce/data/repositories/salesforce_repository.dart';
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'; // Keep if opportunityProposalsProvider is used here
 import 'package:twogether/features/proposal/data/models/salesforce_proposal_name_only.dart'; // <-- Import new model
+import 'package:twogether/features/proposal/data/models/detailed_salesforce_proposal.dart';
+import 'package:twogether/features/proposal/data/repositories/salesforce_proposal_repository.dart';
 
 // --- Service/Repository Providers ---
 
@@ -44,6 +46,12 @@ final salesforceAuthNotifierProvider = StateNotifierProvider<
   final storage = FlutterSecureStorage();
   return SalesforceAuthNotifier(storage);
 });
+
+// Provider for the SalesforceProposalRepository instance
+final salesforceProposalServiceProvider =
+    Provider<SalesforceProposalRepository>((ref) {
+      return SalesforceProposalRepository();
+    });
 
 // --- Data Providers ---
 
@@ -181,3 +189,43 @@ final activationCyclesProvider = FutureProvider<List<SalesforceCiclo>>((
     }
   }
 });
+
+// FutureProvider to fetch detailed proposal data
+// It's a family provider because it depends on the proposalId
+final proposalDetailsProvider = FutureProvider.autoDispose
+    .family<DetailedSalesforceProposal, String>((ref, proposalId) async {
+      // Get the authentication state and notifier
+      final authNotifier = ref.watch(salesforceAuthProvider.notifier);
+      final authState = ref.watch(salesforceAuthProvider);
+
+      // Ensure authenticated before proceeding
+      if (authState != SalesforceAuthState.authenticated) {
+        throw Exception('User is not authenticated with Salesforce.');
+      }
+
+      // Get valid credentials
+      final accessToken = await authNotifier.getValidAccessToken();
+      final instanceUrl = authNotifier.currentInstanceUrl;
+
+      if (accessToken == null || instanceUrl == null) {
+        throw Exception('Could not retrieve Salesforce credentials.');
+      }
+
+      // Get the repository instance
+      final repository = ref.watch(salesforceProposalServiceProvider);
+
+      // Fetch the data
+      try {
+        final details = await repository.getProposalDetails(
+          accessToken: accessToken,
+          instanceUrl: instanceUrl,
+          proposalId: proposalId,
+        );
+        return details;
+      } catch (e) {
+        // Rethrow the error to be caught by the UI
+        // Consider more specific error handling/logging here if needed
+        print('Error fetching proposal details in provider: $e');
+        rethrow;
+      }
+    });

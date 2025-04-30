@@ -1082,8 +1082,16 @@ class _AdminSalesforceOpportunityDetailPageState
     DetailedSalesforceOpportunity opportunityDetails,
   ) {
     final theme = Theme.of(context);
-    final proposals =
-        opportunityDetails.proposals; // Get proposals from the object
+    final proposals = opportunityDetails.proposals;
+
+    String? getProposalId(SalesforceProposal proposal) {
+      try {
+        return proposal.id;
+      } catch (_) {
+        return null;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1126,7 +1134,6 @@ class _AdminSalesforceOpportunityDetailPageState
             ),
           )
         else
-          // Wrap Proposals List in Card for consistency
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(
@@ -1143,6 +1150,10 @@ class _AdminSalesforceOpportunityDetailPageState
               padding: EdgeInsets.zero, // Remove padding for inner list
               itemBuilder: (context, index) {
                 final proposal = proposals[index];
+                final proposalId = getProposalId(proposal);
+                // Opportunity ID no longer needed for navigation path
+                // final opportunityId = opportunityDetails.id;
+
                 return ListTile(
                   dense: true,
                   leading: Icon(
@@ -1151,18 +1162,14 @@ class _AdminSalesforceOpportunityDetailPageState
                     color: theme.colorScheme.secondary,
                   ),
                   title: Text(proposal.name),
-                  // Add subtitle later if more fields are needed (e.g., status)
-                  // subtitle: Text('Status: ${proposal.status ?? "N/A"}'),
-                  onTap: () {
-                    // TODO: Navigate to Proposal Detail Page (if applicable)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Proposal detail view not implemented yet.',
-                        ),
-                      ),
-                    );
-                  },
+                  onTap:
+                      (proposalId == null)
+                          ? null // Disable tap if ID is somehow null
+                          : () {
+                            // Use push with the new, simpler absolute path
+                            final path = '/admin/proposal/$proposalId';
+                            context.push(path);
+                          },
                 );
               },
             ),

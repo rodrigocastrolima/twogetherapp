@@ -49,6 +49,7 @@ import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart
     as proposal_models;
 import 'package:twogether/features/proposal/presentation/screens/proposal_detail_page.dart';
 import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
+import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -1131,6 +1132,25 @@ class AppRouter {
             fullscreenDialog: false,
             child: OpportunityDetailsPage(opportunity: opportunity),
           );
+        },
+      ),
+      // Add the Admin Proposal Detail as a top-level route within the admin scope
+      // This makes its path simpler: /admin/proposal/:proposalId
+      GoRoute(
+        path: '/admin/proposal/:proposalId',
+        name: 'adminProposalDetail', // Keep the name
+        // Ensure this is only accessible by admin via redirect logic
+        builder: (context, state) {
+          // Ensure user is admin (although redirect should handle this)
+          final container = ProviderScope.containerOf(context);
+          final authNotifier = container.read(authNotifierProvider);
+          if (!authNotifier.isAdmin) {
+            // Should have been redirected, but as a fallback:
+            return const Scaffold(body: Center(child: Text('Access Denied')));
+          }
+
+          final proposalId = state.pathParameters['proposalId']!;
+          return AdminSalesforceProposalDetailPage(proposalId: proposalId);
         },
       ),
     ],

@@ -271,3 +271,4 @@ class ProposalDetailPage extends ConsumerWidget {
 
   // -----------------------------------------------------------------
 }
+ 
