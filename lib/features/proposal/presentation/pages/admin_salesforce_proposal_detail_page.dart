@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // For date/number formatting
 import 'package:go_router/go_router.dart'; // If needed later for navigation
-import 'package:file_picker/file_picker.dart'; // For file uploads
+import 'package:file_picker/file_picker.dart'; // <-- RESTORED IMPORT
 
 import '../providers/proposal_providers.dart'; // Provider for proposal details
 import '../../data/models/detailed_salesforce_proposal.dart';
@@ -11,6 +11,8 @@ import '../../data/models/cpe_proposal_link.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart'; // For viewing files
 import '../../../../core/services/salesforce_auth_service.dart'; // For getting credentials on save
 import '../widgets/add_cpe_to_proposal_dialog.dart'; // <-- ADDED IMPORT for dialog
+import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
+import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceProposalDetailPage extends ConsumerStatefulWidget {
@@ -31,6 +33,7 @@ class _AdminSalesforceProposalDetailPageState
     extends ConsumerState<AdminSalesforceProposalDetailPage> {
   bool _isEditing = false;
   bool _isSaving = false; // Add saving state flag
+  DetailedSalesforceProposal? _originalProposal; // Store the original
   DetailedSalesforceProposal? _editedProposal; // Holds changes
   final Map<String, TextEditingController> _controllers = {};
   final List<PlatformFile> _filesToAdd = []; // Files picked by user
@@ -64,8 +67,45 @@ class _AdminSalesforceProposalDetailPageState
     'dataInicioContratoC': 'Data_de_In_o_do_Contrato__c',
     'dataFimContratoC': 'Data_de_fim_do_Contrato__c',
     'contratoInseridoC': 'Contrato_inserido__c',
-    // Read-only fields (not editable but needed for display) like Status__c, Solu_o__c, Bundle__c don't need mapping for updates
+    'soluOC': 'Solu_o__c',
+    'statusC': 'Status__c',
+    'backOffice': 'Back_Office__c', // Added
+    'faseC': 'Fase__c', // ASSUMED API Name for Fase
+    'faseLDF': 'Fase_LDF__c', // ASSUMED API Name for Fase LDF
+    // Add mappings for other editable fields as needed
+    // Example: 'stageName': 'StageName' (Standard field)
   };
+
+  // --- NEW: State variables for dropdowns ---
+  String? _selectedSolution;
+  String? _selectedStatus;
+  // --- END NEW ---
+
+  // --- NEW: Picklist Options --- //
+  final List<String> _solucaoOptions = const [
+    '--None--',
+    'LEC',
+    'PAP',
+    'PP',
+    'Energia',
+    'Gás',
+  ];
+
+  final List<String> _statusOptions = const [
+    '--None--',
+    'Criação',
+    'Risco Crédito Revisto',
+    'A Aguardar Pricing',
+    'Pricing Finalizado',
+    'Enviada',
+    'Em Aprovação',
+    'Aprovada',
+    'Não Aprovada',
+    'Aceite',
+    'Expirada',
+    'Cancelada',
+  ];
+  // --- END NEW ---
 
   @override
   void initState() {
@@ -125,42 +165,19 @@ class _AdminSalesforceProposalDetailPageState
   // --- End Formatting Helpers ---
 
   // --- State Initialization and Update Helpers (Adapted from Opportunity Page) ---
-  void _initializeEditState(DetailedSalesforceProposal proposalFromProvider) {
-    // Ensure copyWith and toJson are implemented before calling this
-    _editedProposal = proposalFromProvider.copyWith();
+  void _initializeEditState(DetailedSalesforceProposal proposal) {
+    _originalProposal = proposal; // Store the original for cancellation
+    _editedProposal = proposal.copyWith(); // Create editable copy
+
+    // Initialize dropdown state variables from the editable copy
+    _selectedSolution = _editedProposal?.soluOC;
+    _selectedStatus = _editedProposal?.statusC;
+
+    // Initialize any text controllers if added later
     _controllers.forEach((field, controller) {
-      dynamic initialValueDynamic = _editedProposal?.toJson()[field];
-      String initialValue = '';
-      if (initialValueDynamic is String) {
-        initialValue = initialValueDynamic;
-      } else if (initialValueDynamic is num) {
-        initialValue = initialValueDynamic.toString();
-      }
-      controller.text = initialValue;
-
-      void listener() {
-        final currentModelStateValue = _editedProposal?.toJson()[field];
-        // String controllerTextForComparison = controller.text; // REMOVE Unused variable
-
-        if (currentModelStateValue is num) {
-          final controllerNum = double.tryParse(controller.text);
-          if (controllerNum != null &&
-              controllerNum == currentModelStateValue) {
-            return;
-          }
-        } else if (currentModelStateValue is String &&
-            controller.text == currentModelStateValue) {
-          return;
-        } else if (currentModelStateValue == null && controller.text.isEmpty) {
-          return;
-        }
-        if (_isEditing) {
-          _updateEditedProposalField(field, controller.text);
-        }
-      }
-
-      controller.removeListener(listener);
-      controller.addListener(listener);
+      final initialValue = _editedProposal?.toJson()[field] as String?;
+      controller.text = initialValue ?? '';
+      // Add listeners if needed
     });
   }
 
@@ -229,6 +246,26 @@ class _AdminSalesforceProposalDetailPageState
     });
   }
 
+  // --- NEW: Helper to update _editedProposal state for DROPDOWN fields ---
+  void _updateEditedProposalDropdownField(String field, String? value) {
+    if (!_isEditing || _editedProposal == null) return;
+    final valueToSave = (value == '--None--') ? null : value;
+
+    setState(() {
+      switch (field) {
+        case 'soluOC':
+          _selectedSolution = value;
+          _editedProposal = _editedProposal!.copyWith(soluOC: valueToSave);
+          break;
+        case 'statusC':
+          _selectedStatus = value;
+          _editedProposal = _editedProposal!.copyWith(statusC: valueToSave);
+          break;
+      }
+    });
+  }
+  // --- END NEW ---
+
   // --- ADDED: Helper to get current provider data (used in _saveEdit) ---
   DetailedSalesforceProposal? _getCurrentProviderData() {
     return ref.read(proposalDetailsProvider(widget.proposalId)).asData?.value;
@@ -276,7 +313,9 @@ class _AdminSalesforceProposalDetailPageState
   void _cancelEdit() {
     setState(() {
       _isEditing = false;
-      _editedProposal = null; // Clear the edited copy
+      if (_originalProposal != null) {
+        _initializeEditState(_originalProposal!); // Reset to original
+      }
       // No need to re-initialize controllers from original, just clear changes
       _filesToAdd.clear();
       _filesToDelete.clear();
@@ -285,7 +324,7 @@ class _AdminSalesforceProposalDetailPageState
 
   // --- Implement Save Logic ---
   Future<void> _saveEdit() async {
-    if (_isSaving) return; // Prevent double taps
+    if (_isSaving) return;
     setState(() => _isSaving = true);
 
     // Basic Validation (Example: Name cannot be empty)
@@ -431,15 +470,15 @@ class _AdminSalesforceProposalDetailPageState
           filesToAdd.map((file) async {
             if (file.bytes == null) {
               print("Skipping upload for ${file.name}, bytes are missing.");
-              return; // Skip if bytes are somehow null
+              return;
             }
             try {
               final contentDocId = await proposalService.uploadFile(
                 accessToken: accessToken,
                 instanceUrl: instanceUrl,
                 parentId: widget.proposalId, // Link to this proposal
-                fileName: file.name,
-                fileBytes: file.bytes!, // We ensured bytes are not null
+                fileName: file.name!,
+                fileBytes: file.bytes!,
               );
               if (contentDocId != null) {
                 print("Uploaded file: ${file.name} (ID: $contentDocId)");
@@ -517,7 +556,15 @@ class _AdminSalesforceProposalDetailPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Proposal' : 'Proposal Details'),
+        title: detailsAsync.when(
+          data: (proposal) => Text(proposal.name ?? 'Proposal Details'),
+          loading: () => const Text('Loading...'),
+          error: (_, __) => const Text('Proposal Details'),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
         actions: [
           if (_isEditing)
             // Save and Cancel buttons
@@ -572,6 +619,17 @@ class _AdminSalesforceProposalDetailPageState
               ),
             ),
         data: (proposalFromProvider) {
+          // Initialize state when data first loads IF NOT ALREADY EDITING
+          if (!_isEditing &&
+              (_originalProposal == null ||
+                  proposalFromProvider.id != _originalProposal!.id)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _initializeEditState(proposalFromProvider);
+              }
+            });
+          }
+
           // Determine which data to display
           final DetailedSalesforceProposal displayProposal =
               (_isEditing ? _editedProposal : proposalFromProvider) ??

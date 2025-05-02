@@ -200,57 +200,57 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         type: MaterialType.transparency,
         child: RefreshIndicator(
           key: _refreshIndicatorKey, // Assign key
-          displacement: 40,
-          onRefresh: _onRefresh,
+        displacement: 40,
+        onRefresh: _onRefresh,
           backgroundColor: Colors.transparent, // Explicitly set background
           color: theme.colorScheme.primary, // Color of the spinner
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
+            children: [
                 // --- Top Section Container (Transparent again, relies on MainLayout) ---
-                Container(
+              Container(
                   height:
                       screenSize.height * 0.33, // Match background image height
-                  width: double.infinity,
+                width: double.infinity,
                   // REMOVED explicit BoxDecoration with image
                   color: Colors.transparent,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Stack(
+                child: SafeArea(
+                  bottom: false,
+                  child: Stack(
                       // Stack for icons and commission box
-                      children: [
-                        Column(
-                          children: [
+                    children: [
+                      Column(
+                        children: [
                             const SizedBox(height: 20),
                             // --- Header Row (Profile Icon, Action Icons) ---
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20.0,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20.0,
                               ),
-                              child: Row(
+                            child: Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
-                                children: [
+                              children: [
                                   // Profile Icon
-                                  ref
-                                      .watch(authStateChangesProvider)
-                                      .when(
-                                        data:
+                                ref
+                                    .watch(authStateChangesProvider)
+                                    .when(
+                                      data:
                                             (user) => _buildProfileIcon(
                                               context,
                                               theme,
-                                              user?.displayName,
-                                              user?.email,
-                                            ),
-                                        loading:
+                                                      user?.displayName,
+                                                      user?.email,
+                                          ),
+                                      loading:
                                             () => _buildProfileIconPlaceholder(
                                               context,
                                               theme,
-                                            ),
-                                        error:
+                                          ),
+                                      error:
                                             (_, __) => _buildProfileIcon(
                                               context,
                                               theme,
@@ -259,29 +259,29 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                             ), // Fallback
                                       ),
                                   // Action Icons
-                                  Row(
-                                    children: [
-                                      _buildCircleIconButton(
-                                        icon: CupertinoIcons.search,
+                                Row(
+                                  children: [
+                                    _buildCircleIconButton(
+                                      icon: CupertinoIcons.search,
                                         onTap: () {
                                           /* TODO */
                                         },
-                                        isHighlighted: false,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      _buildCircleIconButton(
-                                        icon: CupertinoIcons.bell_fill,
+                                      isHighlighted: false,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    _buildCircleIconButton(
+                                      icon: CupertinoIcons.bell_fill,
                                         onTap: () {
                                           /* TODO */
                                         },
-                                        isHighlighted: false,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ScaleTransition(
-                                        scale: _helpIconAnimation,
-                                        child: _buildCircleIconButton(
-                                          icon: CupertinoIcons.question_circle,
-                                          isHighlighted: shouldAnimate,
+                                      isHighlighted: false,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ScaleTransition(
+                                      scale: _helpIconAnimation,
+                                      child: _buildCircleIconButton(
+                                        icon: CupertinoIcons.question_circle,
+                                        isHighlighted: shouldAnimate,
                                           onTap:
                                               () => _handleHelpIconTap(
                                                 context,
@@ -289,56 +289,56 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                               ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Commission Box (Centered within Expanded)
-                            Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
-                                  child: _buildCommissionBox(),
+                                  ],
                                 ),
+                              ],
+                            ),
+                          ),
+                            // Commission Box (Centered within Expanded)
+                          Expanded(
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: _buildCommissionBox(),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+              ),
                 // --- Bottom Content Area (Opaque Background) ---
-                Container(
-                  width: double.infinity,
+              Container(
+                width: double.infinity,
                   // Use theme background color here
-                  color: theme.colorScheme.background,
+                color: theme.colorScheme.background,
                   padding: const EdgeInsets.only(
                     top: 20,
                     bottom: 60,
                   ), // Adjust padding as needed
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildQuickActionsSection(),
-                      ),
-                      const SizedBox(height: 30),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildNotificationsSection(),
-                      ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildQuickActionsSection(),
+                    ),
+                    const SizedBox(height: 30),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildNotificationsSection(),
+                    ),
                       const SizedBox(
                         height: 40,
                       ), // Ensure enough space at bottom
-                    ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
+            ],
             ),
           ),
         ),

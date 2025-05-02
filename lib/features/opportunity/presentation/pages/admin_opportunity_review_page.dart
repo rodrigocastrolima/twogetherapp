@@ -966,16 +966,16 @@ class _OpportunityDetailFormViewState
                   Expanded(
                     // Make TextFormField take available space
                     child: TextFormField(
-                      controller: _nifController,
-                      decoration: InputDecoration(
+                controller: _nifController,
+                decoration: InputDecoration(
                         labelText: 'NIF', // NIF (already Portuguese)
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
                           return 'NIF é obrigatório'; // NIF is required
-                        }
-                        return null;
-                      },
+                  }
+                  return null;
+                },
                     ),
                   ),
                   const SizedBox(width: 12), // Adjusted spacing

@@ -165,6 +165,8 @@ export const createSalesforceProposal = onCall(
 
         // --- F. Process CPE Items (Loop) ---
         logger.info(`Processing ${data.cpeItems.length} CPE items...`);
+        const allCpeIds: string[] = []; // Keep track of created CPE Ids if needed
+
         for (const [index, cpeItem] of data.cpeItems.entries()) {
             logger.info(`Processing CPE Item #${index + 1}: ${cpeItem.cpe}`);
 
@@ -190,183 +192,209 @@ export const createSalesforceProposal = onCall(
                 throw new HttpsError("invalid-argument", `Invalid numeric data for CPE ${cpeItem.cpe}: ${parseError.message}`);
             }
 
-            // F.1 Create CPE__c Record
-            const cpePayload = {
+            // --- START: Find or Create CPE__c Record ---
+            let cpeRecordId: string | null = null;
+            try {
+                logger.info(`Querying for existing CPE__c with Name = ${cpeItem.cpe}`);
+                const existingCpeQuery = await callSalesforceApi<jsforce.QueryResult<{ Id: string }>>(async () =>
+                   conn.query(`SELECT Id FROM CPE__c WHERE Name = '${cpeItem.cpe}' LIMIT 1`)
+                );
+
+                if (existingCpeQuery.totalSize > 0 && existingCpeQuery.records[0].Id) {
+                    cpeRecordId = existingCpeQuery.records[0].Id;
+                    logger.info(`Found existing CPE__c record. ID: ${cpeRecordId}`);
+                } else {
+                    logger.info(`No existing CPE__c found. Creating new CPE__c for ${cpeItem.cpe}...`);
+                    const cpeCreatePayload = {
                 Name: cpeItem.cpe,
                 Entidade__c: data.salesforceAccountId,
                 NIF__c: cpeItem.nif,
                 Consumo_anual_esperado_KWh__c: consumoIntegerRoundedUp,
-                Solu_o__c: data.solution, // Assuming same solution
-                Fideliza_o_Anos__c: fidelizacaoAnos,
-                Proposta__c: proposalId,
-            };
-            logger.debug(`CPE__c Payload for item ${index + 1}:`, { payload: cpePayload });
+                        Solu_o__c: data.solution, // Set on CPE as well
+                        Fideliza_o_Anos__c: fidelizacaoAnos, // Set on CPE as well
+                        // Add other required fields for CPE__c here if necessary and available
+                    };
+                    logger.debug("New CPE__c Payload:", { payload: cpeCreatePayload });
 
-            const cpeResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
-                conn.sobject('CPE__c').create(cpePayload)
-            );
+                    const cpeCreateResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
+                       conn.sobject('CPE__c').create(cpeCreatePayload)
+                    );
 
-            if (!cpeResult.success || !cpeResult.id) {
-                logger.error(`Failed to create CPE__c for item ${index + 1}.`, { result: cpeResult });
-                throw new HttpsError("internal", `Failed to create CPE ${cpeItem.cpe} in Salesforce.`, { details: cpeResult.errors });
+                    if (!cpeCreateResult.success || !cpeCreateResult.id) {
+                        logger.error(`Failed to create new CPE__c for ${cpeItem.cpe}.`, { result: cpeCreateResult });
+                        throw new HttpsError("internal", `Failed to create CPE ${cpeItem.cpe} in Salesforce.`, { details: cpeCreateResult.errors });
+                    }
+                    cpeRecordId = cpeCreateResult.id;
+                    logger.info(`Successfully created new CPE__c. ID: ${cpeRecordId}`);
+                }
+            } catch (cpeFindOrCreateError: any) {
+                logger.error(`Error finding or creating CPE__c for ${cpeItem.cpe}:`, { error: cpeFindOrCreateError.message || cpeFindOrCreateError });
+                // Rethrow if it's an HttpsError (like session expiry), otherwise wrap it
+                if (cpeFindOrCreateError instanceof HttpsError) throw cpeFindOrCreateError;
+                throw new HttpsError("internal", `Failed to process CPE ${cpeItem.cpe}.`, { detail: cpeFindOrCreateError.message });
             }
-            const cpeRecordId = cpeResult.id;
-            logger.info(`Successfully created CPE__c for item ${index + 1}. ID: ${cpeRecordId}`);
 
-            // F.2 Create CPE_Proposta__c Record
+            if (!cpeRecordId) { // Should not happen if logic above is correct, but safety check
+                 logger.error(`Failed to obtain CPE__c ID for ${cpeItem.cpe}. Skipping this item.`);
+                 continue; // Skip to the next cpeItem
+            }
+            // --- END: Find or Create CPE__c Record ---
+
+            // --- F.1 Create CPE_Proposta__c Record ---
             const cpePropostaPayload = {
-                CPE_Proposta__c: cpeRecordId,
-                Proposta_CPE__c: proposalId,
-                Agente_Retail__c: data.resellerSalesforceId, // <-- Use Reseller User ID from input
-                Consumo_ou_Pot_ncia_Pico__c: consumoDecimal,
-                Fideliza_o_Anos__c: fidelizacaoAnos,
-                Ciclo_de_Activa_o__c: cpeItem.cicloId,
-                Comiss_o_Retail__c: comissaoDecimal,
-                Status__c: 'Activo', // NEW - Requested Value
+                CPE_Proposta__c: cpeRecordId,        // CORRECT API Name for Lookup to CPE__c
+                Proposta_CPE__c: proposalId,        // CORRECT API Name for Lookup to Proposta__c
+                Ciclo_de_Activa_o__c: cpeItem.cicloId, // Field specific to proposal context
+                Comiss_o_Retail__c: comissaoDecimal,         // Field specific to proposal context
+                Consumo_ou_Pot_ncia_Pico__c: consumoDecimal, // Field specific to proposal context
+                Fideliza_o_Anos__c: fidelizacaoAnos,         // Field specific to proposal context
+                Agente_Retail__c: data.resellerSalesforceId, // Field specific to proposal context
+                // Solu_o__c: data.solution,             // REMOVED - This field belongs on CPE__c, not CPE_Proposta__c
+                // Add other fields from CPE_Proposta__c object if needed
             };
-            logger.debug(`CPE_Proposta__c Payload for item ${index + 1}:`, { payload: cpePropostaPayload });
+            // Log the payload BEFORE sending it to Salesforce
+            logger.debug(`CPE_Proposta__c Payload #${index + 1}:`, { payload: cpePropostaPayload });
 
+            // Create the CPE_Proposta__c junction record
             const cpePropostaResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
                 conn.sobject('CPE_Proposta__c').create(cpePropostaPayload)
             );
 
             if (!cpePropostaResult.success || !cpePropostaResult.id) {
-                 logger.error(`Failed to create CPE_Proposta__c for item ${index + 1}.`, { result: cpePropostaResult });
+                logger.error(`Failed to create CPE_Proposta__c for CPE ${cpeItem.cpe}.`, { result: cpePropostaResult });
+                // Decide: stop processing or skip this CPE? Let's throw for now.
                 throw new HttpsError("internal", `Failed to create CPE-Proposal link for ${cpeItem.cpe}.`, { details: cpePropostaResult.errors });
             }
-            logger.info(`Successfully created CPE_Proposta__c link for item ${index + 1}. ID: ${cpePropostaResult.id}`);
+            const cpePropostaId = cpePropostaResult.id;
+            allCpeIds.push(cpePropostaId);
+            logger.info(`Successfully created CPE_Proposta__c for ${cpeItem.cpe}. ID: ${cpePropostaId}`);
 
-
-            // F.3 Upload Files (ContentVersion)
+            // --- START: File Processing for THIS CPE_Proposta__c ---
             if (cpeItem.fileUrls && cpeItem.fileUrls.length > 0) {
-                logger.info(`Uploading ${cpeItem.fileUrls.length} files for CPE item ${index + 1}...`);
+                logger.info(`Processing ${cpeItem.fileUrls.length} files for CPE ${cpeItem.cpe}...`);
                 for (const fileUrl of cpeItem.fileUrls) {
                     try {
-                        // 1. Download file content
-                        logger.debug(`Downloading file from: ${fileUrl}`);
+                        logger.info(`Downloading file for CPE ${cpeItem.cpe} from: ${fileUrl}`);
                         const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
-                        if (response.status !== 200) {
-                            throw new Error(`Failed to download file: Status ${response.status}`);
-                        }
-                        const fileBuffer = Buffer.from(response.data);
-                        logger.debug(`File downloaded. Size: ${fileBuffer.length} bytes.`);
+                        const fileContentBase64 = Buffer.from(response.data, 'binary').toString('base64');
+                        const fileName = fileUrl.split('/').pop()?.split('?')[0] ?? `file_${Date.now()}`; // Extract filename
+                        const mimeType = response.headers['content-type'] || 'application/octet-stream'; // Get MIME type
 
-                        // 2. Get filename
-                         let fileName = 'UnknownFile';
-                        try {
-                           const decodedPath = decodeURIComponent(fileUrl.split('/').pop()?.split('?')[0] || 'UnknownFile');
-                           fileName = decodedPath.split('/').pop() || 'UnknownFile';
-                           // Remove potential query params/storage tokens from display name if needed
-                        } catch(e) {
-                           logger.warn(`Could not reliably parse filename from URL: ${fileUrl}`, e);
-                           fileName = fileUrl.substring(fileUrl.lastIndexOf('/') + 1).split('?')[0] || 'UnknownFile';
-                        }
-                        logger.debug(`Extracted filename: ${fileName}`);
+                        logger.info(`Uploading file "${fileName}" (${mimeType}) to Salesforce ContentVersion...`);
 
-                        // 3. Base64 Encode
-                        const base64Content = fileBuffer.toString('base64');
-
-                        // 4. Create ContentVersion
-                        const filePayload = {
-                            Title: fileName,
-                            PathOnClient: fileName,
-                            VersionData: base64Content,
-                            FirstPublishLocationId: proposalId, // Link to the main Proposta__c record
-                            // Origin: 'H' // 'H' for Chatter, 'C' for Content. Optional.
-                        };
-                        logger.info(`Uploading ${fileName} (${base64Content.length} chars base64) to Salesforce, linking to Proposal ${proposalId}...`);
-
-                        const fileResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
-                            conn.sobject('ContentVersion').create(filePayload)
+                        // Create ContentVersion
+                        const contentVersionResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
+                            conn.sobject('ContentVersion').create({
+                                Title: fileName,
+                                PathOnClient: fileName,
+                                VersionData: fileContentBase64,
+                                Origin: 'H', // 'H' for Chatter File, 'C' for Content Document
+                                // FirstPublishLocationId: cpePropostaId, // Link on creation (Alternative)
+                            })
                         );
 
-                        if (!fileResult.success || !fileResult.id) {
-                            logger.error(`Failed to upload file ${fileName} to Salesforce.`, { result: fileResult });
-                            throw new HttpsError("internal", `Failed to upload file ${fileName}.`, { details: fileResult.errors });
+                        if (!contentVersionResult.success || !contentVersionResult.id) {
+                           logger.error(`Failed to create ContentVersion for file "${fileName}" for CPE ${cpeItem.cpe}.`, { result: contentVersionResult });
+                           // Log error and continue with next file/CPE?
+                           continue; // Skip linking this file
                         }
-                        logger.info(`Successfully uploaded file ${fileName} as ContentVersion ${fileResult.id}`);
+                        const contentVersionId = contentVersionResult.id;
+                        logger.info(`Successfully created ContentVersion for "${fileName}". ID: ${contentVersionId}`);
 
-                    } catch (fileUploadError: any) {
-                        logger.error(`Error processing file ${fileUrl}:`, fileUploadError);
-                        // If it's an HttpsError (e.g., session expired from callSalesforceApi), rethrow it
-                        if (fileUploadError instanceof HttpsError) {
-                            throw fileUploadError;
+                        // Query ContentDocumentId
+                        const contentVersion = await callSalesforceApi<jsforce.QueryResult<{ ContentDocumentId: string }>>(async () => {
+                           return conn.query(`SELECT ContentDocumentId FROM ContentVersion WHERE Id = '${contentVersionId}'`);
+                        });
+
+                        if (!contentVersion.records || contentVersion.records.length === 0 || !contentVersion.records[0].ContentDocumentId) {
+                           logger.error(`Failed to retrieve ContentDocumentId for ContentVersion ${contentVersionId}.`);
+                           // Log error and continue?
+                           continue; // Skip linking this file
                         }
-                        // Otherwise, wrap it - decide if one file failure should stop everything
-                        throw new HttpsError("internal", `Failed during file upload process for ${fileUrl}.`, fileUploadError);
+                        const contentDocumentId = contentVersion.records[0].ContentDocumentId;
+                        logger.info(`Retrieved ContentDocumentId: ${contentDocumentId}`);
+
+                        // Create ContentDocumentLink to link the file to the CPE_Proposta__c
+                        const contentLinkResult = await callSalesforceApi<{ id?: string; success?: boolean; errors?: any[] }>(() =>
+                           conn.sobject('ContentDocumentLink').create({
+                               ContentDocumentId: contentDocumentId,
+                               LinkedEntityId: cpePropostaId, // <-- LINK TO THE CPE_Proposta__c ID
+                               ShareType: 'V', // 'V' = Viewer, 'C' = Collaborator, 'I' = Inferred
+                               Visibility: 'AllUsers', // Or 'InternalUsers'
+                           })
+                        );
+
+                         if (!contentLinkResult.success || !contentLinkResult.id) {
+                            logger.error(`Failed to create ContentDocumentLink for Doc ${contentDocumentId} to CPE ${cpePropostaId}.`, { result: contentLinkResult });
+                            // Log error and continue?
+                            continue; // Skip linking this file
+                        }
+                        logger.info(`Successfully created ContentDocumentLink for Doc ${contentDocumentId} to CPE ${cpePropostaId}. Link ID: ${contentLinkResult.id}`);
+
+                    } catch (fileError: any) {
+                         logger.error(`Error processing file ${fileUrl} for CPE ${cpeItem.cpe}:`, { error: fileError.message || fileError });
+                         // Log error and continue with the next file?
+                         // Consider if one file failure should stop the whole CPE processing.
                     }
-                } // End loop through fileUrls
+                } // End loop through files for this CPE
             } else {
-                 logger.info(`No files to upload for CPE item ${index + 1}.`);
+                 logger.info(`No files provided for CPE ${cpeItem.cpe}.`);
             }
+            // --- END: File Processing for THIS CPE_Proposta__c ---
 
         } // End loop through cpeItems
 
-        // --- G. Return Success --- 
-        logger.info("All proposal creation steps completed successfully.");
+        // --- G. REMOVED OLD File Processing Block ---
+        // The block that iterated through all fileUrls and linked to proposalId is deleted.
+
+        // --- H. Return Success ---
+        logger.info(`Successfully created proposal ${proposalId} and processed ${data.cpeItems.length} CPE items.`);
         return { success: true, proposalId: proposalId };
 
-    } catch (error) {
-      logger.error("Error caught during proposal creation process:", error);
-      // Rollback attempts could be added here if needed, but can be complex.
-      // For now, just report the failure.
+    } catch (error: any) {
+        // ... (existing error handling) ...
+        logger.error("Error during Salesforce operation:", { errorMessage: error.message, errorCode: error.errorCode, fields: error.fields });
 
+        // Check for specific Salesforce session expiry error
+        if (error.errorCode === 'INVALID_SESSION_ID' || error.message?.includes('Session expired or invalid')) {
+            logger.warn("Salesforce session expired or invalid.");
+            // Attempt to delete partially created proposal if ID exists? (Complex rollback)
+            return { success: false, error: "Salesforce session expired. Please log in again.", sessionExpired: true };
+        }
+
+        // Check for HttpsError from validation, auth, or sub-calls
       if (error instanceof HttpsError) {
-          // If it's already an HttpsError, check for sessionExpired detail
-          const details = error.details as { sessionExpired?: boolean } | undefined;
-          return {
-              success: false,
-              proposalId: proposalId, // Include proposalId if it was created before failure
-              error: error.message,
-              sessionExpired: details?.sessionExpired ?? false,
-          };
-      } else if (error instanceof Error) {
-          // Wrap other generic errors
-          return { success: false, proposalId: proposalId, error: error.message };
-      } else {
-          return { success: false, proposalId: proposalId, error: "An unexpected error occurred." };
-      }
+            logger.error("Caught HttpsError:", { code: error.code, message: error.message, details: error.details });
+            // Rethrow HttpsError to be handled by the Functions framework
+             throw error;
+        }
+
+        // Generic internal error for other Salesforce or unexpected issues
+        logger.error("Caught unexpected error:", error);
+        throw new HttpsError("internal", "An internal error occurred while creating the proposal.", { detail: error.message });
+
     }
   }
 );
 
 
-// --- Salesforce API Call Helper Function (Copied from createSalesforceOpportunity) ---
-// TODO: Consider moving this to a shared utility file
+// --- Helper function to call Salesforce API with error handling ---
+// Ensure this helper handles session expiry correctly if needed by specific calls
 async function callSalesforceApi<T>(
     apiCall: () => Promise<T>,
     checkSessionExpiry = true // Added flag to control session expiry check
 ): Promise<T> {
-    logger.info("Executing Salesforce API call...");
     try {
-        const result = await apiCall();
-        logger.info("Salesforce API call successful.");
-        return result;
+        return await apiCall();
     } catch (error: any) {
-        logger.error('Salesforce API Error caught in helper:', {
-            name: error.name,
-            code: error.errorCode,
-            message: error.message,
-            // stack: error.stack // Optional: include stack trace if needed
-        });
-
-        // Check for specific Salesforce session invalidation errors only if requested
-        if (checkSessionExpiry &&
-            (error.name === 'invalid_grant' ||
-             error.errorCode === 'INVALID_SESSION_ID' ||
-             (error.errorCode && typeof error.errorCode === 'string' && error.errorCode.includes('INVALID_SESSION_ID'))))
-        {
-            logger.warn('Detected invalid session ID or grant error.');
-            throw new HttpsError('unauthenticated', 'Salesforce session expired or invalid.', { sessionExpired: true });
-        } else {
-            // Throw a generic internal error for other Salesforce issues
-            const errorMessage = error.message || error.name || 'Unknown Salesforce API error';
-            // Include SF error details if available
-            const details = {
-                 errorCode: error.errorCode,
-                 fields: error.fields // Include fields if available (e.g., validation errors)
-             };
-            throw new HttpsError('internal', `Salesforce API call failed: ${errorMessage}`, details);
+        logger.error("Salesforce API call failed:", { errorMessage: error.message, errorCode: error.errorCode });
+        // Check for session expiry if requested
+         if (checkSessionExpiry && (error.errorCode === 'INVALID_SESSION_ID' || error.message?.includes('Session expired or invalid'))) {
+             logger.warn("Session expired detected in callSalesforceApi helper.");
+            // Rethrow the specific error to be handled by the main function logic
+            throw error;
         }
+        // Rethrow other errors to be handled by the main function's catch block
+        throw error;
     }
 } 

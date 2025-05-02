@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p; // For basename
 import 'package:twogether/core/services/salesforce_auth_service.dart'; // For notifier provider
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // Import Ciclo model
 import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart'; // Import provider
+import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import proposal provider
 // import 'package:twogether/l10n/l10n.dart'; // TODO: Re-enable l10n
 // import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // TODO: Re-enable l10n
 
@@ -76,20 +77,34 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
   // --- Controllers & State for Informação da Proposta --- //
   late TextEditingController _proposalNameController;
-  late TextEditingController _solutionController;
   late TextEditingController _validityDateController;
   late TextEditingController _bundleController;
   late TextEditingController _solarInvestmentController;
   late TextEditingController _creationDateController; // For read-only display
 
+  // --- NEW: State for Solution Dropdown ---
+  String? _selectedSolution;
+  // --- END NEW ---
+
   bool _energiaChecked = false;
   bool _solarChecked = false;
   DateTime? _selectedValidityDate;
-  // --- End Proposal State --- //
+  // --- End Proposal State ---
 
   // --- State for Dynamic CPE List --- //
   List<_CpeInputData> _cpeItems = [];
   // --- End CPE State --- //
+
+  // --- NEW: Picklist Options for Solution ---
+  final List<String> _solucaoOptions = const [
+    '--None--',
+    'LEC',
+    'PAP',
+    'PP',
+    'Energia',
+    'Gás',
+  ];
+  // --- END NEW ---
 
   @override
   void initState() {
@@ -100,7 +115,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
     // Initialize Proposta controllers
     _proposalNameController = TextEditingController();
-    _solutionController = TextEditingController();
     _validityDateController = TextEditingController();
     _bundleController = TextEditingController();
     _solarInvestmentController = TextEditingController();
@@ -124,7 +138,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
     // Dispose Proposta controllers
     _proposalNameController.dispose();
-    _solutionController.dispose();
     _validityDateController.dispose();
     _bundleController.dispose();
     _solarInvestmentController.dispose();
@@ -387,7 +400,8 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
         'resellerSalesforceId': widget.resellerSalesforceId,
         // Proposal Fields
         'proposalName': _proposalNameController.text.trim(),
-        'solution': _solutionController.text.trim(),
+        'solution':
+            (_selectedSolution == '--None--') ? null : _selectedSolution,
         'energiaChecked': _energiaChecked,
         'validityDate': _validityDateController.text,
         'bundle':
@@ -432,39 +446,75 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
             ),
           ), // TODO: l10n
         );
+
+        // --- START: Invalidate Provider for Refresh ---
+        // Invalidate the provider that holds the data for the opportunity detail page
+        // This assumes the user returns to the opportunity detail page.
+        ref.invalidate(
+          opportunityDetailsProvider(widget.salesforceOpportunityId),
+        );
+        // --- END: Invalidate Provider for Refresh ---
+
         // Navigate back using GoRouter
         if (GoRouter.of(context).canPop()) {
           // <-- Use GoRouter
-          GoRouter.of(context).pop(); // <-- Use GoRouter
+          GoRouter.of(context).pop(); // <-- Pops the current page
+        } else {
+          // Handle case where it can't pop (e.g., deep link) - maybe go home?
+          // context.go('/home'); // Example using GoRouter
+          if (kDebugMode) {
+            print("Cannot pop, maybe navigated directly?");
+          }
         }
       } else {
-        // Check for session expiry
+        // Handle failure (check for session expiry specifically)
         bool sessionExpired = result.data['sessionExpired'] == true;
-        String errorMsg = result.data['error'] ?? 'Failed to create proposal.';
+        String errorMessage =
+            result.data['error']?.toString() ?? 'Unknown error occurred.';
 
         if (sessionExpired) {
-          errorMsg = 'Salesforce session expired. Please log out and back in.';
-          // Trigger sign out
-          await ref.read(salesforceAuthNotifierProvider.notifier).signOut();
-          // Optionally navigate to login screen - handled by auth listeners usually
+          // Handle session expiry: Show message, potentially log out
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage), // Use message from function
+              backgroundColor: Colors.orange,
+            ),
+          );
+          // Consider calling sfAuthNotifier.logout() or navigating to login
+          // context.go('/login');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error submitting proposal: $errorMessage'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
-        // Throw exception to be caught by the outer catch block
-        throw Exception(errorMsg);
+        if (kDebugMode) {
+          print("Error during submission process: $errorMessage");
+        }
       }
-      // --- End Process Result ---
     } catch (e) {
-      if (kDebugMode) {
-        print("Error during submission process: $e");
-      }
+      // Catch errors from file upload or function call
+      String errorMessage =
+          (e is FirebaseFunctionsException)
+              ? (e.message ?? e.code)
+              : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Submission failed: ${e.toString()}',
-          ), // Show specific error
-          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text('Error during submission process: $errorMessage'),
+          backgroundColor: Colors.red,
         ),
       );
+      if (kDebugMode) {
+        print("Error during submission process: $errorMessage");
+        if (e is FirebaseFunctionsException) {
+          print("Function Error Code: ${e.code}");
+          print("Function Error Details: ${e.details}");
+        }
+      }
     } finally {
+      // Ensure loading indicator is turned off
       if (mounted) {
         setState(() {
           _isSubmitting = false;
@@ -778,16 +828,30 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                             : null, // TODO: l10n
               ),
               const SizedBox(height: fieldSpacing),
-              TextFormField(
-                controller: _solutionController,
+              DropdownButtonFormField<String>(
+                value: _selectedSolution,
+                items:
+                    _solucaoOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedSolution = newValue;
+                  });
+                },
                 decoration: const InputDecoration(
-                  labelText: 'Solution',
-                ), // TODO: l10n
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'Solution is required'
-                            : null, // TODO: l10n
+                  labelText: 'Solution', // TODO: l10n
+                ),
+                validator: (value) {
+                  if (value == null || value == '--None--') {
+                    return 'Solution is required'; // TODO: l10n
+                  }
+                  return null;
+                },
+                hint: const Text('Select a solution'), // TODO: l10n
               ),
               const SizedBox(height: fieldSpacing),
               Row(

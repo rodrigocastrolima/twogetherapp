@@ -8,12 +8,23 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:typed_data';
 
 class FullScreenPdfViewer extends StatefulWidget {
-  final String pdfUrl;
+  final String? pdfUrl;
   final String? pdfName;
+  final Uint8List? pdfBytes;
 
-  const FullScreenPdfViewer({super.key, required this.pdfUrl, this.pdfName});
+  const FullScreenPdfViewer({
+    super.key,
+    this.pdfUrl,
+    this.pdfName,
+    this.pdfBytes,
+  }) : assert(
+         pdfUrl != null || pdfBytes != null,
+         'Either pdfUrl or pdfBytes must be provided',
+       );
 
   @override
   State<FullScreenPdfViewer> createState() => _FullScreenPdfViewerState();
@@ -42,22 +53,39 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
       _loadError = null;
     });
     try {
-      // Download the PDF to a temporary file
-      final response = await http.get(Uri.parse(widget.pdfUrl));
-      if (response.statusCode == 200) {
-        final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/${widget.pdfName ?? "temp"}.pdf');
-        await file.writeAsBytes(response.bodyBytes);
+      final fileName = widget.pdfName ?? const Uuid().v4();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$fileName.pdf');
+
+      if (widget.pdfBytes != null) {
+        await file.writeAsBytes(widget.pdfBytes!, flush: true);
+        if (kDebugMode)
+          print('PDF bytes written to temporary file: ${file.path}');
         if (mounted) {
           setState(() {
             localPath = file.path;
             _isLoading = false;
           });
         }
+      } else if (widget.pdfUrl != null) {
+        final response = await http.get(Uri.parse(widget.pdfUrl!));
+        if (response.statusCode == 200) {
+          await file.writeAsBytes(response.bodyBytes, flush: true);
+          if (kDebugMode)
+            print('PDF downloaded to temporary file: ${file.path}');
+          if (mounted) {
+            setState(() {
+              localPath = file.path;
+              _isLoading = false;
+            });
+          }
+        } else {
+          throw Exception(
+            'Failed to load PDF: Status code ${response.statusCode}',
+          );
+        }
       } else {
-        throw Exception(
-          'Failed to load PDF: Status code ${response.statusCode}',
-        );
+        throw Exception('Neither PDF bytes nor URL were provided.');
       }
     } catch (e) {
       print("Error loading PDF: $e");
@@ -72,7 +100,13 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
 
   // --- Action Handlers ---
   Future<void> _onDownload(BuildContext context) async {
-    final Uri url = Uri.parse(widget.pdfUrl);
+    if (widget.pdfUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Download not available for local data')),
+      );
+      return;
+    }
+    final Uri url = Uri.parse(widget.pdfUrl!);
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -90,20 +124,45 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   }
 
   Future<void> _onShare(BuildContext context) async {
-    try {
-      await Share.share('Check out this PDF: ${widget.pdfUrl}');
-    } catch (e) {
-      print('Error sharing PDF link: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not share PDF link: $e')));
+    if (localPath != null) {
+      try {
+        final box = context.findRenderObject() as RenderBox?;
+        await Share.shareXFiles(
+          [XFile(localPath!)],
+          text: widget.pdfName ?? 'PDF Document',
+          sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
+        );
+      } catch (e) {
+        print('Error sharing PDF file: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not share PDF file: $e')),
+          );
+        }
       }
+    } else if (widget.pdfUrl != null) {
+      try {
+        await Share.share('Check out this PDF: ${widget.pdfUrl}');
+      } catch (e) {
+        print('Error sharing PDF link: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not share PDF link: $e')),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not share PDF')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool downloadEnabled = widget.pdfUrl != null;
+    final bool shareEnabled = localPath != null || widget.pdfUrl != null;
+
     return Scaffold(
       backgroundColor: Colors.grey[300], // Lighter background for PDF contrast
       appBar: AppBar(
@@ -122,13 +181,13 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.share),
-            tooltip: 'Share PDF Link',
-            onPressed: () => _onShare(context),
+            tooltip: 'Share PDF',
+            onPressed: shareEnabled ? () => _onShare(context) : null,
           ),
           IconButton(
             icon: const Icon(Icons.download),
-            tooltip: 'Open PDF Link',
-            onPressed: () => _onDownload(context),
+            tooltip: 'Open PDF Link (if available)',
+            onPressed: downloadEnabled ? () => _onDownload(context) : null,
           ),
         ],
       ),

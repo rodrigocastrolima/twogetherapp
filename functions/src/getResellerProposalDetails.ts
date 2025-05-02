@@ -11,12 +11,20 @@ interface GetResellerProposalDetailsInput {
     proposalId: string;
 }
 
+// --- NEW: Interface for File Info --- //
+interface SalesforceFileInfo {
+    id: string; // ContentVersion ID
+    title: string; // File name (Title from ContentVersion)
+}
+
 // Structure for the CPE_Proposta__c junction object data needed
 interface SalesforceCPEProposalData {
     Id: string;
     Consumo_ou_Potencia_Pico__c?: number; // Nullable number
     Fidelizacao_Anos__c?: number; // Nullable number
     Comissao_Retail__c?: number; // Nullable number
+    // --- ADDED: Field for attached files --- //
+    attachedFiles?: SalesforceFileInfo[];
 }
 
 // Structure for the Proposta__c object data needed
@@ -34,17 +42,19 @@ interface SalesforceProposalData {
     } | null;
 }
 
-// Structure for the final result returned by the function (Simplified)
-// We can return the main proposal record directly now
-/*
-interface GetResellerProposalDetailsResult {
-    success: boolean;
-    proposal?: SalesforceProposalData;
-    cpePropostas?: SalesforceCPEProposalData[];
-    error?: string;
-    errorCode?: string;
+// Structure for ContentDocumentLink query result
+interface ContentDocumentLinkRecord {
+    Id: string;
+    LinkedEntityId: string;
+    ContentDocumentId: string;
 }
-*/
+
+// Structure for ContentVersion query result
+interface ContentVersionRecord {
+    Id: string;
+    ContentDocumentId: string;
+    Title: string;
+}
 
 // --- Helper Function for JWT Connection (copied and adapted slightly) ---
 async function getSalesforceConnection(): Promise<jsforce.Connection> {
@@ -133,20 +143,19 @@ export const getResellerProposalDetails = onCall(
             // 3. --- Salesforce Connection (JWT - remains the same) ---
             conn = await getSalesforceConnection();
 
-            // 4. --- SOQL Query (UPDATED with Subquery, using string concatenation) ---
-            const combinedQuery = 
+            // 4. --- SOQL Query for Proposal and CPEs (remains the same) ---
+            const proposalQuery = 
                 'SELECT ' +
                 'Id, Name, Status__c, Data_de_Cria_o_da_Proposta__c, Data_de_Validade__c, ' +
                 '(SELECT Id, Consumo_ou_Pot_ncia_Pico__c, Fideliza_o_Anos__c, Comiss_o_Retail__c FROM CPE_Propostas__r) ' +
                 'FROM Proposta__c ' +
-                'WHERE Id = \'' + proposalId + '\' ' + // Escape single quotes for proposalId
+                'WHERE Id = \'' + proposalId + '\' ' +
                 'LIMIT 1';
 
-            logger.info(`${functionName}: Executing combined query for Proposal ID ${proposalId}`);
-            // Use combinedQuery directly for logging now
-            logger.debug(`${functionName}: Query: ${combinedQuery.replace(/\s+/g, ' ').trim()}`);
+            logger.info(`${functionName}: Executing query for Proposal ID ${proposalId}`);
+            logger.debug(`${functionName}: Query: ${proposalQuery.replace(/\s+/g, ' ').trim()}`);
 
-            const result = await conn.query<SalesforceProposalData>(combinedQuery);
+            const result = await conn.query<SalesforceProposalData>(proposalQuery);
 
             if (result.totalSize === 0 || !result.records || result.records.length === 0) {
                 logger.warn(`${functionName}: Proposal not found for ID ${proposalId}`);
@@ -156,20 +165,76 @@ export const getResellerProposalDetails = onCall(
             const proposalData = result.records[0];
 
             // Clean up attributes from nested records if they exist
-             if (proposalData.CPE_Propostas__r && proposalData.CPE_Propostas__r.records) {
-                 proposalData.CPE_Propostas__r.records = proposalData.CPE_Propostas__r.records.map((r: any) => {
-                     delete r.attributes; // Remove Salesforce metadata noise
-                     return r;
-                 });
-             }
+            if (proposalData.CPE_Propostas__r && proposalData.CPE_Propostas__r.records) {
+                proposalData.CPE_Propostas__r.records = proposalData.CPE_Propostas__r.records.map((r: any) => {
+                    delete r.attributes; // Remove Salesforce metadata noise
+                    r.attachedFiles = []; // Initialize attached files array
+                    return r;
+                });
+            } else {
+                // Ensure CPE_Propostas__r is not null if no records exist
+                proposalData.CPE_Propostas__r = { totalSize: 0, done: true, records: [] };
+            }
 
             logger.info(`${functionName}: Found Proposal: ${proposalData.Name} with ${proposalData.CPE_Propostas__r?.totalSize ?? 0} CPEs.`);
 
-            // 5. --- Return Success (Return the combined record directly) ---
-            logger.info(`${functionName}: Successfully processed proposal details for ID ${proposalId}.`);
-            // Remove noisy top-level attributes before returning
-            delete (proposalData as any).attributes;
-            return proposalData; // Return the main record which now includes nested CPEs
+            // --- 5. Fetch Attached Files for CPEs --- //
+            const cpeProposalIds = proposalData.CPE_Propostas__r.records.map((cpe) => cpe.Id);
+
+            if (cpeProposalIds.length > 0) {
+                logger.info(`${functionName}: Fetching files linked to ${cpeProposalIds.length} CPE_Proposta__c records...`);
+
+                // Query ContentDocumentLink
+                const linkedEntityIdsString = "('" + cpeProposalIds.join("\',\'") + "')"; // Format for IN clause
+                const linkQuery = `SELECT Id, LinkedEntityId, ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntityId IN ${linkedEntityIdsString}`;
+                logger.debug(`${functionName}: Link Query: ${linkQuery}`);
+                const linkResult = await conn.query<ContentDocumentLinkRecord>(linkQuery);
+                const contentDocumentIds = linkResult.records.map((link) => link.ContentDocumentId);
+
+                if (contentDocumentIds.length > 0) {
+                    logger.info(`${functionName}: Found ${contentDocumentIds.length} ContentDocumentLinks. Fetching ContentVersions...`);
+
+                    // Query ContentVersion for latest versions
+                    const contentDocIdsString = "('" + contentDocumentIds.join("\',\'") + "')";
+                    const versionQuery = `SELECT Id, ContentDocumentId, Title FROM ContentVersion WHERE ContentDocumentId IN ${contentDocIdsString} AND IsLatest = true`;
+                    logger.debug(`${functionName}: Version Query: ${versionQuery}`);
+                    const versionResult = await conn.query<ContentVersionRecord>(versionQuery);
+
+                    // Map files back to CPE Proposals
+                    const fileMap = new Map<string, SalesforceFileInfo[]>();
+                    for (const version of versionResult.records) {
+                        // Find the corresponding link(s) to get the LinkedEntityId (CPE_Proposta__c ID)
+                        const links = linkResult.records.filter(link => link.ContentDocumentId === version.ContentDocumentId);
+                        for (const link of links) {
+                            const cpeProposalId = link.LinkedEntityId;
+                            const fileInfo: SalesforceFileInfo = { id: version.Id, title: version.Title };
+                            if (fileMap.has(cpeProposalId)) {
+                                fileMap.get(cpeProposalId)?.push(fileInfo);
+                            } else {
+                                fileMap.set(cpeProposalId, [fileInfo]);
+                            }
+                        }
+                    }
+
+                    // Add files to the proposalData
+                    proposalData.CPE_Propostas__r.records.forEach(cpe => {
+                        if (fileMap.has(cpe.Id)) {
+                            cpe.attachedFiles = fileMap.get(cpe.Id);
+                            logger.debug(`${functionName}: Added ${cpe.attachedFiles?.length} files to CPE Proposal ${cpe.Id}`);
+                        }
+                    });
+                } else {
+                    logger.info(`${functionName}: No ContentDocumentLinks found for the CPE Proposals.`);
+                }
+            } else {
+                logger.info(`${functionName}: No CPE Proposals found to fetch files for.`);
+            }
+            // --- END Fetch Attached Files --- //
+
+            // 6. --- Return Success (Return the augmented record) ---
+            logger.info(`${functionName}: Successfully processed proposal details and files for ID ${proposalId}.`);
+            delete (proposalData as any).attributes; // Remove top-level attributes
+            return proposalData;
 
         } catch (err: any) {
             // --- Error Handling (Simplified - throw HttpsError directly) ---

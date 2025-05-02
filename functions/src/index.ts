@@ -1216,3 +1216,4 @@ export const runMigration = onCall({
 export { getSalesforceProposalDetails } from "./getSalesforceProposalDetails";
 export { updateSalesforceProposal } from "./updateSalesforceProposal";
 export { checkNifExistsInSalesforce } from "./checkNifExistsInSalesforce";
+export { downloadFileForReseller } from "./downloadFileForReseller";

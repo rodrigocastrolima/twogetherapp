@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart';
 
 // Enum to represent different document types
-enum DocumentType { signedContract, idDocument, proofOfAddress, crcDocument }
+enum DocumentType { contract, idDocument, proofOfAddress, crcDocument }
 
 class SubmitProposalDocumentsPage extends StatefulWidget {
   final String proposalId;
+  final List<SalesforceCPEProposalData> cpeList;
 
-  const SubmitProposalDocumentsPage({super.key, required this.proposalId});
+  const SubmitProposalDocumentsPage({
+    super.key,
+    required this.proposalId,
+    required this.cpeList,
+  });
 
   @override
   State<SubmitProposalDocumentsPage> createState() =>
@@ -21,13 +27,35 @@ class _SubmitProposalDocumentsPageState
   bool _isDigitallySigned = false;
 
   // State variables to hold picked files
-  PlatformFile? _signedContractFile;
+  Map<String, PlatformFile?> _contractFiles = {};
   PlatformFile? _idDocumentFile;
   PlatformFile? _proofOfAddressFile;
   PlatformFile? _crcDocumentFile;
 
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the map keys based on the passed cpeList
+    for (var cpe in widget.cpeList) {
+      _contractFiles[cpe.id] = null;
+    }
+  }
+
   // Method to pick a file
-  Future<void> _pickFile(DocumentType docType) async {
+  Future<void> _pickFile(DocumentType docType, {String? cpeProposalId}) async {
+    // Only allow picking contract if not digitally signed
+    if (docType == DocumentType.contract && _isDigitallySigned) return;
+
+    // Ensure cpeProposalId is provided when picking a contract
+    if (docType == DocumentType.contract && cpeProposalId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Internal error: CPE ID missing for contract.'),
+        ),
+      );
+      return;
+    }
+
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -37,8 +65,11 @@ class _SubmitProposalDocumentsPageState
       if (result != null && result.files.single != null) {
         setState(() {
           switch (docType) {
-            case DocumentType.signedContract:
-              _signedContractFile = result.files.single;
+            case DocumentType.contract:
+              // Store contract file in the map using the CPE ID
+              if (cpeProposalId != null) {
+                _contractFiles[cpeProposalId] = result.files.single;
+              }
               break;
             case DocumentType.idDocument:
               _idDocumentFile = result.files.single;
@@ -63,12 +94,14 @@ class _SubmitProposalDocumentsPageState
 
   // Placeholder for file upload logic
   Future<void> _submitDocuments() async {
-    // TODO: Implement file picking and upload logic
-    // 1. Check which files are required based on _isDigitallySigned
-    // 2. Ensure required files are picked (show error if not)
-    // 3. Call Cloud Function/API to upload files, linking to widget.proposalId
-    // 4. Show success/error message
-    // 5. Maybe navigate back or to a success page
+    // TODO: Implement file upload logic for multiple contracts
+    // 1. Check required files based on _isDigitallySigned and cpeList
+    //    - If !_isDigitallySigned, ALL contract files in _contractFiles must be non-null.
+    //    - ID, Address, CRC must be non-null.
+    // 2. Show error if validation fails.
+    // 3. Upload files (need strategy for multiple contracts - maybe naming convention?)
+    // 4. Show success/error
+    // 5. Navigate back
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -101,15 +134,16 @@ class _SubmitProposalDocumentsPageState
             // --- Digital Signature Toggle ---
             SwitchListTile.adaptive(
               title: const Text(
-                'Contrato assinado digitalmente',
+                'Contratos assinados digitalmente', // Pluralized
               ), // TODO: Localize
               value: _isDigitallySigned,
               onChanged: (bool value) {
                 setState(() {
                   _isDigitallySigned = value;
-                  // Clear the contract file if switching to digitally signed
+                  // Clear all contract files if switching to digitally signed
                   if (_isDigitallySigned) {
-                    _signedContractFile = null;
+                    // Set all values in the map to null
+                    _contractFiles.updateAll((key, _) => null);
                   }
                 });
               },
@@ -123,19 +157,31 @@ class _SubmitProposalDocumentsPageState
             ),
             const SizedBox(height: 16),
 
-            // --- File Upload Placeholders ---
-            // TODO: Replace these Text widgets with actual file picker widgets/buttons
+            // --- File Upload Section --- //
 
-            // Conditionally show Signed Contract upload
+            // --- Conditionally show Contract uploads --- //
             if (!_isDigitallySigned)
-              _buildFileUploadPlaceholder(
-                context,
-                'Contrato assinado', // TODO: Localize
-                Icons.description_outlined,
-                DocumentType.signedContract,
-                _signedContractFile,
-              ),
+              ...widget.cpeList.map((cpe) {
+                // Generate list dynamically
+                // Extract last 6 chars for display, or use full ID if shorter
+                String shortId =
+                    cpe.id.length > 6
+                        ? cpe.id.substring(cpe.id.length - 6)
+                        : cpe.id;
+                return _buildFileUploadPlaceholder(
+                  context,
+                  'Contrato Assinado (CPE ...$shortId)', // TODO: Localize (and format)
+                  Icons.description_outlined,
+                  DocumentType.contract,
+                  _contractFiles[cpe.id], // Get file from map
+                  cpeProposalId: cpe.id, // Pass CPE ID for picking
+                );
+              }).toList(),
 
+            // --- End Contract Uploads --- //
+            const Divider(height: 24),
+
+            // --- Static Document Uploads --- //
             _buildFileUploadPlaceholder(
               context,
               'Documento de identificação (CC)', // TODO: Localize
@@ -160,6 +206,7 @@ class _SubmitProposalDocumentsPageState
               _crcDocumentFile,
             ),
 
+            // --- End Static Document Uploads --- //
             const SizedBox(height: 32),
 
             // --- Submit Button ---
@@ -181,8 +228,9 @@ class _SubmitProposalDocumentsPageState
     String title,
     IconData icon,
     DocumentType docType,
-    PlatformFile? pickedFile,
-  ) {
+    PlatformFile? pickedFile, {
+    String? cpeProposalId, // Make CPE ID optional
+  }) {
     bool isFilePicked = pickedFile != null;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -199,15 +247,35 @@ class _SubmitProposalDocumentsPageState
           style: TextStyle(color: isFilePicked ? Colors.green : null),
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Icon(
-          isFilePicked
-              ? CupertinoIcons.checkmark_circle_fill
-              : CupertinoIcons.folder_badge_plus,
-          color: isFilePicked ? Colors.green : null,
-        ),
-        onTap: () {
-          _pickFile(docType);
-        },
+        trailing:
+            isFilePicked
+                ? IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  tooltip: 'Remover ficheiro', // TODO: Localize
+                  onPressed: () {
+                    setState(() {
+                      // Clear correct state variable
+                      switch (docType) {
+                        case DocumentType.contract:
+                          if (cpeProposalId != null) {
+                            _contractFiles[cpeProposalId] = null;
+                          }
+                          break;
+                        case DocumentType.idDocument:
+                          _idDocumentFile = null;
+                          break;
+                        case DocumentType.proofOfAddress:
+                          _proofOfAddressFile = null;
+                          break;
+                        case DocumentType.crcDocument:
+                          _crcDocumentFile = null;
+                          break;
+                      }
+                    });
+                  },
+                )
+                : null,
+        onTap: () => _pickFile(docType, cpeProposalId: cpeProposalId),
       ),
     );
   }

@@ -24,7 +24,7 @@ interface GetCyclesResult {
 export const getActivationCycles = onCall(
   {
     timeoutSeconds: 60,
-    memory: "128MiB", // Should be lightweight
+    memory: "256MiB", // Should be lightweight
     // enforceAppCheck: true, // Recommended for production
     region: "us-central1", // Specify region consistently
   },
