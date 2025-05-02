@@ -6,7 +6,6 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math';
 import 'package:flutter/services.dart'; // For Clipboard
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../../../auth/domain/models/app_user.dart';
 // import '../../../../core/providers/firebase_providers.dart'; // Was incorrect

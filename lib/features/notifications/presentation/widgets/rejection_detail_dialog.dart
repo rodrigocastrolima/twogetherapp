@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:twogether/core/models/notification.dart'; // Adjusted import
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class RejectionDetailDialog extends StatelessWidget {
   final UserNotification notification;
@@ -18,19 +17,16 @@ class RejectionDetailDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final isDarkMode = theme.brightness == Brightness.dark;
 
     // Extract data safely from metadata
     final String clientName =
         notification.metadata['clientName']?.toString() ??
-        'Unknown'; // Placeholder
+        'Desconhecido'; // Hardcoded Portuguese fallback
     final String? rejectionReason =
         notification.metadata['rejectionReason']?.toString();
-    final String submissionId = notification.metadata['submissionId'] ?? '-';
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
@@ -47,8 +43,8 @@ class RejectionDetailDialog extends StatelessWidget {
             padding: const EdgeInsets.all(20.0),
             constraints: const BoxConstraints(maxWidth: 450),
             decoration: BoxDecoration(
-              // Use theme surface color with opacity for slight transparency
-              color: colorScheme.surface.withOpacity(0.95),
+              // Use theme surface color with alpha for slight transparency
+              color: colorScheme.surface.withAlpha((255 * 0.95).round()),
               borderRadius: BorderRadius.circular(16.0),
             ),
             child: Column(
@@ -77,7 +73,7 @@ class RejectionDetailDialog extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'Opportunity Rejected', // Placeholder
+                            'Oportunidade Rejeitada', // Hardcoded Portuguese
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: colorScheme.onSurface,
@@ -98,7 +94,7 @@ class RejectionDetailDialog extends StatelessWidget {
                           size: 20, // Smaller size for close button
                         ),
                         onPressed: () => Navigator.pop(context),
-                        tooltip: 'Close', // Accessibility
+                        tooltip: 'Fechar', // Hardcoded Portuguese
                         splashRadius: 20,
                         padding: EdgeInsets.zero,
                         constraints:
@@ -111,13 +107,13 @@ class RejectionDetailDialog extends StatelessWidget {
                 // --- Details ---
                 _buildDetailRow(
                   context,
-                  label: 'Client:', // Placeholder
+                  label: 'Cliente:', // Hardcoded Portuguese
                   value: clientName,
                 ),
                 const SizedBox(height: 8), // Add some space instead of divider
                 _buildDetailRow(
                   context,
-                  label: 'Date:', // Placeholder
+                  label: 'Data:', // Hardcoded Portuguese
                   value: _formatDate(notification.createdAt, context),
                 ),
                 const SizedBox(height: 8), // Add some space instead of divider
@@ -125,14 +121,15 @@ class RejectionDetailDialog extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 12.0, bottom: 6.0),
                   child: Text(
-                    'Rejection Reason:', // Placeholder
+                    'Motivo da Rejeição:', // Hardcoded Portuguese
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
                 Text(
-                  rejectionReason ?? 'No reason provided.', // Placeholder
+                  rejectionReason ??
+                      'Nenhuma razão fornecida.', // Hardcoded Portuguese
                   style: textTheme.bodyMedium?.copyWith(
                     // Use bodyMedium from theme
                     color: colorScheme.onSurface,

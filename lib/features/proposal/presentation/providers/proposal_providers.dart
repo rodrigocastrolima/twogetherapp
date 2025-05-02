@@ -11,9 +11,10 @@ import 'package:twogether/features/opportunity/data/services/opportunity_service
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart';
 import 'package:twogether/features/salesforce/data/repositories/salesforce_repository.dart';
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'; // Keep if opportunityProposalsProvider is used here
-import 'package:twogether/features/proposal/data/models/salesforce_proposal_name_only.dart'; // <-- Import new model
+import 'package:twogether/features/proposal/data/models/salesforce_proposal_ref.dart'; // <-- Import new model
 import 'package:twogether/features/proposal/data/models/detailed_salesforce_proposal.dart';
 import 'package:twogether/features/proposal/data/repositories/salesforce_proposal_repository.dart';
+import 'package:twogether/features/proposal/data/models/salesforce_proposal_data.dart'; // Import the direct return type
 
 // --- Service/Repository Providers ---
 
@@ -81,7 +82,7 @@ final opportunityProposalsProvider = FutureProvider.family<
 
 // --- NEW Provider for Reseller Proposal Names (JWT Flow) ---
 final resellerOpportunityProposalNamesProvider =
-    FutureProvider.family<List<SalesforceProposalNameOnly>, String>((
+    FutureProvider.family<List<SalesforceProposalRef>, String>((
       ref,
       opportunityId,
     ) async {
@@ -89,9 +90,23 @@ final resellerOpportunityProposalNamesProvider =
       final repository = ref.watch(salesforceRepositoryProvider);
 
       // Call the NEW repository method (uses JWT Cloud Function)
+      // Method name is still the same, but its internal return type is updated
       return repository.getResellerOpportunityProposalNames(opportunityId);
     });
 // ----------------------------------------------------------
+
+// --- NEW Provider for Reseller Proposal DETAILS (JWT Flow) ---
+final resellerProposalDetailsProvider = FutureProvider.family<
+  SalesforceProposalData, // Now returns the proposal data directly
+  String // Takes proposalId as argument
+>((ref, proposalId) async {
+  // Get the repository instance
+  final repository = ref.watch(salesforceRepositoryProvider);
+
+  // Call the repository method (which now returns SalesforceProposalData)
+  return repository.getResellerProposalDetails(proposalId);
+});
+// -----------------------------------------------------------
 
 // Provider to get total reseller commission
 final resellerTotalCommissionProvider = FutureProvider<double>((ref) async {

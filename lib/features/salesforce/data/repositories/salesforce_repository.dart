@@ -5,9 +5,11 @@ import '../../../opportunity/data/models/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../proposal/data/models/salesforce_proposal.dart';
-import '../../../proposal/data/models/salesforce_proposal_name_only.dart';
+import '../../../proposal/data/models/salesforce_proposal_ref.dart';
 import '../../../opportunity/data/models/create_opp_models.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../proposal/data/models/salesforce_cpe_proposal_data.dart';
+import '../../../proposal/data/models/salesforce_proposal_data.dart';
 
 /// Repository for interacting with Salesforce data through Firebase Cloud Functions
 class SalesforceRepository {
@@ -521,7 +523,7 @@ class SalesforceRepository {
   // --------------------------------------------------
 
   // --- NEW: Fetch Reseller Opportunity Proposal Names (JWT Flow) ---
-  Future<List<SalesforceProposalNameOnly>> getResellerOpportunityProposalNames(
+  Future<List<SalesforceProposalRef>> getResellerOpportunityProposalNames(
     String opportunityId,
   ) async {
     if (kDebugMode) {
@@ -581,33 +583,32 @@ class SalesforceRepository {
           return []; // Return empty list if no proposals
         }
 
-        // Convert each JSON object to a SalesforceProposalNameOnly
+        // Convert each JSON object to a SalesforceProposalRef
         return proposalsJson
             .map((json) {
-              // Check if the item is a Map, then attempt cast and parse
               if (json is Map) {
-                // Check if it's a Map first
                 try {
-                  // Explicitly cast to the expected type
                   final mapJson = Map<String, dynamic>.from(json);
-                  return SalesforceProposalNameOnly.fromJson(mapJson);
+                  // Use the new model's fromJson
+                  return SalesforceProposalRef.fromJson(mapJson);
                 } catch (e) {
                   print(
-                    '[SalesforceRepository] Error parsing proposal name record $json: $e',
+                    '[SalesforceRepository] Error parsing proposal ref record $json: $e',
                   );
-                  return null; // Skip records that cause parsing errors
+                  return null;
                 }
               } else {
-                // Log if it's not a map at all
                 if (kDebugMode) {
                   print(
                     '[SalesforceRepository] Skipping non-map item in proposals list: ${json?.runtimeType}',
                   );
                 }
-                return null; // Skip non-map items
+                return null;
               }
             })
-            .whereType<SalesforceProposalNameOnly>() // Filter out nulls
+            .whereType<
+              SalesforceProposalRef
+            >() // Filter out nulls using new type
             .toList();
       } else {
         // Handle error response from the function
@@ -642,6 +643,83 @@ class SalesforceRepository {
     }
   }
   // ---------------------------------------------------------------
+
+  // --- UPDATED: Fetch Reseller Proposal Details (JWT Flow) ---
+  // Now returns SalesforceProposalData directly
+  Future<SalesforceProposalData> getResellerProposalDetails(
+    String proposalId,
+  ) async {
+    final functionName = "getResellerProposalDetails";
+    if (kDebugMode) {
+      print(
+        '[$runtimeType] Fetching details for Proposal ID (Reseller Flow): $proposalId',
+      );
+    }
+    if (proposalId.isEmpty) {
+      throw Exception('Proposal ID cannot be empty');
+    }
+
+    try {
+      // Call the Cloud Function (which now returns the proposal object directly)
+      final callable = _functions.httpsCallable(functionName);
+      // The result.data is now expected to be the Map representing SalesforceProposalData
+      final result = await callable.call<Map<String, dynamic>>({
+        'proposalId': proposalId,
+      });
+
+      final data = result.data;
+
+      if (kDebugMode) {
+        print(
+          '[$runtimeType] $functionName Cloud Function raw response: $data',
+        );
+      }
+
+      // Directly parse the received data into SalesforceProposalData
+      try {
+        // Ensure the received data is correctly typed before parsing
+        final Map<String, dynamic> typedData = Map<String, dynamic>.from(data);
+        // The SalesforceProposalData.fromJson factory will handle parsing the nested CPEs
+        return SalesforceProposalData.fromJson(typedData);
+      } catch (e) {
+        print(
+          '[$runtimeType] Error parsing $functionName result JSON: $e - Data: $data',
+        );
+        throw Exception(
+          'Error processing proposal details data from function.',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print(
+          '[$runtimeType] $functionName Firebase Functions error: [${e.code}] ${e.message}',
+        );
+      }
+      // Rethrow specific errors if needed (like not-found)
+      if (e.code == 'not-found') {
+        throw FirebaseFunctionsException(
+          code: 'not-found',
+          message: e.message ?? 'Proposal not found.',
+        );
+      }
+      if (e.code == 'unauthenticated') {
+        throw FirebaseFunctionsException(
+          code: 'unauthenticated',
+          message: e.message ?? 'Salesforce session expired or invalid.',
+          details:
+              e.details, // Pass details which might include sessionExpired flag
+        );
+      }
+      // Rethrow other Firebase exceptions
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[$runtimeType] $functionName General error: $e');
+      }
+      throw Exception('Failed to fetch proposal details: $e');
+    }
+  }
+  // --------------------------------------------------------
 
   // -------------------------------------
 }

@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
@@ -31,12 +30,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       // Simple validation
       if (email.isEmpty || password.isEmpty) {
-        throw Exception('Please enter email and password');
+        throw Exception('Por favor, insira email e senha');
       }
 
       // Use loading service to show loading overlay
       final loadingService = ref.read(loadingServiceProvider);
-      loadingService.show(context, message: 'Logging in...', showLogo: true);
+      loadingService.show(context, message: 'Entrando...', showLogo: true);
 
       try {
         // Attempt login
@@ -54,7 +53,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // Handle login error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
+          SnackBar(content: Text('Falha no login: ${e.toString()}')),
         );
       }
     }
@@ -64,9 +63,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter your email address.'),
-        ), // TODO: l10n
+        SnackBar(content: Text('Por favor, insira seu endereço de email.')),
       );
       return;
     }
@@ -85,8 +82,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Password reset email sent to $email. Check your inbox.',
-              ), // TODO: l10n
+                'Email de redefinição de senha enviado para $email. Verifique sua caixa de entrada.',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -98,8 +95,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Failed to send reset email. Check the email address or try again later.',
-              ), // TODO: l10n
+                'Falha ao enviar email de redefinição. Verifique o endereço de email ou tente novamente mais tarde.',
+              ),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -109,9 +106,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'An unexpected error occurred: ${e.toString()}',
-            ), // TODO: l10n
+            content: Text('Ocorreu um erro inesperado: ${e.toString()}'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -152,7 +147,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
     final double padding = size.width < 400 ? 12.0 : 16.0;
@@ -237,12 +231,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 SizedBox(height: isSmallScreen ? 24 : 32),
                                 // --- Conditional Content ---
                                 if (!_isForgotPasswordMode)
-                                  _buildLoginForm(context, l10n)
+                                  _buildLoginForm(context)
                                 else if (_isForgotPasswordMode &&
                                     !_recoveryEmailSent)
-                                  _buildForgotPasswordForm(context, l10n)
+                                  _buildForgotPasswordForm(context)
                                 else
-                                  _buildSuccessMessage(context, l10n),
+                                  _buildSuccessMessage(context),
                               ],
                             ),
                           ),
@@ -261,7 +255,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              child: Text(l10n.loginForgotPassword),
+                              child: Text('Esqueceu sua senha?'),
                             ),
                           ),
                         ),
@@ -278,7 +272,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              child: Text(l10n.forgotPasswordBackButton),
+                              child: Text('Voltar ao Login'),
                             ),
                           ),
                         ),
@@ -303,7 +297,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    'powered by', // TODO: l10n
+                    'powered by',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: Colors.white.withOpacity(0.7),
                     ),
@@ -324,7 +318,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   // --- Helper Widgets for Form States ---
 
-  Widget _buildLoginForm(BuildContext context, AppLocalizations l10n) {
+  Widget _buildLoginForm(BuildContext context) {
     // Get the input decoration theme defaults from the main context
     final themeDefaults = Theme.of(context).inputDecorationTheme;
 
@@ -345,7 +339,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             contentPadding: themeDefaults.contentPadding,
             isDense: themeDefaults.isDense,
             // Now apply specific overrides
-            hintText: l10n.loginUsername,
+            hintText: 'Email',
             hintStyle: TextStyle(
               color: Colors.black45,
               fontSize: 13,
@@ -375,7 +369,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             contentPadding: themeDefaults.contentPadding,
             isDense: themeDefaults.isDense,
             // Now apply specific overrides
-            hintText: l10n.loginPassword,
+            hintText: 'Senha',
             hintStyle: TextStyle(
               color: Colors.black45,
               fontSize: 13,
@@ -407,7 +401,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
             child: Text(
-              l10n.loginButton,
+              'Entrar',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
@@ -416,7 +410,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildForgotPasswordForm(BuildContext context, AppLocalizations l10n) {
+  Widget _buildForgotPasswordForm(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -451,7 +445,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: TextField(
             controller: _emailController,
             decoration: InputDecoration(
-              hintText: l10n.loginUsername,
+              hintText: 'Email',
               hintStyle: TextStyle(
                 color: Colors.black45,
                 fontSize: 13,
@@ -493,7 +487,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     )
                     : Text(
-                      l10n.forgotPasswordRecoverButton,
+                      'Recuperar Senha',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -505,7 +499,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildSuccessMessage(BuildContext context, AppLocalizations l10n) {
+  Widget _buildSuccessMessage(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32.0),
       child: Column(
@@ -514,7 +508,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
           const SizedBox(height: 16),
           Text(
-            l10n.forgotPasswordSuccessMessage,
+            'Email de recuperação enviado com sucesso!',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),

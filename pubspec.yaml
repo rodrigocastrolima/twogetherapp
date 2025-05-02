@@ -30,8 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations:
-    sdk: flutter
   intl: any
   flutter_pdfview: ^1.4.0
   dart_jsonwebtoken: ^3.2.0 # Or latest version
@@ -43,7 +41,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
   fl_chart: ^0.71.0
   cached_network_image: ^3.3.1
-
+  carousel_slider: ^4.2.1
   # State Management
   flutter_riverpod: ^2.5.1
   equatable: ^2.0.5
@@ -102,7 +100,7 @@ dev_dependencies:
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  # rules and activating additional ones.  
   flutter_lints: ^5.0.0
   build_runner: ^2.4.11
   freezed: ^2.5.3
@@ -118,7 +116,6 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  generate: true
 
   assets:
     - assets/images/twogether_logo_light_br.png

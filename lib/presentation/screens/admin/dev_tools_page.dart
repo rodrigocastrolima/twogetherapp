@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,7 +24,6 @@ class _DevToolsPageState extends ConsumerState<DevToolsPage> {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    final l10n = AppLocalizations.of(context)!;
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final loadingService = ref.read(loadingServiceProvider);
     final navigator = GoRouter.of(
@@ -63,7 +61,7 @@ class _DevToolsPageState extends ConsumerState<DevToolsPage> {
             ),
             actions: <Widget>[
               TextButton(
-                child: Text(l10n.commonCancel),
+                child: Text('Cancelar'),
                 onPressed:
                     () =>
                         Navigator.of(dialogContext).pop(false), // Return false
@@ -162,7 +160,7 @@ class _DevToolsPageState extends ConsumerState<DevToolsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // final l10n = AppLocalizations.of(context)!; // Uncomment if needed
+    // final l10n = AppLocalizations.of(context)!; // Ensure this is removed or commented out
 
     return Scaffold(
       appBar: AppBar(

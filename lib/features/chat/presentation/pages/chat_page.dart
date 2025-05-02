@@ -16,7 +16,6 @@ import '../../../../core/theme/ui_styles.dart';
 import '../widgets/chat_image_preview_sheet.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'dart:async';
 
 // Extension for chat-specific theme colors
@@ -200,9 +199,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } catch (e) {
       // Show error message to user
       if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.chatSendMessageError(e.toString()))),
+          SnackBar(content: Text('Erro ao enviar mensagem: ${e.toString()}')),
         );
       }
     } finally {
@@ -303,11 +301,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         print(stackTrace);
       }
       if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.chatSelectImageError(e.toString())),
-            duration: const Duration(seconds: 3),
+            content: Text('Erro ao selecionar imagem: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -325,7 +322,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final messagesStream = ref.watch(messagesProvider(widget.conversationId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
 
     // Update the extension placeholder with the actual current user ID
     final currentUserId = ref.read(chatRepositoryProvider).currentUserId;
@@ -385,7 +381,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       children: [
                         // Name
                         Text(
-                          widget.title ?? l10n.chatSupportTitle,
+                          widget.title ?? 'Suporte',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
@@ -453,7 +449,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            l10n.chatAdminEmptyState, // Use l10n
+                            'Sem mensagens ainda',
                             style: TextStyle(
                               fontSize: 16,
                               color: Colors.grey.withOpacity(0.8),
@@ -490,7 +486,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          l10n.chatLoadingMessages, // Use l10n
+                          'Carregando mensagens...',
                           style: TextStyle(
                             color: theme.colorScheme.onBackground.withOpacity(
                               0.7,
@@ -524,7 +520,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          l10n.chatErrorLoading, // Use l10n
+                          'Erro ao carregar mensagens',
                           style: TextStyle(
                             color: theme.colorScheme.error,
                             fontWeight: FontWeight.bold,
@@ -533,9 +529,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Text(
-                            kDebugMode
-                                ? error.toString()
-                                : l10n.chatErrorGenericRetry, // Use l10n
+                            'Erro ao carregar mensagens: ${error.toString()}',
                             style: TextStyle(
                               color: theme.colorScheme.onBackground.withOpacity(
                                 0.6,
@@ -566,7 +560,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             backgroundColor: theme.colorScheme.primary,
                             foregroundColor: theme.colorScheme.onPrimary,
                           ),
-                          child: Text(l10n.chatRetry), // Use l10n
+                          child: Text('Tentar novamente'),
                         ),
                       ],
                     ),
@@ -583,7 +577,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Widget _buildEmptyStateUI(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Column(
@@ -605,7 +598,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              l10n.chatWelcomeTitle,
+              'Bem-vindo ao Suporte',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
@@ -618,7 +611,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              l10n.chatWelcomeMessage,
+              'Conecte-se diretamente com nossa equipe de suporte para obter assistência personalizada com sua conta, serviços e quaisquer perguntas que você possa ter.',
               style: TextStyle(
                 fontSize: 14,
                 color: theme.colorScheme.onBackground.withOpacity(0.7),
@@ -630,7 +623,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
-              l10n.chatSendMessagePrompt,
+              'Envie uma mensagem para começar',
               style: TextStyle(
                 fontSize: 16,
                 fontStyle: FontStyle.italic,
@@ -650,7 +643,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     bool showTime,
   ) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
 
     // Fix alignment logic:
     // If in admin view, align admin messages (isFromAdmin) to the right
@@ -664,12 +656,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Determine sender name to display
     String senderName;
     if (isFromMe) {
-      senderName = l10n.chatYou;
+      senderName = 'Você';
     } else if (isFromAdmin) {
-      senderName = l10n.chatSupportName;
+      senderName = 'Suporte Twogether';
     } else {
-      senderName =
-          message.senderName ?? l10n.chatDefaultSenderName; // Use l10n fallback
+      senderName = message.senderName ?? 'Utilizador';
     }
 
     // Set bubble colors based on sender and theme
@@ -773,7 +764,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Color textColor,
   ) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
+    final iphoneBlue = const Color(
+      0xFF0B84FE,
+    ); // Original iPhone-like blue color
+    final iconGray = const Color(0xFF8E8E93); // iOS gray color for icons
 
     if (message.isImage) {
       // Debug logging for image messages
@@ -870,7 +864,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Failed to load image',
+                                'Falha ao carregar imagem',
                                 style: TextStyle(color: Colors.white),
                               ),
                             ],
@@ -912,7 +906,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     Icon(Icons.error, color: CupertinoColors.systemRed),
                     SizedBox(height: 8),
                     Text(
-                      'Image load failed',
+                      'Falha ao carregar imagem',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade700,
@@ -992,13 +986,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Can\'t display image',
+                    'Não é possível exibir a imagem',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Tap to open in browser',
+                    'Toque para abrir no navegador',
                     style: TextStyle(fontSize: 10, color: Colors.blue),
                     textAlign: TextAlign.center,
                   ),
@@ -1087,8 +1081,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   decoration: InputDecoration(
                     hintText:
                         widget.isAdminView
-                            ? 'Message' // TODO: Replace with l10n.chatMessage
-                            : 'Send a message', // TODO: Replace with l10n.chatSendMessage
+                            ? 'Mensagem'
+                            : 'Envie uma mensagem para começar',
                     hintStyle: TextStyle(
                       color: theme.colorScheme.onSurface.withOpacity(0.5),
                       fontSize: 16,
@@ -1223,7 +1217,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Image Loading Debug Info'),
+            title: const Text('Info Depuração Carregamento Imagem'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1236,7 +1230,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   Text(imageUrl, style: const TextStyle(fontSize: 12)),
                   const SizedBox(height: 12),
                   const Text(
-                    'Tests:',
+                    'Testes:',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -1731,7 +1725,7 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
           Icon(Icons.photo_outlined, color: Colors.grey[400], size: 32),
           const SizedBox(height: 8),
           Text(
-            'Image not available',
+            'Imagem não disponível',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -1787,17 +1781,6 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
                 'Tap to retry ${_retryCount + 1}/$_maxRetries',
                 style: TextStyle(fontSize: 10, color: Colors.blue),
                 textAlign: TextAlign.center,
-              ),
-            ],
-            if (kDebugMode) ...[
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  'URL: ${_processedUrl.length > 20 ? '${_processedUrl.substring(0, 20)}...' : _processedUrl}',
-                  style: const TextStyle(fontSize: 8, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
               ),
             ],
           ],

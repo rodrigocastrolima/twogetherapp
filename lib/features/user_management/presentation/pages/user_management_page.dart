@@ -5,13 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../features/auth/domain/models/app_user.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../providers/user_creation_provider.dart';
 
 /// Extension on AppUser to safely access Salesforce-related fields
@@ -33,11 +31,8 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   late final String _currentUserId;
   TextEditingController searchController = TextEditingController();
   String searchQuery = '';
-  AppUser? _selectedUser;
-  String _loadingMessage = '';
-  bool _isDialogShowing = false; // Flag to prevent duplicate dialogs
+  bool _isDialogShowing = false;
 
-  // State for inline form
   bool _isCreatingUserMode = false;
   final _createUserFormKey = GlobalKey<FormState>();
   final _salesforceIdController = TextEditingController();
@@ -51,7 +46,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
 
   @override
   void dispose() {
-    _salesforceIdController.dispose(); // Dispose controller
+    _salesforceIdController.dispose();
     searchController.dispose();
     super.dispose();
   }
@@ -64,7 +59,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       });
     }
 
-    // Add a timeout mechanism to prevent UI from being stuck in loading state
     Future.delayed(const Duration(seconds: 15), () {
       if (mounted && _isLoading) {
         if (kDebugMode) {
@@ -72,7 +66,8 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
         }
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Loading timed out. Please try again.';
+          _errorMessage =
+              'O carregamento excedeu o tempo limite. Por favor, tente novamente.';
         });
       }
     });
@@ -81,19 +76,13 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       if (kDebugMode) {
         print('Loading users');
       }
-
       final authRepository = ref.read(authRepositoryProvider);
-
-      // Get all resellers
       final resellers = await authRepository.getAllResellers();
-
-      // For a complete user list, we should get admin users too
       final adminUsers =
           await FirebaseFirestore.instance
               .collection('users')
               .where('role', isEqualTo: 'admin')
               .get();
-
       final admins =
           adminUsers.docs.map((doc) {
             final data = doc.data();
@@ -108,12 +97,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
               additionalData: data,
             );
           }).toList();
-
       if (mounted) {
-        // Filter out the current user and combine the lists
         final allUsers = [...admins, ...resellers];
         _users = allUsers.where((user) => user.uid != _currentUserId).toList();
-
         setState(() {
           _isLoading = false;
         });
@@ -122,10 +108,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       if (kDebugMode) {
         print('Error loading users: $e');
       }
-
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to load users: ${e.toString()}';
+          _errorMessage = 'Falha ao carregar utilizadores: ${e.toString()}';
           _isLoading = false;
         });
       }
@@ -133,8 +118,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   Future<void> _setUserEnabled(String uid, bool enabled) async {
-    final l10n = AppLocalizations.of(context)!;
-
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -146,63 +129,61 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.setUserEnabled(uid, enabled);
 
-      // Show success message
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(enabled ? l10n.active : l10n.inactive),
+          content: Text(
+            enabled ? 'Utilizador Ativado' : 'Utilizador Desativado',
+          ),
           backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
 
-      // Refresh the user list
       if (!mounted) return;
       await _loadUsers();
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to update user status: ${e.toString()}';
-          _isLoading = false;
-        });
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Falha ao atualizar estado do utilizador: ${e.toString()}';
+        _isLoading = false;
+      });
 
-        // Show error message
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _resetPassword(String uid, String email) async {
-    final l10n = AppLocalizations.of(context)!;
-
-    try {
-      final authRepository = ref.read(authRepositoryProvider);
-      await authRepository.sendPasswordResetEmail(email);
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.profileChangePassword),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Erro: ${e.toString()}'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
   }
 
-  Future<void> _deleteUser(String uid) async {
-    final l10n = AppLocalizations.of(context)!;
+  Future<void> _resetPassword(String uid, String email) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final theme = Theme.of(context);
 
+    try {
+      final authRepository = ref.read(authRepositoryProvider);
+      await authRepository.sendPasswordResetEmail(email);
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Email de redefinição de senha enviado'),
+          backgroundColor: theme.colorScheme.secondary,
+        ),
+      );
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteUser(String uid) async {
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -214,52 +195,48 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       final authRepository = ref.read(authRepositoryProvider);
       await authRepository.deleteUser(uid);
 
-      // Show success message
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.commonDelete),
+          content: Text('Utilizador eliminado'),
           backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
 
-      // Refresh the user list
       if (!mounted) return;
       await _loadUsers();
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to delete user: ${e.toString()}';
-          _isLoading = false;
-        });
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Falha ao eliminar utilizador: ${e.toString()}';
+        _isLoading = false;
+      });
 
-        // Show error message
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
   String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/A';
+    if (timestamp == null) return 'N/D';
 
     DateTime date;
     if (timestamp is Timestamp) {
       date = timestamp.toDate();
     } else {
-      return 'N/A';
+      return 'N/D';
     }
 
-    return DateFormat('dd/MM/yyyy HH:mm').format(date);
+    return DateFormat('dd/MM/yyyy HH:mm', 'pt_PT').format(date);
   }
 
   void _showUserActionMenu(BuildContext context, AppUser user) {
-    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -267,15 +244,15 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
           (context) => BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: AlertDialog(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surface.withAlpha((255 * 0.9).round()),
+              backgroundColor: theme.colorScheme.surface.withAlpha(
+                (255 * 0.9).round(),
+              ),
               title: Text(
-                '${l10n.commonMore}: ${user.displayName ?? user.email}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                'Mais: ${user.displayName ?? user.email}',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onSurface.withAlpha(
+                    (255 * 0.7).round(),
+                  ),
                 ),
               ),
               content: Column(
@@ -284,14 +261,14 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                   ListTile(
                     leading: Icon(
                       Icons.password,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: theme.colorScheme.primary,
                     ),
                     title: Text(
-                      l10n.profileChangePassword,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                      'Redefinir Senha',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withAlpha(
+                          (255 * 0.7).round(),
+                        ),
                       ),
                     ),
                     onTap: () {
@@ -306,17 +283,17 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           : Icons.block,
                       color:
                           user.additionalData['isEnabled'] == false
-                              ? Theme.of(context).colorScheme.tertiary
-                              : Theme.of(context).colorScheme.error,
+                              ? theme.colorScheme.tertiary
+                              : theme.colorScheme.error,
                     ),
                     title: Text(
                       user.additionalData['isEnabled'] == false
-                          ? l10n.active
-                          : l10n.inactive,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                          ? 'Ativar'
+                          : 'Desativar',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withAlpha(
+                          (255 * 0.7).round(),
+                        ),
                       ),
                     ),
                     onTap: () {
@@ -328,19 +305,16 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     },
                   ),
                   Divider(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha((255 * 0.2).round()),
+                    color: theme.colorScheme.onSurface.withAlpha(
+                      (255 * 0.2).round(),
+                    ),
                   ),
                   ListTile(
-                    leading: Icon(
-                      Icons.delete,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                    leading: Icon(Icons.delete, color: theme.colorScheme.error),
                     title: Text(
-                      l10n.commonDelete,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.error,
+                      'Eliminar',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.error,
                       ),
                     ),
                     onTap: () {
@@ -354,11 +328,11 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                    foregroundColor: theme.colorScheme.onSurface.withAlpha(
+                      (255 * 0.7).round(),
+                    ),
                   ),
-                  child: Text(l10n.commonCancel),
+                  child: Text('Cancelar'),
                 ),
               ],
             ),
@@ -367,7 +341,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   void _showDeleteConfirmation(BuildContext context, AppUser user) {
-    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -375,34 +349,34 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
           (context) => BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
             child: AlertDialog(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surface.withAlpha((255 * 0.9).round()),
+              backgroundColor: theme.colorScheme.surface.withAlpha(
+                (255 * 0.9).round(),
+              ),
               title: Text(
-                l10n.commonDelete,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                'Eliminar Utilizador',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onSurface.withAlpha(
+                    (255 * 0.7).round(),
+                  ),
                 ),
               ),
               content: Text(
-                'Are you sure you want to permanently delete ${user.displayName ?? user.email}? This action cannot be undone.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                'Tem certeza que deseja eliminar permanentemente ${user.displayName ?? user.email}? Esta ação não pode ser desfeita.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withAlpha(
+                    (255 * 0.7).round(),
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                    foregroundColor: theme.colorScheme.onSurface.withAlpha(
+                      (255 * 0.7).round(),
+                    ),
                   ),
-                  child: Text(l10n.commonCancel),
+                  child: Text('Cancelar'),
                 ),
                 FilledButton(
                   onPressed: () {
@@ -410,9 +384,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     _deleteUser(user.uid);
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.error,
+                    backgroundColor: theme.colorScheme.error,
                   ),
-                  child: Text(l10n.commonDelete),
+                  child: Text('Eliminar'),
                 ),
               ],
             ),
@@ -421,9 +395,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
   }
 
   Widget _buildUserTable() {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Filter users based on search query
     final filteredUsers =
         searchQuery.isEmpty
             ? _users
@@ -436,11 +407,10 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Check if we're on a small screen (mobile)
         final isSmallScreen = constraints.maxWidth < 700;
+        final theme = Theme.of(context);
 
         if (isSmallScreen) {
-          // Mobile-friendly card layout
           return filteredUsers.isEmpty
               ? Center(
                 child: Column(
@@ -449,17 +419,17 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                     Icon(
                       Icons.search_off,
                       size: 64,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                      color: theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.5).round(),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      l10n.noRetailUsersFound,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                      'Nenhum utilizador encontrado',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withAlpha(
+                          (255 * 0.7).round(),
+                        ),
                       ),
                     ),
                   ],
@@ -472,18 +442,17 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                   final user = filteredUsers[index];
                   final bool isEnabled =
                       user.additionalData['isEnabled'] ?? true;
-
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surface.withAlpha((255 * 0.2).round()),
+                    color: theme.colorScheme.surface.withAlpha(
+                      (255 * 0.2).round(),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
+                        color: theme.colorScheme.onSurface.withAlpha(
+                          (255 * 0.1).round(),
+                        ),
                         width: 0.5,
                       ),
                     ),
@@ -497,161 +466,61 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           children: [
                             Row(
                               children: [
-                                // Avatar
                                 CircleAvatar(
                                   backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  radius: 20,
+                                      user.role == UserRole.admin
+                                          ? theme.colorScheme.secondary
+                                              .withAlpha((255 * 0.1).round())
+                                          : theme.colorScheme.primary.withAlpha(
+                                            (255 * 0.1).round(),
+                                          ),
                                   child: Text(
-                                    user.displayName?.isNotEmpty == true
-                                        ? user.displayName![0].toUpperCase()
-                                        : user.email.isNotEmpty
-                                        ? user.email[0].toUpperCase()
-                                        : l10n.userInitialsDefault,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium?.copyWith(
+                                    (user.displayName?.isNotEmpty == true
+                                            ? user.displayName![0]
+                                            : user.email[0])
+                                        .toUpperCase(),
+                                    style: TextStyle(
                                       color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onPrimary,
+                                          user.role == UserRole.admin
+                                              ? theme.colorScheme.secondary
+                                              : theme.colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                // Name and role
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.displayName ?? l10n.unknownUser,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge?.copyWith(
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.onSurface,
-                                          fontWeight: FontWeight.bold,
-                                          decoration:
-                                              !isEnabled
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary.withAlpha(
-                                                (255 * 0.2).round(),
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              l10n.resellerRole,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.labelSmall?.copyWith(
-                                                color:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          if (!isEnabled) ...[
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.error.withAlpha(
-                                                  (255 * 0.2).round(),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                l10n.inactive,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .labelSmall
-                                                    ?.copyWith(
-                                                      color:
-                                                          Theme.of(
-                                                            context,
-                                                          ).colorScheme.error,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
+                                  child: Text(
+                                    user.displayName ?? user.email,
+                                    style: theme.textTheme.titleMedium,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                // Action button
                                 IconButton(
-                                  icon: Icon(
-                                    Icons.more_vert,
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
+                                  icon: const Icon(Icons.more_vert),
                                   onPressed:
                                       () => _showUserActionMenu(context, user),
-                                  tooltip: l10n.commonMore,
+                                  tooltip: 'Mais',
                                 ),
                               ],
                             ),
-                            Divider(
-                              color: Theme.of(context).colorScheme.onSurface
-                                  .withAlpha((255 * 0.2).round()),
-                              height: 24,
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Role: ${user.role.name.capitalize()}'),
+                                Text(
+                                  isEnabled ? 'Ativo' : 'Inativo',
+                                  style: TextStyle(
+                                    color:
+                                        isEnabled ? Colors.green : Colors.red,
+                                  ),
+                                ),
+                              ],
                             ),
-                            // Email
-                            _buildInfoRow(
-                              label: 'Email',
-                              value:
-                                  user.email.isEmpty
-                                      ? l10n.noEmailProvided
-                                      : user.email,
-                            ),
-                            const SizedBox(height: 8),
-                            // Created at
-                            _buildInfoRow(
-                              label: 'Started',
-                              value: _formatDate(
-                                user.additionalData['createdAt'],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Last login
-                            _buildInfoRow(
-                              label: 'Last Login',
-                              value: _formatDate(
-                                user.additionalData['lastLoginAt'],
-                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Último Login: ${_formatDate(user.additionalData['lastLoginAt'] ?? 'N/A')}',
                             ),
                           ],
                         ),
@@ -661,337 +530,75 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                 },
               );
         } else {
-          // Desktop table layout - existing implementation
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withAlpha((255 * 0.2).round()),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  // Table header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surface.withAlpha((255 * 0.3).round()),
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Theme.of(context).colorScheme.onSurface
-                              .withAlpha((255 * 0.1).round()),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            l10n.resellerRole,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Email',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Started',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Last Login',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 60), // Actions column width
-                      ],
-                    ),
-                  ),
-
-                  // Table content
-                  Expanded(
-                    child:
-                        filteredUsers.isEmpty
-                            ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.search_off,
-                                    size: 64,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withAlpha((255 * 0.5).round()),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    l10n.noRetailUsersFound,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleLarge?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withAlpha((255 * 0.7).round()),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                            : ListView.separated(
-                              itemCount: filteredUsers.length,
-                              padding: EdgeInsets.zero,
-                              separatorBuilder:
-                                  (context, index) => Divider(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withAlpha((255 * 0.1).round()),
-                                    height: 1,
-                                    indent: 16,
-                                    endIndent: 16,
-                                  ),
-                              itemBuilder: (context, index) {
-                                final user = filteredUsers[index];
-                                final bool isEnabled =
-                                    user.additionalData['isEnabled'] ?? true;
-
-                                return InkWell(
-                                  onTap: () => _navigateToUserDetailPage(user),
-                                  child: Container(
-                                    color:
-                                        index % 2 == 0
-                                            ? Colors.transparent
-                                            : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface.withAlpha(
-                                              (255 * 0.05).round(),
-                                            ),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                            horizontal: 16,
-                                          ),
-                                      title: Row(
-                                        children: [
-                                          // User name/display name
-                                          Expanded(
-                                            flex: 3,
-                                            child: Row(
-                                              children: [
-                                                CircleAvatar(
-                                                  backgroundColor:
-                                                      Theme.of(
-                                                        context,
-                                                      ).colorScheme.primary,
-                                                  radius: 16,
-                                                  child: Text(
-                                                    user
-                                                                .displayName
-                                                                ?.isNotEmpty ==
-                                                            true
-                                                        ? user.displayName![0]
-                                                            .toUpperCase()
-                                                        : user.email.isNotEmpty
-                                                        ? user.email[0]
-                                                            .toUpperCase()
-                                                        : l10n
-                                                            .userInitialsDefault,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodyMedium
-                                                        ?.copyWith(
-                                                          color:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .onPrimary,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        user.displayName ??
-                                                            l10n.unknownUser,
-                                                        style: Theme.of(
-                                                          context,
-                                                        ).textTheme.bodyMedium?.copyWith(
-                                                          color:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .onSurface,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          decoration:
-                                                              !isEnabled
-                                                                  ? TextDecoration
-                                                                      .lineThrough
-                                                                  : null,
-                                                        ),
-                                                        overflow:
-                                                            TextOverflow
-                                                                .ellipsis,
-                                                      ),
-                                                      if (!isEnabled)
-                                                        Text(
-                                                          l10n.inactive,
-                                                          style: Theme.of(
-                                                                context,
-                                                              )
-                                                              .textTheme
-                                                              .labelSmall
-                                                              ?.copyWith(
-                                                                color:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .error,
-                                                              ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-
-                                          // Email - increased size and made text smaller
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              user.email.isEmpty
-                                                  ? l10n.noEmailProvided
-                                                  : user.email,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface
-                                                    .withAlpha(
-                                                      (255 * 0.9).round(),
-                                                    ),
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-
-                                          // Created date - now "Started"
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              _formatDate(
-                                                user.additionalData['createdAt'],
-                                              ),
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface
-                                                    .withAlpha(
-                                                      (255 * 0.8).round(),
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-
-                                          // Last login
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              _formatDate(
-                                                user.additionalData['lastLoginAt'],
-                                              ),
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface
-                                                    .withAlpha(
-                                                      (255 * 0.8).round(),
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-
-                                          // Actions
-                                          SizedBox(
-                                            width: 60,
-                                            child: IconButton(
-                                              icon: Icon(
-                                                Icons.more_vert,
-                                                color:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.onSurface,
-                                              ),
-                                              onPressed:
-                                                  () => _showUserActionMenu(
-                                                    context,
-                                                    user,
-                                                  ),
-                                              tooltip: l10n.commonMore,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                  ),
+          return SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
+                showCheckboxColumn: false,
+                columnSpacing: 20,
+                headingRowColor: MaterialStateProperty.resolveWith<Color?>((
+                  Set<MaterialState> states,
+                ) {
+                  return theme.colorScheme.surfaceVariant.withAlpha(
+                    (255 * 0.5).round(),
+                  );
+                }),
+                border: TableBorder.all(
+                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
+                  width: 1,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                columns: [
+                  const DataColumn(label: Text('Nome')),
+                  const DataColumn(label: Text('Email')),
+                  const DataColumn(label: Text('Role')),
+                  const DataColumn(label: Text('Último Login')),
+                  const DataColumn(label: Text('Salesforce ID')),
+                  const DataColumn(label: Text('Estado')),
+                  const DataColumn(label: Text('Ações')),
                 ],
+                rows:
+                    filteredUsers.map((user) {
+                      final bool isEnabled =
+                          user.additionalData['isEnabled'] ?? true;
+                      return DataRow(
+                        onSelectChanged: (selected) {
+                          if (selected ?? false) {
+                            _navigateToUserDetailPage(user);
+                          }
+                        },
+                        cells: [
+                          DataCell(Text(user.displayName ?? '-')),
+                          DataCell(Text(user.email)),
+                          DataCell(Text(user.role.name.capitalize())),
+                          DataCell(
+                            Text(
+                              _formatDate(
+                                user.additionalData['lastLoginAt'] ?? 'N/A',
+                              ),
+                            ),
+                          ),
+                          DataCell(Text(user.salesforceId ?? 'N/A')),
+                          DataCell(
+                            Text(
+                              isEnabled ? 'Ativo' : 'Inativo',
+                              style: TextStyle(
+                                color: isEnabled ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            IconButton(
+                              icon: const Icon(Icons.more_vert),
+                              onPressed:
+                                  () => _showUserActionMenu(context, user),
+                              tooltip: 'Mais',
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
               ),
             ),
           );
@@ -1000,33 +607,11 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     );
   }
 
-  // Helper method to build info rows
-  Widget _buildInfoRow({required String label, required String value}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            '$label:',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        Expanded(child: Text(value)),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final Size screenSize = MediaQuery.of(context).size;
-    final bool isSmallScreen = screenSize.width < 700;
-    final l10n = AppLocalizations.of(context)!;
-    final userCreationState = ref.watch(userCreationProvider);
+    final theme = Theme.of(context);
 
-    // Listener with revised logic
     ref.listen<UserCreationState>(userCreationProvider, (previous, next) {
-      // Log the state details for debugging
       if (kDebugMode) {
         print("--- UserManagementPage Listener Triggered ---");
         print("  Current _isDialogShowing: $_isDialogShowing");
@@ -1034,8 +619,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
         print("  Next State    : ${next.toString()}");
       }
 
-      // If a dialog is already showing, generally avoid showing another one immediately.
-      // However, if the state explicitly clears dialog flags, allow the flag reset below.
       bool shouldProceed = true;
       if (_isDialogShowing &&
           (next.showVerificationDialog ||
@@ -1046,14 +629,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
             "  Listener SKIPPING: Dialog already showing and new dialog requested.",
           );
         }
-        // Optional: Decide if a new error dialog should interrupt an existing one.
-        // if (next.showErrorDialog) { /* Force close existing? */ }
-        shouldProceed =
-            false; // Prevent showing a new dialog while one is active
+        shouldProceed = false;
       }
 
-      // Reset the flag FIRST if no dialogs are active in the new state.
-      // This prevents getting stuck if a dialog closes but the state updates slightly later.
       if (!next.showVerificationDialog &&
           !next.showSuccessDialog &&
           !next.showErrorDialog &&
@@ -1063,82 +641,85 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
             "  Listener Action: Resetting _isDialogShowing flag because no dialogs are active in next state.",
           );
         }
-        // Use WidgetsBinding to avoid calling setState during build/listen phase directly
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() => _isDialogShowing = false);
           }
         });
-        shouldProceed =
-            false; // Flag has been reset, no further action needed this cycle
+        shouldProceed = false;
       }
 
-      // Proceed to check if a dialog should be shown
       if (shouldProceed && mounted) {
-        // Ensure page is still mounted
         if (next.showVerificationDialog && next.verificationData != null) {
           if (kDebugMode)
             print("  Listener Condition MET: showVerificationDialog");
-          // Set flag immediately before showing
-          setState(() => _isDialogShowing = true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              try {
-                if (kDebugMode)
-                  print(
-                    "  Listener Action: Calling _showVerificationDialogFromState",
-                  );
-                _showVerificationDialogFromState(next.verificationData!).then((
-                  _,
-                ) {
-                  // Intentionally do NOT reset _isDialogShowing here.
-                  // Rely on explicit dismissal (buttons) or the state update clearing the flag.
+              if (!_isDialogShowing) {
+                setState(() => _isDialogShowing = true);
+                try {
                   if (kDebugMode)
                     print(
-                      "  Listener Callback: _showVerificationDialogFromState finished.",
+                      "  Listener Action: Calling _showVerificationDialogFromState",
                     );
-                });
-              } catch (e, s) {
+                  _showVerificationDialogFromState(
+                    next.verificationData!,
+                  ).then((_) {
+                    if (kDebugMode)
+                      print(
+                        "  Listener Callback: _showVerificationDialogFromState finished.",
+                      );
+                  });
+                } catch (e, s) {
+                  if (kDebugMode)
+                    print(
+                      "  Listener ERROR: Failed to show verification dialog: $e\n$s",
+                    );
+                  if (mounted) setState(() => _isDialogShowing = false);
+                }
+              } else {
                 if (kDebugMode)
                   print(
-                    "  Listener ERROR: Failed to show verification dialog: $e\n$s",
+                    " Listener race condition: verification dialog requested but another dialog seems active.",
                   );
-                // Reset flag if dialog fails to show
-                if (mounted) setState(() => _isDialogShowing = false);
-                // Optionally show a generic error snackbar/dialog
               }
             } else {
               if (kDebugMode)
                 print(
                   "  Listener Warning: Page unmounted before showing verification dialog.",
                 );
-              // Ensure flag is reset if page became unmounted
-              // This might conflict if state changes again quickly, but safer than getting stuck
               _isDialogShowing = false;
             }
           });
         } else if (next.showSuccessDialog && next.successData != null) {
           if (kDebugMode) print("  Listener Condition MET: showSuccessDialog");
-          setState(() => _isDialogShowing = true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              try {
-                if (kDebugMode)
-                  print(
-                    "  Listener Action: Calling _showSuccessDialogFromState",
-                  );
-                _showSuccessDialogFromState(next.successData!).then((_) {
+              if (!_isDialogShowing) {
+                setState(() => _isDialogShowing = true);
+                try {
                   if (kDebugMode)
                     print(
-                      "  Listener Callback: _showSuccessDialogFromState finished.",
+                      "  Listener Action: Calling _showSuccessDialogFromState",
                     );
-                });
-              } catch (e, s) {
+                  _showSuccessDialogFromState(next.successData!).then((_) {
+                    if (kDebugMode)
+                      print(
+                        "  Listener Callback: _showSuccessDialogFromState finished.",
+                      );
+                  });
+                } catch (e, s) {
+                  if (kDebugMode)
+                    print(
+                      "  Listener ERROR: Failed to show success dialog: $e\n$s",
+                    );
+                  if (mounted) setState(() => _isDialogShowing = false);
+                }
+              } else {
                 if (kDebugMode)
                   print(
-                    "  Listener ERROR: Failed to show success dialog: $e\n$s",
+                    " Listener race condition: success dialog requested but another dialog seems active.",
                   );
-                if (mounted) setState(() => _isDialogShowing = false);
               }
             } else {
               if (kDebugMode)
@@ -1150,24 +731,33 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
           });
         } else if (next.showErrorDialog && next.errorMessage != null) {
           if (kDebugMode) print("  Listener Condition MET: showErrorDialog");
-          setState(() => _isDialogShowing = true);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              try {
-                if (kDebugMode)
-                  print("  Listener Action: Calling _showErrorDialogFromState");
-                _showErrorDialogFromState(next.errorMessage!).then((_) {
+              if (!_isDialogShowing) {
+                setState(() => _isDialogShowing = true);
+                try {
                   if (kDebugMode)
                     print(
-                      "  Listener Callback: _showErrorDialogFromState finished.",
+                      "  Listener Action: Calling _showErrorDialogFromState",
                     );
-                });
-              } catch (e, s) {
+                  _showErrorDialogFromState(next.errorMessage!).then((_) {
+                    if (kDebugMode)
+                      print(
+                        "  Listener Callback: _showErrorDialogFromState finished.",
+                      );
+                  });
+                } catch (e, s) {
+                  if (kDebugMode)
+                    print(
+                      "  Listener ERROR: Failed to show error dialog: $e\n$s",
+                    );
+                  if (mounted) setState(() => _isDialogShowing = false);
+                }
+              } else {
                 if (kDebugMode)
                   print(
-                    "  Listener ERROR: Failed to show error dialog: $e\n$s",
+                    " Listener race condition: error dialog requested but another dialog seems active.",
                   );
-                if (mounted) setState(() => _isDialogShowing = false);
               }
             } else {
               if (kDebugMode)
@@ -1186,448 +776,280 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       } else if (!mounted) {
         if (kDebugMode) print("  Listener SKIPPING: Page not mounted.");
       }
-
       if (kDebugMode) print("--- UserManagementPage Listener Finished ---");
     });
 
-    return Padding(
-      padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header - Conditionally hide search/add when form is shown?
-          if (!_isCreatingUserMode) _buildHeader(context, isSmallScreen, l10n),
-          if (!_isCreatingUserMode) const SizedBox(height: 16),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gestão de Utilizadores',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
 
-          // Content Area
-          Expanded(
-            child:
-                _isCreatingUserMode
-                    ? _buildCreateUserForm(context, l10n, userCreationState)
-                    : _buildUserListContent(context, l10n, userCreationState),
-          ),
-        ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Pesquisar...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                      suffixIcon:
+                          searchQuery.isNotEmpty
+                              ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  searchController.clear();
+                                  setState(() {
+                                    searchQuery = '';
+                                  });
+                                },
+                                splashRadius: 18,
+                                tooltip: 'Limpar',
+                              )
+                              : null,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value.trim();
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text('Atualizar'),
+                      onPressed: _isLoading ? null : _loadUsers,
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text('Novo Revendedor'),
+                      onPressed: _isLoading ? null : _showCreateUserDialog,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _errorMessage != null
+                      ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(color: theme.colorScheme.error),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                      : _buildUserTable(),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // Extracted Header build method
-  Widget _buildHeader(
-    BuildContext context,
-    bool isSmallScreen,
-    AppLocalizations l10n,
-  ) {
-    return isSmallScreen
-        ? Column(
-          // Mobile header...
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.resellerRole,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l10n.adminUserManagementDescription,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: l10n.commonSearch,
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                filled: true,
-                fillColor: Colors.transparent,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onChanged: (value) => setState(() => searchQuery = value.trim()),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadUsers,
-                  tooltip: l10n.refresh,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha((255 * 0.1).round()),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: Text(l10n.newReseller),
-                  onPressed: () => setState(() => _isCreatingUserMode = true),
-                ),
-              ],
-            ),
-          ],
-        )
-        : Row(
-          // Desktop header...
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.resellerRole,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.adminUserManagementDescription,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-                  ),
-                ),
-              ],
-            ),
-            _buildDesktopActionButtons(), // Contains the "New Reseller" button
-          ],
-        );
-  }
+  Future<void> _showCreateUserDialog() async {
+    if (_isDialogShowing) {
+      if (kDebugMode) {
+        print("_showCreateUserDialog: Dialog already showing. Aborting.");
+      }
+      return;
+    }
 
-  // Extracted User List/Loading/Error build method
-  Widget _buildUserListContent(
-    BuildContext context,
-    AppLocalizations l10n,
-    UserCreationState userCreationState,
-  ) {
-    if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).colorScheme.primary,
+    _salesforceIdController.clear();
+
+    setState(() => _isDialogShowing = true);
+
+    if (kDebugMode) {
+      print("_showCreateUserDialog: Setting _isDialogShowing to true.");
+    }
+
+    try {
+      final String? salesforceId = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final theme = Theme.of(dialogContext);
+          return AlertDialog(
+            title: Text('Novo Revendedor'),
+            content: Form(
+              key: _createUserFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Introduza o ID Salesforce para obter detalhes e criar uma nova conta de revendedor.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _salesforceIdController,
+                    decoration: InputDecoration(
+                      labelText: 'ID Salesforce',
+                      hintText: 'Introduza o ID Salesforce',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'ID Salesforce é obrigatório';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.commonLoading,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (mounted) {
+                    if (kDebugMode)
+                      print(
+                        "Create Dialog: Cancel pressed. Resetting _isDialogShowing.",
+                      );
+                    setState(() => _isDialogShowing = false);
+                  }
+                  Navigator.of(dialogContext).pop(null);
+                },
+                child: Text('Cancelar'),
               ),
-            ),
-          ],
-        ),
+              FilledButton(
+                onPressed: () {
+                  if (_createUserFormKey.currentState!.validate()) {
+                    final id = _salesforceIdController.text.trim();
+                    if (mounted) {
+                      if (kDebugMode)
+                        print(
+                          "Create Dialog: Create pressed. Resetting _isDialogShowing.",
+                        );
+                      setState(() => _isDialogShowing = false);
+                    }
+                    Navigator.of(dialogContext).pop(id);
+                  }
+                },
+                child: Text('Criar'),
+              ),
+            ],
+          );
+        },
       );
-    } else if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.error.withAlpha((255 * 0.8).round()),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.error.withAlpha((255 * 0.9).round()),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _loadUsers,
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.tryAgain),
-            ),
-          ],
-        ),
-      );
-    } else if (_users.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.people_outline,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withAlpha((255 * 0.5).round()),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.noRetailUsersFound,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-              ),
-            ),
-            // Optionally add the "New Reseller" button here too?
-          ],
-        ),
-      );
-    } else {
-      return _buildUserTable(); // Assumes _buildUserTable is defined elsewhere
+
+      if (salesforceId != null) {
+        await _initiateUserCreation(salesforceId);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error showing/handling create user dialog: $e");
+      }
+      if (mounted) {
+        if (kDebugMode) {
+          print("Create Dialog: Error caught. Resetting _isDialogShowing.");
+        }
+        setState(() => _isDialogShowing = false);
+      }
     }
   }
 
-  // New method to build the inline creation form
-  Widget _buildCreateUserForm(
-    BuildContext context,
-    AppLocalizations l10n,
-    UserCreationState userCreationState,
-  ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
-      child: Form(
-        key: _createUserFormKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.newReseller,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Enter the Salesforce User ID to fetch details and create a new reseller account.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _salesforceIdController,
-              decoration: const InputDecoration(
-                labelText: 'Salesforce User ID',
-                hintText: 'Enter the 18-character Salesforce ID',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter a Salesforce User ID';
-                }
-                if (value.trim().length != 18) {
-                  return 'Salesforce ID must be 18 characters long';
-                }
-                return null;
-              },
-              enabled: !userCreationState.isLoading, // Disable when loading
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed:
-                      userCreationState.isLoading
-                          ? null
-                          : () {
-                            setState(() => _isCreatingUserMode = false);
-                            _salesforceIdController.clear();
-                            // Optionally reset provider state if needed
-                          },
-                  child: Text(l10n.commonCancel),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  icon:
-                      userCreationState.isLoading
-                          ? Container(
-                            width: 16,
-                            height: 16,
-                            margin: const EdgeInsets.only(right: 8),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          )
-                          : const Icon(Icons.cloud_sync, size: 16),
-                  label: Text(
-                    userCreationState.isLoading
-                        ? (userCreationState.loadingMessage ??
-                            l10n.commonLoading)
-                        : 'Verify User',
-                  ),
-                  onPressed:
-                      userCreationState.isLoading
-                          ? null
-                          : () {
-                            if (_createUserFormKey.currentState?.validate() ==
-                                true) {
-                              ref
-                                  .read(userCreationProvider.notifier)
-                                  .verifySalesforceUser(
-                                    _salesforceIdController.text.trim(),
-                                  );
-                            }
-                          },
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _initiateUserCreation(String salesforceId) async {
+    await ref
+        .read(userCreationProvider.notifier)
+        .verifySalesforceUser(salesforceId);
   }
 
-  // --- Dialog methods called by the listener (Keep these) ---
   Future<void> _showVerificationDialogFromState(
     Map<String, dynamic> data,
   ) async {
     final String? name = data['name'] as String?;
     final String? email = data['email'] as String?;
-    final String password = data['password'] as String; // Should be present
+    final String password = data['password'] as String;
 
-    // Ensure context is still valid before showing dialog
     if (!mounted) return;
 
     await showDialog<bool>(
       context: context,
-      barrierDismissible: false, // Prevent accidental dismiss
-      builder:
-          (dialogContext) => Dialog(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 500),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Verify Salesforce User',
-                    style: Theme.of(dialogContext).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  // User info...
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(dialogContext)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withAlpha((255 * 0.5).round()),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Name: ${name ?? 'Not provided'}'),
-                        const SizedBox(height: 8),
-                        Text('Email: ${email ?? 'Not provided'}'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Create user with credentials?',
-                    style: Theme.of(dialogContext).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  // Credentials...
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(dialogContext).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color:
-                            Theme.of(dialogContext).colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Email: ${email ?? 'Not available'}'),
-                        const SizedBox(height: 12),
-                        const Text('Role: Reseller'),
-                        const SizedBox(height: 12),
-                        Text('Initial Password: $password'),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'User must change password on first login.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            // Reset the flag when canceling
-                            if (mounted) {
-                              if (kDebugMode)
-                                print(
-                                  "Verification Dialog: Cancel button pressed. Resetting _isDialogShowing.",
-                                );
-                              setState(() => _isDialogShowing = false);
-                            }
-                            Navigator.of(dialogContext).pop();
-                          },
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton(
-                          onPressed:
-                              ref.read(userCreationProvider).isLoading
-                                  ? null
-                                  : () {
-                                    if (kDebugMode)
-                                      print(
-                                        "Verification Dialog: Create User button pressed.",
-                                      );
-                                    // Don't reset _isDialogShowing here, wait for success/error dialog state
-                                    Navigator.of(dialogContext).pop();
-                                    // Call provider to confirm and create user
-                                    ref
-                                        .read(userCreationProvider.notifier)
-                                        .confirmAndCreateUser();
-                                  },
-                          child: Text(
-                            ref.read(userCreationProvider).isLoading
-                                ? 'Creating...'
-                                : 'Create User',
-                          ), // Update button text while loading
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          title: Text('Verificar Utilizador Salesforce'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Utilizador Salesforce encontrado:'),
+                const SizedBox(height: 8),
+                _buildDialogInfoRow('Nome:', name ?? 'Não fornecido'),
+                _buildDialogInfoRow('Email:', email ?? 'Não fornecido'),
+                const Divider(height: 24),
+                Text('Criar conta Twogether com estas credenciais?'),
+                const SizedBox(height: 8),
+                _buildDialogInfoRow('Email:', email ?? 'N/A'),
+                _buildDialogInfoRow('Role:', 'Revendedor'),
+                _buildDialogInfoRow('Senha Inicial:', password),
+                const SizedBox(height: 8),
+                Text(
+                  'Utilizador deve alterar senha no primeiro login.',
+                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                ),
+              ],
             ),
           ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (mounted) {
+                  if (kDebugMode)
+                    print(
+                      "Verification Dialog: Cancel pressed. Resetting _isDialogShowing.",
+                    );
+                  setState(() => _isDialogShowing = false);
+                }
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (kDebugMode) print("Verification Dialog: Confirm pressed.");
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: Text('Confirmar e Criar'),
+            ),
+          ],
+        );
+      },
+    ).then((confirmed) async {
+      if (confirmed == true) {
+        await ref.read(userCreationProvider.notifier).confirmAndCreateUser();
+      }
+    });
   }
 
   Future<void> _showSuccessDialogFromState(Map<String, dynamic> data) async {
@@ -1635,206 +1057,146 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     final String email = data['email'] as String;
     final String password = data['password'] as String;
 
-    // Ensure context is still valid
     if (!mounted) return;
 
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) => Dialog(
-            child: Container(
-              width: double.maxFinite,
-              constraints: const BoxConstraints(maxWidth: 500),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'User Created Successfully',
-                    style: Theme.of(dialogContext).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withAlpha((255 * 0.1).round()),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.green.withAlpha((255 * 0.3).round()),
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          title: Text('Utilizador Criado com Sucesso'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Nova conta de revendedor criada:'),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      'Email: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(
+                      child: SelectableText(
+                        email,
+                        style: const TextStyle(fontFamily: 'monospace'),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 24),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Account for $displayName created and synced.',
-                            style: TextStyle(fontSize: 15),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      'Senha Temp: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Expanded(
+                      child: SelectableText(
+                        password,
+                        style: const TextStyle(fontFamily: 'monospace'),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18),
+                      tooltip: 'Copiar Senha',
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: password));
+                        if (!dialogContext.mounted) return;
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Senha copiada'),
+                            duration: Duration(seconds: 2),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Login Credentials',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Please securely share these credentials:',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(dialogContext).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color:
-                            Theme.of(dialogContext).colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 80,
-                              child: Text(
-                                'Email:',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Text(email)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Password:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color:
-                                    Theme.of(
-                                      dialogContext,
-                                    ).colorScheme.surfaceContainerLowest,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color:
-                                      Theme.of(
-                                        dialogContext,
-                                      ).colorScheme.outlineVariant,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: SelectableText(
-                                      password,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.copy, size: 18),
-                                    tooltip: 'Copy Password',
-                                    onPressed: () async {
-                                      await Clipboard.setData(
-                                        ClipboardData(text: password),
-                                      );
-                                      if (!dialogContext.mounted) return;
-                                      ScaffoldMessenger.of(
-                                        dialogContext,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Password copied'),
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'User must change password on first login.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color:
-                          Theme.of(dialogContext).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: () {
-                        // Reset the flag when closing
-                        if (mounted) {
-                          if (kDebugMode)
-                            print(
-                              "Success Dialog: Close button pressed. Resetting _isDialogShowing.",
-                            );
-                          setState(() => _isDialogShowing = false);
-                        }
-                        Navigator.of(dialogContext).pop();
+                        );
                       },
-                      child: const Text('Close'),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Utilizador deve alterar senha no primeiro login.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: () {
+                      if (mounted) {
+                        if (kDebugMode)
+                          print(
+                            "Success Dialog: Close button pressed. Resetting _isDialogShowing.",
+                          );
+                        setState(() => _isDialogShowing = false);
+                      }
+                      Navigator.of(dialogContext).pop();
+                    },
+                    child: Text('Fechar'),
+                  ),
+                ),
+              ],
             ),
           ),
+        );
+      },
     );
-    // Refresh user list after successful creation
     _loadUsers();
   }
 
   Future<void> _showErrorDialogFromState(String errorMessage) async {
-    // Ensure context is still valid
     if (!mounted) return;
+    if (_isDialogShowing) {
+      if (kDebugMode) {
+        print("_showErrorDialogFromState: Dialog already showing. Aborting.");
+      }
+      return;
+    }
+    setState(() => _isDialogShowing = true);
+    if (kDebugMode) {
+      print("_showErrorDialogFromState: Setting _isDialogShowing to true.");
+    }
 
     await showDialog(
       context: context,
       builder:
           (dialogContext) => AlertDialog(
-            title: const Text('Error'), // Generic title for errors
+            title: const Text('Erro'),
             content: Text(errorMessage),
             actions: [
               TextButton(
                 onPressed: () {
-                  // Reset the flag when closing
-                  if (mounted) setState(() => _isDialogShowing = false);
+                  if (mounted) {
+                    if (kDebugMode) {
+                      print(
+                        "Error Dialog: Close pressed. Resetting _isDialogShowing.",
+                      );
+                    }
+                    setState(() => _isDialogShowing = false);
+                  }
                   Navigator.of(dialogContext).pop();
                 },
-                child: const Text('Close'),
+                child: const Text('Fechar'),
               ),
             ],
           ),
+    );
+  }
+
+  Widget _buildDialogInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$label ', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(child: Text(value)),
+        ],
+      ),
     );
   }
 
@@ -1842,132 +1204,15 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     if (kDebugMode) {
       print('Navigating to user detail page for user ID: ${user.uid}');
     }
-
-    // Navigate all users to the general user detail page, regardless of role
     context.push('/admin/users/${user.uid}', extra: user);
   }
+}
 
-  // Desktop-style search widget
-  Widget _buildDesktopSearchField() {
-    final l10n = AppLocalizations.of(context)!;
-
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: TextField(
-        controller: searchController,
-        decoration: InputDecoration(
-          hintText: l10n.commonSearch,
-          prefixIcon: Icon(
-            Icons.search,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          hintStyle: TextStyle(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
-            fontSize: 14,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.outline.withAlpha((255 * 0.3).round()),
-              width: 1,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 1,
-            ),
-          ),
-          isDense: true,
-          fillColor: Colors.transparent,
-          filled: true,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 10,
-            horizontal: 8,
-          ),
-          suffixIcon:
-              searchQuery.isNotEmpty
-                  ? IconButton(
-                    icon: Icon(
-                      Icons.clear,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: () {
-                      searchController.clear();
-                      setState(() {
-                        searchQuery = '';
-                      });
-                    },
-                    splashRadius: 20,
-                    visualDensity: VisualDensity.compact,
-                  )
-                  : null,
-        ),
-        style: TextStyle(
-          fontSize: 14,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-        onChanged: (value) {
-          setState(() {
-            searchQuery = value.trim();
-          });
-        },
-      ),
-    );
-  }
-
-  // Desktop-specific refresh and add buttons
-  Widget _buildDesktopActionButtons() {
-    final l10n = AppLocalizations.of(context)!;
-    // Watch loading state from the list loading, NOT creation loading
-    final bool isListLoading = _isLoading;
-    return Row(
-      children: [
-        OutlinedButton.icon(
-          icon: const Icon(Icons.refresh, size: 16),
-          label: Text(l10n.refresh),
-          // Disable refresh if list is loading
-          onPressed: isListLoading ? null : _loadUsers,
-        ),
-        const SizedBox(width: 12),
-        FilledButton.icon(
-          icon: const Icon(Icons.add, size: 16),
-          label: Text(l10n.newReseller),
-          // Disable if list is loading, set mode on press
-          onPressed:
-              isListLoading
-                  ? null
-                  : () => setState(() => _isCreatingUserMode = true),
-        ),
-      ],
-    );
-  }
-
-  // Helper method to build info rows for Salesforce user info
-  Widget _buildSalesforceInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) {
+      return this;
+    }
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

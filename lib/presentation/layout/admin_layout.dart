@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../core/theme/theme.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/ui_styles.dart';
@@ -126,18 +125,15 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600;
-    final isDesktop = width >= 1024;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final l10n = AppLocalizations.of(context)!;
     final unreadCount = ref
         .watch(unreadMessagesCountProvider)
         .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Scaffold(
       backgroundColor:
-          isDark ? theme.colorScheme.background : theme.colorScheme.background,
+          isDark ? theme.colorScheme.surface : theme.colorScheme.surface,
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar:
@@ -199,7 +195,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       )
                       : null)),
       body: Container(
-        decoration: BoxDecoration(color: theme.colorScheme.background),
+        decoration: BoxDecoration(color: theme.colorScheme.surface),
         child: Material(
           color: Colors.transparent,
           child: Stack(
@@ -209,20 +205,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
               // Side Navigation for Desktop/Tablet
               if (!isSmallScreen && widget.showNavigation)
-                _buildCollapsibleSidebar(
-                  textColor,
-                  isDark,
-                  l10n,
-                  _selectedIndex,
-                  unreadCount,
-                ),
+                _buildCollapsibleSidebar(isDark, _selectedIndex, unreadCount),
 
               // Bottom Navigation for Mobile
               if (widget.showNavigation && isSmallScreen)
                 _buildMobileNavBar(
                   context,
                   isDark,
-                  l10n,
                   _selectedIndex,
                   unreadCount,
                 ),
@@ -260,7 +249,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         child:
             _isTransitioning
                 ? Container(
-                  color: Theme.of(context).colorScheme.background,
+                  color: Theme.of(context).colorScheme.surface,
                 ) // Show barrier during transition
                 : KeyedSubtree(
                   key: pageKey,
@@ -297,31 +286,30 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   }
 
   Widget _buildCollapsibleSidebar(
-    Color textColor,
     bool isDark,
-    AppLocalizations l10n,
     int currentIndex,
     int unreadCount,
   ) {
-    const sidebarWidth = AppStyles.sidebarWidth;
+    // Use standard theme surface color
+    final Color sidebarBackgroundColor = Theme.of(context).colorScheme.surface;
+    final Color textColor = isDark ? Colors.white : Colors.black;
 
     return Positioned(
       top: 0,
       left: 0,
       bottom: 0,
-      width: sidebarWidth,
+      width: AppStyles.sidebarWidth,
       child: ClipRect(
         child: BackdropFilter(
           filter: AppStyles.standardBlur,
           child: Container(
             decoration: BoxDecoration(
-              color:
-                  isDark
-                      ? AppTheme.darkNavBarBackground
-                      : Theme.of(context).colorScheme.surface.withOpacity(0.8),
+              color: sidebarBackgroundColor.withAlpha((255 * 0.8).round()),
               border: Border(
                 right: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  color: Theme.of(
+                    context,
+                  ).dividerColor.withAlpha((255 * 0.1).round()),
                 ),
               ),
             ),
@@ -346,42 +334,42 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       horizontal: 12,
                     ),
                     children: [
-                      _buildNavItem(
+                      _buildSidebarItem(
                         icon: CupertinoIcons.house,
-                        title: l10n.adminDashboard,
+                        label: 'Dashboard',
                         isSelected: currentIndex == 0,
                         onTap: () => _handleNavigation(0),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
-                      _buildNavItem(
+                      _buildSidebarItem(
                         icon: CupertinoIcons.graph_square,
-                        title: l10n.navOpportunities,
+                        label: 'Oportunidades',
                         isSelected: currentIndex == 3,
                         onTap: () => _handleNavigation(3),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
-                      _buildNavItem(
+                      _buildSidebarItem(
                         icon: CupertinoIcons.bubble_left,
-                        title: l10n.navMessages,
+                        label: 'Mensagens',
                         isSelected: currentIndex == 1,
                         onTap: () => _handleNavigation(1),
-                        textColor: textColor,
                         badgeCount: unreadCount,
+                        textColor: textColor,
                       ),
                       const SizedBox(height: 12),
-                      _buildNavItem(
+                      _buildSidebarItem(
                         icon: CupertinoIcons.person_2,
-                        title: l10n.navResellers,
+                        label: 'Revendedores',
                         isSelected: currentIndex == 4,
                         onTap: () => _handleNavigation(4),
                         textColor: textColor,
                       ),
                       const SizedBox(height: 12),
-                      _buildNavItem(
+                      _buildSidebarItem(
                         icon: CupertinoIcons.settings,
-                        title: l10n.navSettings,
+                        label: 'Configurações',
                         isSelected: currentIndex == 2,
                         onTap: () => _handleNavigation(2),
                         textColor: textColor,
@@ -397,16 +385,16 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     );
   }
 
-  Widget _buildNavItem({
+  Widget _buildSidebarItem({
     required IconData icon,
-    required String title,
+    required String label,
     required bool isSelected,
     required VoidCallback onTap,
-    required Color textColor,
     int badgeCount = 0,
+    required Color textColor,
   }) {
-    // Define the Tulip Tree color with enhanced brightness
     final Color tulipTreeColor = Color(0xFFffbe45);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -441,7 +429,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    title,
+                    label,
                     style: TextStyle(
                       color:
                           isSelected
@@ -484,7 +472,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   Widget _buildMobileNavBar(
     BuildContext context,
     bool isDark,
-    AppLocalizations l10n,
     int currentIndex,
     int unreadCount,
   ) {
@@ -506,10 +493,12 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               color:
                   isDark
                       ? AppTheme.darkNavBarBackground
-                      : Colors.white.withOpacity(0.8),
+                      : Colors.white.withAlpha((255 * 0.8).round()),
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  color: Theme.of(
+                    context,
+                  ).dividerColor.withAlpha((255 * 0.1).round()),
                   width: 0.5,
                 ),
               ),
@@ -519,21 +508,21 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               children: [
                 _buildTabItem(
                   icon: CupertinoIcons.house,
-                  label: l10n.adminDashboard,
+                  label: 'Dashboard',
                   isSelected: currentIndex == 0,
                   onTap: () => _handleNavigation(0),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.graph_square,
-                  label: l10n.navOpportunities,
+                  label: 'Oportunidades',
                   isSelected: currentIndex == 3,
                   onTap: () => _handleNavigation(3),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
-                  label: l10n.navMessages,
+                  label: 'Mensagens',
                   isSelected: currentIndex == 1,
                   onTap: () => _handleNavigation(1),
                   badgeCount: unreadCount,
@@ -541,14 +530,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
-                  label: l10n.navResellers,
+                  label: 'Revendedores',
                   isSelected: currentIndex == 4,
                   onTap: () => _handleNavigation(4),
                   width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.settings,
-                  label: l10n.navSettings,
+                  label: 'Configurações',
                   isSelected: currentIndex == 2,
                   onTap: () => _handleNavigation(2),
                   width: tabWidth,

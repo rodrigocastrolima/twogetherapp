@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
 import '../../core/utils/constants.dart';
@@ -22,11 +21,11 @@ class MainLayout extends ConsumerStatefulWidget {
   final String location;
 
   const MainLayout({
-    Key? key,
+    super.key,
     required this.child,
     required this.currentIndex,
     required this.location,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<MainLayout> createState() => _MainLayoutState();
@@ -49,7 +48,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         oldWidget.location != widget.location) {
       setState(() {
         _selectedIndex = widget.currentIndex;
-        _isTransitioning = false; // Reset transition state
+        _isTransitioning = false;
       });
     }
   }
@@ -57,12 +56,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   void _handleNavigation(int index) {
     if (_selectedIndex != index && !_isTransitioning) {
       setState(() {
-        _isTransitioning = true; // Mark as transitioning
+        _isTransitioning = true;
       });
 
-      // Clean transition by removing the previous screen first
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Navigate to the appropriate route
         switch (index) {
           case 0:
             context.go('/');
@@ -77,8 +74,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             context.go('/settings');
             break;
         }
-
-        // Update the state after navigation
         setState(() {
           _selectedIndex = index;
           _isTransitioning = false;
@@ -89,42 +84,24 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final userAsync = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
-
-    // Get unread message count
-    final unreadCount = ref
-        .watch(unreadMessagesCountProvider)
-        .maybeWhen(data: (count) => count, orElse: () => 0);
 
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600;
-    final isDesktop = width >= 1024;
 
-    // Check if support is online (between 9am and 6pm)
     final isOnline = _isBusinessHours();
 
-    // Use theme colors for light mode
-    final Color lightBackgroundColor = Theme.of(context).colorScheme.background;
+    final Color backgroundColor = theme.colorScheme.surface;
 
-    // Use theme colors for dark mode
-    final Color darkBackgroundColor = Theme.of(context).colorScheme.background;
-    final Color darkNavBarColor =
-        AppTheme.darkNavBarBackground; // Use the specific nav bar color
-
-    // Determine if we should show the bottom nav bar
     final bool showBottomNavBar = widget.location != '/change-password';
 
     return Scaffold(
-      backgroundColor: isDark ? darkBackgroundColor : lightBackgroundColor,
+      backgroundColor: backgroundColor,
       extendBodyBehindAppBar: true,
-      extendBody: true, // Allow body to extend behind bottom nav
+      extendBody: true,
       appBar:
-          isSmallScreen &&
-                  _selectedIndex !=
-                      0 // Don't show app bar on home page
+          isSmallScreen && _selectedIndex != 0
               ? PreferredSize(
                 preferredSize: const Size.fromHeight(100),
                 child: ClipRect(
@@ -139,13 +116,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       leading: _selectedIndex == 2 ? null : null,
                       title:
                           _selectedIndex == 2
-                              // For Messages/Chat page, show iOS style messaging header
                               ? Padding(
                                 padding: const EdgeInsets.only(top: 10),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Circular avatar with logo
                                     Container(
                                       width: 60,
                                       height: 60,
@@ -154,8 +129,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                         color: Colors.white,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.05,
+                                            color: Colors.black.withAlpha(
+                                              (255 * 0.05).round(),
                                             ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 2),
@@ -169,24 +144,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    // Name with online indicator
                                     Column(
                                       children: [
-                                        // Support name
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              AppLocalizations.of(
-                                                context,
-                                              )!.chatSupportName,
+                                              'Suporte Twogether',
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            // Green dot indicator
                                             Container(
                                               width: 8,
                                               height: 8,
@@ -201,8 +171,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                                         ? [
                                                           BoxShadow(
                                                             color: Colors.green
-                                                                .withOpacity(
-                                                                  0.4,
+                                                                .withAlpha(
+                                                                  (255 * 0.4)
+                                                                      .round(),
                                                                 ),
                                                             blurRadius: 4,
                                                             spreadRadius: 1,
@@ -218,48 +189,27 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                   ],
                                 ),
                               )
-                              // For other pages, show the regular logo
                               : Container(
                                 height: 100,
                                 alignment: Alignment.center,
                                 child: LogoWidget(height: 80, darkMode: false),
                               ),
                       centerTitle: true,
-                      actions: [
-                        // No actions needed now
-                      ],
+                      actions: const [],
                     ),
                   ),
                 ),
               )
               : null,
       body: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.background,
-        ),
+        decoration: BoxDecoration(color: theme.colorScheme.surface),
         child: Material(
           color: Colors.transparent,
           child: Stack(
             children: [
-              // Main content
-              _buildMainContent(isSmallScreen),
-
-              // Bottom Navigation for Mobile
+              _buildMainContent(isSmallScreen, showBottomNavBar),
               if (isSmallScreen && showBottomNavBar)
                 _buildMobileNavBar(context),
-
-              // Side Navigation for Desktop
-              if (!isSmallScreen) _buildSidebar(context, textColor, isDark),
-
-              // This Overlay layer will be used for full-screen modals
-              // It sits above everything else - navigation bars, app bars, etc.
-              Positioned.fill(
-                child: IgnorePointer(
-                  ignoring:
-                      true, // This will pass touches through unless made visible
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
             ],
           ),
         ),
@@ -267,302 +217,65 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildMainContent(bool isSmallScreen) {
-    // Using a key based on the selected index ensures the widget tree is completely rebuilt
-    // during page transitions, preventing any leakage between pages
-    final pageKey = ValueKey('page-${_selectedIndex}');
+  Widget _buildMainContent(bool isSmallScreen, bool showNavBar) {
+    final bool isHomePage = widget.currentIndex == 0;
 
-    // Determine the page title based on current route
-    String pageTitle = '';
-    final location = GoRouterState.of(context).matchedLocation;
-    if (location == '/') {
-      pageTitle = ''; // Home doesn't need a title
-    } else if (location == '/clients') {
-      pageTitle = AppLocalizations.of(context)!.clientsPageTitle;
-    } else if (location == '/messages') {
-      pageTitle = AppLocalizations.of(context)!.messagesPageTitle;
-    } else if (location == '/settings') {
-      pageTitle = AppLocalizations.of(context)!.profileTitle;
+    // The main content area, potentially wrapped in a Stack for the homepage background
+    Widget content = SafeArea(
+      // Apply SafeArea universally, adjust top padding later if needed
+      top: true,
+      bottom: !showNavBar, // No bottom padding if navbar isn't shown
+      child: Padding(
+        padding: EdgeInsets.only(
+          // Only add bottom padding if navbar is shown on small screens
+          bottom: showNavBar && isSmallScreen ? AppStyles.navBarHeight : 0,
+        ),
+        child:
+            _isTransitioning
+                ? Container(color: Theme.of(context).colorScheme.surface)
+                : KeyedSubtree(
+                  key: ValueKey('page-${widget.location}'),
+                  child: widget.child,
+                ),
+      ),
+    );
+
+    if (isHomePage) {
+      // If it's the home page, wrap the content in a Stack with the background
+      return Stack(
+        children: [
+          // Background Image Layer
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 0.4, // 1/3 height
+            child: Image.asset(
+              'assets/images/backgrounds/homepage.png',
+              fit: BoxFit.cover,
+              // Optional: Add errorBuilder if image fails to load
+              errorBuilder: (context, error, stackTrace) {
+                // Return a placeholder color or widget on error
+                return Container(color: Colors.grey);
+              },
+            ),
+          ),
+          // Content Layer (already includes SafeArea)
+          content,
+        ],
+      );
+    } else {
+      // For other pages, just return the content directly
+      return content;
     }
-
-    return Positioned(
-      top: isSmallScreen ? (_selectedIndex == 0 ? 0 : 100) : 0,
-      left: isSmallScreen ? 0 : AppStyles.sidebarWidth,
-      right: 0,
-      bottom: isSmallScreen ? AppStyles.navBarHeight : 0,
-      child:
-          _selectedIndex == 0
-              ? Stack(
-                children: [
-                  // Background image - only show for Home page (_selectedIndex == 0)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height:
-                        MediaQuery.of(context).size.height *
-                        0.33, // Exactly 1/3 of screen height
-                    child: Image.asset(
-                      'assets/images/backgrounds/homepage.png',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-
-                  // Content without clipping
-                  KeyedSubtree(
-                    key: pageKey,
-                    child: ScrollConfiguration(
-                      behavior: const NoScrollbarBehavior(),
-                      child: widget.child,
-                    ),
-                  ),
-                ],
-              )
-              : ClipRect(
-                child:
-                    _isTransitioning
-                        ? Container(
-                          color: Theme.of(context).colorScheme.background,
-                        ) // Show barrier during transition
-                        : Stack(
-                          children: [
-                            // Content
-                            KeyedSubtree(
-                              key: pageKey,
-                              child: Padding(
-                                padding: EdgeInsets.only(
-                                  left: _selectedIndex == 0 ? 0 : 24,
-                                  right: _selectedIndex == 0 ? 0 : 24,
-                                  top:
-                                      isSmallScreen
-                                          ? (_selectedIndex == 0 ? 0 : 24)
-                                          : (_selectedIndex == 0 ? 0 : 24),
-                                  bottom: _selectedIndex == 0 ? 0 : 0,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Page title - only show for pages other than home and if not showing in app bar
-                                    if (pageTitle.isNotEmpty &&
-                                        _selectedIndex != 0 &&
-                                        !isSmallScreen)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 24.0,
-                                        ),
-                                        child: Text(
-                                          pageTitle,
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.headlineMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.bodyLarge?.color,
-                                          ),
-                                        ),
-                                      ),
-
-                                    // Main content - The home page and some other pages provide their own ScrollConfiguration/padding
-                                    Expanded(
-                                      child: ScrollConfiguration(
-                                        behavior: const NoScrollbarBehavior(),
-                                        child: widget.child,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-              ),
-    );
-  }
-
-  Widget _buildSidebar(BuildContext context, Color textColor, bool isDark) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      bottom: 0,
-      width: AppStyles.sidebarWidth,
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: AppStyles.standardBlur,
-          child: Container(
-            decoration: BoxDecoration(
-              color:
-                  isDark
-                      ? AppTheme
-                          .darkNavBarBackground // Use specific dark nav color
-                      : Theme.of(context).colorScheme.surface.withOpacity(0.8),
-              border: Border(
-                right: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
-                ),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 24),
-                // Logo
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: LogoWidget(height: 50, darkMode: false),
-                ),
-                const SizedBox(height: 24),
-                // Navigation Items
-                _buildNavigationItems(context, textColor),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavigationItems(BuildContext context, Color textColor) {
-    final l10n = AppLocalizations.of(context)!;
-    final unreadCount = ref
-        .watch(unreadMessagesCountProvider)
-        .maybeWhen(data: (count) => count, orElse: () => 0);
-
-    return Column(
-      children: [
-        _buildNavItem(
-          context: context,
-          icon: CupertinoIcons.house,
-          label: l10n.navHome,
-          isSelected: _selectedIndex == 0,
-          onTap: () => _handleNavigation(0),
-          textColor: textColor,
-        ),
-        _buildNavItem(
-          context: context,
-          icon: CupertinoIcons.person_2,
-          label: l10n.navClients,
-          isSelected: _selectedIndex == 1,
-          onTap: () => _handleNavigation(1),
-          textColor: textColor,
-        ),
-        _buildNavItem(
-          context: context,
-          icon: CupertinoIcons.bubble_left,
-          label: l10n.navMessages,
-          isSelected: _selectedIndex == 2,
-          onTap: () => _handleNavigation(2),
-          textColor: textColor,
-          badgeCount: unreadCount,
-        ),
-        _buildNavItem(
-          context: context,
-          icon: CupertinoIcons.settings,
-          label: l10n.navSettings,
-          isSelected: _selectedIndex == 3,
-          onTap: () => _handleNavigation(3),
-          textColor: textColor,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNavItem({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color textColor,
-    int badgeCount = 0,
-  }) {
-    // Define the Tulip Tree color with enhanced brightness
-    final Color tulipTreeColor = Color(0xFFffbe45);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      decoration: isSelected ? AppStyles.activeItemHighlight(context) : null,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            child: Row(
-              children: [
-                isSelected
-                    ? ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          colors: [
-                            tulipTreeColor,
-                            tulipTreeColor.withRed(
-                              (tulipTreeColor.red + 15).clamp(0, 255),
-                            ),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds);
-                      },
-                      child: Icon(icon, size: 20),
-                    )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color:
-                          isSelected
-                              ? tulipTreeColor
-                              : textColor.withOpacity(0.7),
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      shadows:
-                          isSelected
-                              ? [
-                                Shadow(
-                                  color: tulipTreeColor.withOpacity(0.3),
-                                  blurRadius: 2.0,
-                                ),
-                              ]
-                              : null,
-                    ),
-                  ),
-                ),
-                if (badgeCount > 0) ...[
-                  Container(
-                    width: AppStyles.badgeSize,
-                    height: AppStyles.badgeSize,
-                    decoration: AppStyles.notificationBadge,
-                    alignment: Alignment.center,
-                    child: Text(
-                      badgeCount.toString(),
-                      style: AppStyles.badgeTextStyle(context),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildMobileNavBar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final unreadCount = ref
         .watch(unreadMessagesCountProvider)
         .maybeWhen(data: (count) => count, orElse: () => 0);
-
-    // Calculate width for each tab based on screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final tabWidth = screenWidth / 4; // 4 tabs
 
     return Positioned(
       bottom: 0,
@@ -576,14 +289,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             decoration: BoxDecoration(
               color:
                   isDark
-                      ? AppTheme
-                          .darkNavBarBackground // Use specific dark nav color
-                      : Colors.white.withOpacity(
-                        0.8,
-                      ), // Keep light theme semi-transparent
+                      ? AppTheme.darkNavBarBackground
+                      : Colors.white.withAlpha((255 * 0.8).round()),
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  color: Theme.of(
+                    context,
+                  ).dividerColor.withAlpha((255 * 0.1).round()),
                   width: 0.5,
                 ),
               ),
@@ -593,32 +305,28 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               children: [
                 _buildTabItem(
                   icon: CupertinoIcons.house,
-                  label: l10n.navHome,
+                  label: 'Início',
                   isSelected: _selectedIndex == 0,
                   onTap: () => _handleNavigation(0),
-                  width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
-                  label: l10n.navClients,
+                  label: 'Clientes',
                   isSelected: _selectedIndex == 1,
                   onTap: () => _handleNavigation(1),
-                  width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
-                  label: l10n.navMessages,
+                  label: 'Mensagens',
                   isSelected: _selectedIndex == 2,
                   onTap: () => _handleNavigation(2),
                   badgeCount: unreadCount,
-                  width: tabWidth,
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.settings,
-                  label: l10n.navSettings,
+                  label: 'Definições',
                   isSelected: _selectedIndex == 3,
                   onTap: () => _handleNavigation(3),
-                  width: tabWidth,
                 ),
               ],
             ),
@@ -638,10 +346,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
-    // Define the Tulip Tree color with enhanced brightness
     final Color tulipTreeColor = Color(0xFFffbe45);
-
-    // Calculate text size based on label length
     final double fontSize = label.length > 8 ? 10.0 : 12.0;
 
     return GestureDetector(
@@ -672,7 +377,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       },
                       child: Icon(icon, size: 24),
                     )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
+                    : Icon(
+                      icon,
+                      color: textColor.withAlpha((255 * 0.7).round()),
+                      size: 24,
+                    ),
                 if (badgeCount > 0)
                   Positioned(
                     top: -5,
@@ -697,14 +406,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               overflow: TextOverflow.visible,
               maxLines: 1,
               style: TextStyle(
-                color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                color:
+                    isSelected
+                        ? tulipTreeColor
+                        : textColor.withAlpha((255 * 0.7).round()),
                 fontSize: fontSize,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 shadows:
                     isSelected
                         ? [
                           Shadow(
-                            color: tulipTreeColor.withOpacity(0.3),
+                            color: tulipTreeColor.withAlpha(
+                              (255 * 0.3).round(),
+                            ),
                             blurRadius: 1.5,
                           ),
                         ]
@@ -717,91 +431,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  // Helper method to check if current time is within business hours (9am-6pm)
   bool _isBusinessHours() {
     final now = DateTime.now();
     final hour = now.hour;
-    return hour >= 9 && hour < 18; // 9am to 6pm
-  }
-
-  Widget _buildMobileNavBarWidget(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final Color unselectedColor = (isDark ? Colors.white : Colors.black)
-        .withOpacity(0.7);
-    final Color selectedColor = Color(0xFFffbe45); // Tulip Tree color
-
-    return BottomNavigationBar(
-      items: <BottomNavigationBarItem>[
-        BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.house),
-          label: l10n.navHome,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.person_2),
-          label: l10n.navClients,
-        ),
-        BottomNavigationBarItem(
-          icon: Consumer(
-            builder: (context, ref, child) {
-              final count = ref
-                  .watch(unreadMessagesCountProvider)
-                  .maybeWhen(data: (c) => c, orElse: () => 0);
-
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  child!,
-                  if (count > 0)
-                    Positioned(
-                      top: -5,
-                      right: -8,
-                      child: Container(
-                        padding: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          count.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-            child: const Icon(CupertinoIcons.bubble_left),
-          ),
-          label: l10n.navMessages,
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.settings),
-          label: l10n.navSettings,
-        ),
-      ],
-      currentIndex: _selectedIndex,
-      onTap: _handleNavigation,
-      backgroundColor:
-          isDark
-              ? AppTheme.darkNavBarBackground
-              : Colors.white.withOpacity(0.8),
-      selectedItemColor: selectedColor,
-      unselectedItemColor: unselectedColor,
-      type: BottomNavigationBarType.fixed, // Ensures labels are always shown
-      showSelectedLabels: true,
-      showUnselectedLabels: true,
-      elevation: 0, // Remove default elevation if using custom container/blur
-    );
+    return hour >= 9 && hour < 18;
   }
 }

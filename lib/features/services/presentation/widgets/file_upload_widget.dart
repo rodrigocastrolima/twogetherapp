@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart'; // Import Cupertino
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+// import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Remove import
 // import 'dart:ui'; // Unnecessary import
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/service_submission_provider.dart';
@@ -42,7 +42,7 @@ class FileUploadWidget extends ConsumerWidget {
 
   // --- Method to show mobile picker options (using CupertinoActionSheet) ---
   void _showMobilePickerOptions(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // Remove l10n init
     final notifier = ref.read(serviceSubmissionProvider.notifier);
 
     // Use CupertinoActionSheet for iOS look and feel
@@ -65,7 +65,7 @@ class FileUploadWidget extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    l10n.fileUploadOptionGallery,
+                    'Galeria', // Replaced l10n.fileUploadOptionGallery
                     style: cupertinoTheme.textTheme.actionTextStyle,
                   ),
                 ],
@@ -86,7 +86,7 @@ class FileUploadWidget extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    l10n.fileUploadOptionCamera,
+                    'Câmera', // Replaced l10n.fileUploadOptionCamera
                     style: cupertinoTheme.textTheme.actionTextStyle,
                   ),
                 ],
@@ -99,7 +99,7 @@ class FileUploadWidget extends ConsumerWidget {
           ],
           cancelButton: CupertinoActionSheetAction(
             child: Text(
-              l10n.fileUploadOptionCancel,
+              'Cancelar', // Replaced l10n.fileUploadOptionCancel
               style: cupertinoTheme.textTheme.actionTextStyle.copyWith(
                 color: CupertinoColors.systemRed,
               ),
@@ -125,7 +125,7 @@ class FileUploadWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // Remove l10n init
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -149,7 +149,7 @@ class FileUploadWidget extends ConsumerWidget {
             children: [
               Text(
                 // l10n.fileUploadSectionTitle, // Add a key for this in .arb files
-                'Attach Documents', // Placeholder title
+                'Anexar Documentos', // Replaced Placeholder title with Portuguese
                 style: textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w500,
                   color: colorScheme.onSurface,
@@ -165,7 +165,8 @@ class FileUploadWidget extends ConsumerWidget {
                 constraints:
                     const BoxConstraints(), // Remove default constraints
                 visualDensity: VisualDensity.compact, // Make it smaller
-                tooltip: l10n.fileUploadButtonLabel,
+                tooltip:
+                    'Carregar Fatura', // Replaced l10n.fileUploadButtonLabel
                 onPressed: () => _triggerFilePick(context, ref),
               ),
             ],
@@ -214,7 +215,7 @@ class FileUploadWidget extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Text(
-                    l10n.fileUploadHint,
+                    'Carregue uma foto ou PDF da fatura', // Replaced l10n.fileUploadHint
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -235,7 +236,7 @@ class FileUploadWidget extends ConsumerWidget {
     PlatformFile file,
     int index,
   ) {
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // Remove l10n init
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -299,27 +300,32 @@ class FileUploadWidget extends ConsumerWidget {
           Positioned(
             top: -8, // Adjust position to overlap slightly
             right: -8,
-            child: Material(
-              // Use Material for InkWell effect
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  ref
-                      .read(serviceSubmissionProvider.notifier)
-                      .removeFile(index);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.errorContainer.withOpacity(0.9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    CupertinoIcons.xmark,
-                    size: 14, // Smaller icon
-                    color: colorScheme.onErrorContainer,
+            child: Tooltip(
+              // Wrap with Tooltip
+              message: 'Remover ficheiro', // Use message parameter for Tooltip
+              child: Material(
+                // Use Material for InkWell effect
+                color: Colors.transparent,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    ref
+                        .read(serviceSubmissionProvider.notifier)
+                        .removeFile(index);
+                  },
+                  // tooltip: 'Remover ficheiro', // Removed from InkWell
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer.withOpacity(0.9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      CupertinoIcons.xmark,
+                      size: 14, // Smaller icon
+                      color: colorScheme.onErrorContainer,
+                    ),
                   ),
                 ),
               ),

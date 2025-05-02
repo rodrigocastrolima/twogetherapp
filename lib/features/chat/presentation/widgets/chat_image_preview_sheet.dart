@@ -6,7 +6,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../../core/theme/theme.dart';
 import '../providers/chat_provider.dart';
 
@@ -74,7 +73,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
         // Show timeout error
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Upload timed out.'), // TODO: l10n
+            content: Text('Tempo limite de upload excedido.'),
             backgroundColor: Theme.of(currentContext).colorScheme.error,
           ),
         );
@@ -88,12 +87,12 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
       }
 
       // Generic error message (customize as needed)
-      final errorMessage = 'Error sending image: ${e.toString()}';
+      final errorMessage = 'Erro ao enviar imagem: ${e.toString()}';
 
       if (mounted) {
         ScaffoldMessenger.of(currentContext).showSnackBar(
           SnackBar(
-            content: Text(errorMessage), // TODO: l10n
+            content: Text(errorMessage),
             backgroundColor: Theme.of(currentContext).colorScheme.error,
           ),
         );
@@ -113,7 +112,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
+    // final l10n = AppLocalizations.of(context)!; // Remove l10n init
     // final size = MediaQuery.of(context).size; // No longer needed for sizing
 
     // Use a Scaffold for structure within the overlay route
@@ -142,7 +141,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
             left: 10,
             child: IconButton(
               icon: const Icon(Icons.close, color: Colors.white, size: 30),
-              tooltip: l10n.commonCancel,
+              tooltip: 'Cancelar',
               onPressed: () => Navigator.pop(context, false),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.black.withOpacity(0.3),
@@ -157,7 +156,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
                 20, // Adjust position above nav bar/safe area
             right: 20,
             child: FloatingActionButton(
-              tooltip: l10n.chatSendMessage,
+              tooltip: 'Enviar uma mensagem',
               backgroundColor: theme.colorScheme.primary,
               onPressed: _isLoading ? null : _handleSendImage,
               child:
@@ -193,7 +192,9 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
                   !snapshot.hasData ||
                   snapshot.data!.isEmpty) {
                 print('Error loading web preview: ${snapshot.error}');
-                return _buildPreviewErrorWidget('Error loading preview');
+                return _buildPreviewErrorWidget(
+                  'Erro ao carregar pré-visualização',
+                );
               }
               return Image.memory(snapshot.data!, fit: BoxFit.contain);
             },
@@ -202,7 +203,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
           print(
             'Unsupported web image file type: ${widget.imageFile.runtimeType}',
           );
-          return _buildPreviewErrorWidget('Unsupported file type');
+          return _buildPreviewErrorWidget('Tipo de ficheiro não suportado');
         }
       } else {
         // Mobile
@@ -217,12 +218,12 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
           print(
             'Unsupported mobile image file type: ${widget.imageFile.runtimeType}',
           );
-          return _buildPreviewErrorWidget('Unsupported file type');
+          return _buildPreviewErrorWidget('Tipo de ficheiro não suportado');
         }
       }
     } catch (e, stackTrace) {
       print('Exception in _buildImagePreviewWidget: $e\n$stackTrace');
-      return _buildPreviewErrorWidget('Error displaying preview');
+      return _buildPreviewErrorWidget('Erro ao exibir pré-visualização');
     }
   }
 

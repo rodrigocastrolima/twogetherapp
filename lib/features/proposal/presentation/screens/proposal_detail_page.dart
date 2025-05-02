@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../../../../core/theme/theme.dart';
 import '../../data/models/salesforce_proposal.dart';
@@ -23,7 +22,6 @@ class ProposalDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context);
 
     // No need to fetch, use the passed proposal object directly
 
@@ -40,11 +38,11 @@ class ProposalDetailPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProposalInfoSection(context, theme, l10n, proposal, index),
+            _buildProposalInfoSection(context, theme, proposal, index),
             const SizedBox(height: 24),
-            _buildFilesSection(context, theme, l10n),
+            _buildFilesSection(context, theme),
             const SizedBox(height: 24),
-            _buildActionsSection(context, theme, l10n, proposal),
+            _buildActionsSection(context, theme, proposal),
           ],
         ),
       ),
@@ -54,27 +52,22 @@ class ProposalDetailPage extends ConsumerWidget {
   Widget _buildProposalInfoSection(
     BuildContext context,
     ThemeData theme,
-    AppLocalizations? l10n,
     SalesforceProposal proposal,
     int index,
   ) {
-    final dateFormat = DateFormat.yMd(l10n?.localeName ?? 'pt_PT');
-    final currencyFormat = NumberFormat.currency(
-      locale: l10n?.localeName ?? 'pt_PT',
-      symbol: '€',
-    );
+    // Use hardcoded 'pt_PT' locale for formatting
+    final dateFormat = DateFormat.yMd('pt_PT');
+    final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
     final commissionString =
         proposal.totalComissaoRetail != null
             ? currencyFormat.format(proposal.totalComissaoRetail)
-            : 'N/A';
+            : 'N/D'; // Hardcoded Portuguese
 
-    // Format validity date
-    String validityDateString = 'N/A';
+    String validityDateString = 'N/D'; // Hardcoded Portuguese
     try {
       final parsedDate = DateTime.parse(proposal.dataDeValidade);
       validityDateString = dateFormat.format(parsedDate);
     } catch (_) {
-      // Handle parsing error or keep 'N/A' if format is unexpected
       validityDateString = proposal.dataDeValidade; // Fallback to raw string
     }
 
@@ -82,7 +75,10 @@ class ProposalDetailPage extends ConsumerWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
+        // Use .withAlpha() instead of withOpacity
+        side: BorderSide(
+          color: theme.colorScheme.outline.withAlpha((255 * 0.1).round()),
+        ),
       ),
       color: theme.colorScheme.surface,
       child: Padding(
@@ -91,7 +87,7 @@ class ProposalDetailPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Proposta #${index + 1}',
+              'Proposta #${index + 1}', // Hardcoded Portuguese
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -105,7 +101,7 @@ class ProposalDetailPage extends ConsumerWidget {
                   SizedBox(
                     width: 120,
                     child: Text(
-                      'Status:',
+                      'Estado:', // Hardcoded Portuguese
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
@@ -116,24 +112,28 @@ class ProposalDetailPage extends ConsumerWidget {
                 ],
               ),
             ),
-            _buildDetailRow(context, 'Comissão', commissionString),
-            _buildDetailRow(context, 'Data de Validade', validityDateString),
+            _buildDetailRow(
+              context,
+              'Comissão',
+              commissionString,
+            ), // Hardcoded Portuguese
+            _buildDetailRow(
+              context,
+              'Data de Validade',
+              validityDateString,
+            ), // Hardcoded Portuguese
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilesSection(
-    BuildContext context,
-    ThemeData theme,
-    AppLocalizations? l10n,
-  ) {
+  Widget _buildFilesSection(BuildContext context, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Ficheiros da Proposta',
+          'Ficheiros da Proposta', // Hardcoded Portuguese
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
@@ -143,7 +143,7 @@ class ProposalDetailPage extends ConsumerWidget {
         const Center(
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
-            child: Text('Nenhum ficheiro encontrado.'),
+            child: Text('Nenhum ficheiro encontrado.'), // Hardcoded Portuguese
           ),
         ),
       ],
@@ -153,7 +153,6 @@ class ProposalDetailPage extends ConsumerWidget {
   Widget _buildActionsSection(
     BuildContext context,
     ThemeData theme,
-    AppLocalizations? l10n,
     SalesforceProposal proposal,
   ) {
     // Only show actions if proposal is in a state that allows them (e.g., not 'Aceite' or 'Cancelada')
@@ -170,14 +169,17 @@ class ProposalDetailPage extends ConsumerWidget {
         Expanded(
           child: OutlinedButton.icon(
             icon: const Icon(CupertinoIcons.clear_thick),
-            label: const Text('Rejeitar'),
+            label: const Text('Rejeitar'), // Hardcoded Portuguese
             onPressed: () {
               // TODO: Implement reject logic
               print('Reject proposal: ${proposal.id}');
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: theme.colorScheme.error,
-              side: BorderSide(color: theme.colorScheme.error.withOpacity(0.5)),
+              // Use .withAlpha() instead of withOpacity
+              side: BorderSide(
+                color: theme.colorScheme.error.withAlpha((255 * 0.5).round()),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -186,7 +188,7 @@ class ProposalDetailPage extends ConsumerWidget {
         Expanded(
           child: ElevatedButton.icon(
             icon: const Icon(CupertinoIcons.check_mark_circled),
-            label: const Text('Aceitar'),
+            label: const Text('Aceitar'), // Hardcoded Portuguese
             onPressed: () {
               // TODO: Implement accept logic
               print('Accept proposal: ${proposal.id}');
@@ -271,4 +273,3 @@ class ProposalDetailPage extends ConsumerWidget {
 
   // -----------------------------------------------------------------
 }
- 

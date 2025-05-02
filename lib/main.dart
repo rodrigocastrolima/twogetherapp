@@ -12,12 +12,9 @@ import 'firebase_options.dart';
 import 'app/router/app_router.dart';
 import 'features/auth/presentation/providers/cloud_functions_provider.dart';
 import 'features/auth/data/services/firebase_functions_service.dart';
-import 'core/providers/locale_provider.dart';
 import 'core/providers/shared_preferences_provider.dart';
 import 'package:flutter/services.dart';
 import 'core/theme/theme.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'features/salesforce/data/repositories/salesforce_repository.dart';
 import 'core/services/salesforce_auth_service.dart';
@@ -27,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/providers/theme_provider.dart';
 import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
 import 'core/theme/ui_styles.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Import intl
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -59,6 +57,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setPathUrlStrategy();
+
+  // Initialize date formatting for the 'pt_PT' locale
+  await initializeDateFormatting('pt_PT', null);
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Initialize SharedPreferences FIRST
@@ -205,13 +207,9 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> {
 
   @override
   Widget build(BuildContext context) {
-    // Get router from the App router class
     final router = AppRouter.router;
-    // Watch locale and theme providers
-    final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeProvider);
 
-    // The main MaterialApp configuration
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: NotificationOverlayManager(
@@ -242,9 +240,7 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> {
           ),
           themeMode: themeMode,
           routerConfig: router,
-          locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('pt'),
         ),
       ),
     );

@@ -9,7 +9,6 @@ import '../../../features/services/presentation/widgets/file_upload_widget.dart'
 import '../../../features/services/presentation/providers/service_submission_provider.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart'
     as repo;
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../widgets/success_dialog.dart'; // Import the success dialog
 
 class ServicesPage extends ConsumerStatefulWidget {
@@ -168,7 +167,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
-    final l10n = AppLocalizations.of(context)!;
 
     setState(() {
       _isSubmitting = true;
@@ -180,7 +178,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       final userRepo = ref.read(repo.serviceSubmissionRepositoryProvider);
       final userData = await userRepo.getCurrentUserData();
 
-      if (userData == null) throw Exception(l10n.servicesUserAuthError);
+      if (userData == null)
+        throw Exception('Erro de autenticação do utilizador.');
 
       final success = await formNotifier.submitServiceRequest(
         resellerId: userData['uid'] ?? '',
@@ -192,7 +191,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         await showSuccessDialog(
           context: context,
           message:
-              l10n.servicesSubmissionSuccessMessage, // Use the new l10n key
+              'Pedido de serviço submetido com sucesso! Será revisto em breve.',
           onDismissed: () {
             // Navigation happens AFTER the dialog is dismissed
             if (mounted) {
@@ -209,13 +208,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         final formState = ref.read(serviceSubmissionProvider);
         setState(() {
           _errorMessage =
-              formState.errorMessage ?? l10n.servicesSubmissionError;
+              formState.errorMessage ?? 'Erro ao submeter o pedido de serviço.';
         });
       }
     } catch (e) {
       debugPrint('Error submitting form: $e');
       setState(() {
-        _errorMessage = l10n.servicesSubmissionErrorGeneric(e.toString());
+        _errorMessage = 'Ocorreu um erro inesperado ao submeter: $e';
       });
     } finally {
       if (mounted) {
@@ -279,8 +278,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    final l10n = AppLocalizations.of(context)!;
 
     // Watch for error messages from the provider
     ref.listen<ServiceSubmissionState>(serviceSubmissionProvider, (
@@ -353,7 +350,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             final stepIndex = index ~/ 2 + 1;
             final isActive = currentStep >= stepIndex;
             final isCurrent = currentStep == stepIndex;
-            final isCompleted = currentStep > stepIndex;
 
             Widget circle = Container(
               width: isCurrent ? 28 : 24,
@@ -390,7 +386,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           } else {
             // Line
             final stepIndex = index ~/ 2 + 1;
-            final isActive = currentStep > stepIndex;
             final isCompleted = currentStep > stepIndex;
             return Expanded(
               child: Container(
@@ -411,7 +406,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   Widget _buildCurrentStep() {
-    final l10n = AppLocalizations.of(context)!;
     switch (currentStep) {
       case 0:
         return _buildServiceCategoryStep();
@@ -422,7 +416,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       case 3:
         return _buildFormStep();
       default:
-        return Center(child: Text(l10n.servicesStepInvalid));
+        return Center(child: Text('Passo inválido'));
     }
   }
 
@@ -431,7 +425,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   Widget _buildServiceCategoryStep() {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final l10n = AppLocalizations.of(context)!;
 
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
@@ -441,7 +434,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              l10n.servicesPageTitle,
+              'Criar Novo Serviço',
               style: textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -464,7 +457,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   Widget _buildEnergyTypeStep() {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final l10n = AppLocalizations.of(context)!;
 
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
@@ -473,7 +465,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.servicesEnergyPageTitle, style: textTheme.headlineMedium),
+            Text('Tipo de Energia', style: textTheme.headlineMedium),
             const SizedBox(height: AppConstants.spacing24),
             ...EnergyType.values.map(
               (type) => _buildSelectionTile(
@@ -492,20 +484,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
-    final l10n = AppLocalizations.of(context)!;
 
     // Common structure for title and subtitle
     Widget buildHeader() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l10n.servicesClientTypePageTitle,
-            style: textTheme.headlineMedium,
-          ),
+          Text('Tipo de Cliente', style: textTheme.headlineMedium),
           const SizedBox(height: AppConstants.spacing4),
           Text(
-            l10n.servicesClientTypePageSubtitle,
+            'Selecione se o serviço é para uma empresa ou residência.',
             style: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -524,8 +512,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           children: [
             buildHeader(),
             _buildClientCard(
-              title: l10n.servicesClientTypeCommercialTitle,
-              subtitle: l10n.servicesClientTypeCommercialSubtitle,
+              title: 'Empresarial',
+              subtitle: 'Serviços para NIFs empresariais.',
               imagePath: 'assets/images/edp_logo_br.png',
               onTap: () => _handleClientTypeSelection(ClientType.commercial),
             ),
@@ -533,8 +521,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             if (_selectedEnergyType != EnergyType.solar) ...[
               const SizedBox(height: AppConstants.spacing16),
               _buildClientCard(
-                title: l10n.servicesClientTypeResidentialTitle,
-                subtitle: l10n.servicesClientTypeResidentialSubtitle,
+                title: 'Residencial',
+                subtitle: 'Serviços para NIFs particulares.',
                 imagePath: 'assets/images/repsol_logo_br.png',
                 onTap: () => _handleClientTypeSelection(ClientType.residential),
               ),
@@ -549,7 +537,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final l10n = AppLocalizations.of(context)!;
 
     final notifier = ref.read(serviceSubmissionProvider.notifier);
 
@@ -560,13 +547,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.servicesFormTitle, style: textTheme.headlineMedium),
+            Text('Detalhes do Cliente', style: textTheme.headlineMedium),
             const SizedBox(height: AppConstants.spacing24),
             if (_selectedClientType == ClientType.commercial) ...[
               _buildTextField(
                 controller: _companyNameController,
-                label: l10n.servicesFormCompanyNameLabel,
-                hint: l10n.servicesFormCompanyNameHint,
+                label: 'Nome da Empresa',
+                hint: 'Insira o nome da empresa',
                 onChanged:
                     (value) =>
                         notifier.updateFormFields({'companyName': value}),
@@ -575,8 +562,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             ],
             _buildTextField(
               controller: _responsibleNameController,
-              label: l10n.servicesFormResponsibleNameLabel,
-              hint: l10n.servicesFormResponsibleNameHint,
+              label: 'Nome do Responsável',
+              hint: 'Insira o nome do responsável',
               onChanged:
                   (value) =>
                       notifier.updateFormFields({'responsibleName': value}),
@@ -584,24 +571,24 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _nifController,
-              label: l10n.servicesFormNifLabel,
-              hint: l10n.servicesFormNifHint,
+              label: 'NIF',
+              hint: 'Insira o NIF',
               keyboardType: TextInputType.number,
               onChanged: (value) => notifier.updateFormFields({'nif': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _emailController,
-              label: l10n.servicesFormEmailLabel,
-              hint: l10n.servicesFormEmailHint,
+              label: 'Email',
+              hint: 'Insira o email de contacto',
               keyboardType: TextInputType.emailAddress,
               onChanged: (value) => notifier.updateFormFields({'email': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
             _buildTextField(
               controller: _phoneController,
-              label: l10n.servicesFormPhoneLabel,
-              hint: l10n.servicesFormPhoneHint,
+              label: 'Telefone',
+              hint: 'Insira o número de telefone',
               keyboardType: TextInputType.phone,
               onChanged: (value) => notifier.updateFormFields({'phone': value}),
             ),
@@ -654,7 +641,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                           ),
                         )
                         : Text(
-                          l10n.servicesSubmitButtonLabel,
+                          'Submeter Pedido',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onPrimary,
                           ),
@@ -679,14 +666,18 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     final Color effectiveIconColor =
         isDisabled
-            ? colorScheme.onSurface.withOpacity(0.38)
+            ? Color.alphaBlend(
+              colorScheme.onSurface.withAlpha((255 * 0.38).round()),
+              Colors.transparent,
+            )
             : colorScheme.primary;
     final Color effectiveTextColor =
         isDisabled
-            ? colorScheme.onSurface.withOpacity(0.38)
+            ? Color.alphaBlend(
+              colorScheme.onSurface.withAlpha((255 * 0.38).round()),
+              Colors.transparent,
+            )
             : colorScheme.onSurface;
-    final Color effectiveTileColor = colorScheme.surfaceContainerHighest
-        .withOpacity(0.5);
 
     return Card(
       elevation: 1.0,
@@ -703,7 +694,12 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: effectiveIconColor.withOpacity(isDisabled ? 0.1 : 0.2),
+                  color: Color.alphaBlend(
+                    effectiveIconColor.withAlpha(
+                      (isDisabled ? 255 * 0.1 : 255 * 0.2).round(),
+                    ),
+                    Colors.transparent,
+                  ),
                   borderRadius: BorderRadius.circular(8.0),
                 ),
                 child: Icon(icon, color: effectiveIconColor, size: 24),

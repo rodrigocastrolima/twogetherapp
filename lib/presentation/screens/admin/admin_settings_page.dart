@@ -4,13 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../core/theme/theme.dart';
 import '../../../core/providers/theme_provider.dart';
-import '../../../core/providers/locale_provider.dart';
 import '../../../core/theme/ui_styles.dart';
 import '../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
@@ -28,97 +26,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
   bool _notificationsEnabled = true;
   bool _securityAlertsEnabled = true;
 
-  Future<void> _testSalesforceApiCall() async {
-    final salesforceNotifier = ref.read(salesforceAuthProvider.notifier);
-    final accessToken = salesforceNotifier.currentAccessToken;
-    final instanceUrl = salesforceNotifier.currentInstanceUrl;
-    final loadingService = ref.read(loadingServiceProvider);
-
-    if (accessToken == null || instanceUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Salesforce is not connected.')),
-      );
-      return;
-    }
-
-    loadingService.show(context, message: 'Testing API Call...');
-
-    try {
-      final url = Uri.parse('$instanceUrl/services/oauth2/userinfo');
-
-      if (kDebugMode) {
-        print('Making GET request to: $url');
-        print('Using Access Token: Bearer $accessToken');
-      }
-
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'Bearer $accessToken'},
-      );
-
-      if (mounted) {
-        loadingService.hide();
-      }
-
-      if (response.statusCode == 200) {
-        final userInfo = jsonDecode(response.body);
-        final userName = userInfo['name'] ?? 'N/A';
-        final userEmail = userInfo['email'] ?? 'N/A';
-        if (kDebugMode) {
-          print('Salesforce API Call Success!');
-          print('Response: ${response.body}');
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('API Call Success! User: $userName ($userEmail)'),
-              backgroundColor: AppTheme.success,
-            ),
-          );
-        }
-      } else {
-        if (kDebugMode) {
-          print(
-            'Salesforce API Call Failed: ${response.statusCode} ${response.reasonPhrase}',
-          );
-          print('Response Body: ${response.body}');
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'API Call Failed: ${response.statusCode} - ${response.reasonPhrase}',
-              ),
-              backgroundColor: AppTheme.destructive,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        loadingService.hide();
-      }
-      if (kDebugMode) {
-        print('Error during Salesforce API call: $e');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error during API call: $e'),
-            backgroundColor: AppTheme.destructive,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
-    final currentLocale = ref.watch(localeProvider);
-    final localeNotifier = ref.watch(localeProvider.notifier);
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
 
@@ -141,7 +52,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
         break;
       case SalesforceAuthState.authenticating:
       case SalesforceAuthState.unknown:
-      default:
         statusColor = AppTheme.muted;
         statusSubtitle = 'Checking Status...';
         break;
@@ -153,7 +63,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.profileSettings,
+            'Definições de Perfil',
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -162,10 +72,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ),
           const SizedBox(height: 32),
 
-          _buildSettingsGroup(l10n.account, [
+          _buildSettingsGroup('Conta', [
             _buildActionSetting(
-              l10n.adminProfile,
-              l10n.viewEditProfile,
+              'Perfil de Administrador',
+              'Ver e editar perfil',
               CupertinoIcons.person_fill,
               () {
                 // Navigate to admin profile
@@ -174,10 +84,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ]),
           const SizedBox(height: 24),
 
-          _buildSettingsGroup(l10n.commonSettings, [
+          _buildSettingsGroup('Definições Comuns', [
             _buildToggleSetting(
-              l10n.profileTheme,
-              isDarkMode ? l10n.profileThemeDark : l10n.profileThemeLight,
+              'Tema',
+              isDarkMode ? 'Escuro' : 'Claro',
               isDarkMode
                   ? CupertinoIcons.moon_fill
                   : CupertinoIcons.sun_max_fill,
@@ -190,15 +100,14 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               },
             ),
             _buildLanguageSetting(
-              l10n.commonLanguage,
-              l10n.commonLanguageSelection,
+              'Idioma',
+              'Selecionar idioma da aplicação',
               CupertinoIcons.globe,
-              currentLocale.languageCode,
-              localeNotifier,
+              'pt',
             ),
             _buildToggleSetting(
-              l10n.homeNotifications,
-              l10n.notificationPreferences,
+              'Notificações',
+              'Gerir preferências de notificação',
               CupertinoIcons.bell_fill,
               _notificationsEnabled,
               (value) {
@@ -208,8 +117,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               },
             ),
             _buildToggleSetting(
-              l10n.securityAlerts,
-              l10n.securityAlertsDescription,
+              'Alertas de Segurança',
+              'Receber alertas sobre atividade suspeita',
               CupertinoIcons.shield_fill,
               _securityAlertsEnabled,
               (value) {
@@ -221,17 +130,17 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ]),
           const SizedBox(height: 24),
 
-          _buildSettingsGroup(l10n.adminPreferences, [
+          _buildSettingsGroup('Preferências de Administrador', [
             _buildActionSetting(
-              l10n.adminSystemConfig,
-              l10n.adminSystemConfigDescription,
+              'Configuração do Sistema',
+              'Gerir configurações gerais do sistema',
               CupertinoIcons.gear_alt_fill,
               () {
                 // TODO: Navigate to system configuration
               },
             ),
             _buildActionSetting(
-              l10n.profileSalesforceConnect,
+              'Conectar Salesforce',
               statusSubtitle,
               CupertinoIcons.cloud,
               () async {
@@ -282,8 +191,8 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           const SizedBox(height: 24),
 
           _buildActionSetting(
-            l10n.profileLogout,
-            l10n.profileEndSession,
+            'Terminar Sessão',
+            'Encerrar a sessão atual',
             CupertinoIcons.square_arrow_right,
             () {
               _handleLogout(context, ref);
@@ -322,16 +231,34 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 border: Border.all(
                   color:
                       isDark
-                          ? theme.colorScheme.onSurface.withOpacity(0.05)
-                          : theme.dividerColor.withOpacity(0.1),
+                          ? Color.alphaBlend(
+                            theme.colorScheme.onSurface.withAlpha(
+                              (255 * 0.05).round(),
+                            ),
+                            Colors.transparent,
+                          )
+                          : Color.alphaBlend(
+                            theme.dividerColor.withAlpha((255 * 0.1).round()),
+                            Colors.transparent,
+                          ),
                   width: 0.5,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color:
                         isDark
-                            ? theme.colorScheme.shadow.withOpacity(0.2)
-                            : theme.colorScheme.shadow.withOpacity(0.05),
+                            ? Color.alphaBlend(
+                              theme.colorScheme.shadow.withAlpha(
+                                (255 * 0.2).round(),
+                              ),
+                              Colors.transparent,
+                            )
+                            : Color.alphaBlend(
+                              theme.colorScheme.shadow.withAlpha(
+                                (255 * 0.05).round(),
+                              ),
+                              Colors.transparent,
+                            ),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -381,7 +308,12 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: Color.alphaBlend(
+                      theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.7).round(),
+                      ),
+                      Colors.transparent,
+                    ),
                     fontSize: 14,
                   ),
                 ),
@@ -403,7 +335,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     String subtitle,
     IconData icon,
     String currentLocale,
-    LocaleNotifier localeNotifier,
   ) {
     final theme = Theme.of(context);
 
@@ -434,7 +365,12 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: Color.alphaBlend(
+                      theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.7).round(),
+                      ),
+                      Colors.transparent,
+                    ),
                     fontSize: 14,
                   ),
                 ),
@@ -446,10 +382,16 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withOpacity(0.5),
+                color: Color.alphaBlend(
+                  theme.colorScheme.surface.withAlpha((255 * 0.5).round()),
+                  Colors.transparent,
+                ),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  color: Color.alphaBlend(
+                    theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
+                    Colors.transparent,
+                  ),
                 ),
               ),
               child: DropdownButtonHideUnderline(
@@ -460,37 +402,18 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     size: 16,
                     color: theme.colorScheme.onSurface,
                   ),
-                  dropdownColor: theme.colorScheme.surface.withOpacity(0.95),
+                  dropdownColor: Color.alphaBlend(
+                    theme.colorScheme.surface.withAlpha((255 * 0.95).round()),
+                    Colors.transparent,
+                  ),
                   style: TextStyle(color: theme.colorScheme.onSurface),
                   onChanged: (String? value) async {
-                    if (value != null) {
-                      if (kDebugMode) {
-                        print("Changing language to: $value");
-                      }
-                      try {
-                        await localeNotifier.setLocale(value);
-                        if (kDebugMode) {
-                          print("Language changed successfully to: $value");
-                        }
-                      } catch (e) {
-                        if (kDebugMode) {
-                          print("Error changing language: $e");
-                        }
-                      }
-                    }
+                    // Language changing is removed, so this callback does nothing
                   },
-                  items: [
+                  items: const [
                     DropdownMenuItem<String>(
                       value: 'pt',
-                      child: Text(localeNotifier.getLanguageNameFromCode('pt')),
-                    ),
-                    DropdownMenuItem<String>(
-                      value: 'en',
-                      child: Text(localeNotifier.getLanguageNameFromCode('en')),
-                    ),
-                    DropdownMenuItem<String>(
-                      value: 'es',
-                      child: Text(localeNotifier.getLanguageNameFromCode('es')),
+                      child: Text('Português'),
                     ),
                   ],
                 ),
@@ -525,7 +448,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: Color.alphaBlend(
+                  iconColor.withAlpha((255 * 0.1).round()),
+                  Colors.transparent,
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 24),
@@ -539,13 +465,19 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: color ?? defaultColor,
+                      color: Color.alphaBlend(
+                        color ?? defaultColor,
+                        Colors.transparent,
+                      ),
                     ),
                   ),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: (color ?? defaultColor).withOpacity(0.7),
+                      color: Color.alphaBlend(
+                        (color ?? defaultColor).withAlpha((255 * 0.7).round()),
+                        Colors.transparent,
+                      ),
                       fontSize: 14,
                     ),
                   ),
@@ -557,7 +489,10 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
               const SizedBox(width: 8),
               Icon(
                 CupertinoIcons.chevron_right,
-                color: (color ?? defaultColor).withOpacity(0.7),
+                color: Color.alphaBlend(
+                  (color ?? defaultColor).withAlpha((255 * 0.7).round()),
+                  Colors.transparent,
+                ),
                 size: 20,
               ),
             ],
@@ -569,7 +504,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
 
   void _handleLogout(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
 
     showDialog(
       context: context,
@@ -577,15 +511,21 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: AlertDialog(
-            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+            backgroundColor: Color.alphaBlend(
+              theme.colorScheme.surface.withAlpha((255 * 0.95).round()),
+              Colors.transparent,
+            ),
             title: Text(
-              l10n.profileLogout,
+              'Terminar Sessão',
               style: TextStyle(color: theme.colorScheme.onSurface),
             ),
             content: Text(
-              l10n.profileLogoutConfirm,
+              'Tem a certeza que deseja terminar a sessão?',
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: Color.alphaBlend(
+                  theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                  Colors.transparent,
+                ),
               ),
             ),
             actions: [
@@ -594,7 +534,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 style: TextButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,
                 ),
-                child: Text(l10n.commonCancel),
+                child: Text('Cancelar'),
               ),
               FilledButton(
                 onPressed: () async {
@@ -629,7 +569,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   backgroundColor: theme.colorScheme.error,
                   foregroundColor: theme.colorScheme.onError,
                 ),
-                child: Text(l10n.profileLogout),
+                child: Text('Terminar Sessão'),
               ),
             ],
           ),

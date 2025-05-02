@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:fl_chart/fl_chart.dart'; // Import fl_chart
 import 'dart:math'; // Import dart:math
 import 'package:flutter/foundation.dart'; // Import kIsWeb

@@ -9,7 +9,6 @@ import '../../../app/router/app_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/chat/data/repositories/chat_repository.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../widgets/success_dialog.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
@@ -32,16 +31,14 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
   @override
   void initState() {
     super.initState();
-    print('ChangePasswordPage: initState called.');
   }
 
   Future<void> _promptForReauthenticationAndRetry() async {
-    final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.email == null) {
       if (mounted) {
         setState(() {
-          _errorMessage = l10n.reauthErrorUserNotFound;
+          _errorMessage = 'Utilizador não encontrado para reautenticação.';
           _isLoading = false;
         });
       }
@@ -56,18 +53,20 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text(l10n.reauthRequiredTitle),
+              title: Text('Reautenticação Necessária'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(l10n.reauthRequiredMessage),
+                  Text(
+                    'Por favor, insira a sua palavra-passe atual para continuar.',
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _currentPasswordController,
                     obscureText: _obscureCurrentPassword,
                     autocorrect: false,
                     decoration: InputDecoration(
-                      labelText: l10n.reauthCurrentPasswordLabel,
+                      labelText: 'Palavra-passe Atual',
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -88,7 +87,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(l10n.cancel),
+                  child: Text('Cancelar'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -106,7 +105,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                       if (context.mounted) Navigator.pop(context, false);
                       if (mounted) {
                         setState(() {
-                          _errorMessage = l10n.reauthFailedError(e.code);
+                          _errorMessage = 'Falha na reautenticação: ${e.code}';
                           _isLoading = false;
                         });
                       }
@@ -114,13 +113,14 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                       if (context.mounted) Navigator.pop(context, false);
                       if (mounted) {
                         setState(() {
-                          _errorMessage = l10n.reauthFailedGenericError;
+                          _errorMessage =
+                              'Ocorreu um erro durante a reautenticação.';
                           _isLoading = false;
                         });
                       }
                     }
                   },
-                  child: Text(l10n.confirm),
+                  child: Text('Confirmar'),
                 ),
               ],
             );
@@ -130,56 +130,42 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     );
 
     if (reauthSuccess == true) {
-      print(
-        'ChangePasswordPage: Re-authentication successful. Retrying password update...',
-      );
       try {
         final freshUser = FirebaseAuth.instance.currentUser;
         if (freshUser == null)
           throw Exception('User became null after re-auth');
 
         await freshUser.updatePassword(_newPasswordController.text);
-        print(
-          'ChangePasswordPage: Password update successful after re-authentication.',
-        );
 
         await _handleSuccessfulPasswordUpdate();
       } on FirebaseAuthException catch (e) {
-        print(
-          'ChangePasswordPage: Error during password update AFTER re-auth: ${e.code}',
-        );
         if (mounted) {
           setState(() {
-            _errorMessage = l10n.passwordUpdateFailedAfterReauthError(e.code);
+            _errorMessage =
+                'Falha ao atualizar palavra-passe após reautenticação: ${e.code}';
             _isLoading = false;
           });
         }
       } catch (e) {
-        print(
-          'ChangePasswordPage: Generic error during password update AFTER re-auth: $e',
-        );
         if (mounted) {
           setState(() {
-            _errorMessage = l10n.passwordUpdateFailedAfterReauthGenericError;
+            _errorMessage =
+                'Erro ao atualizar palavra-passe após reautenticação.';
             _isLoading = false;
           });
         }
       }
     } else {
-      print('ChangePasswordPage: Re-authentication cancelled or failed.');
       if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
-          if (_errorMessage == null) {
-            _errorMessage = l10n.reauthCancelledError;
-          }
+          _errorMessage ??= 'Reautenticação cancelada ou falhou.';
         });
       }
     }
   }
 
   Future<void> _handleSuccessfulPasswordUpdate() async {
-    final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
@@ -198,25 +184,17 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
             await chatRepository.ensureResellerHasConversation(user.uid);
           }
         }
-      } catch (e) {
-        print(
-          'ChangePasswordPage: Error ensuring conversation after password change: $e',
-        );
-      }
+      } catch (e) {}
     }
 
-    print(
-      'ChangePasswordPage: Password update successful. Calling completeFirstLogin...',
-    );
     try {
       await AppRouter.authNotifier.completeFirstLogin();
-      print('ChangePasswordPage: completeFirstLogin finished.');
 
       if (!mounted) return;
 
       await showSuccessDialog(
         context: context,
-        message: l10n.passwordUpdateSuccessMessage,
+        message: 'Palavra-passe atualizada com sucesso!',
         onDismissed: () {
           if (mounted) {
             context.go('/');
@@ -224,10 +202,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
         },
       );
     } catch (e) {
-      print('ChangePasswordPage: Error during completeFirstLogin: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = l10n.passwordUpdateCompleteFirstLoginError;
+          _errorMessage = 'Erro ao finalizar o processo de primeiro login.';
           _isLoading = false;
         });
       }
@@ -235,58 +212,48 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
   }
 
   void _handleChangePassword() async {
-    final l10n = AppLocalizations.of(context)!;
-    print('ChangePasswordPage: _handleChangePassword called.');
-
     if (_newPasswordController.text.isEmpty) {
-      setState(() => _errorMessage = l10n.validationPasswordEmpty);
+      setState(
+        () => _errorMessage = 'A nova palavra-passe não pode estar vazia.',
+      );
       return;
     }
     if (_newPasswordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = l10n.validationPasswordMismatch);
+      setState(() => _errorMessage = 'As palavras-passe não coincidem.');
       return;
     }
     if (_newPasswordController.text.length < 8) {
-      setState(() => _errorMessage = l10n.validationPasswordTooShort);
+      setState(
+        () =>
+            _errorMessage = 'A palavra-passe deve ter pelo menos 8 caracteres.',
+      );
       return;
     }
 
     setState(() {
-      print('ChangePasswordPage: Starting password update process...');
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      print(
-        'ChangePasswordPage: Attempting direct password update via AuthNotifier...',
-      );
       await AppRouter.authNotifier.updatePassword(_newPasswordController.text);
 
-      print(
-        'ChangePasswordPage: Direct password update via AuthNotifier successful.',
-      );
       await _handleSuccessfulPasswordUpdate();
     } on FirebaseAuthException catch (e) {
-      print(
-        'ChangePasswordPage: FirebaseAuthException during password update: ${e.code}',
-      );
       if (e.code == 'requires-recent-login') {
-        print('ChangePasswordPage: Requires recent login. Prompting user...');
         await _promptForReauthenticationAndRetry();
       } else {
         if (mounted) {
           setState(() {
-            _errorMessage = l10n.firebaseAuthError(e.code);
+            _errorMessage = 'Erro de autenticação: ${e.code}';
             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      print('ChangePasswordPage: Generic error during password update: $e');
       if (mounted) {
         setState(() {
-          _errorMessage = l10n.passwordUpdateFailedGenericError;
+          _errorMessage = 'Erro ao atualizar palavra-passe.';
           _isLoading = false;
         });
       }
@@ -295,7 +262,6 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   void dispose() {
-    print('ChangePasswordPage: Dispose called.');
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     _currentPasswordController.dispose();
@@ -304,7 +270,6 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -327,18 +292,18 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                l10n.changePasswordTitle,
+                'Alterar Palavra-passe',
                 textAlign: TextAlign.center,
                 style: textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: colorScheme.onBackground,
+                  color: colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
-                  l10n.changePasswordSubtitle,
+                  'Crie uma nova palavra-passe segura para a sua conta.',
                   textAlign: TextAlign.center,
                   style: textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
@@ -350,7 +315,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               _buildPasswordField(
                 context: context,
                 controller: _newPasswordController,
-                labelText: l10n.changePasswordNewLabel,
+                labelText: 'Nova Palavra-passe',
                 obscureText: _obscureNewPassword,
                 onToggleObscure: () {
                   setState(() {
@@ -362,7 +327,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               _buildPasswordField(
                 context: context,
                 controller: _confirmPasswordController,
-                labelText: l10n.changePasswordConfirmLabel,
+                labelText: 'Confirmar Nova Palavra-passe',
                 obscureText: _obscureConfirmPassword,
                 onToggleObscure: () {
                   setState(() {
@@ -409,7 +374,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                           ),
                         )
                         : Text(
-                          l10n.changePasswordButton,
+                          'Guardar Palavra-passe',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onPrimary,
                             fontWeight: FontWeight.w600,
@@ -467,10 +432,16 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     final InputDecoration effectiveDecoration = InputDecoration(
       hintText: labelText,
       hintStyle: textTheme.bodyLarge?.copyWith(
-        color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+        color: Color.alphaBlend(
+          colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()),
+          Colors.transparent,
+        ),
       ),
       filled: true,
-      fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
+      fillColor: Color.alphaBlend(
+        colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+        Colors.transparent,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -486,7 +457,10 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
       suffixIcon: IconButton(
         icon: Icon(obscureText ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
-        color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+        color: Color.alphaBlend(
+          colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
+          Colors.transparent,
+        ),
         iconSize: 20,
         tooltip: obscureText ? 'Show password' : 'Hide password',
         onPressed: onToggleObscure,

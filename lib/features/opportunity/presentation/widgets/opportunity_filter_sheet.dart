@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/service_types.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 // Callback type definition - Updated for Sets
 typedef ApplyFiltersCallback =
@@ -65,7 +64,6 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
     // Use Cupertino theme data if available, fallback to Material
     final cupertinoTheme = CupertinoTheme.of(context);
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
     const allEnergyTypes = EnergyType.values;
     const allServiceCategories = ServiceCategory.values;
 
@@ -154,7 +152,7 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
               vertical: 16.0,
             ),
             child: Text(
-              l10n.adminOpportunityFilterSheetTitle, // Use specific l10n key
+              'Filtrar Oportunidades', // Replaced l10n.adminOpportunityFilterSheetTitle
               style: cupertinoTheme.textTheme.navTitleTextStyle,
             ),
           ),
@@ -165,12 +163,15 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
               child: Column(
                 children: [
                   CupertinoListSection.insetGrouped(
-                    header: Text(l10n.resellerRole.toUpperCase()),
+                    header: Text(
+                      'Revendedor'.toUpperCase(),
+                    ), // Replaced l10n.resellerRole
                     backgroundColor: Colors.transparent, // Inherit from sheet
                     children: <Widget>[
                       _buildCupertinoCheckboxTile(
                         context,
-                        title: 'All Resellers', // TODO: l10n
+                        title:
+                            'Todos os Revendedores', // Replaced hardcoded string
                         value: isAllResellersSelected,
                         onChanged:
                             (selected) => handleAllSelection(
@@ -199,12 +200,15 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                     ],
                   ),
                   CupertinoListSection.insetGrouped(
-                    header: Text(l10n.servicesSelectType.toUpperCase()),
+                    header: Text(
+                      'Tipo de Serviço'.toUpperCase(),
+                    ), // Replaced l10n.servicesSelectType
                     backgroundColor: Colors.transparent,
                     children: <Widget>[
                       _buildCupertinoCheckboxTile(
                         context,
-                        title: 'All Service Types', // TODO: l10n
+                        title:
+                            'Todos os Tipos de Serviço', // Replaced hardcoded string
                         value: isAllServiceTypesSelected,
                         onChanged:
                             (selected) => handleAllSelection(
@@ -316,7 +320,7 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                     widget.onApplyFilters(null, null, null);
                     Navigator.pop(context);
                   },
-                  child: Text(l10n.commonClear),
+                  child: Text('Limpar'), // Replaced l10n.commonClear
                 ),
                 CupertinoButton.filled(
                   // Use filled style for primary action
@@ -333,7 +337,7 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                     );
                     Navigator.pop(context);
                   },
-                  child: Text(l10n.commonApply),
+                  child: Text('Aplicar'), // Replaced l10n.commonApply
                 ),
               ],
             ),

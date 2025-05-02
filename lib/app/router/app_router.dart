@@ -11,7 +11,8 @@ import '../../presentation/layout/admin_layout.dart';
 import '../../presentation/screens/auth/login_page.dart';
 import '../../presentation/screens/auth/change_password_page.dart';
 import '../../presentation/screens/home/reseller_home_page.dart';
-import '../../presentation/screens/clients/reseller_opportunity_page.dart';
+import '../../presentation/screens/clients/reseller_opportunity_page.dart'
+    as reseller_clients;
 import '../../presentation/screens/clients/reseller_opportunity_details_page.dart';
 import '../../presentation/screens/messages/messages_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -47,9 +48,10 @@ import 'package:twogether/features/opportunity/data/models/salesforce_opportunit
     as data_models;
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'
     as proposal_models;
-import 'package:twogether/features/proposal/presentation/screens/proposal_detail_page.dart';
+import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
 import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
 import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
+import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -700,16 +702,15 @@ class AppRouter {
         },
         routes: [
           GoRoute(
-            path: '/', // Home
+            path: '/',
             pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: ResellerHomePage()),
+                (context, state) => NoTransitionPage(child: ResellerHomePage()),
           ),
           GoRoute(
             path: '/clients',
             pageBuilder:
                 (context, state) =>
-                    const NoTransitionPage(child: ClientsPage()),
+                    NoTransitionPage(child: reseller_clients.ClientsPage()),
           ),
           GoRoute(
             path: '/messages',
@@ -750,6 +751,46 @@ class AppRouter {
               ),
             ],
           ),
+          GoRoute(
+            path: '/opportunity-details',
+            pageBuilder: (context, state) {
+              final opportunity =
+                  state.extra as data_models.SalesforceOpportunity?;
+              if (opportunity == null) {
+                return NoTransitionPage(
+                  child: Text('Error: Opportunity data missing'),
+                );
+              }
+              return NoTransitionPage(
+                child: OpportunityDetailsPage(opportunity: opportunity),
+              );
+            },
+          ),
+          // --- NEW Route for Reseller Proposal Details ---
+          GoRoute(
+            path: '/reseller-proposal-details',
+            pageBuilder: (context, state) {
+              final args = state.extra as Map<String, dynamic>?;
+              final proposalId = args?['proposalId'] as String?;
+              final proposalName = args?['proposalName'] as String?;
+
+              if (proposalId == null || proposalName == null) {
+                return NoTransitionPage(
+                  child: Scaffold(
+                    body: Center(
+                      child: Text('Error: Proposal ID or Name missing'),
+                    ),
+                  ),
+                );
+              }
+              return NoTransitionPage(
+                child: ResellerProposalDetailsPage(
+                  proposalId: proposalId,
+                  proposalName: proposalName,
+                ),
+              );
+            },
+          ),
         ],
       ),
 
@@ -767,6 +808,28 @@ class AppRouter {
                 (context, state) =>
                     const NoTransitionPage(child: AdminHomePage()),
             routes: [
+              // --- START: Move Salesforce Detail Route Here --- //
+              GoRoute(
+                path:
+                    'salesforce-opportunity-detail/:opportunityId', // Path is now relative to /admin
+                builder: (context, state) {
+                  final opportunityId = state.pathParameters['opportunityId'];
+                  if (opportunityId != null) {
+                    return AdminSalesforceOpportunityDetailPage(
+                      opportunityId: opportunityId,
+                    );
+                  } else {
+                    // Handle error: Redirect or show error page
+                    return const Scaffold(
+                      body: Center(
+                        child: Text('Error: Opportunity ID missing'),
+                      ),
+                    );
+                  }
+                },
+              ),
+              // --- END: Move Salesforce Detail Route Here --- //
+
               // Nested routes under admin home if any
             ],
           ),
@@ -883,44 +946,6 @@ class AppRouter {
           GoRoute(
             path: 'dev-tools',
             builder: (context, state) => const DevToolsPage(),
-          ),
-          // REMOVE the duplicate Opportunity Detail Route from Admin Shell
-          /*
-          GoRoute(
-            path: '/opportunity-details',
-            parentNavigatorKey: _adminShellNavigatorKey,
-            pageBuilder: (context, state) {
-              final opportunity =
-                  state.extra as data_models.SalesforceOpportunity?;
-              if (opportunity == null) {
-                return const MaterialPage(
-                  child: Scaffold(
-                    body: Center(child: Text("Opportunity data missing")),
-                  ),
-                );
-              }
-              return MaterialPage(
-                fullscreenDialog: false,
-                child: OpportunityDetailsPage(opportunity: opportunity),
-              );
-            },
-          ),
-          */
-          GoRoute(
-            path: '/admin/salesforce-opportunity-detail/:opportunityId',
-            builder: (context, state) {
-              final opportunityId = state.pathParameters['opportunityId'];
-              if (opportunityId != null) {
-                return AdminSalesforceOpportunityDetailPage(
-                  opportunityId: opportunityId,
-                );
-              } else {
-                // Handle error: Redirect or show error page
-                return const Scaffold(
-                  body: Center(child: Text('Error: Opportunity ID missing')),
-                );
-              }
-            },
           ),
         ],
       ),

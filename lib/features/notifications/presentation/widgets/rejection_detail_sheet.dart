@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/models/notification.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class RejectionDetailSheet extends StatelessWidget {
   final UserNotification notification;
@@ -10,7 +9,7 @@ class RejectionDetailSheet extends StatelessWidget {
   const RejectionDetailSheet({super.key, required this.notification});
 
   String _formatDate(DateTime date, BuildContext context) {
-    // Use locale-aware formatting
+    // Use locale-aware formatting (relies on Flutter's locale, not AppLocalizations)
     return DateFormat.yMMMd(
       Localizations.localeOf(context).toString(),
     ).add_jm().format(date.toLocal());
@@ -18,14 +17,13 @@ class RejectionDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDarkMode = theme.brightness == Brightness.dark;
 
     // Extract data safely from metadata
     final String clientName =
-        notification.metadata['clientName']?.toString() ?? 'Unknown';
+        notification.metadata['clientName']?.toString() ?? 'Desconhecido';
     final String? rejectionReason =
         notification.metadata['rejectionReason']?.toString();
     final String submissionId = notification.metadata['submissionId'] ?? '-';
@@ -59,7 +57,7 @@ class RejectionDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'Opportunity Rejected',
+                        'Oportunidade Rejeitada',
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -84,23 +82,23 @@ class RejectionDetailSheet extends StatelessWidget {
               const SizedBox(height: 20),
 
               // Details Section
-              _buildDetailRow(context, label: 'Client:', value: clientName),
+              _buildDetailRow(context, label: 'Cliente:', value: clientName),
               const SizedBox(height: 12),
               _buildDetailRow(
                 context,
-                label: 'Submission ID:',
+                label: 'ID da Submissão:',
                 value: submissionId,
                 isId: true,
               ),
               const SizedBox(height: 12),
               _buildDetailRow(
                 context,
-                label: 'Date:',
+                label: 'Data:',
                 value: _formatDate(notification.createdAt, context),
               ),
               const SizedBox(height: 16),
               Text(
-                'Rejection Reason:',
+                'Motivo da Rejeição:',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: colorScheme.onSurfaceVariant,
@@ -116,7 +114,7 @@ class RejectionDetailSheet extends StatelessWidget {
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Text(
-                  rejectionReason ?? 'No reason provided.',
+                  rejectionReason ?? 'Nenhuma razão fornecida.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurface,
                   ),

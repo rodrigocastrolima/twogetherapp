@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/theme/theme.dart';
@@ -14,13 +13,16 @@ import '../../../../features/auth/domain/repositories/auth_repository.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../../features/salesforce/presentation/providers/salesforce_providers.dart';
-// Import commented out due to missing file:
+// Removed import of non-existent file
 // import '../../../../features/admin/presentation/widgets/submission_details_dialog.dart';
+// Removed l10n import
+// import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class UserDetailPage extends ConsumerStatefulWidget {
   final AppUser user;
 
-  const UserDetailPage({Key? key, required this.user}) : super(key: key);
+  // Apply use_super_parameters fix
+  const UserDetailPage({super.key, required this.user});
 
   @override
   ConsumerState<UserDetailPage> createState() => _UserDetailPageState();
@@ -109,13 +111,16 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
+          const SnackBar(
+            content: Text('Perfil atualizado com sucesso'),
+          ), // Hardcoded Portuguese
         );
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error updating profile: ${e.toString()}';
+        _errorMessage =
+            'Erro ao atualizar perfil: ${e.toString()}'; // Hardcoded Portuguese
       });
     }
   }
@@ -142,7 +147,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'User ${newStatus ? "enabled" : "disabled"} successfully',
+              'Utilizador ${newStatus ? "ativado" : "desativado"} com sucesso', // Hardcoded Portuguese
             ),
           ),
         );
@@ -150,7 +155,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error updating user status: ${e.toString()}';
+        _errorMessage =
+            'Erro ao atualizar estado do utilizador: ${e.toString()}'; // Hardcoded Portuguese
       });
     }
   }
@@ -172,28 +178,29 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset email sent')),
+          const SnackBar(
+            content: Text('Email de redefinição de senha enviado'),
+          ), // Hardcoded Portuguese
         );
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error sending password reset: ${e.toString()}';
+        _errorMessage =
+            'Erro ao enviar redefinição de senha: ${e.toString()}'; // Hardcoded Portuguese
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Get screen size to determine layout
+    // final l10n = AppLocalizations.of(context)!; // Remove l10n variable
     final Size screenSize = MediaQuery.of(context).size;
     final bool isSmallScreen = screenSize.width < 700;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.adminUserManagement),
+        title: Text('Gestão de Utilizadores'), // Hardcoded Portuguese
         actions: [
           if (!_isEditing)
             IconButton(
@@ -203,20 +210,20 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   _isEditing = true;
                 });
               },
-              tooltip: l10n.commonEdit,
+              tooltip: 'Editar', // Hardcoded Portuguese
             )
           else
             IconButton(
               icon: const Icon(Icons.save),
               onPressed: _isLoading ? null : _saveUserProfile,
-              tooltip: l10n.commonSave,
+              tooltip: 'Guardar', // Hardcoded Portuguese
             ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
-            Tab(text: l10n.profilePersonalInfo),
-            Tab(text: 'Opportunities'),
+          tabs: const [
+            Tab(text: 'Informação Pessoal'), // Hardcoded Portuguese
+            Tab(text: 'Oportunidades'), // Hardcoded Portuguese
           ],
         ),
       ),
@@ -227,9 +234,11 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                 controller: _tabController,
                 children: [
                   // Profile Tab
-                  _buildProfileTab(context, isSmallScreen, l10n),
-
-                  // Opportunities (Submissions) Tab - Now Salesforce Opportunities
+                  _buildProfileTab(
+                    context,
+                    isSmallScreen,
+                  ), // Removed l10n param
+                  // Opportunities Tab
                   _buildOpportunitiesTab(context),
                 ],
               ),
@@ -239,20 +248,22 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   Widget _buildProfileTab(
     BuildContext context,
     bool isSmallScreen,
-    AppLocalizations l10n,
+    // AppLocalizations l10n, // Removed l10n param
   ) {
+    final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Error message if any
             if (_errorMessage != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withAlpha(
+                    (255 * 0.1).round(),
+                  ), // Replace withOpacity
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -293,7 +304,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                             ? _displayNameController.text[0].toUpperCase()
                             : _emailController.text.isNotEmpty
                             ? _emailController.text[0].toUpperCase()
-                            : l10n.userInitialsDefault,
+                            : 'U', // Default initial
                         style: Theme.of(
                           context,
                         ).textTheme.headlineMedium?.copyWith(
@@ -307,7 +318,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                         ? TextField(
                           controller: _displayNameController,
                           decoration: InputDecoration(
-                            labelText: 'Display Name',
+                            labelText:
+                                'Nome de Exibição', // Hardcoded Portuguese
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -316,7 +328,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                         : Text(
                           _displayNameController.text.isNotEmpty
                               ? _displayNameController.text
-                              : l10n.unknownUser,
+                              : 'Utilizador Desconhecido', // Hardcoded Portuguese
                           style: Theme.of(
                             context,
                           ).textTheme.headlineSmall?.copyWith(
@@ -338,13 +350,15 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                             color: (widget.user.role == UserRole.admin
                                     ? Theme.of(context).colorScheme.secondary
                                     : Theme.of(context).colorScheme.primary)
-                                .withOpacity(0.2),
+                                .withAlpha(
+                                  (255 * 0.2).round(),
+                                ), // Replace withOpacity
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
                             widget.user.role == UserRole.admin
                                 ? 'Admin'
-                                : 'Reseller',
+                                : 'Revendedor', // Hardcoded Portuguese
                             style: Theme.of(
                               context,
                             ).textTheme.labelLarge?.copyWith(
@@ -366,11 +380,13 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.error.withOpacity(0.2),
+                              ).colorScheme.error.withAlpha(
+                                (255 * 0.2).round(),
+                              ), // Replace withOpacity
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              l10n.inactive,
+                              'Inativo', // Hardcoded Portuguese
                               style: Theme.of(
                                 context,
                               ).textTheme.labelLarge?.copyWith(
@@ -391,7 +407,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
             // User information
             Text(
-              l10n.profilePersonalInfo,
+              'Informação Pessoal', // Hardcoded Portuguese
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
@@ -426,55 +442,57 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                         ? _buildEditableInfoItem(
                           context,
                           icon: Icons.phone_outlined,
-                          label: l10n.loginUsername,
+                          label: 'Telefone', // Hardcoded Portuguese
                           controller: _phoneController,
                         )
                         : _buildInfoItem(
                           context,
                           icon: Icons.phone_outlined,
-                          label: l10n.loginUsername,
+                          label: 'Telefone', // Hardcoded Portuguese
                           value:
                               _phoneController.text.isNotEmpty
                                   ? _phoneController.text
-                                  : 'N/A',
+                                  : 'N/D', // Hardcoded Portuguese
                         ),
                     const Divider(),
                     _isEditing
                         ? _buildEditableInfoItem(
                           context,
                           icon: Icons.business_outlined,
-                          label: 'Department',
+                          label: 'Departamento', // Hardcoded Portuguese
                           controller: _departmentController,
                         )
                         : _buildInfoItem(
                           context,
                           icon: Icons.business_outlined,
-                          label: 'Department',
+                          label: 'Departamento', // Hardcoded Portuguese
                           value:
                               _departmentController.text.isNotEmpty
                                   ? _departmentController.text
-                                  : 'N/A',
+                                  : 'N/D', // Hardcoded Portuguese
                         ),
                     const Divider(),
                     _buildInfoItem(
                       context,
                       icon: Icons.calendar_today,
-                      label: l10n.commonDate,
+                      label: 'Data Criação', // Hardcoded Portuguese
                       value: _formatDate(_additionalData['createdAt']),
                     ),
                     const Divider(),
                     _buildInfoItem(
                       context,
                       icon: Icons.login,
-                      label: 'Last Login',
+                      label: 'Último Login', // Hardcoded Portuguese
                       value: _formatDate(_additionalData['lastLoginAt']),
                     ),
                     const Divider(),
                     _buildInfoItem(
                       context,
                       icon: Icons.sync,
-                      label: 'Salesforce ID',
-                      value: _additionalData['salesforceId'] ?? 'Not linked',
+                      label: 'ID Salesforce', // Hardcoded Portuguese
+                      value:
+                          _additionalData['salesforceId'] ??
+                          'Não vinculado', // Hardcoded Portuguese
                     ),
                   ],
                 ),
@@ -486,7 +504,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
             // Business information for resellers
             if (widget.user.role == UserRole.reseller) ...[
               Text(
-                'Business Information',
+                'Informação Comercial', // Hardcoded Portuguese
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onBackground,
                   fontWeight: FontWeight.bold,
@@ -506,29 +524,29 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       _buildInfoItem(
                         context,
                         icon: Icons.business,
-                        label: 'Company Name',
-                        value: _additionalData['companyName'] ?? 'N/A',
+                        label: 'Nome da Empresa', // Hardcoded Portuguese
+                        value: _additionalData['companyName'] ?? 'N/D',
                       ),
                       const Divider(),
                       _buildInfoItem(
                         context,
                         icon: Icons.location_on_outlined,
-                        label: 'Company Address',
-                        value: _additionalData['companyAddress'] ?? 'N/A',
+                        label: 'Morada da Empresa', // Hardcoded Portuguese
+                        value: _additionalData['companyAddress'] ?? 'N/D',
                       ),
                       const Divider(),
                       _buildInfoItem(
                         context,
                         icon: Icons.numbers,
-                        label: 'Tax ID',
-                        value: _additionalData['taxId'] ?? 'N/A',
+                        label: 'NIF', // Hardcoded Portuguese
+                        value: _additionalData['taxId'] ?? 'N/D',
                       ),
                       const Divider(),
                       _buildInfoItem(
                         context,
                         icon: Icons.assignment_ind_outlined,
-                        label: 'Company Registration',
-                        value: _additionalData['companyRegistration'] ?? 'N/A',
+                        label: 'Registo Comercial', // Hardcoded Portuguese
+                        value: _additionalData['companyRegistration'] ?? 'N/D',
                       ),
                     ],
                   ),
@@ -539,7 +557,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
               // Performance metrics for resellers
               Text(
-                'Performance Metrics',
+                'Métricas de Desempenho', // Hardcoded Portuguese
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onBackground,
                   fontWeight: FontWeight.bold,
@@ -559,7 +577,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       _buildInfoItem(
                         context,
                         icon: Icons.groups_outlined,
-                        label: 'Total Clients',
+                        label: 'Total de Clientes', // Hardcoded Portuguese
                         value:
                             _additionalData['totalClients']?.toString() ?? '0',
                       ),
@@ -567,7 +585,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       _buildInfoItem(
                         context,
                         icon: Icons.check_circle_outline,
-                        label: 'Successful Submissions',
+                        label:
+                            'Submissões Bem-sucedidas', // Hardcoded Portuguese
                         value:
                             _additionalData['successfulSubmissions']
                                 ?.toString() ??
@@ -577,7 +596,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       _buildInfoItem(
                         context,
                         icon: Icons.pending_actions_outlined,
-                        label: 'Pending Submissions',
+                        label: 'Submissões Pendentes', // Hardcoded Portuguese
                         value:
                             _additionalData['pendingSubmissions']?.toString() ??
                             '0',
@@ -586,7 +605,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       _buildInfoItem(
                         context,
                         icon: Icons.paid_outlined,
-                        label: 'Total Revenue',
+                        label: 'Receita Total', // Hardcoded Portuguese
                         value: _formatCurrency(_additionalData['totalRevenue']),
                       ),
                     ],
@@ -599,7 +618,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
             // Actions
             Text(
-              l10n.clientsFilterAction,
+              'Ações', // Hardcoded Portuguese
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Theme.of(context).colorScheme.onBackground,
                 fontWeight: FontWeight.bold,
@@ -620,9 +639,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     title: Text(
-                      l10n.profileChangePassword,
+                      'Alterar Senha',
                       style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    ), // Hardcoded Portuguese
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: _resetPassword,
                   ),
@@ -636,9 +655,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                               : Theme.of(context).colorScheme.secondary,
                     ),
                     title: Text(
-                      _isEnabled ? l10n.inactive : l10n.active,
+                      _isEnabled ? 'Desativar' : 'Ativar',
                       style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    ), // Hardcoded Portuguese
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: _toggleUserStatus,
                   ),
@@ -651,9 +670,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       title: Text(
-                        'View Messages',
+                        'Ver Mensagens',
                         style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                      ), // Hardcoded Portuguese
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         // TODO: Navigate to reseller messages
@@ -671,9 +690,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       title: Text(
-                        'View Clients',
+                        'Ver Clientes',
                         style: Theme.of(context).textTheme.titleMedium,
-                      ),
+                      ), // Hardcoded Portuguese
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
                         // TODO: Navigate to reseller clients
@@ -695,29 +714,30 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   }
 
   Widget _buildOpportunitiesTab(BuildContext context) {
-    // Get the Salesforce ID from the user's additional data
     final String? salesforceId = _additionalData['salesforceId'] as String?;
+    final theme = Theme.of(context);
 
-    // Check if the Salesforce ID is available
     if (salesforceId == null || salesforceId.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              CupertinoIcons.nosign, // Corrected icon: Changed from link_slash
+              CupertinoIcons.nosign,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: theme.colorScheme.primary.withAlpha(
+                (255 * 0.5).round(),
+              ), // Replace withOpacity
             ),
             const SizedBox(height: 16),
             Text(
-              'Salesforce Not Linked', // TODO: l10n
-              style: Theme.of(context).textTheme.titleLarge,
+              'Salesforce Não Vinculado', // Hardcoded Portuguese
+              style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              'This user does not have a Salesforce ID linked.', // TODO: l10n
-              style: Theme.of(context).textTheme.bodyMedium,
+              'Este utilizador não tem um ID Salesforce vinculado.', // Hardcoded Portuguese
+              style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
           ],
@@ -725,21 +745,14 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       );
     }
 
-    // Use FutureProvider.family or watch directly for simplicity here
-    // We need a way to pass salesforceId to a provider or use FutureBuilder
-    // Using FutureBuilder for direct implementation:
     final salesforceRepo = ref.read(salesforceRepositoryProvider);
-
     return FutureBuilder<List<SalesforceOpportunity>>(
-      // Call the repository method to get opportunities for this reseller
       future: salesforceRepo.getResellerOpportunities(salesforceId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-
         if (snapshot.hasError) {
-          // Display a more user-friendly error message
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -749,20 +762,19 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   Icon(
                     CupertinoIcons.exclamationmark_triangle,
                     size: 48,
-                    color: Theme.of(context).colorScheme.error,
+                    color: theme.colorScheme.error,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Error Loading Opportunities', // TODO: l10n
-                    style: Theme.of(context).textTheme.titleLarge,
+                    'Erro ao Carregar Oportunidades', // Hardcoded Portuguese
+                    style: theme.textTheme.titleLarge,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    // Corrected multi-line string and interpolation
-                    'Could not fetch opportunities from Salesforce. Please try again later.\nError: ${snapshot.error}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
+                    'Não foi possível obter as oportunidades do Salesforce. Por favor, tente novamente mais tarde.\nErro: ${snapshot.error}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -771,42 +783,39 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
             ),
           );
         }
-
         final opportunities = snapshot.data ?? [];
-
         if (opportunities.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  CupertinoIcons.briefcase, // Icon for opportunities/work
+                  CupertinoIcons.briefcase,
                   size: 64,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                  color: theme.colorScheme.primary.withAlpha(
+                    (255 * 0.5).round(),
+                  ), // Replace withOpacity
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'No Opportunities Found', // TODO: l10n
-                  style: Theme.of(context).textTheme.titleLarge,
+                  'Nenhuma Oportunidade Encontrada', // Hardcoded Portuguese
+                  style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'No Salesforce opportunities found for this reseller.', // TODO: l10n
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  'Nenhuma oportunidade Salesforce encontrada para este revendedor.', // Hardcoded Portuguese
+                  style: theme.textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           );
         }
-
-        // Display the list of opportunities
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: opportunities.length,
           itemBuilder: (context, index) {
             final opportunity = opportunities[index];
-            // Use the new widget to build the card for SalesforceOpportunity
             return _buildOpportunityCard(context, opportunity);
           },
         );
@@ -818,9 +827,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     BuildContext context,
     SalesforceOpportunity opportunity,
   ) {
-    // Determine color based on Phase (Fase__c) - adapt _getStatusColor
+    final theme = Theme.of(context);
     final statusColor = _getPhaseColor(opportunity.Fase__c);
-    // Format the creation date
     final creationDate = _formatSalesforceDate(opportunity.CreatedDate);
 
     return Card(
@@ -829,11 +837,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          // Navigate to the Salesforce Opportunity Detail Page
           final salesforceOpportunityId = opportunity.id;
-          // Ensure the route matches your GoRouter configuration
           context.push(
-            '/admin/salesforce/opportunities/$salesforceOpportunityId',
+            '/admin/salesforce-opportunity-detail/$salesforceOpportunityId',
           );
         },
         borderRadius: BorderRadius.circular(12),
@@ -844,63 +850,58 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
             children: [
               Row(
                 children: [
-                  // Category/Type icon - adapt _getCategoryIcon if needed, or use generic
                   Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withAlpha(
+                        (255 * 0.1).round(),
+                      ), // Replace withOpacity
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: Icon(
-                        // Using briefcase as a generic icon for opportunity
                         CupertinoIcons.briefcase_fill,
                         size: 20,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-
-                  // Basic info: Opportunity Name and Account Name
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          opportunity.name, // Opportunity Name
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          opportunity.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          opportunity.accountName ??
-                              'No Account Name', // Account Name
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          opportunity.accountName ?? 'Sem Nome de Conta',
+                          style: theme.textTheme.bodyMedium,
                           overflow: TextOverflow.ellipsis,
-                        ),
+                        ), // Hardcoded Portuguese
                       ],
                     ),
                   ),
-
-                  // Status chip based on Phase (Fase__c)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withAlpha(
+                        (255 * 0.1).round(),
+                      ), // Replace withOpacity
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      // Display the Phase, replacing underscores and uppercasing
-                      (opportunity.Fase__c ?? 'UNKNOWN')
+                      (opportunity.Fase__c ?? 'DESCONHECIDO')
                           .replaceAll('_', ' ')
-                          .toUpperCase(),
+                          .toUpperCase(), // Hardcoded Portuguese
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
@@ -910,22 +911,18 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
               const Divider(),
-
-              // Footer: Creation Date and Short ID
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Created: $creationDate', // Display formatted creation date
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                    'Criado: $creationDate',
+                    style: theme.textTheme.bodySmall,
+                  ), // Hardcoded Portuguese
                   Text(
-                    // Display short Salesforce ID
                     'ID: ${opportunity.id.substring(0, 6)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -942,6 +939,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     required String label,
     required String value,
   }) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
@@ -949,25 +947,25 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
           Icon(
             icon,
             size: 24,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-          ),
+            color: theme.colorScheme.primary.withAlpha((255 * 0.7).round()),
+          ), // Replace withOpacity
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.6),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withAlpha(
+                    (255 * 0.6).round(),
+                  ), // Replace withOpacity
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
@@ -983,6 +981,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     required String label,
     required TextEditingController controller,
   }) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
@@ -990,8 +989,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
           Icon(
             icon,
             size: 24,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-          ),
+            color: theme.colorScheme.primary.withAlpha((255 * 0.7).round()),
+          ), // Replace withOpacity
           const SizedBox(width: 16),
           Expanded(
             child: TextField(
@@ -1010,62 +1009,59 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   }
 
   String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/A';
-
+    if (timestamp == null) return 'N/D'; // Hardcoded Portuguese
     DateTime date;
     if (timestamp is DateTime) {
       date = timestamp;
-    } else if (timestamp is Map && timestamp['seconds'] != null) {
-      // Handle Firestore Timestamp
+    } else if (timestamp is Timestamp) {
+      date = timestamp.toDate();
+    } else if (timestamp is Map && timestamp['_seconds'] != null) {
+      // Handle potential map representation (less common)
       date = DateTime.fromMillisecondsSinceEpoch(
-        (timestamp['seconds'] * 1000) + (timestamp['nanoseconds'] ~/ 1000000),
+        (timestamp['_seconds'] * 1000) +
+            (timestamp['_nanoseconds'] ?? 0) ~/ 1000000,
       );
     } else {
-      return 'N/A';
+      return 'Data Inválida'; // Hardcoded Portuguese
     }
-
-    return DateFormat('MMM dd, yyyy - HH:mm').format(date);
+    // Using Portuguese locale format explicitly
+    return DateFormat('dd MMM, yyyy - HH:mm', 'pt_PT').format(date);
   }
 
-  // New function to format Salesforce Date strings (usually YYYY-MM-DD)
   String _formatSalesforceDate(String? dateString) {
-    if (dateString == null) return 'N/A';
+    if (dateString == null) return 'N/D'; // Hardcoded Portuguese
     try {
       final dateTime = DateTime.parse(dateString);
-      // Format as DD/MM/YYYY or another desired format
       return DateFormat('dd/MM/yyyy').format(dateTime);
     } catch (e) {
-      return dateString; // Return original if parsing fails
+      return dateString;
     }
   }
 
-  // Updated to handle Salesforce Opportunity Phases (Fase__c)
   Color _getPhaseColor(String? phase) {
-    // Define colors based on expected Salesforce Phase values
-    // Adjust these cases based on your actual Salesforce Phase values
+    // ... (Color logic remains the same)
     switch (phase?.toLowerCase()) {
       case 'closed_won':
         return Colors.green;
       case 'proposal_sent':
       case 'negotiation':
-        return Colors.blue; // Example: Blue for progress
+        return Colors.blue;
       case 'qualification':
       case 'needs_analysis':
-        return Colors.orange; // Example: Orange for early stages
+        return Colors.orange;
       case 'closed_lost':
         return Colors.red;
-      case 'pending_approval': // Example phase
+      case 'pending_approval':
         return Colors.purple;
       default:
-        return Colors.grey; // Default for unknown or null phases
+        return Colors.grey;
     }
   }
 
   String _formatCurrency(dynamic amount) {
     if (amount == null) {
-      return '\$0.00';
+      return '€0.00';
     }
-
     double numericAmount;
     if (amount is int) {
       numericAmount = amount.toDouble();
@@ -1074,10 +1070,10 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     } else if (amount is String) {
       numericAmount = double.tryParse(amount) ?? 0.0;
     } else {
-      return '\$0.00';
+      return '€0.00';
     }
-
-    final formatter = NumberFormat.currency(symbol: '\$');
+    // Use Portuguese Euro format
+    final formatter = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
     return formatter.format(numericAmount);
   }
 }

@@ -6,9 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
-import '../../../features/proposal/data/models/salesforce_proposal_name_only.dart';
+import '../../../features/proposal/data/models/salesforce_proposal_ref.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class OpportunityDetailsPage extends ConsumerWidget {
   final SalesforceOpportunity opportunity;
@@ -19,16 +18,13 @@ class OpportunityDetailsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final l10n = AppLocalizations.of(context);
 
     // Format CreatedDate for the Opportunity
     String formattedOpportunityDate = 'N/A';
     if (opportunity.CreatedDate != null) {
       try {
         final date = DateTime.parse(opportunity.CreatedDate!);
-        formattedOpportunityDate = DateFormat.yMd(
-          l10n?.localeName ?? 'en_US',
-        ).format(date);
+        formattedOpportunityDate = DateFormat.yMd('pt_PT').format(date);
       } catch (e) {
         formattedOpportunityDate =
             opportunity.CreatedDate!; // Fallback to raw string if parse fails
@@ -97,7 +93,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final proposal = proposals[index];
-                    return _buildProposalNameTile(context, proposal, index);
+                    return _buildProposalRefTile(context, proposal, index);
                   },
                 );
               },
@@ -301,10 +297,10 @@ class OpportunityDetailsPage extends ConsumerWidget {
   }
   // ---------------------------------------------------------
 
-  // --- NEW Helper to build a proposal list tile for Name Only ---
-  Widget _buildProposalNameTile(
+  // --- UPDATED Helper to build a proposal list tile using SalesforceProposalRef ---
+  Widget _buildProposalRefTile(
     BuildContext context,
-    SalesforceProposalNameOnly proposal,
+    SalesforceProposalRef proposal,
     int index,
   ) {
     final theme = Theme.of(context);
@@ -316,12 +312,11 @@ class OpportunityDetailsPage extends ConsumerWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+      trailing: const Icon(CupertinoIcons.chevron_right, size: 18),
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Detalhes da proposta não disponíveis no momento.'),
-            duration: Duration(seconds: 2),
-          ),
+        context.push(
+          '/reseller-proposal-details',
+          extra: {'proposalId': proposal.id, 'proposalName': proposal.name},
         );
       },
     );

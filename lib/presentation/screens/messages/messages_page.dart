@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:ui';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../../core/theme/theme.dart';
 import '../../../features/chat/presentation/providers/chat_provider.dart'
     hide isAdminProvider; // Hide isAdminProvider from chat_provider

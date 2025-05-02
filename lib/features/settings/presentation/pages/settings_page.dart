@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/loading_service.dart';
 import '../../../../app/router/app_router.dart';
@@ -10,12 +9,11 @@ import '../../../../core/theme/theme.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/utils/constants.dart';
 import '../../../../core/theme/ui_styles.dart';
-import '../../../../core/providers/locale_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import 'package:flutter/foundation.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  const SettingsPage({super.key});
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -24,11 +22,8 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final localeNotifier = ref.watch(localeProvider.notifier);
-    final currentLocale = ref.watch(localeProvider);
     final currentTheme = ref.watch(themeProvider);
     final themeNotifier = ref.watch(themeProvider.notifier);
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return ClipRect(
@@ -43,9 +38,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.profileSettings,
+                'Configurações',
                 style: AppTextStyles.h2.copyWith(
-                  color: theme.colorScheme.onBackground,
+                  color: theme.colorScheme.onSurface,
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
                 ),
@@ -54,11 +49,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _buildSettingsMenu(
                 context,
                 ref,
-                localeNotifier,
-                currentLocale,
                 themeNotifier,
                 currentTheme,
-                l10n,
                 theme,
               ),
             ],
@@ -68,64 +60,58 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _handleLogout(
-    BuildContext context,
-    AppLocalizations l10n,
-  ) async {
-    // Show confirmation dialog
+  Future<void> _handleLogout(BuildContext context) async {
+    final theme = Theme.of(context);
+
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surface.withOpacity(0.95),
+            backgroundColor: theme.colorScheme.surface.withAlpha(
+              (255 * 0.95).round(),
+            ),
             title: Text(
-              l10n.profileLogout,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              'Sair',
+              style: TextStyle(color: theme.colorScheme.onSurface),
             ),
             content: Text(
-              l10n.profileLogoutConfirm,
+              'Tem certeza que deseja sair?',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withAlpha(
+                  (255 * 0.7).round(),
+                ),
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: Text(
-                  l10n.commonCancel,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  'Cancelar',
+                  style: TextStyle(color: theme.colorScheme.primary),
                 ),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
+                  backgroundColor: theme.colorScheme.error,
                 ),
                 onPressed: () => Navigator.pop(context, true),
                 child: Text(
-                  l10n.profileLogout,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onError,
-                  ),
+                  'Sair',
+                  style: TextStyle(color: theme.colorScheme.onError),
                 ),
               ),
             ],
           ),
     );
 
-    if (shouldLogout == true) {
-      // Show loading overlay during sign out
-      final loadingService = ref.read(loadingServiceProvider);
-      loadingService.show(context, message: 'Signing out...', showLogo: true);
+    if (!context.mounted) return;
 
+    if (shouldLogout == true) {
+      final loadingService = ref.read(loadingServiceProvider);
+      loadingService.show(context, message: 'Saindo...', showLogo: true);
       try {
-        // Set authentication to false which will trigger the router to redirect to login
         await AppRouter.authNotifier.setAuthenticated(false);
       } finally {
-        // Hide loading overlay
         loadingService.hide();
       }
     }
@@ -134,53 +120,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget _buildSettingsMenu(
     BuildContext context,
     WidgetRef ref,
-    LocaleNotifier localeNotifier,
-    Locale currentLocale,
     ThemeNotifier themeNotifier,
     ThemeMode currentTheme,
-    AppLocalizations l10n,
     ThemeData theme,
   ) {
     String getThemeName() {
       switch (currentTheme) {
         case ThemeMode.light:
-          return l10n.profileThemeLight;
+          return 'Claro';
         case ThemeMode.dark:
-          return l10n.profileThemeDark;
+          return 'Escuro';
         case ThemeMode.system:
-          return 'System';
+          return 'Sistema';
       }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSettingsSection(l10n.profilePersonalInfo, [
+        _buildSettingsSection('Informações Pessoais', [
           _buildSettingsTile(
             icon: Icons.person_outline,
             title: 'Perfil',
-            subtitle: l10n.profilePersonalInfo,
+            subtitle: 'Editar perfil',
             trailing: Icon(
               Icons.chevron_right,
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
             ),
             onTap: () {
-              // Navigate to profile page using push
               context.push('/profile-details');
             },
             theme: theme,
           ),
         ], theme),
         const SizedBox(height: AppConstants.spacing32),
-        _buildSettingsSection(l10n.commonFilter, [
+        _buildSettingsSection('Preferências', [
           _buildSettingsTile(
             icon: Icons.dark_mode,
-            title: l10n.profileTheme,
+            title: 'Tema',
             subtitle: getThemeName(),
             trailing: Switch(
               value: currentTheme == ThemeMode.dark,
               activeColor: theme.colorScheme.primary,
-              inactiveTrackColor: theme.colorScheme.onSurface.withOpacity(0.3),
+              inactiveTrackColor: theme.colorScheme.onSurface.withAlpha(
+                (255 * 0.3).round(),
+              ),
               onChanged: (bool value) {
                 if (kDebugMode) {
                   print('[SettingsPage] Theme switch toggled: $value');
@@ -193,73 +177,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             theme: theme,
           ),
           _buildSettingsTile(
-            icon: Icons.language,
-            title: l10n.commonLanguage,
-            subtitle: localeNotifier.getLanguageName(),
-            trailing: DropdownButton<String>(
-              value: currentLocale.languageCode,
-              underline: const SizedBox(),
-              icon: Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
-              ),
-              dropdownColor: theme.colorScheme.surface.withOpacity(0.9),
-              items: [
-                DropdownMenuItem(
-                  value: 'pt',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('pt'),
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'en',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('en'),
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'es',
-                  child: Text(
-                    localeNotifier.getLanguageNameFromCode('es'),
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  localeNotifier.setLocale(value);
-                }
-              },
-            ),
-            theme: theme,
-          ),
-          _buildSettingsTile(
             icon: Icons.notifications_outlined,
-            title: l10n.homeNotifications,
-            subtitle: l10n.homeNoNotifications,
+            title: 'Notificações',
+            subtitle: 'Todas',
             trailing: DropdownButton<String>(
               value: 'Todas',
               underline: const SizedBox(),
               icon: Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withAlpha(
+                  (255 * 0.5).round(),
+                ),
               ),
-              dropdownColor: theme.colorScheme.surface.withOpacity(0.9),
+              dropdownColor: theme.colorScheme.surface.withAlpha(
+                (255 * 0.9).round(),
+              ),
               items: [
                 DropdownMenuItem(
                   value: 'Todas',
                   child: Text(
                     'Todas',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.7).round(),
+                      ),
                     ),
                   ),
                 ),
@@ -268,7 +209,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   child: Text(
                     'Importantes',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.7).round(),
+                      ),
                     ),
                   ),
                 ),
@@ -277,7 +220,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   child: Text(
                     'Nenhuma',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withAlpha(
+                        (255 * 0.7).round(),
+                      ),
                     ),
                   ),
                 ),
@@ -293,10 +238,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         _buildSettingsSection('', [
           _buildSettingsTile(
             icon: Icons.logout,
-            title: l10n.profileLogout,
-            subtitle: l10n.profileEndSession,
+            title: 'Sair',
+            subtitle: 'Encerrar sessão',
             textColor: theme.colorScheme.error,
-            onTap: () => _handleLogout(context, l10n),
+            onTap: () => _handleLogout(context),
             theme: theme,
           ),
         ], theme),
@@ -323,7 +268,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withAlpha(
+                  (255 * 0.5).round(),
+                ),
               ),
             ),
           ),
@@ -333,20 +280,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withOpacity(0.8),
+                color: theme.colorScheme.surface.withAlpha((255 * 0.8).round()),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color:
                       theme.brightness == Brightness.dark
-                          ? theme.colorScheme.onSurface.withOpacity(0.05)
-                          : theme.dividerColor.withOpacity(0.1),
+                          ? theme.colorScheme.onSurface.withAlpha(
+                            (255 * 0.05).round(),
+                          )
+                          : theme.dividerColor.withAlpha((255 * 0.1).round()),
                 ),
                 boxShadow: [
                   BoxShadow(
                     color:
                         theme.brightness == Brightness.dark
-                            ? theme.colorScheme.shadow.withOpacity(0.2)
-                            : theme.colorScheme.shadow.withOpacity(0.08),
+                            ? theme.colorScheme.shadow.withAlpha(
+                              (255 * 0.2).round(),
+                            )
+                            : theme.colorScheme.shadow.withAlpha(
+                              (255 * 0.08).round(),
+                            ),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                     spreadRadius: 0,
@@ -372,11 +325,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }) {
     final Color defaultTextColor = theme.colorScheme.onSurface;
     final Color iconColor =
-        textColor ?? theme.colorScheme.onSurface.withOpacity(0.7);
+        textColor ?? theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
     final Color subtitleColor =
         textColor != null
-            ? textColor.withOpacity(0.7)
-            : theme.colorScheme.onSurface.withOpacity(0.6);
+            ? textColor.withAlpha((255 * 0.7).round())
+            : theme.colorScheme.onSurface.withAlpha((255 * 0.6).round());
 
     return InkWell(
       onTap: onTap,

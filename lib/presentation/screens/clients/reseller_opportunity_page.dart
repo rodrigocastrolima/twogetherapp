@@ -6,7 +6,6 @@ import '../../../core/theme/theme.dart';
 import '../../../features/opportunity/presentation/providers/opportunity_providers.dart';
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart'
     as sf_opp_model;
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 class ClientsPage extends ConsumerStatefulWidget {

@@ -11,7 +11,6 @@ import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import 'package:twogether/core/theme/theme.dart'; // Import AppTheme for context access if needed indirectly
 import 'package:twogether/core/services/salesforce_auth_service.dart'; // Import SF Auth Service
 import 'package:twogether/features/opportunity/data/models/create_opp_models.dart'; // Import models
@@ -43,7 +42,10 @@ class _OpportunityDetailFormViewState
   late TextEditingController _dataUltimaAtualizacaoController;
   late TextEditingController _faseController;
   late TextEditingController _tipoOportunidadeController;
-  // --- END ADDED ---
+  // --- NEW: Controllers for Responsible/Company Name --- //
+  late TextEditingController _responsibleNameController;
+  late TextEditingController _companyNameController;
+  // --- END NEW --- //
 
   // State variables for dropdowns and date picker
   String? _selectedSegmentoCliente;
@@ -56,6 +58,12 @@ class _OpportunityDetailFormViewState
   String? _tipoOportunidadeValue;
   final String _faseValue = "0 - Oportunidade Identificada"; // Fixed value
   String? _resellerSalesforceId; // Added to store the fetched Salesforce ID
+
+  // --- NEW: State for NIF Check --- //
+  NifCheckStatus _nifCheckStatus = NifCheckStatus.initial;
+  String? _nifCheckMessage;
+  bool _isCheckingNif = false;
+  // --- END NEW --- //
 
   // State for submission button loading
   bool _isSubmitting = false;
@@ -82,6 +90,47 @@ class _OpportunityDetailFormViewState
     'Gás',
   ];
 
+  // --- NEW: Icon mapping for Segmento --- //
+  final Map<String, Widget> _segmentoIcons = {
+    '--None--': const Text('--None--'), // Keep text for none
+    'Cessou Actividade': const Row(
+      children: [
+        Icon(Icons.cancel_outlined, color: Colors.red),
+        SizedBox(width: 8),
+        Text('Cessou Actividade'),
+      ],
+    ),
+    'Ouro': Row(
+      children: [
+        Icon(Icons.emoji_events, color: Colors.amber.shade700),
+        const SizedBox(width: 8),
+        const Text('Ouro'),
+      ],
+    ),
+    'Prata': Row(
+      children: [
+        Icon(Icons.emoji_events, color: Colors.grey.shade500),
+        const SizedBox(width: 8),
+        const Text('Prata'),
+      ],
+    ),
+    'Bronze': Row(
+      children: [
+        Icon(Icons.emoji_events, color: Colors.brown.shade400),
+        const SizedBox(width: 8),
+        const Text('Bronze'),
+      ],
+    ),
+    'Lata': Row(
+      children: [
+        Icon(Icons.circle, color: Colors.blueGrey.shade200),
+        const SizedBox(width: 8),
+        const Text('Lata'),
+      ],
+    ),
+  };
+  // --- END NEW --- //
+
   @override
   void initState() {
     // Assuming context is available via WidgetsBinding.instance.addPostFrameCallback or similar
@@ -97,7 +146,9 @@ class _OpportunityDetailFormViewState
     _fechoController = TextEditingController(); // Initialize empty
 
     // --- Initialize Read-Only Controllers ---
-    _agenteRetailController = TextEditingController(text: 'Loading...');
+    _agenteRetailController = TextEditingController(
+      text: 'A carregar...',
+    ); // Loading...
     _dataCriacaoController = TextEditingController(
       text: DateFormat.yMd().format(
         DateTime.now(),
@@ -111,15 +162,31 @@ class _OpportunityDetailFormViewState
     _faseController = TextEditingController(text: _faseValue);
     _tipoOportunidadeController =
         TextEditingController(); // Set after determining
-    // --- END Initialize ---
+
+    // --- NEW: Initialize Responsible/Company Name Controllers --- //
+    _responsibleNameController = TextEditingController(
+      text: widget.submission.responsibleName,
+    );
+    _companyNameController = TextEditingController(
+      text: widget.submission.companyName ?? 'N/A',
+    ); // Handle null
+    // --- END NEW --- //
 
     // Initialize derived picklist values
     _determineTipoOportunidade();
     _tipoOportunidadeController.text =
-        _tipoOportunidadeValue ?? 'Not Determined'; // Set controller text
+        _tipoOportunidadeValue ?? 'Não Determinado'; // Not Determined
 
     // Start fetching reseller display name
     _fetchResellerName();
+
+    // --- ADDED: Trigger NIF check automatically after build ---
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _nifController.text.isNotEmpty) {
+        _checkNif();
+      }
+    });
+    // --- END ADDED ---
   }
 
   @override
@@ -134,7 +201,10 @@ class _OpportunityDetailFormViewState
     _dataUltimaAtualizacaoController.dispose();
     _faseController.dispose();
     _tipoOportunidadeController.dispose();
-    // --- END Dispose ---
+    // --- NEW: Dispose Responsible/Company Name Controllers --- //
+    _responsibleNameController.dispose();
+    _companyNameController.dispose();
+    // --- END NEW --- //
     super.dispose();
   }
 
@@ -154,7 +224,7 @@ class _OpportunityDetailFormViewState
       _isLoadingReseller = true;
       _resellerDisplayName = null; // Reset on fetch start
       _resellerSalesforceId = null; // Reset on fetch start
-      _agenteRetailController.text = 'Loading...'; // Update controller
+      _agenteRetailController.text = 'A carregar...'; // Loading...
     });
     try {
       final resellerDoc =
@@ -179,7 +249,7 @@ class _OpportunityDetailFormViewState
             }
             // Optionally update display name to show an error state
             _agenteRetailController.text =
-                "${_resellerDisplayName ?? "Reseller"} (Missing SF ID!)";
+                "${_resellerDisplayName ?? "Revendedor"} (SF ID em falta!)"; // Reseller, Missing SF ID!
             // Optionally disable submit button or show persistent warning here
           } else {
             _agenteRetailController.text =
@@ -202,9 +272,9 @@ class _OpportunityDetailFormViewState
           );
         }
         setState(() {
-          _resellerDisplayName = "Error: Not Found"; // Indicate error fetching
+          _resellerDisplayName = "Erro: Não Encontrado"; // Error: Not Found
           _agenteRetailController.text =
-              "Error: Not Found"; // Update controller
+              "Erro: Não Encontrado"; // Error: Not Found
           _isLoadingReseller = false;
         });
       }
@@ -215,9 +285,10 @@ class _OpportunityDetailFormViewState
       }
       if (mounted) {
         setState(() {
-          _resellerDisplayName = "Error: Fetch Failed";
+          _resellerDisplayName =
+              "Erro: Falha ao Carregar"; // Error: Fetch Failed
           _agenteRetailController.text =
-              "Error: Fetch Failed"; // Update controller
+              "Error: Falha ao Carregar"; // Error: Fetch Failed
           _isLoadingReseller = false;
         });
       }
@@ -233,9 +304,9 @@ class _OpportunityDetailFormViewState
     ); // Assuming urlString IS the download URL for now
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not launch $urlString')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível abrir $urlString')),
+        ); // Could not launch
       }
     }
   }
@@ -314,7 +385,7 @@ class _OpportunityDetailFormViewState
             }
 
             // Extract filename (best effort from URL or path)
-            String fileName = 'Unknown File';
+            String fileName = 'Ficheiro Desconhecido'; // Unknown File
             try {
               // Try decoding the URL part before splitting
               final decodedPath = Uri.decodeComponent(
@@ -356,7 +427,7 @@ class _OpportunityDetailFormViewState
             if (kDebugMode) {
               print("Error processing URL/Path $urlOrPath: $e");
             }
-            String fileName = 'Unknown File';
+            String fileName = 'Ficheiro Desconhecido'; // Unknown File
             try {
               final decodedPath = Uri.decodeComponent(
                 urlOrPath.split('/').last.split('?').first,
@@ -407,27 +478,28 @@ class _OpportunityDetailFormViewState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          title: const Text('Reject Submission'), // TODO: l10n
+          title: const Text('Rejeitar Submissão'), // Reject Submission
           content: Form(
             key: dialogFormKey,
             child: SingleChildScrollView(
               child: ListBody(
                 children: <Widget>[
                   const Text(
-                    'Please provide the reason for rejecting this submission.',
-                  ), // TODO: l10n
+                    'Por favor, indique o motivo para rejeitar esta submissão.', // Please provide the reason for rejecting this submission.
+                  ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: reasonController,
                     autofocus: true,
                     decoration: const InputDecoration(
-                      hintText: 'Enter reason here...', // TODO: l10n
+                      hintText:
+                          'Insira o motivo aqui...', // Enter reason here...
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 3,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Rejection reason cannot be empty'; // TODO: l10n
+                        return 'O motivo da rejeição não pode estar vazio'; // Rejection reason cannot be empty
                       }
                       return null;
                     },
@@ -438,7 +510,7 @@ class _OpportunityDetailFormViewState
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel'), // TODO: l10n
+              child: const Text('Cancelar'), // Cancel
               onPressed: () {
                 Navigator.of(
                   dialogContext,
@@ -450,7 +522,7 @@ class _OpportunityDetailFormViewState
                 foregroundColor:
                     Theme.of(context).colorScheme.error, // Use error color
               ),
-              child: const Text('Confirm Rejection'), // TODO: l10n
+              child: const Text('Confirmar Rejeição'), // Confirm Rejection
               onPressed: () {
                 // Validate the reason field
                 if (dialogFormKey.currentState?.validate() ?? false) {
@@ -472,8 +544,10 @@ class _OpportunityDetailFormViewState
     if (!(_formKey.currentState?.validate() ?? false)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill all required fields.'),
-        ), // TODO: l10n
+          content: Text(
+            'Por favor, preencha todos os campos obrigatórios.',
+          ), // Please fill all required fields.
+        ),
       );
       return;
     }
@@ -482,8 +556,10 @@ class _OpportunityDetailFormViewState
     if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Cannot approve: Reseller Salesforce ID is missing.'),
-        ), // TODO: l10n
+          content: Text(
+            'Não é possível aprovar: ID Salesforce do Revendedor em falta.',
+          ), // Cannot approve: Reseller Salesforce ID is missing.
+        ),
       );
       return;
     }
@@ -501,9 +577,9 @@ class _OpportunityDetailFormViewState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Salesforce session invalid. Please try logging out and back in, or refresh.',
+              'Sessão Salesforce inválida. Tente sair e entrar novamente ou atualizar.', // Salesforce session invalid. Please try logging out and back in, or refresh.
             ),
-          ), // TODO: l10n
+          ),
         );
       }
       setState(() => _isSubmitting = false);
@@ -568,17 +644,15 @@ class _OpportunityDetailFormViewState
 
   // --- NEW: Handler for Cloud Function Result ---
   Future<void> _handleCreateResult(CreateOppResult result) async {
-    final l10n = AppLocalizations.of(context)!;
     if (!mounted) return;
 
     // --- Handle session expiration first ---
     if (result.sessionExpired) {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        // TODO: Add l10n key: salesforceSessionExpiredError
         const SnackBar(
           content: Text(
-            'Salesforce session expired. Please refresh or log in again.',
+            'Sessão Salesforce expirou. Por favor, atualize ou faça login novamente.', // Salesforce session expired. Please refresh or log in again.
           ),
         ),
       );
@@ -637,10 +711,9 @@ class _OpportunityDetailFormViewState
           // ... (fallback logic remains the same) ...
           // If essential data is missing (esp. accountId), show standard success and navigate away
           ScaffoldMessenger.of(context).showSnackBar(
-            // TODO: Add l10n key: submissionApprovedSuccessButProposalDataMissing
             const SnackBar(
               content: Text(
-                'Opportunity Approved. Required data for proposal creation missing.',
+                'Oportunidade Aprovada. Faltam dados necessários para a criação da proposta.', // Opportunity Approved. Required data for proposal creation missing.
               ),
             ),
           );
@@ -659,26 +732,22 @@ class _OpportunityDetailFormViewState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              // TODO: Add l10n key: opportunityCreatedTitle
               title: const Text(
-                'Opportunity Created', // Remove (Dummy)
+                'Oportunidade Criada', // Opportunity Created
               ),
-              // TODO: Add l10n key: askCreateProposalNow(opportunityName)
               content: Text(
-                'Opportunity "$opportunityName" (ID: $sfOpportunityId) created. Create a Proposal now?', // Show actual ID
+                'Oportunidade "$opportunityName" (ID: $sfOpportunityId) criada. Criar uma Proposta agora?', // Opportunity ... created. Create a Proposal now?
               ),
               actions: <Widget>[
                 TextButton(
-                  // TODO: Add l10n key: laterButton
-                  child: const Text('Later'),
+                  child: const Text('Mais Tarde'), // Later
                   onPressed: () {
                     Navigator.of(dialogContext).pop(); // Close dialog
                     // Show original success message before navigating
                     ScaffoldMessenger.of(context).showSnackBar(
-                      // TODO: Add l10n key: submissionApprovedSuccess
                       const SnackBar(
                         content: Text(
-                          'Opportunity Approved Successfully', // Remove (Dummy)
+                          'Oportunidade Aprovada com Sucesso', // Opportunity Approved Successfully
                         ),
                       ),
                     );
@@ -688,8 +757,7 @@ class _OpportunityDetailFormViewState
                   },
                 ),
                 TextButton(
-                  // TODO: Add l10n key: createProposalButton
-                  child: const Text('Create Proposal'),
+                  child: const Text('Criar Proposta'), // Create Proposal
                   onPressed: () {
                     Navigator.of(dialogContext).pop(); // Close dialog
                     // Reset loading state before navigating to new page
@@ -726,10 +794,9 @@ class _OpportunityDetailFormViewState
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            // TODO: Add l10n key: firestoreUpdateError(e.toString())
             content: Text(
-              'Error during Firestore update phase: ${e.toString()}',
-            ), // Modified message
+              'Erro durante a fase de atualização do Firestore: ${e.toString()}', // Error during Firestore update phase: ...
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -744,9 +811,8 @@ class _OpportunityDetailFormViewState
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          // TODO: Add l10n key: opportunityCreationFailedError(result.error ?? l10n.unknownError)
           content: Text(
-            'Failed to create opportunity: ${result.error ?? 'Unknown error'}', // Use result.error
+            'Falha ao criar oportunidade: ${result.error ?? 'Erro desconhecido'}', // Failed to create opportunity: ... Unknown error
           ),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
@@ -757,12 +823,9 @@ class _OpportunityDetailFormViewState
   // --- NEW: Handler for Provider Call Errors ---
   void _handleCreateError(Object e) {
     if (!mounted) return;
-    final l10n = AppLocalizations.of(context)!; // Get l10n
     print("Error calling createOpportunityProvider: $e");
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("${l10n.errorUnexpected}: ${e.toString()}"),
-      ), // TODO: l10n key
+      SnackBar(content: Text("Erro: ${e.toString()}")), // Error: ...
     );
   }
 
@@ -773,28 +836,20 @@ class _OpportunityDetailFormViewState
     final theme = Theme.of(context); // Get theme
     final colorScheme = theme.colorScheme; // Get color scheme
     final textTheme = theme.textTheme; // Get text theme
-    final l10n = AppLocalizations.of(context)!; // Get localizations
 
     // Reintroduce Scaffold for proper context and structure
     return Scaffold(
       backgroundColor: colorScheme.surface, // Use theme surface color
       appBar: AppBar(
-        // Use AppBarTheme from main theme.dart
         title: Text(
-          l10n.opportunityDetailTitle, // Use localization key
-          // Style defaults to AppBarTheme's titleTextStyle
+          'Detalhe da Oportunidade', // Opportunity Detail
         ),
-        // backgroundColor defaults to AppBarTheme
-        // elevation defaults to AppBarTheme
-        // iconTheme defaults to AppBarTheme
         leading: IconButton(
-          // Explicit back button if needed, AppBar provides one by default
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(
-        // Make SingleChildScrollView the direct body
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -802,8 +857,8 @@ class _OpportunityDetailFormViewState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.opportunityDetailHeadline, // Use localization key
-                style: textTheme.headlineSmall, // Use theme text style
+                'Detalhe da Oportunidade', // Opportunity Detail
+                style: textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
 
@@ -811,7 +866,7 @@ class _OpportunityDetailFormViewState
               Row(
                 children: [
                   Text(
-                    'Status:',
+                    'Estado:',
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -853,164 +908,182 @@ class _OpportunityDetailFormViewState
               const Divider(height: 32),
               // -------------------- //
 
-              // --- Simplified Reference & Required Fields ---
-              TextFormField(
-                controller: _agenteRetailController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailAgentLabel, // Use localization key
-                  // Inherits border, fill, etc. from global theme
+              // --- NEW: Display Responsible and Company --- //
+              _buildReadOnlyField(
+                context,
+                'Nome do Responsável',
+                _responsibleNameController,
+              ),
+              const SizedBox(height: 16),
+              if (widget.submission.companyName != null &&
+                  widget.submission.companyName!.isNotEmpty)
+                _buildReadOnlyField(
+                  context,
+                  'Nome da Empresa',
+                  _companyNameController,
                 ),
+              if (widget.submission.companyName != null &&
+                  widget.submission.companyName!.isNotEmpty)
+                const SizedBox(height: 16),
+              // --- END NEW --- //
+
+              // --- Simplified Reference & Required Fields ---
+              _buildReadOnlyField(
+                context,
+                'Agente Retail',
+                _agenteRetailController,
               ),
               const Divider(height: 32),
 
               // --- Salesforce Opportunity Fields ---
               Text(
-                l10n.opportunityDetailSalesforceSectionTitle, // Use localization key
-                style: textTheme.titleLarge, // Use theme text style
+                'Secção Oportunidade Salesforce', // Salesforce Opportunity Section
+                style: textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
 
               // Opportunity Name (Auto-calculated, but editable)
-              // --- Removed custom Column/Padding/SizedBox wrapper ---
               TextFormField(
                 controller: _nameController,
-                // style: textTheme.bodyLarge, // Inherited via InputDecorator
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailNameLabel, // Use localization key
-                  // Inherits border, fill, padding etc. from global theme
+                  labelText: 'Nome da Oportunidade', // Opportunity Name
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return l10n
-                        .opportunityDetailNameRequiredError; // Use localization key
+                    return 'Nome da Oportunidade é obrigatório'; // Opportunity Name is required
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
 
-              // NIF (From submission, editable, mandatory)
-              // --- Removed custom Column/Padding/SizedBox wrapper ---
-              TextFormField(
-                controller: _nifController,
-                decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailNifLabel, // Use localization key
-                  // Inherits border, fill, padding etc. from global theme
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return l10n
-                        .opportunityDetailNifRequiredError; // Use localization key
-                  }
-                  return null;
-                },
+              // NIF
+              Row(
+                // Wrap NIF field and indicator in a Row
+                crossAxisAlignment:
+                    CrossAxisAlignment.center, // Align items vertically
+                children: [
+                  Expanded(
+                    // Make TextFormField take available space
+                    child: TextFormField(
+                      controller: _nifController,
+                      decoration: InputDecoration(
+                        labelText: 'NIF', // NIF (already Portuguese)
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'NIF é obrigatório'; // NIF is required
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12), // Adjusted spacing
+                  // NIF Status Indicator (Button removed)
+                  _buildNifStatusIndicator(),
+                ],
               ),
               const SizedBox(height: 16),
 
               // Data de Criação (Auto-set based on view time)
-              // --- Refactored Read-Only Field ---
               TextFormField(
                 controller: _dataCriacaoController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailCreationDateLabel, // Use localization key
+                  labelText: 'Data de Criação', // Creation Date
                 ),
               ),
               const SizedBox(height: 16),
 
               // Data da última actualização de Fase (Auto-set based on view time)
-              // --- Refactored Read-Only Field ---
               TextFormField(
                 controller: _dataUltimaAtualizacaoController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailLastUpdateLabel, // Use localization key
+                  labelText: 'Última Atualização', // Last Update
                 ),
               ),
               const SizedBox(height: 16),
 
               // Fase (Fixed value - Display as read-only)
-              // --- Refactored Read-Only Field ---
               TextFormField(
                 controller: _faseController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailPhaseLabel, // Use localization key
+                  labelText: 'Fase', // Phase (already Portuguese)
                 ),
               ),
               const SizedBox(height: 16),
 
               // Tipo de Oportunidade (Derived value - Display as read-only)
-              // --- Refactored Read-Only Field ---
               TextFormField(
                 controller: _tipoOportunidadeController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailTypeLabel, // Use localization key
+                  labelText: 'Tipo de Oportunidade', // Opportunity Type
                 ),
               ),
               const SizedBox(height: 16),
 
               // Segmento de Cliente (Picklist - Required)
-              // --- Removed custom Column/Padding/SizedBox wrapper ---
               DropdownButtonFormField<String>(
                 value: _selectedSegmentoCliente,
-                // style: textTheme.bodyLarge, // Inherited via InputDecorator
-                // dropdownColor: colorScheme.surfaceVariant, // Use theme surface variant
-                // borderRadius: BorderRadius.circular(AppTheme.defaultBorderRadiusValue), // Use theme constant if available
                 decoration: InputDecoration(
                   labelText:
-                      l10n.opportunityDetailSegmentLabel, // Use localization key
-                  // Inherits border, fill, padding etc. from global theme
+                      'Segmento de Cliente', // Client Segment (already Portuguese)
                 ),
-                // Populate items from _segmentoOptions
+                // --- MODIFIED: Use icon map for items --- //
                 items:
                     _segmentoOptions.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Text(value),
+                        child:
+                            _segmentoIcons[value] ??
+                            Text(value), // Use map, fallback to text
                       );
                     }).toList(),
+                // --- MODIFIED: Use icon for selected display --- //
+                selectedItemBuilder: (BuildContext context) {
+                  return _segmentoOptions.map<Widget>((String item) {
+                    // Return the icon widget directly for the selected item display
+                    // Or a simplified version if needed (e.g., just the icon)
+                    final iconWidget = _segmentoIcons[item];
+                    if (iconWidget is Row) {
+                      // Show only the Icon when selected
+                      return iconWidget.children.firstWhere((w) => w is Icon);
+                    } else if (iconWidget is Text && item == '--None--') {
+                      return Text(
+                        'Selecione um segmento',
+                        style: TextStyle(color: Theme.of(context).hintColor),
+                      ); // Show hint style if none selected
+                    } else {
+                      return iconWidget ?? const SizedBox.shrink(); // Fallback
+                    }
+                  }).toList();
+                },
                 onChanged: (value) {
-                  // Update state variable on change
                   setState(() {
                     _selectedSegmentoCliente = value;
                   });
                 },
                 validator: (value) {
                   if (value == null || value == '--None--') {
-                    return l10n
-                        .opportunityDetailSegmentRequiredError; // Use localization key
+                    return 'Segmento de Cliente é obrigatório'; // Client Segment is required
                   }
                   return null;
                 },
                 hint: Text(
-                  l10n.opportunityDetailSegmentHint,
-                ), // Use localization key
+                  'Selecione um segmento de cliente', // Select a client segment
+                ),
               ),
               const SizedBox(height: 16),
 
               // Solução (Picklist - Required)
-              // --- Removed custom Column/Padding/SizedBox wrapper ---
               DropdownButtonFormField<String>(
                 value: _selectedSolucao,
-                // style: textTheme.bodyLarge, // Inherited via InputDecorator
-                // dropdownColor: colorScheme.surfaceVariant, // Use theme surface variant
-                // borderRadius: BorderRadius.circular(AppTheme.defaultBorderRadiusValue), // Use theme constant
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailSolutionLabel, // Use localization key
-                  // Inherits border, fill, padding etc. from global theme
+                  labelText: 'Solução', // Solution (already Portuguese)
                 ),
-                // Populate items from _solucaoOptions
                 items:
                     _solucaoOptions.map((String value) {
                       return DropdownMenuItem<String>(
@@ -1019,34 +1092,28 @@ class _OpportunityDetailFormViewState
                       );
                     }).toList(),
                 onChanged: (value) {
-                  // Update state variable on change
                   setState(() {
                     _selectedSolucao = value;
                   });
                 },
                 validator: (value) {
                   if (value == null || value == '--None--') {
-                    return l10n
-                        .opportunityDetailSolutionRequiredError; // Use localization key
+                    return 'Solução é obrigatória'; // Solution is required
                   }
                   return null;
                 },
                 hint: Text(
-                  l10n.opportunityDetailSolutionHint,
-                ), // Use localization key
+                  'Selecione uma solução', // Select a solution
+                ),
               ),
               const SizedBox(height: 16),
 
               // Data de Previsão de Fecho (Date - Required)
-              // --- Removed custom Column/Padding/SizedBox wrapper ---
               TextFormField(
                 controller: _fechoController,
                 decoration: InputDecoration(
-                  labelText:
-                      l10n.opportunityDetailCloseDateLabel, // Use localization key
-                  hintText:
-                      l10n.opportunityDetailCloseDateHint, // Use localization key
-                  // Inherits border, fill, padding etc. from global theme
+                  labelText: 'Data de Previsão de Fecho', // Close Date
+                  hintText: 'Selecione a data de fecho', // Select close date
                   suffixIcon: const Icon(Icons.calendar_today),
                 ),
                 keyboardType: TextInputType.datetime,
@@ -1058,7 +1125,6 @@ class _OpportunityDetailFormViewState
                     initialDate: _selectedFechoDate ?? DateTime.now(),
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2101),
-                    // Use theme colors for picker
                     builder: (context, child) {
                       return Theme(
                         data: theme.copyWith(
@@ -1095,8 +1161,7 @@ class _OpportunityDetailFormViewState
                 },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return l10n
-                        .opportunityDetailCloseDateRequiredError; // Use localization key
+                    return 'Data de Previsão de Fecho é obrigatória'; // Close Date is required
                   }
                   // Optional: Validate date format if needed, though picker ensures it
                   return null;
@@ -1107,7 +1172,7 @@ class _OpportunityDetailFormViewState
               // --- Invoice Section --- Updated to handle multiple files
               const Divider(height: 32),
               Text(
-                l10n.opportunityDetailInvoiceSectionTitle, // Use localization key
+                'Secção Faturas', // Invoice Section
                 style: textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
@@ -1128,7 +1193,7 @@ class _OpportunityDetailFormViewState
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          l10n.opportunityDetailInvoiceLoading, // Use localization key
+                          'A carregar...', // Loading...
                           style: textTheme.bodyMedium,
                         ),
                       ],
@@ -1143,7 +1208,7 @@ class _OpportunityDetailFormViewState
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${l10n.opportunityDetailInvoiceError}: ${snapshot.error}',
+                            'Erro: ${snapshot.error}', // Error: ...
                             style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.error,
                             ),
@@ -1157,9 +1222,9 @@ class _OpportunityDetailFormViewState
                   final results = snapshot.data;
                   if (results == null || results.isEmpty) {
                     return Text(
-                      l10n.opportunityDetailInvoiceNotAvailable, // Use localization key
+                      'Nenhum ficheiro disponível', // No files available
                       style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant, // Use theme color
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     );
                   }
@@ -1180,24 +1245,20 @@ class _OpportunityDetailFormViewState
               // --- Actions or Rejection Info --- // MODIFIED
               // Conditionally display based on status
               if (widget.submission.status == 'rejected')
-                _buildRejectionInfoSection(context, theme, l10n)
+                _buildRejectionInfoSection(context, theme)
               else // Assuming 'pending_review'
-                _buildActionButtons(context, theme, l10n),
+                _buildActionButtons(context, theme),
               // ---------------------------------- //
               const SizedBox(height: 24),
             ],
           ),
         ),
-      ), // End of Scaffold body (SingleChildScrollView)
-    ); // End of Scaffold
+      ),
+    );
   }
 
   // --- NEW: Widget Builder for Rejection Info Section ---
-  Widget _buildRejectionInfoSection(
-    BuildContext context,
-    ThemeData theme,
-    AppLocalizations l10n,
-  ) {
+  Widget _buildRejectionInfoSection(BuildContext context, ThemeData theme) {
     final rejectionReason = widget.submission.reviewDetails?.rejectionReason;
     final reviewTimestamp =
         widget.submission.reviewDetails?.reviewTimestamp
@@ -1230,7 +1291,7 @@ class _OpportunityDetailFormViewState
               Icon(Icons.info_outline, color: theme.colorScheme.error),
               const SizedBox(width: 8),
               Text(
-                'Rejection Details', // Placeholder
+                'Detalhes da Rejeição', // Rejection Details
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.error,
@@ -1240,29 +1301,26 @@ class _OpportunityDetailFormViewState
           ),
           const Divider(height: 20, thickness: 0.5),
           Text(
-            "Rejection Reason:", // Placeholder
+            "Motivo da Rejeição:", // Rejection Reason:
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            rejectionReason ?? "No reason provided.", // Placeholder
+            rejectionReason ??
+                "Nenhum motivo fornecido.", // No reason provided.
             style: theme.textTheme.bodyMedium,
           ),
           if (reviewTimestamp != null || reviewerId != null) ...[
             const SizedBox(height: 12),
             Text(
-              "Rejected on: $formattedTimestamp", // Placeholder
+              "Rejeitado em: $formattedTimestamp", // Rejected on: ...
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             // Optionally display reviewer if needed
-            // Text(
-            //   "Reviewer: ${reviewerId ?? 'Unknown'}",
-            //   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            // ),
           ],
         ],
       ),
@@ -1271,11 +1329,7 @@ class _OpportunityDetailFormViewState
   // ---------------------------------------------------- //
 
   // --- MODIFIED: _buildActionButtons --- //
-  Widget _buildActionButtons(
-    BuildContext context,
-    ThemeData theme,
-    AppLocalizations l10n,
-  ) {
+  Widget _buildActionButtons(BuildContext context, ThemeData theme) {
     final colorScheme = theme.colorScheme;
     return Center(
       child: Wrap(
@@ -1285,7 +1339,6 @@ class _OpportunityDetailFormViewState
         children: [
           // Approve Button
           ElevatedButton(
-            // *** MODIFIED: Call the new handler ***
             onPressed: _isSubmitting ? null : _approveSubmission,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
@@ -1300,12 +1353,12 @@ class _OpportunityDetailFormViewState
                         color: colorScheme.onPrimary,
                       ),
                     )
-                    : Text(l10n.opportunityApproveButton),
+                    : Text('Aprovar'),
           ),
           // Reject Button
           OutlinedButton.icon(
             icon: const Icon(Icons.cancel_outlined),
-            label: Text(l10n.opportunityRejectButton),
+            label: Text('Rejeitar'), // Reject
             onPressed:
                 _isSubmitting
                     ? null
@@ -1335,7 +1388,9 @@ class _OpportunityDetailFormViewState
     if (widget.submission.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Error: Submission ID missing"),
+          content: Text(
+            "Erro: ID da Submissão em falta",
+          ), // Error: Submission ID missing
           backgroundColor: Colors.red,
         ),
       );
@@ -1393,11 +1448,9 @@ class _OpportunityDetailFormViewState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              // AppLocalizations.of(context)!.opportunityRejectedSuccess, // TODO l10n
-              'Submission rejected successfully.',
-            ),
-            backgroundColor:
-                Colors.orange, // Use orange/yellow for rejection success
+              'Submissão rejeitada com sucesso.',
+            ), // Submission rejected successfully.
+            backgroundColor: Colors.orange,
           ),
         );
         // Optionally navigate back
@@ -1411,10 +1464,9 @@ class _OpportunityDetailFormViewState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              // '${AppLocalizations.of(context)!.opportunityRejectedError}: $e', // TODO l10n
-              'Failed to reject submission: ${e.toString()}',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
+              'Falha ao rejeitar submissão: ${e.toString()}',
+            ), // Failed to reject submission: ...
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -1442,10 +1494,9 @@ class _OpportunityDetailFormViewState
       final notificationData = {
         'id': notificationRef.id,
         'userId': resellerId, // Target the reseller
-        'title':
-            'Opportunity Rejected', // Placeholder - Use l10n.notificationOpportunityRejectedTitle
+        'title': 'Oportunidade Rejeitada', // Opportunity Rejected
         'body':
-            'Your submission was rejected. Reason: $reason', // Placeholder - Use l10n.notificationOpportunityRejectedBody(reason)
+            'A sua submissão foi rejeitada. Motivo: $reason', // Your submission was rejected. Reason: ...
         'createdAt': FieldValue.serverTimestamp(),
         'isRead': false,
         'type':
@@ -1488,12 +1539,12 @@ class _OpportunityDetailFormViewState
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final l10n = AppLocalizations.of(context)!;
 
     final String? downloadUrl = fileData['url'];
     final String? storagePath = fileData['path'];
     final String? error = fileData['error'];
-    final String fileName = fileData['fileName'] ?? 'Unknown File';
+    final String fileName =
+        fileData['fileName'] ?? 'Ficheiro Desconhecido'; // Unknown File
     final String? contentType = fileData['contentType']; // May be null
 
     // Use a fixed size for the preview container
@@ -1509,7 +1560,7 @@ class _OpportunityDetailFormViewState
     if (error != null) {
       // --- Error State ---
       content = Tooltip(
-        message: 'Error loading: $error',
+        message: 'Erro ao carregar: $error', // Error loading: ...
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -1535,7 +1586,7 @@ class _OpportunityDetailFormViewState
       // --- Loading State (individual) or Invalid URL State ---
       // This case might occur if URL fetch failed silently or path was invalid
       content = Tooltip(
-        message: 'Preview unavailable',
+        message: 'Pré-visualização indisponível', // Preview unavailable
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -1595,7 +1646,8 @@ class _OpportunityDetailFormViewState
           },
           errorBuilder:
               (context, error, stackTrace) => Tooltip(
-                message: 'Preview error: $error',
+                message:
+                    'Erro na pré-visualização: $error', // Error previewing: ...
                 child: const Center(child: Icon(Icons.broken_image, size: 30)),
               ),
         ),
@@ -1690,4 +1742,203 @@ class _OpportunityDetailFormViewState
         lowerCaseFileName.endsWith('.heic') ||
         lowerCaseFileName.endsWith('.webp');
   }
+
+  // --- NEW: NIF Check Logic --- //
+  Future<void> _checkNif() async {
+    final nifToCheck = _nifController.text.trim();
+
+    // --- ADDED: Client-side NIF validation ---
+    final nifRegExp = RegExp(r'^\d{9}$'); // Exactly 9 digits
+    if (nifToCheck.isEmpty) {
+      // Don't show error if empty, just reset status
+      setState(() {
+        _isCheckingNif = false; // Ensure loading stops if it was triggered
+        _nifCheckStatus = NifCheckStatus.initial;
+        _nifCheckMessage = null;
+      });
+      return;
+    } else if (!nifRegExp.hasMatch(nifToCheck)) {
+      setState(() {
+        _isCheckingNif = false; // Ensure loading stops
+        _nifCheckStatus = NifCheckStatus.error;
+        _nifCheckMessage =
+            'NIF Inválido (deve ter 9 dígitos)'; // Invalid NIF (must have 9 digits)
+      });
+      return;
+    }
+    // --- END ADDED ---
+
+    setState(() {
+      _isCheckingNif = true;
+      _nifCheckStatus = NifCheckStatus.loading;
+      _nifCheckMessage = null;
+    });
+
+    // --- Get Salesforce Auth Details --- //
+    String? accessToken;
+    String? instanceUrl;
+    bool authValid = false;
+    try {
+      final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
+      accessToken = await sfAuthNotifier.getValidAccessToken();
+      instanceUrl = sfAuthNotifier.currentInstanceUrl;
+      if (accessToken != null && instanceUrl != null) {
+        authValid = true;
+      } else {
+        _nifCheckStatus = NifCheckStatus.error;
+        _nifCheckMessage = 'Erro: Sessão Salesforce inválida ou expirada.';
+      }
+    } catch (e) {
+      print("Error fetching Salesforce auth details for NIF check: $e");
+      _nifCheckStatus = NifCheckStatus.error;
+      _nifCheckMessage = 'Erro ao obter detalhes da sessão Salesforce.';
+    }
+
+    if (!authValid) {
+      // If auth details are invalid, update state and stop
+      setState(() {
+        _isCheckingNif = false;
+      });
+      return;
+    }
+    // --- End Get Salesforce Auth Details --- //
+
+    try {
+      // ** Call function in the correct region (us-central1) **
+      final HttpsCallable callable = FirebaseFunctions.instanceFor(
+        region: 'us-central1',
+      ) // <-- CORRECT REGION
+      .httpsCallable(
+        'checkNifExistsInSalesforce',
+        options: HttpsCallableOptions(timeout: Duration(seconds: 30)),
+      );
+
+      // ** Pass required parameters **
+      final result = await callable.call<Map<String, dynamic>>({
+        'nif': nifToCheck,
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+      });
+
+      // ... rest of the result handling ...
+      final data = result.data;
+      final bool exists = data['exists'] as bool? ?? false;
+      final String? accountId = data['accountId'] as String?;
+      final String? error = data['error'] as String?;
+      final bool sessionExpired = data['sessionExpired'] as bool? ?? false;
+
+      if (sessionExpired) {
+        setState(() {
+          _nifCheckStatus = NifCheckStatus.error;
+          _nifCheckMessage = 'Erro: Sessão Salesforce expirou.';
+        });
+      } else if (error != null) {
+        setState(() {
+          _nifCheckStatus = NifCheckStatus.error;
+          _nifCheckMessage = 'Erro na verificação: $error';
+        });
+      } else if (exists) {
+        setState(() {
+          _nifCheckStatus = NifCheckStatus.exists;
+          _nifCheckMessage =
+              'Cliente existe no Salesforce.'; // Simplified message
+          // accountId != null ? 'Cliente existe (ID: $accountId)' : 'Cliente existe';
+        });
+      } else {
+        setState(() {
+          _nifCheckStatus = NifCheckStatus.notExists;
+          _nifCheckMessage =
+              'Cliente não existe no Salesforce.'; // Simplified message
+        });
+      }
+    } on FirebaseFunctionsException catch (e) {
+      print(
+        "FirebaseFunctionsException during NIF check: ${e.code} - ${e.message}",
+      );
+      setState(() {
+        _nifCheckStatus = NifCheckStatus.error;
+        _nifCheckMessage =
+            'Erro ao verificar NIF (${e.code})'; // Simplified Cloud Function error
+        // 'Erro Cloud Function (${e.code}): ${e.message ?? e.details ?? 'Unknown'}';
+      });
+    } catch (e) {
+      print("Generic error during NIF check: $e");
+      setState(() {
+        _nifCheckStatus = NifCheckStatus.error;
+        _nifCheckMessage =
+            'Erro inesperado ao verificar NIF.'; // Simplified generic error
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingNif = false;
+        });
+      }
+    }
+  }
+
+  // --- NEW: Helper for simple read-only fields --- //
+  Widget _buildReadOnlyField(
+    BuildContext context,
+    String label,
+    TextEditingController controller,
+  ) {
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: InputDecoration(
+        labelText: label,
+        border: InputBorder.none, // Remove border for read-only
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 8.0,
+        ), // Adjust padding
+      ),
+    );
+  }
+  // --- END NEW --- //
+
+  // --- NEW: NIF Status Indicator Widget --- //
+  Widget _buildNifStatusIndicator() {
+    IconData iconData;
+    Color iconColor;
+    String tooltipMessage = _nifCheckMessage ?? '';
+
+    switch (_nifCheckStatus) {
+      case NifCheckStatus.loading:
+        // Show loading indicator directly now
+        return const SizedBox(
+          width: 20, // Match size for alignment consistency
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      case NifCheckStatus.exists:
+        iconData = Icons.check_circle;
+        iconColor = Colors.green;
+        break;
+      case NifCheckStatus.notExists:
+        iconData = Icons.info_outline;
+        iconColor = Colors.orange;
+        break;
+      case NifCheckStatus.error:
+        iconData = Icons.error_outline;
+        iconColor = Colors.red;
+        break;
+      case NifCheckStatus.initial:
+      default:
+        // Show nothing initially
+        return const SizedBox(width: 24); // Placeholder for alignment
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Icon(iconData, color: iconColor, size: 24),
+    );
+  }
+
+  // --- END NEW --- //
 }
+
+// --- NEW: Enum for NIF Check Status --- //
+enum NifCheckStatus { initial, loading, exists, notExists, error }
+
+// --- END NEW --- //

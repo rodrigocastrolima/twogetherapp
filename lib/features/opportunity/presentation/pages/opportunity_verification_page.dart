@@ -7,7 +7,6 @@ import '../../../../core/models/service_submission.dart'; // Adjusted path
 import '../../../../core/models/service_types.dart'; // Ensure this line exists and is correct
 import 'admin_opportunity_review_page.dart'; // Import the new detail page
 import '../widgets/opportunity_filter_sheet.dart'; // <-- Import the filter sheet
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import AppLocalizations
 import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases
 import '../../../../core/theme/ui_styles.dart'; // Use AppStyles for specific decorations/layouts
 import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
@@ -186,7 +185,6 @@ class _OpportunityVerificationPageState
   Widget build(BuildContext context) {
     // Watch the Firestore provider here for filter availability
     final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
-    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -214,13 +212,13 @@ class _OpportunityVerificationPageState
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Text(
-          'Opportunity Verification', // TODO: l10n
+          'Verificação de Oportunidade', // Replaced hardcoded string
         ),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'New Submissions'), // TODO: l10n
-            Tab(text: 'Existing Opportunities'), // TODO: l10n
+            Tab(text: 'Novas Submissões'), // Replaced hardcoded string
+            Tab(text: 'Oportunidades Existentes'), // Replaced hardcoded string
           ],
         ),
         // --- ADD AppBar Actions for Refresh Button --- //
@@ -232,13 +230,16 @@ class _OpportunityVerificationPageState
               if (isSelected) {
                 return IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Refresh Salesforce List', // TODO: l10n
+                  tooltip:
+                      'Atualizar Lista Salesforce', // Replaced hardcoded string
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Refreshing Salesforce opportunities...'),
+                        content: Text(
+                          'Atualizando oportunidades Salesforce...',
+                        ), // Replaced hardcoded string
                         duration: Duration(seconds: 1),
-                      ), // TODO: l10n
+                      ),
                     );
                     ref.refresh(
                       salesforceOpportunitiesProvider,
@@ -266,7 +267,11 @@ class _OpportunityVerificationPageState
                 horizontal: 16.0, // Adjust padding
                 vertical: 12.0,
               ),
-              child: _buildHeader(context, l10n, theme, uniqueResellers),
+              child: _buildHeader(
+                context,
+                theme,
+                uniqueResellers,
+              ), // Removed l10n param
             ),
             // Tab Content Area
             Expanded(
@@ -289,7 +294,6 @@ class _OpportunityVerificationPageState
   // --- Header Builder (Remains mostly the same, pass uniqueResellers) ---
   Widget _buildHeader(
     BuildContext context,
-    AppLocalizations l10n,
     ThemeData theme,
     List<String> uniqueResellers, // Pass uniqueResellers here
   ) {
@@ -304,7 +308,8 @@ class _OpportunityVerificationPageState
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search Submissions...', // TODO: l10n
+                hintText:
+                    'Pesquisar Submissões...', // Replaced hardcoded string
                 prefixIcon: Icon(
                   Icons.search,
                   size: 20,
@@ -353,7 +358,7 @@ class _OpportunityVerificationPageState
             backgroundColor: theme.colorScheme.primary,
             child: OutlinedButton.icon(
               icon: Icon(Icons.filter_list, size: 18),
-              label: Text('Filters'), // TODO: l10n
+              label: Text('Filtros'), // Replaced hardcoded string
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.onSurfaceVariant,
                 side: BorderSide(color: theme.dividerColor),
@@ -380,7 +385,6 @@ class _OpportunityVerificationPageState
   Widget _buildNewSubmissionsTab(BuildContext context, ThemeData theme) {
     // Watch the necessary provider
     final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
-    final l10n = AppLocalizations.of(context)!;
 
     return pendingOpportunitiesAsync.when(
       data: (allSubmissions) {
@@ -433,7 +437,11 @@ class _OpportunityVerificationPageState
           builder: (context, constraints) {
             final bool isWebView = constraints.maxWidth > 800;
             return filteredSubmissions.isEmpty
-                ? _buildEmptyState(context, l10n, theme, isSubmissionsTab: true)
+                ? _buildEmptyState(
+                  context,
+                  theme,
+                  isSubmissionsTab: true,
+                ) // Removed l10n param
                 : (isWebView
                     ? _buildSubmissionsWebList(
                       context,
@@ -448,8 +456,10 @@ class _OpportunityVerificationPageState
           },
         );
       },
-      loading: () => _buildLoadingState(context, theme),
-      error: (error, stack) => _buildErrorState(context, error, theme),
+      loading: () => _buildLoadingState(context, theme), // Removed l10n param
+      error:
+          (error, stack) =>
+              _buildErrorState(context, error, theme), // Removed l10n param
     );
   }
 
@@ -484,7 +494,7 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 3,
                   child: Text(
-                    'Company / Name',
+                    'Empresa / Nome', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -493,7 +503,7 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'NIF',
+                    'NIF', // Kept hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -502,7 +512,7 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Reseller',
+                    'Revendedor', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -511,7 +521,7 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Submitted',
+                    'Submetido', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -520,7 +530,7 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 1,
                   child: Text(
-                    'Status',
+                    'Estado', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -610,7 +620,7 @@ class _OpportunityVerificationPageState
                         Icons.more_vert,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: 'Actions',
+                      tooltip: 'Ações', // Replaced hardcoded string
                       onSelected: (String result) {
                         switch (result) {
                           case 'view':
@@ -630,7 +640,7 @@ class _OpportunityVerificationPageState
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Error: Submission ID is missing.',
+                                    'Erro: ID da submissão em falta.', // Replaced hardcoded string
                                   ),
                                   backgroundColor: Colors.orange,
                                 ),
@@ -645,7 +655,9 @@ class _OpportunityVerificationPageState
                               value: 'view',
                               child: ListTile(
                                 leading: Icon(Icons.visibility_outlined),
-                                title: Text('View Details'),
+                                title: Text(
+                                  'Ver Detalhes',
+                                ), // Replaced hardcoded string
                               ),
                             ),
                             const PopupMenuDivider(),
@@ -661,7 +673,7 @@ class _OpportunityVerificationPageState
                                           : theme.disabledColor,
                                 ),
                                 title: Text(
-                                  'Delete Submission',
+                                  'Eliminar Submissão', // Replaced hardcoded string
                                   style: TextStyle(
                                     color:
                                         submission.id != null
@@ -750,14 +762,14 @@ class _OpportunityVerificationPageState
                         const SizedBox(height: 4),
                         _buildMobileInfoRow(
                           context,
-                          'Reseller',
+                          'Revendedor',
                           submission.resellerName,
                           theme,
                         ),
                         const SizedBox(height: 4),
                         _buildMobileInfoRow(
                           context,
-                          'Submitted',
+                          'Submetido',
                           _formatDate(submission.submissionDate),
                           theme,
                         ),
@@ -765,7 +777,7 @@ class _OpportunityVerificationPageState
                         Row(
                           children: [
                             Text(
-                              'Status:',
+                              'Estado:',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
@@ -806,7 +818,7 @@ class _OpportunityVerificationPageState
                   IconButton(
                     icon: const Icon(Icons.more_vert),
                     color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Actions',
+                    tooltip: 'Ações', // Replaced hardcoded string
                     splashRadius: 20,
                     onPressed:
                         submission.id == null
@@ -837,7 +849,6 @@ class _OpportunityVerificationPageState
     final salesforceOpportunitiesAsync = ref.watch(
       salesforceOpportunitiesProvider,
     );
-    final l10n = AppLocalizations.of(context)!;
 
     // Use the AsyncValue to handle loading, error, and data states
     return salesforceOpportunitiesAsync.when(
@@ -867,10 +878,9 @@ class _OpportunityVerificationPageState
             return filteredOpportunities.isEmpty
                 ? _buildEmptyState(
                   context,
-                  l10n,
                   theme,
                   isSubmissionsTab: false,
-                )
+                ) // Removed l10n param
                 : (isWebView
                     ? _buildSalesforceWebList(
                       context,
@@ -893,7 +903,7 @@ class _OpportunityVerificationPageState
     );
 
     // Temporary placeholder until provider and data model are ready - REMOVED
-    // return _buildEmptyState(context, l10n, theme, isSubmissionsTab: false);
+    // return _buildEmptyState(context, theme, isSubmissionsTab: false);
   }
 
   // --- Web List Builder (Salesforce Opportunities) --- NEW
@@ -925,31 +935,49 @@ class _OpportunityVerificationPageState
                 Expanded(
                   flex: 4,
                   child: Text(
-                    'Opportunity Name',
+                    'Nome da Oportunidade', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ), // TODO: l10n
+                ),
                 Expanded(
                   flex: 3,
                   child: Text(
-                    'Account Name',
+                    'Conta', // Replaced hardcoded string
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ), // TODO: l10n
+                ),
                 Expanded(
                   flex: 3,
                   child: Text(
-                    'Reseller',
+                    'Fase', // Corrected header
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ), // TODO: l10n
-                SizedBox(width: 48), // Space for actions
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Data Criação', // Changed header from Close Date
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Revendedor', // Changed header from Owner
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 48), // Space for action button
               ],
             ),
           );
@@ -964,11 +992,13 @@ class _OpportunityVerificationPageState
                   : theme.colorScheme.onSurface.withOpacity(0.03),
           child: InkWell(
             onTap: () {
-              // Navigate to the NEW Admin Salesforce Detail Page
+              // --- MODIFIED: Use correct absolute path --- //
               context.push(
                 '/admin/salesforce-opportunity-detail/${opportunity.id}',
               );
-              /* TODO: Navigate to Salesforce Opportunity Detail Page (Future)
+              // --- END MODIFICATION --- //
+
+              /* OLD TODO: Navigate to Salesforce Opportunity Detail Page (Future)
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -1006,7 +1036,25 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 3,
                     child: Text(
-                      opportunity.resellerName ?? '-',
+                      opportunity.Fase__c ?? 'N/A', // Use Fase__c
+                      style: theme.textTheme.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      opportunity.CreatedDate != null
+                          ? _formatSalesforceDate(opportunity.CreatedDate!)
+                          : 'N/A', // Use CreatedDate
+                      style: theme.textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      opportunity.resellerName ?? 'N/A', // Use resellerName
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1018,7 +1066,7 @@ class _OpportunityVerificationPageState
                         Icons.more_vert,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      tooltip: 'Actions', // TODO: l10n
+                      tooltip: 'Ações',
                       onSelected: (String result) {
                         if (result == 'delete') {
                           _showDeleteConfirmationDialog(
@@ -1042,11 +1090,11 @@ class _OpportunityVerificationPageState
                                   color: theme.colorScheme.error,
                                 ),
                                 title: Text(
-                                  'Delete Opportunity',
+                                  'Eliminar Oportunidade',
                                   style: TextStyle(
                                     color: theme.colorScheme.error,
                                   ),
-                                ), // TODO: l10n
+                                ),
                               ),
                             ),
                           ],
@@ -1087,11 +1135,13 @@ class _OpportunityVerificationPageState
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
-              // Navigate to the NEW Admin Salesforce Detail Page
+              // --- MODIFIED: Use correct absolute path --- //
               context.push(
                 '/admin/salesforce-opportunity-detail/${opportunity.id}',
               );
-              /* TODO: Navigate to Salesforce Opportunity Detail Page (Future)
+              // --- END MODIFICATION --- //
+
+              /* OLD TODO: Navigate to Salesforce Opportunity Detail Page (Future)
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -1125,17 +1175,17 @@ class _OpportunityVerificationPageState
                         const SizedBox(height: 8),
                         _buildMobileInfoRow(
                           context,
-                          'Account',
+                          'Conta',
                           opportunity.accountName ?? '-',
                           theme,
-                        ), // TODO: l10n label
+                        ),
                         const SizedBox(height: 4),
                         _buildMobileInfoRow(
                           context,
-                          'Reseller',
-                          opportunity.resellerName ?? '-',
+                          'Fase',
+                          opportunity.Fase__c ?? '-',
                           theme,
-                        ), // TODO: l10n label
+                        ),
                       ],
                     ),
                   ),
@@ -1143,15 +1193,15 @@ class _OpportunityVerificationPageState
                   IconButton(
                     icon: const Icon(Icons.more_vert),
                     color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Actions', // TODO: l10n
+                    tooltip: 'Ações',
                     splashRadius: 20,
                     onPressed: () {
                       _showDeleteConfirmationDialog(
                         context,
-                        opportunity.id, // Salesforce ID
+                        opportunity.id,
                         opportunity.name,
                         theme,
-                        isSubmission: false, // Indicate it's NOT a submission
+                        isSubmission: false,
                       );
                     },
                   ),
@@ -1201,7 +1251,6 @@ class _OpportunityVerificationPageState
   // --- State Builders (Loading, Error, Empty) ---
   // (Keep existing implementations, update Empty State)
   Widget _buildLoadingState(BuildContext context, ThemeData theme) {
-    // ... Implementation remains the same ...
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1213,7 +1262,7 @@ class _OpportunityVerificationPageState
           ),
           const SizedBox(height: 16),
           Text(
-            AppLocalizations.of(context)!.commonLoading,
+            'Carregando...', // Replaced l10n.commonLoading
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1229,11 +1278,10 @@ class _OpportunityVerificationPageState
     ThemeData theme, {
     bool isSalesforceError = false,
   }) {
-    // ... Implementation remains the same ...
     String message =
         isSalesforceError
-            ? 'Error loading Salesforce opportunities: $error'
-            : 'Error loading submissions: $error';
+            ? 'Erro ao carregar oportunidades Salesforce: $error'
+            : 'Erro ao carregar submissões: $error';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1257,11 +1305,9 @@ class _OpportunityVerificationPageState
 
   Widget _buildEmptyState(
     BuildContext context,
-    AppLocalizations l10n,
     ThemeData theme, {
     required bool isSubmissionsTab,
   }) {
-    // ... Implementation remains the same ...
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1274,8 +1320,8 @@ class _OpportunityVerificationPageState
           const SizedBox(height: 16),
           Text(
             isSubmissionsTab
-                ? 'No pending submissions found.'
-                : 'No existing opportunities found.',
+                ? 'Nenhuma submissão pendente encontrada.'
+                : 'Nenhuma oportunidade existente encontrada.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
             ),
@@ -1283,7 +1329,7 @@ class _OpportunityVerificationPageState
           const SizedBox(height: 8),
           if (isSubmissionsTab && _areFiltersActive())
             Text(
-              'Try adjusting the search or filters.',
+              'Tente ajustar a pesquisa ou os filtros.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
               ),
@@ -1296,17 +1342,15 @@ class _OpportunityVerificationPageState
 
   // --- Navigation ---
   void _navigateToDetail(BuildContext context, ServiceSubmission submission) {
-    // ... Implementation remains the same ...
     context.push('/admin/opportunity-detail', extra: submission);
   }
 
   // --- START: Deletion Logic --- Updated
   Future<void> _deleteFirestoreSubmission(String submissionId) async {
-    // ... Implementation remains the same ...
     final docRef = FirebaseFirestore.instance
         .collection('serviceSubmissions')
         .doc(submissionId);
-    String feedbackMessage = 'Submission deleted successfully.';
+    String feedbackMessage = 'Submissão eliminada com sucesso.';
     Color feedbackColor = Colors.green;
     try {
       final docSnap = await docRef.get();
@@ -1330,7 +1374,7 @@ class _OpportunityVerificationPageState
           }
         }
       } else {
-        feedbackMessage = 'Submission not found.';
+        feedbackMessage = 'Submissão não encontrada.';
         feedbackColor = Colors.orange; /* Show snackbar */
         return;
       }
@@ -1344,7 +1388,7 @@ class _OpportunityVerificationPageState
             print('Error deleting file from Storage ($path): $e');
             if (e.code != 'object-not-found') {
               feedbackMessage =
-                  'Submission deleted, but failed to delete some files.';
+                  'Submissão eliminada, but failed to delete some files.';
               feedbackColor = Colors.orange;
             }
           } catch (e) {
@@ -1355,7 +1399,7 @@ class _OpportunityVerificationPageState
       await docRef.delete();
     } catch (e) {
       print('Error during Firestore submission deletion process: $e');
-      feedbackMessage = 'Error deleting submission: ${e.toString()}';
+      feedbackMessage = 'Erro ao eliminar submissão: ${e.toString()}';
       feedbackColor = Colors.red;
     } finally {
       if (mounted) {
@@ -1370,16 +1414,15 @@ class _OpportunityVerificationPageState
   }
 
   Future<void> _deleteSalesforceOpportunity(String opportunityId) async {
-    // ... Implementation remains the same ...
     setState(() {});
-    String feedbackMessage = 'Salesforce Opportunity deleted successfully.';
+    String feedbackMessage = 'Oportunidade Salesforce eliminada com sucesso.';
     Color feedbackColor = Colors.green;
     try {
       final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
       final String? accessToken = await sfAuthNotifier.getValidAccessToken();
       final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
       if (accessToken == null || instanceUrl == null) {
-        throw Exception("Salesforce authentication invalid.");
+        throw Exception("Autenticação Salesforce inválida.");
       }
       final service = ref.read(salesforceOpportunityServiceProvider);
       await service.deleteSalesforceOpportunity(
@@ -1390,7 +1433,7 @@ class _OpportunityVerificationPageState
       ref.refresh(salesforceOpportunitiesProvider);
     } catch (e) {
       print('Error during Salesforce opportunity deletion process: $e');
-      feedbackMessage = 'Error deleting Opportunity: ${e.toString()}';
+      feedbackMessage = 'Erro ao eliminar Oportunidade: ${e.toString()}';
       feedbackColor = Colors.red;
     } finally {
       setState(() {});
@@ -1412,12 +1455,11 @@ class _OpportunityVerificationPageState
     ThemeData theme, {
     required bool isSubmission,
   }) async {
-    // ... Implementation remains the same ...
     final String itemType =
-        isSubmission ? 'submission' : 'Salesforce Opportunity';
-    final String title = 'Confirm Deletion';
+        isSubmission ? 'submissão' : 'Oportunidade Salesforce';
+    final String title = 'Confirmar Eliminação';
     final String content =
-        'Are you sure you want to delete the $itemType for "$name"? This action cannot be undone.';
+        'Tem a certeza que quer eliminar a $itemType para "$name"? Esta ação não pode ser desfeita.';
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -1432,14 +1474,14 @@ class _OpportunityVerificationPageState
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancel'),
+              child: const Text('Cancelar'),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
               ),
-              child: const Text('Delete'),
+              child: const Text('Eliminar'),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
                 if (isSubmission) {
@@ -1456,4 +1498,16 @@ class _OpportunityVerificationPageState
   }
 
   // --- END: Deletion Logic ---
+
+  // --- Helper to format Salesforce date string ---
+  String _formatSalesforceDate(String dateString) {
+    try {
+      // Assuming dateString is like "2023-10-26T10:00:00.000Z"
+      final dateTime = DateTime.parse(dateString);
+      return DateFormat('dd/MM/yyyy').format(dateTime.toLocal());
+    } catch (e) {
+      print("Error formatting Salesforce date: $dateString, Error: $e");
+      return dateString; // Return original if parsing fails
+    }
+  }
 }
