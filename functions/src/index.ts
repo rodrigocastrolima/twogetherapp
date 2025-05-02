@@ -71,7 +71,9 @@ export { createSalesforceProposal } from './createSalesforceProposal'; // <-- AD
 
 // --- NEW Export for Reseller Proposal Fetching ---
 export { getResellerOpportunityProposals } from './getResellerOpportunityProposals';
-// -----------------------------------------------
+// --- NEW Export for Reseller Proposal Details Fetching ---
+export { getResellerProposalDetails } from './getResellerProposalDetails';
+// -------------------------------------------------------
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
@@ -1213,3 +1215,4 @@ export const runMigration = onCall({
 // If unsure, explicitly export it:
 export { getSalesforceProposalDetails } from "./getSalesforceProposalDetails";
 export { updateSalesforceProposal } from "./updateSalesforceProposal";
+export { checkNifExistsInSalesforce } from "./checkNifExistsInSalesforce";

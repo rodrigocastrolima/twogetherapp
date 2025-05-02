@@ -10,14 +10,15 @@ interface GetResellerProposalsInput {
     opportunityId: string;
 }
 
-// Only fetching Name for now
-interface SalesforceProposalNameOnly {
+// UPDATE: Interface now includes Id and Name
+interface SalesforceProposalRef { // Renamed from SalesforceProposalNameOnly
+    Id: string; // Added Id field
     Name: string;
 }
 
 interface GetResellerProposalsResult {
     success: boolean;
-    proposals?: SalesforceProposalNameOnly[];
+    proposals?: SalesforceProposalRef[]; // Updated type
     error?: string;
     errorCode?: string;
 }
@@ -117,26 +118,27 @@ export const getResellerOpportunityProposals = onCall(
                 accessToken: access_token
             });
 
-            // 5. --- SOQL Query ---
-            // Select ONLY the Name field for proposals linked to the opportunity
+            // 5. --- SOQL Query (UPDATED) ---
+            // Select BOTH Id and Name fields
             const soqlQuery = `
-                SELECT Name
+                SELECT Id, Name
                 FROM Proposta__c
                 WHERE Oportunidade__c = '${opportunityId}'
                 ORDER BY Name
-            `; // Ensure Proposta__c and Oportunidade__c are correct API names
+            `;
 
             logger.info(`getResellerOpportunityProposals: Executing SOQL query for Opportunity ID ${opportunityId}`);
             logger.debug(`getResellerOpportunityProposals: Query: ${soqlQuery.replace(/\s+/g, ' ').trim()}`);
 
-            const result = await conn.query<SalesforceProposalNameOnly>(soqlQuery);
+            // Use the updated Interface type for the query result
+            const result = await conn.query<SalesforceProposalRef>(soqlQuery);
 
-            logger.info(`getResellerOpportunityProposals: Query successful. Found ${result.totalSize} proposal names for Opportunity ${opportunityId}.`);
+            logger.info(`getResellerOpportunityProposals: Query successful. Found ${result.totalSize} proposals for Opportunity ${opportunityId}.`);
 
             // 6. --- Return Success ---
             return {
                 success: true,
-                proposals: result.records // Return the array of proposal records (containing only Name)
+                proposals: result.records // Return the array of proposal records (now containing Id and Name)
             };
 
         } catch (err: any) {
