@@ -10,6 +10,21 @@ interface GetOpportunitiesInput {
     resellerSalesforceId: string;
 }
 
+// --- NEW: Interface for Proposal Info from Subquery ---
+interface SalesforceProposalInfo {
+    Id: string;
+    Status__c: string | null;
+    Data_de_Cria_o_da_Proposta__c: string | null; // Added CreatedDate
+    attributes?: any; // Added optional attributes to match jsforce output before cleaning
+}
+
+// --- NEW: Interface for the Subquery Result Structure ---
+interface RelatedProposals {
+    totalSize: number;
+    done: boolean;
+    records: SalesforceProposalInfo[];
+}
+
 // Define the expected structure of Salesforce Opportunity records from the query
 interface SalesforceOpportunity {
     Id: string;
@@ -18,7 +33,8 @@ interface SalesforceOpportunity {
     Fase__c: string | null;
     CreatedDate: string; // Date field (ISO 8601 format)
     Nome_Entidade__c: string | null; // Added field for client/account name
-    // Removed: AccountId, Account, Solu_o__c, Data_de_Previs_o_de_Fecho__c
+    Propostas__r?: RelatedProposals | null; // --- ADDED: For nested proposals ---
+    attributes?: any; // Added optional attributes for the top-level record
 }
 
 interface GetOpportunitiesResult {
@@ -132,8 +148,7 @@ export const getResellerOpportunities = onCall(
                 accessToken: access_token
             });
 
-            // 4. --- SOQL Query ---
-            // Select only the fields requested by the user
+            // 4. --- SOQL Query (MODIFIED with Subquery) ---
             const soqlQuery = `
                 SELECT
                     Id,
@@ -141,12 +156,12 @@ export const getResellerOpportunities = onCall(
                     NIF__c,
                     Fase__c,
                     CreatedDate,
-                    Nome_Entidade__c
+                    Nome_Entidade__c,
+                    (SELECT Id, Status__c, Data_de_Cria_o_da_Proposta__c FROM Propostas__r ORDER BY CreatedDate DESC)
                 FROM Oportunidade__c
                 WHERE Agente_Retail__c = '${resellerSalesforceId}'
                 ORDER BY CreatedDate DESC
             `;
-            // Removed: AccountId, Account.Name, Solu_o__c, Data_de_Previs_o_de_Fecho__c, and the inline comment
 
             logger.info(`getResellerOpportunities: Executing SOQL query for ${resellerSalesforceId}`);
             logger.debug(`getResellerOpportunities: Query: ${soqlQuery.replace(/\s+/g, ' ').trim()}`);
@@ -154,6 +169,23 @@ export const getResellerOpportunities = onCall(
             const result = await conn.query<SalesforceOpportunity>(soqlQuery);
 
             logger.info(`getResellerOpportunities: Query successful. Found ${result.totalSize} opportunities for ${resellerSalesforceId}.`);
+
+            // --- NEW: Clean up attributes from subquery results ---
+            result.records.forEach(opp => {
+                delete opp.attributes; // Clean top-level attributes
+                if (opp.Propostas__r && opp.Propostas__r.records) {
+                    opp.Propostas__r.records.forEach(proposal => {
+                        delete proposal.attributes; // Clean nested proposal attributes
+                    });
+                } else {
+                    // Ensure Propostas__r is null or an empty structure if no proposals exist
+                    // If Salesforce returns null, we keep it null. If it omitted the field, this ensures consistency.
+                    if (opp.Propostas__r === undefined) {
+                         opp.Propostas__r = null;
+                    }
+                }
+            });
+            // --- END Cleanup ---
 
             // 5. --- Return Success ---
             return {

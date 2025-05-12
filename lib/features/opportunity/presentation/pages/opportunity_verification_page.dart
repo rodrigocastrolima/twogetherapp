@@ -1036,7 +1036,7 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 3,
                     child: Text(
-                      opportunity.Fase__c ?? 'N/A', // Use Fase__c
+                      opportunity.faseC ?? 'N/A', // Use faseC
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1044,9 +1044,9 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 2,
                     child: Text(
-                      opportunity.CreatedDate != null
-                          ? _formatSalesforceDate(opportunity.CreatedDate!)
-                          : 'N/A', // Use CreatedDate
+                      opportunity.createdDate != null
+                          ? _formatSalesforceDate(opportunity.createdDate!)
+                          : 'N/A', // Use createdDate
                       style: theme.textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1183,7 +1183,7 @@ class _OpportunityVerificationPageState
                         _buildMobileInfoRow(
                           context,
                           'Fase',
-                          opportunity.Fase__c ?? '-',
+                          opportunity.faseC ?? '-',
                           theme,
                         ),
                       ],

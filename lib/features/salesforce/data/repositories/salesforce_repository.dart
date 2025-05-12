@@ -10,10 +10,13 @@ import '../../../opportunity/data/models/create_opp_models.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../proposal/data/models/salesforce_cpe_proposal_data.dart';
 import '../../../proposal/data/models/salesforce_proposal_data.dart';
+import 'dart:convert'; // <-- Add import for jsonEncode/Decode
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Repository for interacting with Salesforce data through Firebase Cloud Functions
 class SalesforceRepository {
   final FirebaseFunctions _functions;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   bool _isConnected = false;
 
   /// Constructor that accepts a FirebaseFunctions instance
@@ -133,31 +136,37 @@ class SalesforceRepository {
   }
 
   /// Fetches opportunities from Salesforce for a specific reseller
+  /// Handles token refresh automatically.
   ///
   /// [resellerSalesforceId] is the Salesforce User ID of the reseller
   /// Returns a list of [SalesforceOpportunity] objects or throws an exception
   Future<List<SalesforceOpportunity>> getResellerOpportunities(
-    String resellerSalesforceId,
-  ) async {
+    String resellerSalesforceId, {
+    int retryCount = 0, // Add retry count to prevent infinite loops
+  }) async {
+    if (retryCount > 1) {
+      // Avoid infinite loops if refresh keeps failing
+      throw Exception("Failed to fetch opportunities after token refresh attempt.");
+    }
+
+    if (kDebugMode) {
+      print(
+        'Fetching opportunities for Salesforce ID: $resellerSalesforceId (Attempt ${retryCount + 1})',
+      );
+    }
+
+    // Validate input
+    if (resellerSalesforceId.isEmpty) {
+      throw Exception('Reseller Salesforce ID cannot be empty');
+    }
+
+    // Prepare the Cloud Function call
+    final callable = _functions.httpsCallable('getResellerOpportunities');
+    final params = {'resellerSalesforceId': resellerSalesforceId};
+
     try {
-      if (kDebugMode) {
-        print(
-          'Fetching opportunities for Salesforce ID: $resellerSalesforceId',
-        );
-      }
-
-      // Validate input
-      if (resellerSalesforceId.isEmpty) {
-        throw Exception('Reseller Salesforce ID cannot be empty');
-      }
-
-      // Call the Cloud Function
-      final callable = _functions.httpsCallable('getResellerOpportunities');
-      final result = await callable.call<Map<String, dynamic>>({
-        'resellerSalesforceId': resellerSalesforceId,
-      });
-
-      // Parse the response
+      // Make the initial call
+      final result = await callable.call<Map<String, dynamic>>(params);
       final data = result.data;
 
       if (kDebugMode) {
@@ -174,22 +183,61 @@ class SalesforceRepository {
         // Convert each JSON object to a SalesforceOpportunity
         return opportunitiesJson
             .map((json) {
-              // Ensure json is treated as a Map before converting
               if (json is Map) {
                 try {
                   final mapJson = Map<String, dynamic>.from(json);
-                  // Add specific checks for mandatory fields BEFORE parsing
                   if (mapJson['Id'] == null || mapJson['Name'] == null) {
-                    print(
-                      '[SalesforceRepository] Error: Record missing Id or Name: $mapJson',
-                    );
+                    if (kDebugMode) {
+                      print(
+                        '[SalesforceRepository Map] Skipping record missing Id or Name: $mapJson',
+                      );
+                    }
                     return null; // Skip this record
                   }
-                  return SalesforceOpportunity.fromJson(mapJson);
-                } catch (e) {
-                  print(
-                    '[SalesforceRepository] Error parsing record $json: $e',
-                  );
+
+                  // --- Add Detailed Logging Here ---
+                  if (kDebugMode) {
+                    final hasPropostasR = mapJson.containsKey('Propostas__r');
+                    print(
+                      '[SalesforceRepository Map] Processing Id: ${mapJson['Id']}',
+                    );
+                    print(
+                      '[SalesforceRepository Map] JSON has Propostas__r key: $hasPropostasR',
+                    );
+                    if (hasPropostasR) {
+                      print(
+                        '[SalesforceRepository Map] Propostas__r value: ${mapJson['Propostas__r']}',
+                      );
+                      print(
+                        '[SalesforceRepository Map] Propostas__r type: ${mapJson['Propostas__r'].runtimeType}',
+                      );
+                    }
+                  }
+                  // --- End Detailed Logging ---
+
+                  final opportunity = SalesforceOpportunity.fromJson(mapJson);
+
+                  // --- Add Logging AFTER FromJson ---
+                  if (kDebugMode) {
+                    print(
+                      '[SalesforceRepository Map] Parsed Opportunity ID: ${opportunity.id}',
+                    );
+                    print(
+                      '[SalesforceRepository Map] Parsed Opportunity PropostasR: ${opportunity.propostasR}',
+                    );
+                    // Optionally print the full parsed object
+                    // print('[SalesforceRepository Map] Parsed Opportunity Object: $opportunity');
+                  }
+                  // --- End Logging AFTER FromJson ---
+
+                  return opportunity; // Return the parsed object
+                } catch (e, s) {
+                  // Added stack trace
+                  if (kDebugMode) {
+                    print(
+                      '[SalesforceRepository Map] Error parsing record $json: $e\nStack trace: $s',
+                    );
+                  }
                   return null; // Skip records that cause parsing errors
                 }
               } else {
@@ -205,25 +253,108 @@ class SalesforceRepository {
             .whereType<SalesforceOpportunity>()
             .toList(); // Filter out nulls
       } else {
-        // Handle error response from the function
+        // Handle error response within the function's success:false payload
         final errorMessage = data['error'] as String? ?? 'Unknown error';
         final errorCode = data['errorCode'] as String? ?? 'UNKNOWN';
+        // Log the error or throw a specific exception
+        if (kDebugMode) {
+          print(
+            'Error from getResellerOpportunities function payload: $errorCode - $errorMessage',
+          );
+        }
         throw Exception(
-          'Failed to fetch opportunities: [$errorCode] $errorMessage',
+          'Failed to fetch opportunities: $errorCode - $errorMessage',
         );
       }
     } on FirebaseFunctionsException catch (e) {
       if (kDebugMode) {
-        print('Firebase Functions error: [${e.code}] ${e.message}');
+        print("FirebaseFunctionsException caught: Code=${e.code}, Message=${e.message}, Details=${e.details}");
       }
-      throw Exception(
-        'Cloud function error: [${e.code}] ${e.message ?? "Unknown error"}',
-      );
+      // Check if the error indicates an expired token (adjust code as needed)
+      // Common codes: 'unauthenticated', 'permission-denied'. Details might be needed.
+      bool needsRefresh = e.code == 'unauthenticated'; 
+      // TODO: Refine this check based on actual error returned by your functions on token expiry.
+      // You might need to inspect e.details or e.message.
+
+      if (needsRefresh && retryCount == 0) { // Only attempt refresh once
+        if (kDebugMode) {
+          print("Potential expired token detected. Attempting refresh...");
+        }
+        try {
+          final refreshToken = await _getRefreshToken();
+          if (refreshToken == null) {
+            print("No refresh token found. Cannot refresh. User needs to re-login.");
+            // Re-throw the original error or a specific "LoginRequiredError"
+            throw Exception("User re-authentication required (no refresh token)."); 
+          }
+
+          // Call the refresh token function
+          final refreshCallable = _functions.httpsCallable('refreshSalesforceToken');
+          final refreshResult = await refreshCallable.call<Map<String, dynamic>>({
+            'refreshToken': refreshToken,
+          });
+
+          final refreshData = refreshResult.data;
+           if (kDebugMode) {
+              print("Refresh token function response: $refreshData");
+           }
+
+          // Check if refreshData contains the expected fields directly
+          final newAccessToken = refreshData['newAccessToken'] as String?;
+          final newInstanceUrl = refreshData['newInstanceUrl'] as String?;
+          final newExpiresIn = refreshData['newExpiresInSeconds'] as int?;
+
+          if (newAccessToken != null && newInstanceUrl != null && newExpiresIn != null) {
+            if (kDebugMode) {
+              print("Token refresh successful. Saving new tokens.");
+            }
+            // Save the new tokens (implementation depends on _saveTokens)
+            // Note: refreshSalesforceToken usually doesn't return a *new* refresh token
+            await _saveTokens(newAccessToken, null, newInstanceUrl, newExpiresIn); 
+
+            if (kDebugMode) {
+              print("Retrying getResellerOpportunities call...");
+            }
+            // Retry the original call
+            return await getResellerOpportunities(resellerSalesforceId, retryCount: retryCount + 1);
+          } else {
+            // Handle cases where refresh function succeeded but response was unexpected
+             print("Refresh token function returned success but response format was unexpected.");
+             throw Exception("Token refresh failed (unexpected response). User should re-login.");
+          }
+
+        } on FirebaseFunctionsException catch (refreshError) {
+           // Handle errors during the refresh call itself
+           print("Error calling refreshSalesforceToken function: ${refreshError.code} - ${refreshError.message}");
+           // If refresh specifically fails with unauthenticated/invalid_grant, re-login is needed
+           if (refreshError.code == 'unauthenticated' || refreshError.details?['salesforceError'] == 'invalid_grant') {
+               print("Refresh token invalid. User needs to re-login.");
+               throw Exception("User re-authentication required (invalid refresh token).");
+           } else {
+               // Throw a general error for other refresh failures
+               throw Exception("Failed to refresh token: ${refreshError.message}");
+           }
+        } catch (refreshError) {
+           // Catch any other non-Functions exceptions during refresh/storage
+           print("Unexpected error during token refresh flow: $refreshError");
+           throw Exception("An unexpected error occurred during token refresh.");
+        }
+      } else if (needsRefresh && retryCount > 0) {
+         // Already tried refreshing, but failed again - force login
+         print("Call failed again after token refresh attempt. Forcing re-login.");
+         throw Exception("User re-authentication required (refresh failed).");
+      } else {
+        // The error was not related to token expiry, re-throw it
+         print("HttpsError was not related to token expiry. Rethrowing.");
+        throw e; 
+      }
     } catch (e) {
+      // Catch any other non-Functions exceptions during the initial call
       if (kDebugMode) {
-        print('Error fetching opportunities: $e');
+        print('Generic error fetching opportunities: $e');
       }
-      throw Exception('Failed to fetch opportunities: $e');
+      // Rethrow the error to be handled by the caller
+      throw Exception('An unexpected error occurred: ${e.toString()}');
     }
   }
 
@@ -677,8 +808,18 @@ class SalesforceRepository {
 
       // Directly parse the received data into SalesforceProposalData
       try {
-        // Ensure the received data is correctly typed before parsing
-        final Map<String, dynamic> typedData = Map<String, dynamic>.from(data);
+        // Force correct typing using jsonEncode/Decode
+        final jsonString = jsonEncode(data); // Encode to JSON string
+        final typedData =
+            jsonDecode(jsonString)
+                as Map<String, dynamic>?; // Decode back to Map<String, dynamic>
+
+        if (typedData == null) {
+          throw Exception(
+            'Received null or invalid data structure after JSON conversion.',
+          );
+        }
+
         // The SalesforceProposalData.fromJson factory will handle parsing the nested CPEs
         return SalesforceProposalData.fromJson(typedData);
       } catch (e) {
@@ -720,6 +861,28 @@ class SalesforceRepository {
     }
   }
   // --------------------------------------------------------
+
+  // --- Helper methods for token storage (ASSUMED IMPLEMENTATION) ---
+  // These need to be implemented based on how you actually store tokens.
+  
+  Future<String?> _getRefreshToken() async {
+    // Replace with your actual logic to retrieve the refresh token
+    return await _secureStorage.read(key: 'salesforce_refresh_token');
+  }
+
+  Future<void> _saveTokens(String accessToken, String? refreshToken, String instanceUrl, int expiresIn) async {
+    // Replace with your actual logic to save tokens
+    await _secureStorage.write(key: 'salesforce_access_token', value: accessToken);
+    if (refreshToken != null) { // Refresh token might not always be returned by refresh endpoint
+        await _secureStorage.write(key: 'salesforce_refresh_token', value: refreshToken);
+    }
+    await _secureStorage.write(key: 'salesforce_instance_url', value: instanceUrl);
+    // Store expiry time (current time + expires_in)
+    final expiryTime = DateTime.now().add(Duration(seconds: expiresIn)).millisecondsSinceEpoch;
+    await _secureStorage.write(key: 'salesforce_token_expiry', value: expiryTime.toString());
+  }
+  
+  // --- End Helper methods ---
 
   // -------------------------------------
 }

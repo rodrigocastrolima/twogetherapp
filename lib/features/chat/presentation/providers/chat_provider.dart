@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/models/chat_message.dart';
 import '../../domain/models/chat_conversation.dart';
+import 'package:twogether/features/auth/presentation/providers/auth_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Provider for the ChatRepository
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
@@ -37,6 +39,10 @@ final messagesProvider = StreamProvider.autoDispose
 
 // Provider for total unread messages count
 final unreadMessagesCountProvider = StreamProvider.autoDispose<int>((ref) {
+  final isAuthenticated = ref.watch(isAuthenticatedProvider);
+  if (!isAuthenticated || FirebaseAuth.instance.currentUser == null) {
+    return Stream.value(0);
+  }
   final repository = ref.watch(chatRepositoryProvider);
   return repository.getUnreadMessagesCountStream();
 });

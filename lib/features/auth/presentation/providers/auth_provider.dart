@@ -30,7 +30,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 // Provider for the current user - returns null if not authenticated
 final currentUserProvider = Provider<AppUser?>((ref) {
-  return ref.watch(authRepositoryProvider).currentUser;
+  // Watch the authStateChangesProvider to get the full AppUser object
+  // This will include the role and additionalData (like salesforceId) from Firestore
+  return ref
+      .watch(authStateChangesProvider)
+      .when(
+        data: (user) => user,
+        loading:
+            () => null, // Or potentially the previous user state if desired
+        error: (error, stack) => null, // Handle error appropriately
+      );
 });
 
 // Stream provider for authentication state changes

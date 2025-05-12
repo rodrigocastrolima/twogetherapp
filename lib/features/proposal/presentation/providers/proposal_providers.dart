@@ -110,20 +110,43 @@ final resellerProposalDetailsProvider = FutureProvider.family<
 
 // Provider to get total reseller commission
 final resellerTotalCommissionProvider = FutureProvider<double>((ref) async {
-  // Get logged-in user's Salesforce ID (which is the Reseller ID for them)
+  // Watch the current user provider's state (returns AppUser?)
   final AppUser? currentUser = ref.watch(currentUserProvider);
-  final String? resellerId = currentUser?.salesforceId;
 
-  if (resellerId == null || resellerId.isEmpty) {
+  // --- Enhanced Debug Logging ---
+  if (kDebugMode) {
+    final userId = currentUser?.uid ?? 'null';
+    // Try getting ID directly from additionalData
+    final sfIdFromData = currentUser?.additionalData['salesforceId'] as String?;
+    final additionalDataKeys = currentUser?.additionalData.keys.toList() ?? [];
+    print(
+      '[resellerTotalCommissionProvider] Checking user state: currentUser=${currentUser != null}, userId=$userId, sfIdFromData=$sfIdFromData, additionalDataKeys=$additionalDataKeys',
+    );
+  }
+  // --- End Enhanced Debug Logging ---
+
+  // Get the Salesforce ID DIRECTLY from the additionalData map
+  final String? resellerId =
+      currentUser?.additionalData['salesforceId'] as String?;
+
+  // If no user or no Salesforce ID yet, return 0.0.
+  // The provider will re-run when currentUserProvider updates with the ID.
+  if (currentUser == null || resellerId == null || resellerId.isEmpty) {
     if (kDebugMode) {
       print(
-        "[resellerTotalCommissionProvider] User not logged in or missing Salesforce ID.",
+        "[resellerTotalCommissionProvider] User not logged in or missing Salesforce ID. Waiting for update...",
       );
     }
-    // Return 0 or throw? Throwing might be better if commission is expected.
-    // Returning 0.0 for now.
+    // Return 0.0 for now. UI will show loading/placeholder until this provider
+    // re-runs with a valid ID and returns the actual future.
     return 0.0;
-    // throw Exception("User not logged in or Salesforce ID missing.");
+  }
+
+  // If we have the resellerId, proceed with fetching the commission
+  if (kDebugMode) {
+    print(
+      "[resellerTotalCommissionProvider] User logged in with Salesforce ID: $resellerId. Fetching commission...",
+    );
   }
 
   final salesforceRepo = ref.watch(salesforceRepositoryProvider);

@@ -1,62 +1,183 @@
 import 'package:flutter/foundation.dart';
 
+/// Represents information about a single Proposal related to an Opportunity.
+@immutable
+class SalesforceProposalInfo {
+  final String id;
+  final String? statusC; // Status__c
+  final String? dataDeCriacaoDaPropostaC; // Data_de_Cria_o_da_Proposta__c
+
+  const SalesforceProposalInfo({
+    required this.id,
+    this.statusC,
+    this.dataDeCriacaoDaPropostaC,
+  });
+
+  factory SalesforceProposalInfo.fromJson(Map<String, dynamic> json) {
+    return SalesforceProposalInfo(
+      id: json['Id'] as String, // Assume ID is always present
+      statusC: json['Status__c'] as String?,
+      dataDeCriacaoDaPropostaC:
+          json['Data_de_Cria_o_da_Proposta__c'] as String?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SalesforceProposalInfo &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          statusC == other.statusC &&
+          dataDeCriacaoDaPropostaC == other.dataDeCriacaoDaPropostaC;
+
+  @override
+  int get hashCode =>
+      id.hashCode ^ statusC.hashCode ^ dataDeCriacaoDaPropostaC.hashCode;
+
+  @override
+  String toString() {
+    return 'SalesforceProposalInfo{id: $id, statusC: $statusC, dataDeCriacaoDaPropostaC: $dataDeCriacaoDaPropostaC}';
+  }
+}
+
+/// Represents the structure returned by Salesforce for a subquery relationship.
+@immutable
+class RelatedProposals {
+  final int totalSize;
+  final bool done;
+  final List<SalesforceProposalInfo> records;
+
+  const RelatedProposals({
+    required this.totalSize,
+    required this.done,
+    required this.records,
+  });
+
+  factory RelatedProposals.fromJson(Map<String, dynamic> json) {
+    var recordsList = <SalesforceProposalInfo>[];
+    if (json['records'] != null && json['records'] is List) {
+      try {
+        recordsList =
+            (json['records'] as List)
+                // Check if item is a Map, not strictly Map<String, dynamic>
+                .where((item) => item is Map)
+                .map((item) {
+                  // Still cast to Map<String, dynamic> for SalesforceProposalInfo.fromJson
+                  return SalesforceProposalInfo.fromJson(
+                    Map<String, dynamic>.from(item as Map),
+                  );
+                })
+                .toList();
+      } catch (e, s) {
+        if (kDebugMode) {
+          print(
+            'Error parsing individual proposal info within RelatedProposals: $e\n$s\nRecord JSON: $json',
+          );
+        }
+        recordsList = [];
+      }
+    }
+    return RelatedProposals(
+      totalSize: json['totalSize'] as int? ?? 0,
+      done: json['done'] as bool? ?? true,
+      records: recordsList,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RelatedProposals &&
+          runtimeType == other.runtimeType &&
+          totalSize == other.totalSize &&
+          done == other.done &&
+          listEquals(records, other.records);
+
+  @override
+  int get hashCode => totalSize.hashCode ^ done.hashCode ^ records.hashCode;
+
+  @override
+  String toString() {
+    return 'RelatedProposals{totalSize: $totalSize, done: $done, records: ${records.length} items}';
+  }
+}
+
 /// Represents the summary data for an Opportunity fetched from Salesforce.
 @immutable
 class SalesforceOpportunity {
   final String id;
   final String name;
-  final String? accountName; // Account.Name can be null
-  final String? resellerName; // Agente_Retail__r.Name can be null
-  final String? NIF__c; // Added
-  final String? Fase__c; // Added
-  final String?
-  CreatedDate; // Added - Made nullable for safety, confirm if always present
+  final String? accountName; // From Nome_Entidade__c
+  final String? resellerName; // Not currently fetched/used in list?
+  final String? nifC; // NIF__c
+  final String? faseC; // Fase__c
+  final String? createdDate; // CreatedDate
+  final RelatedProposals?
+  propostasR; // Propostas__r - Added for nested proposals
 
   const SalesforceOpportunity({
     required this.id,
     required this.name,
     this.accountName,
-    this.resellerName,
-    this.NIF__c, // Added
-    this.Fase__c, // Added
-    this.CreatedDate, // Added
+    this.resellerName, // Keep for potential future use
+    this.nifC, // Renamed for Dart convention
+    this.faseC, // Renamed for Dart convention
+    this.createdDate, // Renamed for Dart convention
+    this.propostasR, // Added
   });
 
   factory SalesforceOpportunity.fromJson(Map<String, dynamic> json) {
     // Use null-coalescing to handle case variations for ID and Name.
-    // Cast the result to String AFTER checking both keys.
     final String? idValue = json['Id'] ?? json['id'];
     final String? nameValue = json['Name'] ?? json['name'];
 
-    // Throw if *still* null after checking both cases (defensive check)
     if (idValue == null || nameValue == null) {
-      print(
-        "Error parsing SalesforceOpportunity: Missing 'Id'/'id' or 'Name'/'name' in JSON after case-insensitive check: $json",
-      );
+      if (kDebugMode) {
+        print(
+          "Error parsing SalesforceOpportunity: Missing 'Id'/'id' or 'Name'/'name' in JSON: $json",
+        );
+      }
       throw FormatException(
         "Missing required fields (Id/id, Name/name) in SalesforceOpportunity JSON",
       );
     }
 
-    // --- CORRECTED Parsing for Relationship Fields ---
-    // Access nested 'Name' within 'Entidade__r' object. Use ?. for safety.
-    // final accountNameValue = (json['Entidade__r'] as Map<String, dynamic>?)?['Name'] as String?; // REVERTED
-    // Access nested 'Name' within 'Agente_Retail__r' object. Use ?. for safety.
-    // final resellerNameValue = (json['Agente_Retail__r'] as Map<String, dynamic>?)?['Name'] as String?; // REVERTED
-    // --- END CORRECTION ---
+    // Parse the nested Propostas__r structure if present
+    RelatedProposals? relatedProposals;
+    if (json['Propostas__r'] != null && json['Propostas__r'] is Map) {
+      try {
+        final propostasMap = Map<String, dynamic>.from(
+          json['Propostas__r'] as Map,
+        );
+        relatedProposals = RelatedProposals.fromJson(propostasMap);
+      } catch (e, s) {
+        if (kDebugMode) {
+          print(
+            'Error occurred during RelatedProposals.fromJson: $e\n$s\nInput JSON for Propostas__r: ${json['Propostas__r']}',
+          );
+        }
+        relatedProposals = null;
+      }
+    } else if (json['Propostas__r'] != null) {
+      if (kDebugMode) {
+        print(
+          'Warning: Propostas__r field was present but not a Map<String, dynamic>. Type: ${json['Propostas__r'].runtimeType}, Value: ${json['Propostas__r']}',
+        );
+      }
+    }
 
     return SalesforceOpportunity(
-      id: idValue, // Use the extracted value
-      name: nameValue, // Use the extracted value
-      // --- Read top-level keys provided by the Cloud Function ---
+      id: idValue,
+      name: nameValue,
       accountName:
-          json['accountName'] as String?, // Match Cloud Function output key
-      resellerName:
-          json['resellerName'] as String?, // Match Cloud Function output key
-      // --- End Read top-level keys ---
-      NIF__c: json['NIF__c'] as String?,
-      Fase__c: json['Fase__c'] as String?,
-      CreatedDate: json['CreatedDate'] as String?,
+          json['Nome_Entidade__c'] as String?, // Map from correct SF field
+      // resellerName is not included in the getResellerOpportunities query currently
+      resellerName: null, // Explicitly null as it's not fetched
+      nifC: json['NIF__c'] as String?,
+      faseC: json['Fase__c'] as String?,
+      createdDate: json['CreatedDate'] as String?,
+      propostasR: relatedProposals, // Assign parsed proposals
     );
   }
 
@@ -70,9 +191,10 @@ class SalesforceOpportunity {
           name == other.name &&
           accountName == other.accountName &&
           resellerName == other.resellerName &&
-          NIF__c == other.NIF__c && // Added
-          Fase__c == other.Fase__c && // Added
-          CreatedDate == other.CreatedDate; // Added
+          nifC == other.nifC &&
+          faseC == other.faseC &&
+          createdDate == other.createdDate &&
+          propostasR == other.propostasR; // Added
 
   @override
   int get hashCode =>
@@ -80,13 +202,14 @@ class SalesforceOpportunity {
       name.hashCode ^
       accountName.hashCode ^
       resellerName.hashCode ^
-      NIF__c.hashCode ^ // Added
-      Fase__c.hashCode ^ // Added
-      CreatedDate.hashCode; // Added
+      nifC.hashCode ^
+      faseC.hashCode ^
+      createdDate.hashCode ^
+      propostasR.hashCode; // Added
 
   // Optional: Add toString for easier debugging
   @override
   String toString() {
-    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, resellerName: $resellerName, NIF__c: $NIF__c, Fase__c: $Fase__c, CreatedDate: $CreatedDate}'; // Added
+    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, nifC: $nifC, faseC: $faseC, createdDate: $createdDate, propostasR: $propostasR}'; // Updated
   }
 }

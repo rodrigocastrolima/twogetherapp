@@ -990,7 +990,7 @@ class _AdminSalesforceProposalDetailPageState
                       value ?? 'N/A',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-          ),
+            ),
         ],
       ),
     );

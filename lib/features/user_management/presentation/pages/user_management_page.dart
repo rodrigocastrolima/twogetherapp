@@ -12,11 +12,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../providers/user_creation_provider.dart';
 
-/// Extension on AppUser to safely access Salesforce-related fields
-extension SalesforceUserExtension on AppUser {
-  String? get salesforceId => additionalData['salesforceId'] as String?;
-}
-
 class UserManagementPage extends ConsumerStatefulWidget {
   const UserManagementPage({super.key});
 

@@ -25,7 +25,8 @@ interface RefreshResult {
 }
 
 // Define constants
-const SALESFORCE_TOKEN_ENDPOINT = "https://ldfgrupo.my.salesforce.com/services/oauth2/token";
+// Use the standard Salesforce login URL for token exchange/refresh
+const SALESFORCE_TOKEN_ENDPOINT = "https://login.salesforce.com/services/oauth2/token";
 const DEFAULT_EXPIRY_SECONDS = 28800; // 8 hours
 
 /**

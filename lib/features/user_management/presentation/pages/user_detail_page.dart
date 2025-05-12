@@ -828,8 +828,8 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     SalesforceOpportunity opportunity,
   ) {
     final theme = Theme.of(context);
-    final statusColor = _getPhaseColor(opportunity.Fase__c);
-    final creationDate = _formatSalesforceDate(opportunity.CreatedDate);
+    final statusColor = _getPhaseColor(opportunity.faseC);
+    final creationDate = _formatSalesforceDate(opportunity.createdDate);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -899,7 +899,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      (opportunity.Fase__c ?? 'DESCONHECIDO')
+                      (opportunity.faseC ?? 'DESCONHECIDO')
                           .replaceAll('_', ' ')
                           .toUpperCase(), // Hardcoded Portuguese
                       style: TextStyle(

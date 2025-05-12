@@ -222,8 +222,8 @@ class _SubmitProposalDocumentsPageState
                       ? cpeIdentifier.substring(cpeIdentifier.length - 6)
                       : cpeIdentifier;
               scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text(
+      SnackBar(
+        content: Text(
                     'Falha no upload (Contrato ...${shortId}): ${uploadResult['error']}',
                   ),
                   backgroundColor: Colors.red,
@@ -361,88 +361,88 @@ class _SubmitProposalDocumentsPageState
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
               child: Opacity(
                 opacity: _isLoading ? 0.5 : 1.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Carregar documentos necessários:', // TODO: Localize
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Carregar documentos necessários:', // TODO: Localize
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
 
-                    // --- Digital Signature Toggle ---
-                    SwitchListTile.adaptive(
+            // --- Digital Signature Toggle ---
+            SwitchListTile.adaptive(
                       title: const Text('Contratos assinados digitalmente'),
-                      value: _isDigitallySigned,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _isDigitallySigned = value;
-                          if (_isDigitallySigned) {
-                            _contractFiles.updateAll((key, _) => null);
-                          }
-                        });
-                      },
+              value: _isDigitallySigned,
+              onChanged: (bool value) {
+                setState(() {
+                  _isDigitallySigned = value;
+                  if (_isDigitallySigned) {
+                    _contractFiles.updateAll((key, _) => null);
+                  }
+                });
+              },
                       contentPadding: EdgeInsets.zero,
-                      secondary: Icon(
-                        _isDigitallySigned
-                            ? CupertinoIcons.checkmark_seal_fill
-                            : CupertinoIcons.checkmark_seal,
+              secondary: Icon(
+                _isDigitallySigned
+                    ? CupertinoIcons.checkmark_seal_fill
+                    : CupertinoIcons.checkmark_seal,
                         color:
                             _isDigitallySigned
                                 ? theme.colorScheme.primary
                                 : null,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
 
                     // --- File Upload Section ---
-                    if (!_isDigitallySigned)
-                      ...widget.cpeList.map((cpe) {
-                        String shortId =
-                            cpe.id.length > 6
-                                ? cpe.id.substring(cpe.id.length - 6)
-                                : cpe.id;
-                        return _buildFileUploadPlaceholder(
-                          context,
+            if (!_isDigitallySigned)
+              ...widget.cpeList.map((cpe) {
+                String shortId =
+                    cpe.id.length > 6
+                        ? cpe.id.substring(cpe.id.length - 6)
+                        : cpe.id;
+                return _buildFileUploadPlaceholder(
+                  context,
                           'Contrato Assinado (CPE ...$shortId)',
-                          Icons.description_outlined,
-                          DocumentType.contract,
+                  Icons.description_outlined,
+                  DocumentType.contract,
                           _contractFiles[cpe.id],
                           cpeProposalId: cpe.id,
-                        );
-                      }).toList(),
+                );
+              }).toList(),
 
-                    const Divider(height: 24),
+            const Divider(height: 24),
 
-                    _buildFileUploadPlaceholder(
-                      context,
+            _buildFileUploadPlaceholder(
+              context,
                       'Documento de identificação (CC)',
-                      CupertinoIcons.person_crop_rectangle,
-                      DocumentType.idDocument,
-                      _idDocumentFile,
-                    ),
-                    _buildFileUploadPlaceholder(
-                      context,
+              CupertinoIcons.person_crop_rectangle,
+              DocumentType.idDocument,
+              _idDocumentFile,
+            ),
+            _buildFileUploadPlaceholder(
+              context,
                       'Prova de residência',
-                      CupertinoIcons.house,
-                      DocumentType.proofOfAddress,
-                      _proofOfAddressFile,
-                    ),
-                    _buildFileUploadPlaceholder(
-                      context,
+              CupertinoIcons.house,
+              DocumentType.proofOfAddress,
+              _proofOfAddressFile,
+            ),
+            _buildFileUploadPlaceholder(
+              context,
                       'Certidão Permanente (CRC)',
-                      CupertinoIcons.doc_chart,
-                      DocumentType.crcDocument,
-                      _crcDocumentFile,
-                    ),
-                    const SizedBox(height: 32),
+              CupertinoIcons.doc_chart,
+              DocumentType.crcDocument,
+              _crcDocumentFile,
+            ),
+            const SizedBox(height: 32),
 
-                    // --- Submit Button ---
-                    Center(
-                      child: CupertinoButton.filled(
+            // --- Submit Button ---
+            Center(
+              child: CupertinoButton.filled(
                         onPressed: _isLoading ? null : _submitDocuments,
                         child: const Text('Submeter Documentos'),
                       ),

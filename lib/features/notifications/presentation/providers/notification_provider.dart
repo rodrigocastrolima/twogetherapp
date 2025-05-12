@@ -3,17 +3,18 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/models/notification.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Provider for the notification repository
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   return NotificationRepository();
 });
 
-// Stream provider for user's notifications
+// Provider for the stream of user notifications
 final userNotificationsProvider =
     StreamProvider.autoDispose<List<UserNotification>>((ref) {
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
-      if (!isAuthenticated) {
+      if (!isAuthenticated || FirebaseAuth.instance.currentUser == null) {
         return Stream.value([]);
       }
       final repository = ref.watch(notificationRepositoryProvider);

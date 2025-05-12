@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:typed_data'; // For Uint8List
-import 'dart:convert'; // For base64Decode
+import 'dart:convert'; // For base64Decode AND jsonEncode/Decode
 
 import '../../../../core/theme/theme.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
@@ -90,29 +90,38 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
     );
 
     try {
-      // Get Salesforce credentials
-      final authNotifier = ref.read(salesforceAuthNotifierProvider.notifier);
-      final accessToken = authNotifier.currentAccessToken;
-      final instanceUrl = authNotifier.currentInstanceUrl;
+      // Get Salesforce credentials - REMOVED, handled by JWT in function
+      // final authNotifier = ref.read(salesforceAuthNotifierProvider.notifier);
+      // final accessToken = authNotifier.currentAccessToken;
+      // final instanceUrl = authNotifier.currentInstanceUrl;
 
-      if (accessToken == null || instanceUrl == null) {
-        throw Exception('Salesforce authentication credentials not found.');
-      }
+      // if (accessToken == null || instanceUrl == null) {
+      //   throw Exception('Salesforce authentication credentials not found.');
+      // }
 
-      // Call the Cloud Function
+      // Call the Cloud Function (which uses JWT auth internally)
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('downloadFileForReseller');
       final result = await callable.call<Map<String, dynamic>>({
         'contentVersionId': file.id,
       });
 
-      // Close loading indicator
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
+      // --- DEFERRED POPPING DIALOG ---
+      // // Close loading indicator
+      // if (navigator.canPop()) {
+      //   navigator.pop();
+      // }
+      // --- END DEFERRED ---
 
       if (result.data['success'] == true && result.data['data'] != null) {
-        final fileDataMap = result.data['data'] as Map<String, dynamic>;
+        // Apply jsonEncode/Decode to fix typing
+        final jsonString = jsonEncode(result.data['data']);
+        final fileDataMap = jsonDecode(jsonString) as Map<String, dynamic>?;
+
+        if (fileDataMap == null) {
+          throw Exception('Failed to process file data after JSON conversion.');
+        }
+
         final String base64String = fileDataMap['fileData'] as String;
         final String? contentType = fileDataMap['contentType'] as String?;
 
@@ -142,6 +151,12 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
           );
         }
 
+        // --- Pop dialog BEFORE navigating ---
+        if (navigator.canPop()) {
+          navigator.pop(); // Close loading indicator *now*
+        }
+        // --- END POP ---
+
         // --- Navigate to Viewer --- //
         if (fileType == 'pdf') {
           navigator.push(
@@ -164,6 +179,11 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
             ),
           );
         } else {
+          // --- Pop dialog if navigating failed or unknown type ---
+          if (navigator.canPop()) {
+            navigator.pop(); // Ensure pop if we don't navigate
+          }
+          // --- END POP ---
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -175,6 +195,11 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
         }
         // --- END Navigation --- //
       } else {
+        // --- Pop dialog on function failure ---
+        if (navigator.canPop()) {
+          navigator.pop(); // Close loading indicator
+        }
+        // --- END POP ---
         final String errorMsg =
             result.data['error']?.toString() ??
             'Cloud function failed to download file.';
@@ -183,7 +208,7 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
     } catch (e) {
       // Close loading indicator on error
       if (navigator.canPop()) {
-        navigator.pop();
+        navigator.pop(); // Close loading indicator
       }
 
       String errorMessage;

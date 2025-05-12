@@ -52,6 +52,8 @@ import 'package:twogether/presentation/screens/clients/reseller_proposal_details
 import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
 import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
+import '../../presentation/widgets/app_loading_indicator.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -550,18 +552,37 @@ class AppRouter {
         final isAdmin = authNotifier.isAdmin;
         final currentRoute = state.matchedLocation;
         final isLoginPage = currentRoute == '/login';
+        final isLoadingPage = currentRoute == '/auth-loading';
 
-        // --- 1. User Not Authenticated ---
+        // --- 0. Allow staying on /auth-loading while login process happens ---
+        if (!isAuthenticated && isLoadingPage) {
+          print(
+            'GoRouter Redirect: On /auth-loading and not authenticated yet. Staying put.',
+          ); // LOG
+          return null; // Stay on loading page
+        }
+
+        // --- 1. User Not Authenticated (and NOT on loading page) ---
         if (!isAuthenticated) {
           print(
             'GoRouter Redirect: Not logged in, redirecting to /login from ${state.uri.toString()}',
           ); // LOG
-          return isLoginPage ? null : '/login'; // Stay if already on login
+          // Don't redirect to login if already there or on the loading page (handled above)
+          return isLoginPage ? null : '/login';
         }
 
         // --- User IS Authenticated ---
 
-        // --- 3. Redirect AWAY from Login page ONLY ---
+        // --- 2. Redirect AWAY from /auth-loading page after auth completes ---
+        if (isLoadingPage) {
+          final target = isAdmin ? '/admin' : '/';
+          print(
+            'GoRouter Redirect: Authenticated on loading page, redirecting to $target',
+          ); // LOG
+          return target;
+        }
+
+        // --- 3. Redirect AWAY from Login page ---
         if (isLoginPage) {
           if (kDebugMode) {
             print(
@@ -1177,6 +1198,14 @@ class AppRouter {
           final proposalId = state.pathParameters['proposalId']!;
           return AdminSalesforceProposalDetailPage(proposalId: proposalId);
         },
+      ),
+      GoRoute(
+        path: '/auth-loading',
+        builder:
+            (context, state) => const Scaffold(
+              // Use Scaffold to provide a basic structure, but body is the indicator
+              body: AppLoadingIndicator(),
+            ),
       ),
     ],
     // Optional: Add error page handling

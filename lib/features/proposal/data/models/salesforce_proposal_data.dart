@@ -31,34 +31,39 @@ class SalesforceProposalData {
     }
     // +++ END DEBUG +++
 
-    List<SalesforceCPEProposalData> cpes = [];
-    // Handle potential null or incorrect type for nested records
-    final cpeRecords = json['CPE_Propostas__r']?['records'];
-    if (cpeRecords != null && cpeRecords is List) {
-      cpes =
-          cpeRecords
-              .map((cpeJson) {
-                try {
-                  // Ensure each item is a map before parsing
-                  if (cpeJson is Map<String, dynamic>) {
-                    return SalesforceCPEProposalData.fromJson(cpeJson);
-                  } else {
+    final cpeData = json['CPE_Propostas__r'] as Map<String, dynamic>?;
+    List<SalesforceCPEProposalData>? parsedCpes;
+
+    if (cpeData != null &&
+        cpeData['records'] != null &&
+        cpeData['records'] is List) {
+      final recordsList = cpeData['records'] as List;
+      parsedCpes =
+          recordsList
+              .map((item) {
+                // Explicitly check if item is a Map before parsing
+                if (item is Map<String, dynamic>) {
+                  return SalesforceCPEProposalData.fromJson(item);
+                } else {
+                  // Log or handle the case where an item is not a Map
+                  if (kDebugMode) {
                     print(
-                      '[SalesforceProposalData.fromJson] Skipping non-map item in CPE list: $cpeJson',
+                      '[SalesforceProposalData.fromJson] Skipping non-map item in CPE list: $item',
                     );
-                    return null;
                   }
-                } catch (e) {
-                  print(
-                    '[SalesforceProposalData.fromJson] Error parsing CPE item: $e - Item: $cpeJson',
-                  );
-                  return null;
+                  return null; // Return null for invalid items
                 }
               })
               .whereType<
                 SalesforceCPEProposalData
-              >() // Filter out nulls from errors/skips
+              >() // Filter out any nulls resulting from invalid items
               .toList();
+    } else {
+      if (kDebugMode) {
+        print(
+          '[SalesforceProposalData.fromJson] CPE_Propostas__r or records field missing or not in expected format: ${json['CPE_Propostas__r']}',
+        );
+      }
     }
 
     final proposal = SalesforceProposalData(
@@ -69,7 +74,7 @@ class SalesforceProposalData {
       // Use correct field names based on your actual JSON response
       createdDate: json['Data_de_Cria_o_da_Proposta__c'] as String?,
       expiryDate: json['Data_de_Validade__c'] as String?,
-      cpePropostas: cpes.isNotEmpty ? cpes : null,
+      cpePropostas: parsedCpes, // Assign the correctly parsed list
     );
 
     // +++ DEBUG: Log created object +++

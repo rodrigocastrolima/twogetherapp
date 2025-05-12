@@ -269,9 +269,13 @@ export const acceptProposalAndUploadDocs = onCall(
             }
 
             // 5. --- Update Proposal Status (Commented Out) ---
-            logger.info(`${functionName}: Proposal Status update to 'Aprovada' is commented out as requested.`);
-            const proposalUpdateStatus : AcceptProposalResult['proposalUpdateStatus'] = 'commented_out';
-            /*
+            // logger.info(`${functionName}: Proposal Status update to 'Aprovada' is commented out as requested.`);
+            // const proposalUpdateStatus : AcceptProposalResult['proposalUpdateStatus'] = 'commented_out';
+            
+            // --- Initialize proposalUpdateStatus ---
+            let proposalUpdateStatus : AcceptProposalResult['proposalUpdateStatus'] = undefined; 
+            
+            // --- Update Proposal Status ---
             try {
                  logger.info(`${functionName}: Attempting to update Proposal ${data.proposalId} status to 'Aprovada'...`);
                  proposalUpdateStatus = 'attempted';
@@ -294,13 +298,21 @@ export const acceptProposalAndUploadDocs = onCall(
                  proposalUpdateStatus = 'failed';
                  // Log error but don't necessarily fail the whole function if files uploaded ok
             }
-            */
+            
 
             // 6. --- Return Success ---
-            logger.info(`${functionName}: Successfully processed proposal acceptance for ID ${data.proposalId}. All files uploaded.`);
+            // Adjust the success message slightly based on the update status
+            let finalMessage = "Proposal accepted and all documents processed successfully.";
+            if (proposalUpdateStatus === 'failed') {
+                finalMessage = "Proposal accepted and documents processed, but failed to update proposal status.";
+            } else if (proposalUpdateStatus !== 'success') {
+                 finalMessage = "Proposal accepted and documents processed. Status update was not fully successful or was skipped."; // General case if needed
+            }
+            
+            logger.info(`${functionName}: Processed proposal acceptance for ID ${data.proposalId}. Status Update: ${proposalUpdateStatus}.`);
             return {
-                success: true,
-                message: "Proposal accepted and all documents processed successfully.",
+                success: true, // Return true even if status update failed, as files are uploaded
+                message: finalMessage,
                 uploadResults: uploadResults,
                 proposalUpdateStatus: proposalUpdateStatus
             };

@@ -11,6 +11,8 @@ import '../../../../core/utils/constants.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../../../../core/providers/theme_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../presentation/widgets/app_loading_indicator.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -108,11 +110,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (shouldLogout == true) {
       final loadingService = ref.read(loadingServiceProvider);
+
       loadingService.show(context, message: 'Saindo...', showLogo: true);
       try {
-        await AppRouter.authNotifier.setAuthenticated(false);
-      } finally {
-        loadingService.hide();
+        await FirebaseAuth.instance.signOut();
+      } catch (e, stackTrace) {
+        if (mounted) {
+          loadingService.hide();
+        }
+        if (kDebugMode) {
+          print('Error during sign out: $e');
+          print(stackTrace);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao sair: ${e.toString()}')),
+          );
+        }
       }
     }
   }

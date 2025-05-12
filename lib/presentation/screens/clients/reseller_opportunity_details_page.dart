@@ -21,13 +21,13 @@ class OpportunityDetailsPage extends ConsumerWidget {
 
     // Format CreatedDate for the Opportunity
     String formattedOpportunityDate = 'N/A';
-    if (opportunity.CreatedDate != null) {
+    if (opportunity.createdDate != null) {
       try {
-        final date = DateTime.parse(opportunity.CreatedDate!);
+        final date = DateTime.parse(opportunity.createdDate!);
         formattedOpportunityDate = DateFormat.yMd('pt_PT').format(date);
       } catch (e) {
         formattedOpportunityDate =
-            opportunity.CreatedDate!; // Fallback to raw string if parse fails
+            opportunity.createdDate!; // Fallback to raw string if parse fails
       }
     }
 
@@ -160,7 +160,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
                   const SizedBox(height: 4),
                   _buildStatusDisplay(
                     context,
-                    opportunity.Fase__c,
+                    opportunity.faseC,
                   ), // Use new status display method
                 ],
               ),
@@ -199,11 +199,11 @@ class OpportunityDetailsPage extends ConsumerWidget {
             const SizedBox(height: 16),
 
             // Use the new model fields
-            _buildDetailRow(context, 'NIF', opportunity.NIF__c ?? 'N/A'),
+            _buildDetailRow(context, 'NIF', opportunity.nifC ?? 'N/A'),
             _buildDetailRow(
               context,
               'Fase',
-              opportunity.Fase__c ?? 'N/A', // Display Fase__c
+              opportunity.faseC ?? 'N/A', // Display faseC
             ),
             _buildDetailRow(
               context,

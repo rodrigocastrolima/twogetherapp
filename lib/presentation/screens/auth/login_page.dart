@@ -2,11 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
 import '../../../app/router/app_router.dart';
 import '../../../core/theme/ui_styles.dart';
-import '../../../core/services/loading_service.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -23,38 +23,49 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _recoveryEmailSent = false;
 
   void _handleLogin() async {
-    try {
-      // Validate the login credentials
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
+    // Get email and password first for validation
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-      // Simple validation
-      if (email.isEmpty || password.isEmpty) {
-        throw Exception('Por favor, insira email e senha');
-      }
-
-      // Use loading service to show loading overlay
-      final loadingService = ref.read(loadingServiceProvider);
-      loadingService.show(context, message: 'Entrando...', showLogo: true);
-
-      try {
-        // Attempt login
-        await AppRouter.authNotifier.signInWithEmailAndPassword(
-          email,
-          password,
-        );
-      } finally {
-        // Always hide loading overlay
-        loadingService.hide();
-      }
-
-      // No need to navigate manually - the router redirect will handle it
-    } catch (e) {
-      // Handle login error
+    // Simple validation
+    if (email.isEmpty || password.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha no login: ${e.toString()}')),
+          const SnackBar(content: Text('Por favor, insira email e senha')),
         );
+      }
+      return; // Stop if validation fails
+    }
+
+    try {
+      // Navigate to the loading route BEFORE attempting login
+      // Ensure context is still mounted before navigating
+      if (mounted) {
+        GoRouter.of(context).go('/auth-loading');
+      }
+
+      // Attempt login - No need for try/finally for loading here
+      await AppRouter.authNotifier.signInWithEmailAndPassword(email, password);
+
+      // On successful login, GoRouter's redirect logic will handle navigation
+      // away from /auth-loading automatically.
+    } catch (e) {
+      // If login fails, navigate BACK to login page to show the error
+      if (mounted) {
+        // Check if we are currently on the loading page before going back
+        final currentRoute = GoRouterState.of(context).matchedLocation;
+        if (currentRoute == '/auth-loading') {
+          GoRouter.of(context).go('/login');
+        }
+
+        // Delay showing the SnackBar slightly to ensure the login page is visible
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Falha no login: ${e.toString()}')),
+            );
+          }
+        });
       }
     }
   }
