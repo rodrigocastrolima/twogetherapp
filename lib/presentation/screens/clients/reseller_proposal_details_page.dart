@@ -243,7 +243,8 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
           );
         },
         data: (proposal) {
-          final cpeList = proposal.cpePropostas;
+          // Use ?? [] to ensure cpeList is never null for the UI
+          final cpeList = proposal.cpePropostas ?? [];
           final bool showActions = actionableStatuses.contains(proposal.status);
 
           return SingleChildScrollView(
@@ -290,18 +291,108 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                                       child: const Text(
                                         'Rejeitar',
                                       ), // TODO: Localize
-                                      onPressed: () {
+                                      onPressed: () async {
                                         Navigator.of(ctx).pop(); // Close dialog
-                                        // TODO: Implement Reject action (e.g., call Cloud Function)
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Rejeitar - Não implementado', // TODO: Localize
-                                            ),
-                                          ),
+
+                                        // Show loading indicator
+                                        showDialog(
+                                          context: context,
+                                          barrierDismissible: false,
+                                          builder:
+                                              (context) => const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
                                         );
+
+                                        try {
+                                          // Get Salesforce credentials (might be used by the function)
+                                          final authNotifier = ref.read(
+                                            salesforceAuthNotifierProvider
+                                                .notifier,
+                                          );
+
+                                          // Call the Cloud Function to reject the proposal
+                                          final functions =
+                                              FirebaseFunctions.instanceFor(
+                                                region: 'us-central1',
+                                              );
+                                          final callable = functions
+                                              .httpsCallable(
+                                                'rejectProposalForReseller',
+                                              );
+                                          final result = await callable
+                                              .call<Map<String, dynamic>>({
+                                                'proposalId': proposalId,
+                                              });
+
+                                          // Close loading dialog
+                                          Navigator.of(context).pop();
+
+                                          // Check result and show appropriate message
+                                          if (result.data['success'] == true) {
+                                            // Success - show message and refresh the data
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Proposta rejeitada com sucesso',
+                                                ),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+
+                                            // Refresh the proposal details
+                                            ref.refresh(
+                                              resellerProposalDetailsProvider(
+                                                proposalId,
+                                              ),
+                                            );
+                                          } else {
+                                            // Error - show error message from function
+                                            final errorMsg =
+                                                result.data['error'] ??
+                                                'Falha ao rejeitar a proposta';
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Erro: $errorMsg',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          // Close loading dialog
+                                          Navigator.of(context).pop();
+
+                                          // Handle errors
+                                          String errorMessage;
+                                          if (e is FirebaseFunctionsException) {
+                                            errorMessage = e.message ?? e.code;
+                                            if (kDebugMode) {
+                                              print(
+                                                "Function Error Code: ${e.code}, Details: ${e.details}",
+                                              );
+                                            }
+                                          } else {
+                                            errorMessage = e.toString();
+                                          }
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Erro ao rejeitar proposta: $errorMessage',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
                                       },
                                     ),
                                   ],
@@ -317,6 +408,30 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                             // --- START: Navigate to Submit Documents Page ---
                             final cpeList = proposal.cpePropostas ?? [];
 
+                            // +++ DEBUG PRINTS +++
+                            if (kDebugMode) {
+                              print("--- Debug: Aceitar Button Tapped ---");
+                              print("Proposal Object: ${proposal.toString()}");
+                              print("Value of proposal.nifC: ${proposal.nifC}");
+                            }
+                            // +++ END DEBUG PRINTS +++
+
+                            final nif =
+                                proposal.nifC; // <-- Get NIF from proposal data
+
+                            if (nif == null || nif.isEmpty) {
+                              // Handle case where NIF is missing - show error?
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Erro: NIF não encontrado para esta proposta.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return; // <--- Error is triggered here
+                            }
+
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -324,21 +439,11 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                                     (context) => SubmitProposalDocumentsPage(
                                       proposalId: proposalId,
                                       cpeList: cpeList,
+                                      nif: nif, // <-- Pass the NIF
                                     ),
                               ),
                             );
                             // --- END: Navigate to Submit Documents Page ---
-
-                            // Keep SnackBar temporarily if needed for testing, or remove
-                            /*
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Aceitar - Não implementado'),
-                              ),
-                            );
-                            */
-                            // Example navigation (replace with actual route later)
-                            // context.push('/proposal/submit-docs', extra: proposalId);
                           },
                         ),
                       ],

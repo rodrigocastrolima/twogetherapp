@@ -92,6 +92,9 @@ dependencies:
   rxdart: ^0.28.0 # Added dependency for stream extensions
   flutter_local_notifications: ^19.1.0
 
+  # Added for mime type lookup
+  mime: ^1.0.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

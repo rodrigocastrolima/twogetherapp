@@ -31,6 +31,7 @@ interface SalesforceCPEProposalData {
 interface SalesforceProposalData {
     Id: string;
     Name: string;
+    NIF__c: string | null;
     Status__c: string | null;
     Data_de_Cria_o_da_Proposta__c: string | null; // Renamed field to match actual data
     Data_de_Validade__c: string | null;
@@ -147,6 +148,7 @@ export const getResellerProposalDetails = onCall(
             const proposalQuery = 
                 'SELECT ' +
                 'Id, Name, Status__c, Data_de_Cria_o_da_Proposta__c, Data_de_Validade__c, ' +
+                'NIF__c, ' +
                 '(SELECT Id, Consumo_ou_Pot_ncia_Pico__c, Fideliza_o_Anos__c, Comiss_o_Retail__c FROM CPE_Propostas__r) ' +
                 'FROM Proposta__c ' +
                 'WHERE Id = \'' + proposalId + '\' ' +
@@ -234,6 +236,7 @@ export const getResellerProposalDetails = onCall(
             // 6. --- Return Success (Return the augmented record) ---
             logger.info(`${functionName}: Successfully processed proposal details and files for ID ${proposalId}.`);
             delete (proposalData as any).attributes; // Remove top-level attributes
+            proposalData.NIF__c = proposalData.NIF__c ?? null; // Ensure it's null if missing
             return proposalData;
 
         } catch (err: any) {

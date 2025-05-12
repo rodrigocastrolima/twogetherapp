@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:twogether/core/services/salesforce_auth_service.dart';
 
@@ -30,25 +31,31 @@ class OpportunityService {
     ({
       Uint8List? fileData,
       String? contentType,
+      String? fileExtension,
       String? error,
       bool sessionExpired,
     })
   >
   downloadFile({required String contentVersionId}) async {
-    logger.i(
-      'Calling downloadSalesforceFile Cloud Function. contentVersionId: $contentVersionId',
-    );
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Calling downloadSalesforceFile Cloud Function. contentVersionId: $contentVersionId',
+      );
+    }
     try {
       final String? accessToken = await _authNotifier.getValidAccessToken();
       final String? instanceUrl = _authNotifier.currentInstanceUrl;
 
       if (accessToken == null || instanceUrl == null) {
-        logger.w(
-          'Missing Salesforce credentials for file download (token or instanceUrl is null)',
-        );
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] Missing Salesforce credentials for file download (token or instanceUrl is null)',
+          );
+        }
         return (
           fileData: null,
           contentType: null,
+          fileExtension: null,
           error: 'Salesforce credentials missing or invalid.',
           sessionExpired: true,
         );
@@ -70,46 +77,56 @@ class OpportunityService {
       if (success && data != null && data['fileData'] != null) {
         final String base64String = data['fileData'] as String;
         final String? contentType = data['contentType'] as String?;
-        logger.i(
-          'Successfully downloaded file data. contentType: $contentType',
-        );
+        final String? fileExtension = data['fileExtension'] as String?;
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] Successfully downloaded file data. contentType: $contentType, fileExtension: $fileExtension',
+          );
+        }
         try {
           final Uint8List fileBytes = base64Decode(base64String);
           return (
             fileData: fileBytes,
             contentType: contentType,
+            fileExtension: fileExtension,
             error: null,
             sessionExpired: false,
           );
-        } catch (e, s) {
-          logger.e('Error decoding Base64 file data', error: e, stackTrace: s);
+        } catch (e) {
+          if (kDebugMode) {
+            print('[OpportunityService] Error decoding Base64 file data: $e');
+          }
           return (
             fileData: null,
             contentType: null,
+            fileExtension: null,
             error: 'Failed to process downloaded file data.',
             sessionExpired: false,
           );
         }
       } else {
-        logger.w(
-          'downloadSalesforceFile function returned success=false or missing data. Result: ${result.data}',
-        );
+        if (kDebugMode) {
+          print(
+            '[OpportunityService] downloadSalesforceFile function returned success=false or missing data. Result: ${result.data}',
+          );
+        }
         return (
           fileData: null,
           contentType: null,
+          fileExtension: null,
           error: 'Cloud function failed to download file.',
           sessionExpired: false,
         );
       }
-    } on FirebaseFunctionsException catch (e, s) {
+    } on FirebaseFunctionsException catch (e) {
       logger.e(
         'FirebaseFunctionsException calling downloadSalesforceFile',
         error: e,
-        stackTrace: s,
       );
-      bool sessionExpired =
-          (e.details as Map? ?? {})['sessionExpired'] == true ||
-          e.code == 'unauthenticated';
+      bool sessionExpired = false;
+      if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
+        sessionExpired = true;
+      }
       String message =
           sessionExpired
               ? 'Salesforce session expired. Please log in again.'
@@ -120,18 +137,16 @@ class OpportunityService {
       return (
         fileData: null,
         contentType: null,
+        fileExtension: null,
         error: message,
         sessionExpired: sessionExpired,
       );
-    } catch (e, s) {
-      logger.e(
-        'Unexpected error calling downloadSalesforceFile',
-        error: e,
-        stackTrace: s,
-      );
+    } catch (e) {
+      logger.e('Unexpected error calling downloadSalesforceFile', error: e);
       return (
         fileData: null,
         contentType: null,
+        fileExtension: null,
         error: 'An unexpected error occurred.',
         sessionExpired: false,
       );

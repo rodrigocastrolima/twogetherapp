@@ -6,70 +6,84 @@ import './salesforce_cpe_proposal_data.dart'; // Import needed for nested parsin
 class SalesforceProposalData {
   final String id;
   final String name;
+  final String? nifC;
   final String? status; // Status__c
   final String? createdDate; // CreatedDate (String from SF)
   final String? expiryDate; // Data_de_Validade__c
-  final List<SalesforceCPEProposalData> cpePropostas; // List for nested CPEs
+  final List<SalesforceCPEProposalData>? cpePropostas; // List for nested CPEs
 
   const SalesforceProposalData({
     required this.id,
     required this.name,
+    this.nifC,
     this.status,
     this.createdDate,
     this.expiryDate,
-    required this.cpePropostas, // Add to constructor
+    this.cpePropostas,
   });
 
   factory SalesforceProposalData.fromJson(Map<String, dynamic> json) {
-    List<SalesforceCPEProposalData> parsedCpeList = [];
-    // 1. Safely access the relationship object as a generic Map first
-    final cpeRelationshipMap = json['CPE_Propostas__r'] as Map?;
+    // +++ DEBUG: Log input JSON +++
+    if (kDebugMode) {
+      print(
+        "[SalesforceProposalData.fromJson (in salesforce_proposal_data.dart)] Input JSON: $json",
+      );
+    }
+    // +++ END DEBUG +++
 
-    // 2. Check if it exists and contains a 'records' list
-    if (cpeRelationshipMap != null && cpeRelationshipMap['records'] is List) {
-      // 3. Cast the records to a List<dynamic> (safer than just List)
-      final cpeRecords = cpeRelationshipMap['records'] as List<dynamic>;
-
-      parsedCpeList =
+    List<SalesforceCPEProposalData> cpes = [];
+    // Handle potential null or incorrect type for nested records
+    final cpeRecords = json['CPE_Propostas__r']?['records'];
+    if (cpeRecords != null && cpeRecords is List) {
+      cpes =
           cpeRecords
-              .map((item) {
-                // 4. Ensure each item is a Map before casting and parsing
-                if (item is Map) {
-                  try {
-                    // Explicit cast of the item Map
-                    final Map<String, dynamic> typedItemMap =
-                        Map<String, dynamic>.from(item);
-                    return SalesforceCPEProposalData.fromJson(typedItemMap);
-                  } catch (e) {
+              .map((cpeJson) {
+                try {
+                  // Ensure each item is a map before parsing
+                  if (cpeJson is Map<String, dynamic>) {
+                    return SalesforceCPEProposalData.fromJson(cpeJson);
+                  } else {
                     print(
-                      'Error parsing nested CPE Proposal item: $e - Item: $item',
-                    ); // Log item
+                      '[SalesforceProposalData.fromJson] Skipping non-map item in CPE list: $cpeJson',
+                    );
                     return null;
                   }
-                } else {
+                } catch (e) {
                   print(
-                    'Skipping non-map item in CPE records: ${item?.runtimeType}',
+                    '[SalesforceProposalData.fromJson] Error parsing CPE item: $e - Item: $cpeJson',
                   );
                   return null;
                 }
               })
-              .whereType<SalesforceCPEProposalData>()
+              .whereType<
+                SalesforceCPEProposalData
+              >() // Filter out nulls from errors/skips
               .toList();
-    } else if (cpeRelationshipMap != null) {
-      // Log if CPE_Propostas__r exists but doesn't contain a valid records list
-      print(
-        'CPE_Propostas__r found but records are not a list or null: ${cpeRelationshipMap['records']}',
-      );
     }
 
-    return SalesforceProposalData(
+    final proposal = SalesforceProposalData(
       id: json['Id'] as String? ?? 'Unknown ID',
       name: json['Name'] as String? ?? 'Unknown Name',
+      nifC: json['NIF__c'] as String?, // <-- PARSE NIF FIELD
       status: json['Status__c'] as String?,
+      // Use correct field names based on your actual JSON response
       createdDate: json['Data_de_Cria_o_da_Proposta__c'] as String?,
       expiryDate: json['Data_de_Validade__c'] as String?,
-      cpePropostas: parsedCpeList,
+      cpePropostas: cpes.isNotEmpty ? cpes : null,
     );
+
+    // +++ DEBUG: Log created object +++
+    if (kDebugMode) {
+      print(
+        "[SalesforceProposalData.fromJson (in salesforce_proposal_data.dart)] Created Object: ${proposal.toString()}",
+      );
+      print(
+        "[SalesforceProposalData.fromJson (in salesforce_proposal_data.dart)] Parsed nifC: ${proposal.nifC}",
+      );
+    }
+    // +++ END DEBUG +++
+
+    return proposal;
   }
 
   @override
@@ -79,24 +93,24 @@ class SalesforceProposalData {
           runtimeType == other.runtimeType &&
           id == other.id &&
           name == other.name &&
+          nifC == other.nifC &&
           status == other.status &&
           createdDate == other.createdDate &&
           expiryDate == other.expiryDate &&
-          // Compare lists as well
           listEquals(cpePropostas, other.cpePropostas);
 
   @override
   int get hashCode =>
       id.hashCode ^
       name.hashCode ^
+      nifC.hashCode ^
       status.hashCode ^
       createdDate.hashCode ^
       expiryDate.hashCode ^
-      Object.hashAll(cpePropostas); // Hash list
+      Object.hashAll(cpePropostas ?? []);
 
   @override
   String toString() {
-    // Add CPE count to toString
-    return 'SalesforceProposalData{id: $id, name: $name, status: $status, createdDate: $createdDate, expiryDate: $expiryDate, cpeCount: ${cpePropostas.length}}';
+    return 'SalesforceProposalData{id: $id, name: $name, nifC: $nifC, status: $status, createdDate: $createdDate, expiryDate: $expiryDate, cpePropostas: ${cpePropostas?.length}}';
   }
 }

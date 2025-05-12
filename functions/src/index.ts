@@ -1217,3 +1217,5 @@ export { getSalesforceProposalDetails } from "./getSalesforceProposalDetails";
 export { updateSalesforceProposal } from "./updateSalesforceProposal";
 export { checkNifExistsInSalesforce } from "./checkNifExistsInSalesforce";
 export { downloadFileForReseller } from "./downloadFileForReseller";
+export { rejectProposalForReseller } from './rejectProposalForReseller';
+export { acceptProposalAndUploadDocs } from './acceptProposalAndUploadDocs';

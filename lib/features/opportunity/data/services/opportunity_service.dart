@@ -644,25 +644,23 @@ class OpportunityService {
 
   // --- END: NEW Methods for Edit Feature ---
 
-  // --- ADDED: Download File Data Method ---
+  // --- NEW METHOD: Download File Data ---
   Future<
     ({
       Uint8List? fileData,
       String? contentType,
+      String? fileExtension,
       String? error,
       bool sessionExpired,
     })
   >
   downloadFile({required String contentVersionId}) async {
-    // NOTE: Using logger requires adding a logger instance to this class
-    // For now, using print for simplicity, consider adding logger later
     if (kDebugMode) {
       print(
         '[OpportunityService] Calling downloadSalesforceFile Cloud Function. contentVersionId: $contentVersionId',
       );
     }
     try {
-      // Get credentials from the injected _authNotifier
       final String? accessToken = await _authNotifier.getValidAccessToken();
       final String? instanceUrl = _authNotifier.currentInstanceUrl;
 
@@ -675,6 +673,7 @@ class OpportunityService {
         return (
           fileData: null,
           contentType: null,
+          fileExtension: null,
           error: 'Salesforce credentials missing or invalid.',
           sessionExpired: true,
         );
@@ -696,6 +695,7 @@ class OpportunityService {
       if (success && data != null && data['fileData'] != null) {
         final String base64String = data['fileData'] as String;
         final String? contentType = data['contentType'] as String?;
+        final String? fileExtension = data['fileExtension'] as String?;
         if (kDebugMode) {
           print(
             '[OpportunityService] Successfully downloaded file data. contentType: $contentType',
@@ -706,16 +706,18 @@ class OpportunityService {
           return (
             fileData: fileBytes,
             contentType: contentType,
+            fileExtension: fileExtension,
             error: null,
             sessionExpired: false,
           );
-        } catch (e) {
+        } catch (e, s) {
           if (kDebugMode) {
             print('[OpportunityService] Error decoding Base64 file data: $e');
           }
           return (
             fileData: null,
             contentType: null,
+            fileExtension: null,
             error: 'Failed to process downloaded file data.',
             sessionExpired: false,
           );
@@ -729,6 +731,7 @@ class OpportunityService {
         return (
           fileData: null,
           contentType: null,
+          fileExtension: null,
           error: 'Cloud function failed to download file.',
           sessionExpired: false,
         );
@@ -753,6 +756,7 @@ class OpportunityService {
       return (
         fileData: null,
         contentType: null,
+        fileExtension: null,
         error: message,
         sessionExpired: sessionExpired,
       );
@@ -766,6 +770,7 @@ class OpportunityService {
       return (
         fileData: null,
         contentType: null,
+        fileExtension: null,
         error: 'An unexpected error occurred.',
         sessionExpired: false,
       );

@@ -838,7 +838,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       child: InkWell(
         onTap: () {
           final salesforceOpportunityId = opportunity.id;
-          context.push(
+          context.go(
             '/admin/salesforce-opportunity-detail/$salesforceOpportunityId',
           );
         },

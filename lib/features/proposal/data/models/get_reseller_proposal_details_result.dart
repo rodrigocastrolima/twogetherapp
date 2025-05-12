@@ -80,3 +80,117 @@ class GetResellerProposalDetailsResult {
   }
 }
 */
+
+/// Represents the main proposal data from Salesforce.
+@immutable
+class SalesforceProposalData {
+  final String id;
+  final String name;
+  final String? nifC;
+  final String? status;
+  final String? createdDate;
+  final String? expiryDate;
+  final List<SalesforceCPEProposalData>? cpePropostas;
+
+  const SalesforceProposalData({
+    required this.id,
+    required this.name,
+    this.nifC,
+    this.status,
+    this.createdDate,
+    this.expiryDate,
+    this.cpePropostas,
+  });
+
+  // Factory constructor from JSON
+  factory SalesforceProposalData.fromJson(Map<String, dynamic> json) {
+    // +++ DEBUG: Log input JSON +++
+    if (kDebugMode) {
+      print("[SalesforceProposalData.fromJson] Input JSON: $json");
+    }
+    // +++ END DEBUG +++
+
+    List<SalesforceCPEProposalData> cpes = [];
+    if (json['CPE_Propostas__r'] != null &&
+        json['CPE_Propostas__r']['records'] is List) {
+      cpes =
+          (json['CPE_Propostas__r']['records'] as List)
+              .map(
+                (cpeJson) => SalesforceCPEProposalData.fromJson(
+                  cpeJson as Map<String, dynamic>,
+                ),
+              )
+              .toList();
+    }
+
+    final proposal = SalesforceProposalData(
+      id: json['Id'] as String? ?? 'Unknown ID',
+      name: json['Name'] as String? ?? 'Unknown Name',
+      nifC: json['NIF__c'] as String?,
+      status: json['Status__c'] as String?,
+      createdDate: json['Data_de_Cria_o_da_Proposta__c'] as String?,
+      expiryDate: json['Data_de_Validade__c'] as String?,
+      cpePropostas: cpes.isNotEmpty ? cpes : null,
+    );
+
+    // +++ DEBUG: Log created object +++
+    if (kDebugMode) {
+      print(
+        "[SalesforceProposalData.fromJson] Created Object: ${proposal.toString()}",
+      );
+      print("[SalesforceProposalData.fromJson] Parsed nifC: ${proposal.nifC}");
+    }
+    // +++ END DEBUG +++
+
+    return proposal;
+  }
+
+  // CopyWith method for immutability (if needed)
+  SalesforceProposalData copyWith({
+    String? id,
+    String? name,
+    String? nifC,
+    String? status,
+    String? createdDate,
+    String? expiryDate,
+    List<SalesforceCPEProposalData>? cpePropostas,
+  }) {
+    return SalesforceProposalData(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      nifC: nifC ?? this.nifC,
+      status: status ?? this.status,
+      createdDate: createdDate ?? this.createdDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      cpePropostas: cpePropostas ?? this.cpePropostas,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SalesforceProposalData &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          nifC == other.nifC &&
+          status == other.status &&
+          createdDate == other.createdDate &&
+          expiryDate == other.expiryDate &&
+          listEquals(cpePropostas, other.cpePropostas);
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      nifC.hashCode ^
+      status.hashCode ^
+      createdDate.hashCode ^
+      expiryDate.hashCode ^
+      Object.hashAll(cpePropostas ?? []);
+
+  @override
+  String toString() {
+    return 'SalesforceProposalData{id: $id, name: $name, nifC: $nifC, status: $status, createdDate: $createdDate, expiryDate: $expiryDate, cpePropostas: ${cpePropostas?.length}}';
+  }
+}

@@ -83,7 +83,7 @@ class _AdminSalesforceProposalDetailPageState
 
   // --- NEW: Picklist Options --- //
   final List<String> _solucaoOptions = const [
-    '--None--',
+    '--Nenhum --',
     'LEC',
     'PAP',
     'PP',
@@ -92,7 +92,7 @@ class _AdminSalesforceProposalDetailPageState
   ];
 
   final List<String> _statusOptions = const [
-    '--None--',
+    '--Nenhum --',
     'Criação',
     'Risco Crédito Revisto',
     'A Aguardar Pricing',
@@ -175,8 +175,8 @@ class _AdminSalesforceProposalDetailPageState
 
     // Initialize any text controllers if added later
     _controllers.forEach((field, controller) {
-      final initialValue = _editedProposal?.toJson()[field] as String?;
-      controller.text = initialValue ?? '';
+      final value = _editedProposal?.toJson()[field];
+      controller.text = value?.toString() ?? '';
       // Add listeners if needed
     });
   }
@@ -249,7 +249,7 @@ class _AdminSalesforceProposalDetailPageState
   // --- NEW: Helper to update _editedProposal state for DROPDOWN fields ---
   void _updateEditedProposalDropdownField(String field, String? value) {
     if (!_isEditing || _editedProposal == null) return;
-    final valueToSave = (value == '--None--') ? null : value;
+    final valueToSave = (value == '--Nenhum --') ? null : value;
 
     setState(() {
       switch (field) {
@@ -676,8 +676,20 @@ class _AdminSalesforceProposalDetailPageState
                   displayProposal.name,
                   fieldKey: 'name',
                 ),
-                _buildDetailItem('Status', displayProposal.statusC),
-                _buildDetailItem('Solução', displayProposal.soluOC),
+                _buildDropdownField(
+                  'Status',
+                  displayProposal.statusC,
+                  'statusC',
+                  _statusOptions,
+                  _selectedStatus,
+                ),
+                _buildDropdownField(
+                  'Solução',
+                  displayProposal.soluOC,
+                  'soluOC',
+                  _solucaoOptions,
+                  _selectedSolution,
+                ),
                 _buildDetailItem(
                   'Consumo para o período do contrato (KWh)',
                   displayProposal.consumoPeriodoContratoKwhC,
@@ -822,6 +834,9 @@ class _AdminSalesforceProposalDetailPageState
                         contentPadding: EdgeInsets.all(8.0),
                         border: OutlineInputBorder(),
                       ),
+                      onChanged: (value) {
+                        _updateEditedProposalField(fieldKey!, value);
+                      },
                       validator: (val) {
                         if (fieldKey == 'name' &&
                             (val == null || val.isEmpty)) {
@@ -921,6 +936,61 @@ class _AdminSalesforceProposalDetailPageState
                 }
               },
             ),
+        ],
+      ),
+    );
+  }
+
+  // Widget for Dropdown fields
+  Widget _buildDropdownField(
+    String label,
+    String? value,
+    String fieldKey,
+    List<String> options,
+    String? selectedValue,
+  ) {
+    final bool isEditableField = _isEditing;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child:
+                isEditableField
+                    ? DropdownButtonFormField<String>(
+                      value: selectedValue ?? options.first,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.all(8.0),
+                        border: OutlineInputBorder(),
+                      ),
+                      items:
+                          options.map((String option) {
+                            return DropdownMenuItem<String>(
+                              value: option,
+                              child: Text(option),
+                            );
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        _updateEditedProposalDropdownField(fieldKey, newValue);
+                      },
+                    )
+                    : Text(
+                      value ?? 'N/A',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+          ),
         ],
       ),
     );

@@ -41,6 +41,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
   // State for loaded data
   Uint8List? _fileBytes;
   String? _contentType;
+  String? _fileExtension; // <-- ADD state for extension
   String? _localTempFilePath; // For PDFView or saving
 
   final Completer<PDFViewController> _pdfViewController =
@@ -63,35 +64,51 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
     try {
       final opportunityService = ref.read(salesforceOpportunityServiceProvider);
-      final result = await opportunityService.downloadFile(
+      // Explicitly define the expected return type
+      final ({
+        Uint8List? fileData,
+        String? contentType,
+        String? fileExtension,
+        String? error,
+        bool sessionExpired,
+      })
+      result = await opportunityService.downloadFile(
         contentVersionId: widget.contentVersionId,
       );
 
       if (!mounted) return;
 
+      // Access fields from the explicitly typed record
       if (result.fileData != null) {
         _fileBytes = result.fileData;
         _contentType = result.contentType;
-        logger.i('File loaded successfully. Type: $_contentType');
+        _fileExtension = result.fileExtension; // Should resolve now
+        logger.i(
+          'File loaded successfully. Type: $_contentType, Extension: $_fileExtension',
+        );
 
         // --- MODIFIED: Determine if PDF and save ---
-        bool isPdf = false;
-        final effectiveType = _contentType?.toLowerCase();
-        final fileTypeHint = widget.fileType?.toLowerCase();
+        // Prioritize file extension if available
+        bool isPdf = _fileExtension?.toLowerCase() == 'pdf';
 
-        if (effectiveType == 'application/pdf') {
+        // Fallback to content type if extension is missing/unknown
+        if (!isPdf && _contentType?.toLowerCase() == 'application/pdf') {
           isPdf = true;
-        } else if (effectiveType == 'application/octet-stream' ||
-            effectiveType == null) {
-          if (fileTypeHint == 'pdf') {
-            isPdf = true;
-          }
         }
+        // Original fallback based on title hint (less reliable)
+        // if (!isPdf && widget.fileType?.toLowerCase() == 'pdf') {
+        //   isPdf = true;
+        // }
 
         // If it's identified as a PDF, save to temp file for PDFView
         if (isPdf) {
           logger.i('Identified as PDF, saving to temporary file...');
-          await _saveBytesToTempFile(result.fileData!, widget.title);
+          // Use extension in temp filename if possible
+          final tempFileName =
+              _fileExtension != null
+                  ? "${widget.title}.${_fileExtension}"
+                  : widget.title;
+          await _saveBytesToTempFile(result.fileData!, tempFileName);
         }
         // --- END MODIFICATION ---
 
@@ -121,8 +138,9 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
   Future<void> _saveBytesToTempFile(Uint8List bytes, String fileName) async {
     try {
       final tempDir = await getTemporaryDirectory();
+      // Keep sanitization, but the filename now includes extension
       final safeFileName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final file = File('${tempDir.path}/$safeFileName.pdf');
+      final file = File('${tempDir.path}/$safeFileName');
       await file.writeAsBytes(bytes);
       final tempPath = file.path; // Store path before setState
       if (mounted) {
@@ -264,32 +282,28 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       );
     }
 
-    // Determine effective type, prioritizing contentType but falling back to fileType hint
-    String? effectiveType = _contentType?.toLowerCase();
-    final fileTypeHint = widget.fileType?.toLowerCase();
-    bool usePdfViewer = false;
-    bool useImageViewer = false;
+    // Determine effective type, prioritizing fileExtension
+    bool usePdfViewer = _fileExtension?.toLowerCase() == 'pdf';
+    bool useImageViewer = [
+      'png',
+      'jpg',
+      'jpeg',
+      'gif',
+      'bmp',
+      'webp',
+    ].contains(_fileExtension?.toLowerCase());
 
-    if (effectiveType == 'application/pdf') {
-      usePdfViewer = true;
-    } else if (effectiveType?.startsWith('image/') == true) {
-      useImageViewer = true;
-    } else if (effectiveType == 'application/octet-stream' ||
-        effectiveType == null) {
-      // If content type is generic or missing, use the fileType hint from Salesforce
-      if (fileTypeHint == 'pdf') {
+    // Fallback to contentType if extension didn't match
+    if (!usePdfViewer && !useImageViewer) {
+      final effectiveContentType = _contentType?.toLowerCase();
+      if (effectiveContentType == 'application/pdf') {
         usePdfViewer = true;
-      } else if ([
-        'png',
-        'jpg',
-        'jpeg',
-        'gif',
-        'bmp',
-        'webp',
-      ].contains(fileTypeHint)) {
+      } else if (effectiveContentType?.startsWith('image/') == true) {
         useImageViewer = true;
       }
     }
+
+    // Removed fallback to fileTypeHint as extension should be primary
 
     // --- Display Content based on Determined Type ---
     if (usePdfViewer && _localTempFilePath != null) {
@@ -362,7 +376,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
           const Icon(Icons.insert_drive_file_outlined, size: 60),
           const SizedBox(height: 16),
           Text(
-            'Cannot display file type: ${effectiveType ?? fileTypeHint ?? 'Unknown'}',
+            // Show extension if available, otherwise content type
+            'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(

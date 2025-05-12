@@ -1,6 +1,7 @@
 import { HttpsError, onCall, CallableRequest } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import axios from "axios"; // Using axios for simpler HTTP requests with binary data handling
+import * as jsforce from 'jsforce'; // <-- Import jsforce
 
 // --- Interfaces ---
 interface DownloadFileParams {
@@ -8,6 +9,22 @@ interface DownloadFileParams {
   accessToken: string;
   instanceUrl: string;
   // Optional: Add filename if needed for Content-Disposition, but we get it from SF
+}
+
+// Interface for the data returned to Flutter
+interface DownloadedFileData {
+    fileData: string; // Base64 encoded
+    contentType: string; // From response header
+    fileExtension: string | null; // <-- ADDED: From SF record
+}
+
+// Interface for the overall function result
+interface DownloadFileResult {
+    success: boolean;
+    data?: DownloadedFileData;
+    error?: string;
+    errorCode?: string;
+    sessionExpired?: boolean;
 }
 
 // We're not returning structured JSON here, but raw file data.
@@ -18,111 +35,112 @@ interface DownloadFileParams {
 
 export const downloadSalesforceFile = onCall(
   {
-    timeoutSeconds: 60, // Adjust timeout as needed for potentially large files
-    memory: "512MiB",   // Increase memory if handling large files
+    timeoutSeconds: 120, // Allow time for download
+    memory: "512MiB", // May need adjustment based on file sizes
+    region: "us-central1",
     // enforceAppCheck: true, // Recommended for production
     // We need access to the raw response object to stream binary data/set headers
     invoker: "public", // Allows direct HTTPS calls from Flutter if needed, but usually called via SDK
     // Or keep default and use callable SDK, ensuring binary data is handled correctly (base64?)
   },
-  async (request: CallableRequest<DownloadFileParams>) => {
-    // NOTE: If using Callable SDK, request.data contains the params.
-    // If making a direct HTTPS request, check query/body based on method.
-    // Assuming CallableRequest usage for consistency.
+  async (request: CallableRequest<DownloadFileParams>): Promise<DownloadFileResult> => {
+    const functionName = "downloadSalesforceFile";
+    logger.info(`${functionName} function triggered`);
 
-    logger.info("downloadSalesforceFile function triggered");
-
-    // 1. Authentication Check (Firebase Auth) - Standard for Callables
+    // 1. Authentication Check (Firebase Auth)
     if (!request.auth) {
-      logger.error("Authentication failed: User is not authenticated.");
+      logger.error(`${functionName}: Authentication failed: User is not authenticated.`);
       throw new HttpsError("unauthenticated", "User must be authenticated.");
     }
-    const uid = request.auth.uid;
-    logger.info("Firebase Authentication check passed.", { uid });
+    logger.info(`${functionName}: Firebase Authentication check passed.`, { uid: request.auth.uid });
 
     // 2. Input Validation
     const { contentVersionId, accessToken, instanceUrl } = request.data;
-    if (!contentVersionId) {
-      logger.error("Validation failed: Missing contentVersionId");
-      throw new HttpsError("invalid-argument", "Missing contentVersionId");
+    if (!contentVersionId || !accessToken || !instanceUrl) {
+      logger.error(`${functionName}: Validation failed: Missing required parameters.`);
+      throw new HttpsError("invalid-argument", "Missing contentVersionId, accessToken, or instanceUrl");
     }
-    if (!accessToken) {
-      logger.error("Validation failed: Missing accessToken");
-      throw new HttpsError("invalid-argument", "Missing accessToken");
-    }
-    if (!instanceUrl) {
-      logger.error("Validation failed: Missing instanceUrl");
-      throw new HttpsError("invalid-argument", "Missing instanceUrl");
-    }
-    logger.info("Input validation passed.", { contentVersionId });
+    logger.info(`${functionName}: Input validation passed.`, { contentVersionId });
 
-    // 3. Construct Salesforce API URL
-    // Determine API version dynamically or use a fixed one (e.g., v58.0)
-    // For simplicity, using a common recent version. Check jsforce connection version if available elsewhere.
-    const apiVersion = "58.0"; // Or determine dynamically if possible
-    const salesforceUrl = `${instanceUrl}/services/data/v${apiVersion}/sobjects/ContentVersion/${contentVersionId}/VersionData`;
-    logger.info("Constructed Salesforce URL.", { url: salesforceUrl });
+    let conn: jsforce.Connection;
 
     try {
-      // 4. Call Salesforce API using axios
-      logger.info("Making request to Salesforce...");
+      // 3. Connect to Salesforce using provided credentials
+      conn = new jsforce.Connection({ instanceUrl, accessToken });
+      logger.info(`${functionName}: Salesforce connection initialized.`);
+
+      // 4. Query ContentVersion for FileExtension
+      logger.info(`${functionName}: Querying ContentVersion for FileExtension...`);
+      let fileExtension: string | null = null;
+      try {
+        // Retrieve the full record by ID
+        const cvRecord = await conn.sobject('ContentVersion').retrieve(contentVersionId);
+        // Access the FileExtension property from the result
+        if (cvRecord && typeof cvRecord.FileExtension === 'string') {
+          fileExtension = cvRecord.FileExtension;
+          logger.info(`${functionName}: Retrieved FileExtension: ${fileExtension}`);
+        } else {
+          logger.warn(`${functionName}: Could not retrieve FileExtension for ${contentVersionId}. Record: ${JSON.stringify(cvRecord)}`);
+        }
+      } catch (queryError: any) {
+         // Log error but don't fail the whole function, just proceed without extension
+         logger.error(`${functionName}: Error querying FileExtension for ${contentVersionId}:`, queryError);
+         if (queryError.errorCode === 'NOT_FOUND') {
+            throw new HttpsError('not-found', `ContentVersion with ID ${contentVersionId} not found.`);
+         } // Other errors might indicate permission issues but we try downloading anyway
+      }
+
+      // 5. Construct Salesforce API URL for raw data
+      const apiVersion = conn.version; // Use connected API version
+      const salesforceUrl = `${instanceUrl}/services/data/v${apiVersion}/sobjects/ContentVersion/${contentVersionId}/VersionData`;
+      logger.info(`${functionName}: Constructed Salesforce URL for VersionData.`, { url: salesforceUrl });
+
+      // 6. Call Salesforce API using axios for binary data
+      logger.info(`${functionName}: Making request to Salesforce for VersionData...`);
       const response = await axios.get(salesforceUrl, {
-        headers: {
-          // Crucial: Pass the Salesforce access token
-          'Authorization': `Bearer ${accessToken}`,
-          // Optional: Add other headers if necessary
-        },
-        responseType: 'arraybuffer' // Important: Get the response as raw bytes
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+        responseType: 'arraybuffer'
       });
 
-      logger.info("Successfully received response from Salesforce.", { status: response.status });
+      logger.info(`${functionName}: Successfully received VersionData response from Salesforce.`, { status: response.status });
 
-      // 5. Prepare response for Flutter App
-      // Get headers from Salesforce response
-      const contentType = response.headers['content-type'] || 'application/octet-stream'; // Default if missing
-      const contentDisposition = response.headers['content-disposition']; // For filename
-
-      // Log received headers
-      logger.debug("Received Salesforce headers:", { contentType, contentDisposition });
-
-      // Firebase Functions v2 Callables expect a JSON-serializable return value.
-      // Returning raw binary data directly isn't standard for 'onCall'.
-      // We need to encode the binary data, Base64 is common.
+      // 7. Prepare response for Flutter App
+      const contentType = response.headers['content-type'] || 'application/octet-stream';
       const fileData = Buffer.from(response.data).toString('base64');
+      logger.info(`${functionName}: Encoded file data to Base64.`);
 
-      logger.info("Encoded file data to Base64.");
-
-      // Return data structured for the Callable SDK
       return {
         success: true,
         data: {
-          fileData: fileData, // Base64 encoded file data
+          fileData: fileData,
           contentType: contentType,
+          fileExtension: fileExtension, // <-- Include fileExtension
         }
       };
 
     } catch (error: any) {
-      logger.error("Error during Salesforce API call or processing:", error);
+      logger.error(`${functionName}: Error during execution:`, error);
 
-      // Handle Salesforce session errors specifically if possible (check error structure)
-      if (axios.isAxiosError(error) && error.response) {
-        logger.error("Salesforce API Error Details:", {
+      if (error instanceof HttpsError) { 
+        throw error; 
+      }
+
+      // Handle specific errors like session expiry
+      if (error.name === 'invalid_grant' || error.errorCode === 'INVALID_SESSION_ID') {
+          logger.warn(`${functionName}: Detected invalid session ID or grant error.`);
+          throw new HttpsError('unauthenticated', 'Salesforce session expired or invalid.', { sessionExpired: true });
+      }
+       if (axios.isAxiosError(error) && error.response) {
+        logger.error(`${functionName}: Salesforce API Error Details:`, {
             status: error.response.status,
-            headers: error.response.headers,
-            data: error.response.data ? Buffer.from(error.response.data).toString() : 'No data', // Try to log error body
+            data: error.response.data ? Buffer.from(error.response.data).toString() : 'No data', 
         });
-        // Check for specific Salesforce error codes if available in the response body
-        // e.g., if error.response.data contains XML/JSON with error codes
         if (error.response.status === 401 || error.response.status === 403) {
            throw new HttpsError('unauthenticated', 'Salesforce session invalid or expired when fetching file.', { sessionExpired: true });
         }
          throw new HttpsError('internal', `Salesforce API request failed with status ${error.response.status}`);
-      } else if (error instanceof HttpsError) {
-         // Rethrow HttpsErrors (e.g., from initial validation)
-         throw error;
       } else {
-        // Generic internal error
-        throw new HttpsError("internal", "An unexpected error occurred while downloading the file.", error.message);
+        throw new HttpsError("internal", `An unexpected error occurred: ${error.message || 'Unknown error'}`);
       }
     }
   }
