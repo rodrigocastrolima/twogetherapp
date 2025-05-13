@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 @immutable
 class SalesforceCPEProposalData {
   final String id;
+  final String? cpeC; // Added CPE Number/SFID field
   final double? consumptionOrPower; // Consumo_ou_Potencia_Pico__c
   final double?
   loyaltyYears; // Fidelizacao_Anos__c (assuming years can be decimal? adjust if int)
@@ -12,6 +13,7 @@ class SalesforceCPEProposalData {
 
   const SalesforceCPEProposalData({
     required this.id,
+    this.cpeC, // Added to constructor
     this.consumptionOrPower,
     this.loyaltyYears,
     this.commissionRetail,
@@ -60,10 +62,12 @@ class SalesforceCPEProposalData {
     }
 
     return SalesforceCPEProposalData(
-      id: json['Id'] as String? ?? 'Unknown ID',
-      consumptionOrPower: parseDouble(json['Consumo_ou_Pot_ncia_Pico__c']),
-      loyaltyYears: parseDouble(json['Fideliza_o_Anos__c']),
-      commissionRetail: parseDouble(json['Comiss_o_Retail__c']),
+      id: json['Id'] as String,
+      cpeC: json['CPE__c'] as String?,
+      consumptionOrPower:
+          (json['Consumo_ou_Pot_ncia_Pico__c'] as num?)?.toDouble(),
+      loyaltyYears: (json['Fideliza_o_Anos__c'] as num?)?.toDouble(),
+      commissionRetail: (json['Comiss_o_Retail__c'] as num?)?.toDouble(),
       attachedFiles: files,
     );
   }
@@ -74,6 +78,7 @@ class SalesforceCPEProposalData {
       other is SalesforceCPEProposalData &&
           runtimeType == other.runtimeType &&
           id == other.id &&
+          cpeC == other.cpeC &&
           consumptionOrPower == other.consumptionOrPower &&
           loyaltyYears == other.loyaltyYears &&
           commissionRetail == other.commissionRetail &&
@@ -82,6 +87,7 @@ class SalesforceCPEProposalData {
   @override
   int get hashCode =>
       id.hashCode ^
+      cpeC.hashCode ^
       consumptionOrPower.hashCode ^
       loyaltyYears.hashCode ^
       commissionRetail.hashCode ^
@@ -89,7 +95,7 @@ class SalesforceCPEProposalData {
 
   @override
   String toString() {
-    return 'SalesforceCPEProposalData{id: $id, consumptionOrPower: $consumptionOrPower, loyaltyYears: $loyaltyYears, commissionRetail: $commissionRetail, attachedFiles: ${attachedFiles.length}}';
+    return 'SalesforceCPEProposalData{id: $id, cpeC: $cpeC, consumptionOrPower: $consumptionOrPower, loyaltyYears: $loyaltyYears, commissionRetail: $commissionRetail, attachedFiles: ${attachedFiles.length}}';
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// A widget that displays the app logo with support for dark mode
 class LogoWidget extends StatelessWidget {
@@ -15,16 +16,16 @@ class LogoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String logoAsset =
-        darkMode
-            ? 'assets/images/twogether_logo_dark.png'
-            : 'assets/images/twogether_logo_light_br.png';
+    const String logoAssetSvg = 'assets/images/twogether-retail_logo-04.svg';
 
-    return Image.asset(
-      logoAsset,
+    final Color svgColor = darkMode ? Colors.white : Colors.black;
+
+    return SvgPicture.asset(
+      logoAssetSvg,
       height: height,
       width: width,
       fit: BoxFit.contain,
+      colorFilter: ColorFilter.mode(svgColor, BlendMode.srcIn),
     );
   }
 }

@@ -7,6 +7,7 @@ enum NotificationType {
   payment,
   system,
   newSubmission,
+  proposalRejected,
 }
 
 class UserNotification {

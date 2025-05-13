@@ -14,9 +14,11 @@ import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart
 import '../../../features/proposal/data/models/salesforce_proposal_data.dart';
 import './submit_proposal_documents_page.dart'; // Import the new page
 import '../../../../core/services/salesforce_auth_service.dart'; // For auth provider
-import '../../../../core/theme/theme.dart';
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart';
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart';
+import '../../widgets/logo.dart'; // Added for LogoWidget
+import '../../../features/auth/presentation/providers/auth_provider.dart'; // Corrected import for currentUserProvider
+import '../../../features/notifications/data/repositories/notification_repository.dart'; // Corrected import for notificationRepositoryProvider
 
 class ResellerProposalDetailsPage extends ConsumerWidget {
   final String proposalId;
@@ -66,6 +68,25 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
     return 'unknown'; // Default/fallback type
   }
   // --- END ADDED --- //
+
+  // --- ADDED: Helper for file icons ---
+  IconData _getFileIcon(String fileName, ThemeData theme) {
+    final extension = fileName.split('.').last.toLowerCase();
+    if (extension == 'pdf') {
+      return CupertinoIcons.doc_text_fill;
+    } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(extension)) {
+      return CupertinoIcons.photo_fill;
+    } else if (['doc', 'docx'].contains(extension)) {
+      return CupertinoIcons.doc_richtext;
+    } else if (['xls', 'xlsx', 'csv'].contains(extension)) {
+      return CupertinoIcons.table_fill;
+    } else if (['ppt', 'pptx'].contains(extension)) {
+      return CupertinoIcons
+          .chart_pie_fill; // Using pie chart as a placeholder for presentations
+    }
+    return CupertinoIcons.paperclip; // General attachment icon
+  }
+  // --- END ADDED ---
 
   // --- ADDED: Function to handle file tap --- //
   Future<void> _handleFileTap(
@@ -245,7 +266,22 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
     };
 
     return Scaffold(
-      appBar: AppBar(title: Text(proposalName), centerTitle: true),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(
+            CupertinoIcons.chevron_left,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: LogoWidget(
+          height: 60,
+          darkMode: theme.brightness == Brightness.dark,
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: detailsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) {
@@ -277,212 +313,8 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- START: Conditional Action Buttons ---
-                // Only show buttons if the status is 'Enviada' (adjust if needed)
-                if (proposal.status == 'Enviada')
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: 24.0,
-                    ), // Add padding when buttons are shown
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        CupertinoButton(
-                          color: Colors.red,
-                          child: const Text('Rejeitar'), // TODO: Localize
-                          onPressed: () {
-                            // --- START: Confirmation Dialog ---
-                            showCupertinoDialog(
-                              context: context,
-                              builder: (BuildContext ctx) {
-                                return CupertinoAlertDialog(
-                                  title: const Text(
-                                    'Confirmar Rejeição',
-                                  ), // TODO: Localize
-                                  content: const Text(
-                                    'Tem a certeza que pretende rejeitar esta proposta?', // TODO: Localize
-                                  ),
-                                  actions: <Widget>[
-                                    CupertinoDialogAction(
-                                      child: const Text(
-                                        'Cancelar',
-                                      ), // TODO: Localize
-                                      onPressed: () {
-                                        Navigator.of(ctx).pop(); // Close dialog
-                                      },
-                                    ),
-                                    CupertinoDialogAction(
-                                      isDestructiveAction: true,
-                                      child: const Text(
-                                        'Rejeitar',
-                                      ), // TODO: Localize
-                                      onPressed: () async {
-                                        Navigator.of(ctx).pop(); // Close dialog
-
-                                        // Show loading indicator
-                                        showDialog(
-                                          context: context,
-                                          barrierDismissible: false,
-                                          builder:
-                                              (context) => const Center(
-                                                child:
-                                                    CircularProgressIndicator(),
-                                              ),
-                                        );
-
-                                        try {
-                                          // Get Salesforce credentials (might be used by the function)
-                                          final authNotifier = ref.read(
-                                            salesforceAuthNotifierProvider
-                                                .notifier,
-                                          );
-
-                                          // Call the Cloud Function to reject the proposal
-                                          final functions =
-                                              FirebaseFunctions.instanceFor(
-                                                region: 'us-central1',
-                                              );
-                                          final callable = functions
-                                              .httpsCallable(
-                                                'rejectProposalForReseller',
-                                              );
-                                          final result = await callable
-                                              .call<Map<String, dynamic>>({
-                                                'proposalId': proposalId,
-                                              });
-
-                                          // Close loading dialog
-                                          Navigator.of(context).pop();
-
-                                          // Check result and show appropriate message
-                                          if (result.data['success'] == true) {
-                                            // Success - show message and refresh the data
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Proposta rejeitada com sucesso',
-                                                ),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-
-                                            // Refresh the proposal details
-                                            ref.refresh(
-                                              resellerProposalDetailsProvider(
-                                                proposalId,
-                                              ),
-                                            );
-                                          } else {
-                                            // Error - show error message from function
-                                            final errorMsg =
-                                                result.data['error'] ??
-                                                'Falha ao rejeitar a proposta';
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Erro: $errorMsg',
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          // Close loading dialog
-                                          Navigator.of(context).pop();
-
-                                          // Handle errors
-                                          String errorMessage;
-                                          if (e is FirebaseFunctionsException) {
-                                            errorMessage = e.message ?? e.code;
-                                            if (kDebugMode) {
-                                              print(
-                                                "Function Error Code: ${e.code}, Details: ${e.details}",
-                                              );
-                                            }
-                                          } else {
-                                            errorMessage = e.toString();
-                                          }
-
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Erro ao rejeitar proposta: $errorMessage',
-                                              ),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                            // --- END: Confirmation Dialog ---
-                          },
-                        ),
-                        CupertinoButton.filled(
-                          child: const Text('Aceitar'), // TODO: Localize
-                          onPressed: () {
-                            // --- START: Navigate to Submit Documents Page ---
-                            final cpeList = proposal.cpePropostas ?? [];
-
-                            // +++ DEBUG PRINTS +++
-                            if (kDebugMode) {
-                              print("--- Debug: Aceitar Button Tapped ---");
-                              print("Proposal Object: ${proposal.toString()}");
-                              print("Value of proposal.nifC: ${proposal.nifC}");
-                            }
-                            // +++ END DEBUG PRINTS +++
-
-                            final nif =
-                                proposal.nifC; // <-- Get NIF from proposal data
-
-                            if (nif == null || nif.isEmpty) {
-                              // Handle case where NIF is missing - show error?
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Erro: NIF não encontrado para esta proposta.',
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return; // <--- Error is triggered here
-                            }
-
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => SubmitProposalDocumentsPage(
-                                      proposalId: proposalId,
-                                      cpeList: cpeList,
-                                      nif: nif, // <-- Pass the NIF
-                                    ),
-                              ),
-                            );
-                            // --- END: Navigate to Submit Documents Page ---
-                          },
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  const SizedBox(
-                    height: 0,
-                  ), // No buttons, no extra space needed initially
-                // --- END: Conditional Action Buttons ---
-
                 // Proposal Details Section
                 _buildSectionTitle(context, 'Detalhes da Proposta'),
-                _buildDetailRow(context, 'Status', proposal.status ?? 'N/A'),
                 _buildDetailRow(
                   context,
                   'Data Criação',
@@ -513,6 +345,313 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                     },
                   ),
                 const SizedBox(height: 32),
+
+                // --- START: Conditional Action Buttons (MOVED HERE) ---
+                if (proposal.status == 'Enviada')
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 16.0, // Add some space above buttons
+                      bottom: 8.0, // Standard padding at bottom
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          // Added Expanded for flexible width
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                            ), // Spacing between buttons
+                            decoration: BoxDecoration(
+                              color:
+                                  theme
+                                      .cardColor, // Changed to cardColor for white/neutral background
+                              borderRadius: BorderRadius.circular(8.0),
+                              border: Border.all(
+                                color: CupertinoColors.systemGrey4,
+                                width: 1.0,
+                              ), // Added subtle border
+                            ),
+                            child: CupertinoButton(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal:
+                                    20, // Adjusted padding for container
+                                vertical: 12,
+                              ),
+                              child: const Text(
+                                'Rejeitar',
+                                style: TextStyle(
+                                  color: CupertinoColors.destructiveRed,
+                                  fontWeight:
+                                      FontWeight.w600, // Slightly bolder text
+                                ),
+                              ),
+                              onPressed: () {
+                                // --- START: Confirmation Dialog ---
+                                showCupertinoDialog(
+                                  context: context,
+                                  builder: (BuildContext ctx) {
+                                    return CupertinoAlertDialog(
+                                      title: const Text('Confirmar Rejeição'),
+                                      content: const Text(
+                                        'Tem a certeza que pretende rejeitar esta proposta?',
+                                      ),
+                                      actions: <Widget>[
+                                        CupertinoDialogAction(
+                                          child: const Text('Cancelar'),
+                                          onPressed: () {
+                                            Navigator.of(
+                                              ctx,
+                                            ).pop(); // Close dialog
+                                          },
+                                        ),
+                                        CupertinoDialogAction(
+                                          isDestructiveAction: true,
+                                          child: const Text('Rejeitar'),
+                                          onPressed: () async {
+                                            Navigator.of(
+                                              ctx,
+                                            ).pop(); // Close dialog
+
+                                            // Show loading indicator
+                                            showDialog(
+                                              context: context,
+                                              barrierDismissible: false,
+                                              builder:
+                                                  (context) => const Center(
+                                                    child:
+                                                        CircularProgressIndicator(),
+                                                  ),
+                                            );
+
+                                            try {
+                                              // Get Salesforce credentials (might be used by the function)
+                                              final authNotifier = ref.read(
+                                                salesforceAuthNotifierProvider
+                                                    .notifier,
+                                              );
+
+                                              // Call the Cloud Function to reject the proposal
+                                              final functions =
+                                                  FirebaseFunctions.instanceFor(
+                                                    region: 'us-central1',
+                                                  );
+                                              final callable = functions
+                                                  .httpsCallable(
+                                                    'rejectProposalForReseller',
+                                                  );
+                                              final result = await callable
+                                                  .call<Map<String, dynamic>>({
+                                                    'proposalId': proposalId,
+                                                  });
+
+                                              // Close loading dialog
+                                              Navigator.of(context).pop();
+
+                                              if (result.data['success'] ==
+                                                  true) {
+                                                // --- START: Create Notification Document ---
+                                                try {
+                                                  final currentUser = ref.read(
+                                                    currentUserProvider,
+                                                  ); // Corrected provider name
+                                                  final notificationRepo = ref.read(
+                                                    notificationRepositoryProvider,
+                                                  );
+
+                                                  await notificationRepo
+                                                      .createProposalRejectedNotification(
+                                                        proposalId: proposalId,
+                                                        proposalName:
+                                                            proposalName, // Class member
+                                                        opportunityId:
+                                                            null, // TODO: Pass opportunityId to this page
+                                                        clientName:
+                                                            proposal
+                                                                .nifC, // Using NIF as client identifier for now
+                                                        resellerName:
+                                                            currentUser
+                                                                ?.displayName,
+                                                        resellerId:
+                                                            currentUser?.uid,
+                                                      );
+                                                  if (kDebugMode) {
+                                                    print(
+                                                      'Proposal rejection notification created successfully.',
+                                                    );
+                                                  }
+                                                } catch (e) {
+                                                  if (kDebugMode) {
+                                                    print(
+                                                      'Error creating proposal rejection notification: $e',
+                                                    );
+                                                    // Optionally show a non-blocking error to user or log to a monitoring service
+                                                  }
+                                                }
+                                                // --- END: Create Notification Document ---
+
+                                                // Success - show message and refresh the data
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Proposta rejeitada com sucesso',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
+
+                                                // Refresh the proposal details
+                                                ref.refresh(
+                                                  resellerProposalDetailsProvider(
+                                                    proposalId,
+                                                  ),
+                                                );
+                                              } else {
+                                                // Error - show error message from function
+                                                final errorMsg =
+                                                    result.data['error'] ??
+                                                    'Falha ao rejeitar a proposta';
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Erro: $errorMsg',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              // Close loading dialog
+                                              Navigator.of(context).pop();
+
+                                              // Handle errors
+                                              String errorMessage;
+                                              if (e
+                                                  is FirebaseFunctionsException) {
+                                                errorMessage =
+                                                    e.message ?? e.code;
+                                                if (kDebugMode) {
+                                                  print(
+                                                    "Function Error Code: ${e.code}, Details: ${e.details}",
+                                                  );
+                                                }
+                                              } else {
+                                                errorMessage = e.toString();
+                                              }
+
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Erro ao rejeitar proposta: $errorMessage',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                                // --- END: Confirmation Dialog ---
+                              },
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          // Added Expanded for flexible width
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                            ), // Spacing between buttons
+                            decoration: BoxDecoration(
+                              color:
+                                  theme
+                                      .cardColor, // Changed to cardColor for white/neutral background
+                              borderRadius: BorderRadius.circular(8.0),
+                              border: Border.all(
+                                color: CupertinoColors.systemGrey4,
+                                width: 1.0,
+                              ), // Added subtle border
+                            ),
+                            child: CupertinoButton(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal:
+                                    20, // Adjusted padding for container
+                                vertical: 12,
+                              ),
+                              child: const Text(
+                                'Aceitar',
+                                style: TextStyle(
+                                  color: CupertinoColors.activeGreen,
+                                  fontWeight:
+                                      FontWeight.w600, // Slightly bolder text
+                                ),
+                              ),
+                              onPressed: () {
+                                // --- START: Navigate to Submit Documents Page ---
+                                final cpeList = proposal.cpePropostas ?? [];
+
+                                // +++ DEBUG PRINTS +++
+                                if (kDebugMode) {
+                                  print("--- Debug: Aceitar Button Tapped ---");
+                                  print(
+                                    "Proposal Object: ${proposal.toString()}",
+                                  );
+                                  print(
+                                    "Value of proposal.nifC: ${proposal.nifC}",
+                                  );
+                                }
+                                // +++ END DEBUG PRINTS +++
+
+                                final nif =
+                                    proposal
+                                        .nifC; // <-- Get NIF from proposal data
+
+                                if (nif == null || nif.isEmpty) {
+                                  // Handle case where NIF is missing - show error?
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Erro: NIF não encontrado para esta proposta.',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return; // <--- Error is triggered here
+                                }
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            SubmitProposalDocumentsPage(
+                                              proposalId: proposalId,
+                                              cpeList: cpeList,
+                                              nif: nif, // <-- Pass the NIF
+                                            ),
+                                  ),
+                                );
+                                // --- END: Navigate to Submit Documents Page ---
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(), // Use shrink if buttons not shown
+                // --- END: Conditional Action Buttons ---
               ],
             ),
           );
@@ -527,9 +666,10 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Text(
         title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onSurface, // Matched style
+        ),
       ),
     );
   }
@@ -572,16 +712,54 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'CPE ID: ${cpe.id.substring(cpe.id.length - 6)}', // Show last 6 chars of ID
-              style: theme.textTheme.titleSmall?.copyWith(
+              // Use cpeC if available, otherwise fallback to ID or N/A
+              cpe.cpeC != null && cpe.cpeC!.isNotEmpty
+                  ? '${cpe.cpeC}'
+                  : '${cpe.id.substring(cpe.id.length - 6)}',
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.secondary,
+                color: theme.colorScheme.onSurface,
               ),
             ),
-            const Divider(height: 16),
+            const SizedBox(
+              height: 16,
+            ), // Added SizedBox for consistent spacing after removing Divider
+            // Commission (Highlighted and First)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 120, // Keep consistent label width
+                    child: Text(
+                      'Comissão:', // TODO: Localize
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _formatCurrency(cpe.commissionRetail),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        // Highlight style
+                        fontWeight: FontWeight.bold,
+                        color:
+                            theme
+                                .colorScheme
+                                .primary, // Or another highlight color
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             _buildDetailRow(
               context,
-              'Consumo/Potência',
+              'Potência',
               cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
             ),
             _buildDetailRow(
@@ -589,53 +767,44 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
               'Fidelização',
               _formatYears(cpe.loyaltyYears),
             ),
-            _buildDetailRow(
-              context,
-              'Comissão',
-              _formatCurrency(cpe.commissionRetail),
-            ),
-            // --- ADDED: Display Attached Files --- //
+            // --- MODIFIED: Display Attached Files (Icons Only) --- //
             if (cpe.attachedFiles.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 24), // Increased top spacing for the label
               Text(
-                'Ficheiros Anexados:', // TODO: Localize
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
+                'Ficheiros', // TODO: Localize
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:
+                      theme
+                          .colorScheme
+                          .onSurfaceVariant, // Consistent label color
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8), // Spacing between label and icons
               Wrap(
-                spacing: 8.0, // Horizontal space between chips
-                runSpacing: 4.0, // Vertical space between lines
+                alignment: WrapAlignment.center, // Center align the file icons
+                spacing: 12.0, // Horizontal space between icons
+                runSpacing: 8.0, // Vertical space between lines of icons
                 children:
                     cpe.attachedFiles.map((file) {
-                      // --- MODIFIED: Use Consumer to get ref for onPressed --- //
                       return Consumer(
                         builder: (context, cardRef, _) {
-                          // Use a new ref here
-                          return InputChip(
-                            avatar: const Icon(Icons.attach_file, size: 16),
-                            label: Text(
-                              file.title,
-                              style: theme.textTheme.bodySmall,
+                          return IconButton(
+                            padding: EdgeInsets.zero, // Minimal padding
+                            icon: Icon(
+                              _getFileIcon(file.title, theme),
+                              size: 36, // Slightly larger icon size
+                              color:
+                                  CupertinoColors
+                                      .systemGrey, // More neutral icon color
                             ),
+                            tooltip:
+                                file.title, // Show filename on long press/hover
                             onPressed:
-                                () => _handleFileTap(
-                                  context,
-                                  cardRef,
-                                  file,
-                                ), // Pass ref
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                                () => _handleFileTap(context, cardRef, file),
                           );
                         },
                       );
-                      // --- END MODIFICATION --- //
                     }).toList(),
               ),
             ],

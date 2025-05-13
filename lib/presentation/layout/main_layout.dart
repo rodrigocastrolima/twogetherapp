@@ -74,10 +74,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             context.go('/settings');
             break;
         }
-        setState(() {
-          _selectedIndex = index;
-          _isTransitioning = false;
-        });
+        // Check if mounted before setting state
+        if (mounted) {
+          setState(() {
+            _selectedIndex = index;
+            _isTransitioning = false;
+          });
+        }
       });
     }
   }
@@ -86,130 +89,40 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
     final width = MediaQuery.of(context).size.width;
-    final isSmallScreen = width < 600;
-
-    final isOnline = _isBusinessHours();
+    final isSmallScreen = width < 600; // Threshold for mobile/desktop
 
     final Color backgroundColor = theme.colorScheme.surface;
-
-    final bool showBottomNavBar = widget.location != '/change-password';
+    final bool showNavigation =
+        widget.location != '/change-password'; // Renamed for clarity
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      extendBodyBehindAppBar: true,
-      extendBody: true,
+      extendBodyBehindAppBar:
+          true, // Keep for homepage transparent app bar effect
+      extendBody: true, // Keep for homepage transparent app bar effect
       appBar:
-          isSmallScreen && _selectedIndex != 0
-              ? PreferredSize(
-                preferredSize: const Size.fromHeight(100),
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    child: AppBar(
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      scrolledUnderElevation: 0,
-                      surfaceTintColor: Colors.transparent,
-                      toolbarHeight: 100,
-                      leading: _selectedIndex == 2 ? null : null,
-                      title:
-                          _selectedIndex == 2
-                              ? Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withAlpha(
-                                              (255 * 0.05).round(),
-                                            ),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      padding: const EdgeInsets.all(10),
-                                      child: Image.asset(
-                                        'assets/images/twogether_logo_dark_br.png',
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Column(
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Suporte Twogether',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              width: 8,
-                                              height: 8,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    isOnline
-                                                        ? Colors.green
-                                                        : Colors.grey,
-                                                shape: BoxShape.circle,
-                                                boxShadow:
-                                                    isOnline
-                                                        ? [
-                                                          BoxShadow(
-                                                            color: Colors.green
-                                                                .withAlpha(
-                                                                  (255 * 0.4)
-                                                                      .round(),
-                                                                ),
-                                                            blurRadius: 4,
-                                                            spreadRadius: 1,
-                                                          ),
-                                                        ]
-                                                        : null,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              )
-                              : Container(
-                                height: 100,
-                                alignment: Alignment.center,
-                                child: LogoWidget(height: 80, darkMode: false),
-                              ),
-                      centerTitle: true,
-                      actions: const [],
-                    ),
-                  ),
-                ),
-              )
+          (isSmallScreen && _selectedIndex != 0 && showNavigation)
+              ? _buildMobileAppBar(context, theme)
               : null,
       body: Container(
-        decoration: BoxDecoration(color: theme.colorScheme.surface),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+        ), // Ensure full background coverage
         child: Material(
           color: Colors.transparent,
           child: Stack(
             children: [
-              _buildMainContent(isSmallScreen, showBottomNavBar),
-              if (isSmallScreen && showBottomNavBar)
-                _buildMobileNavBar(context),
+              _buildMainContent(isSmallScreen, showNavigation, theme),
+              if (!isSmallScreen && showNavigation)
+                _buildDesktopSidebar(
+                  context,
+                  isDark,
+                  _selectedIndex,
+                  ref,
+                ), // Added Desktop Sidebar
+              if (isSmallScreen && showNavigation)
+                _buildMobileNavBar(context, theme, ref), // Mobile Bottom Nav
             ],
           ),
         ),
@@ -217,61 +130,362 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
   }
 
-  Widget _buildMainContent(bool isSmallScreen, bool showNavBar) {
+  PreferredSizeWidget _buildMobileAppBar(
+    BuildContext context,
+    ThemeData theme,
+  ) {
+    final isOnline = _isBusinessHours();
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(56.0),
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            toolbarHeight: 56.0,
+            leading: _selectedIndex == 2 ? null : null,
+            title:
+                _selectedIndex == 2
+                    ? Padding(
+                      padding: const EdgeInsets.only(top: 0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(
+                                    (255 * 0.05).round(),
+                                  ),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(6),
+                            child: Image.asset(
+                              'assets/images/twogether_logo_dark_br.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Suporte Twogether',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                  shape: BoxShape.circle,
+                                  boxShadow:
+                                      isOnline
+                                          ? [
+                                            BoxShadow(
+                                              color: Colors.green.withAlpha(
+                                                (255 * 0.4).round(),
+                                              ),
+                                              blurRadius: 3,
+                                              spreadRadius: 1,
+                                            ),
+                                          ]
+                                          : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                    : Container(
+                      height: 56.0,
+                      alignment: Alignment.center,
+                      child: LogoWidget(
+                        height: 40,
+                        darkMode:
+                            Theme.of(context).brightness == Brightness.dark,
+                      ),
+                    ),
+            centerTitle: true,
+            actions: const [],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent(
+    bool isSmallScreen,
+    bool showNavElements,
+    ThemeData theme,
+  ) {
     final bool isHomePage = widget.currentIndex == 0;
 
-    // The main content area, potentially wrapped in a Stack for the homepage background
     Widget content = SafeArea(
-      // Apply SafeArea universally, adjust top padding later if needed
-      top: true,
-      bottom: !showNavBar, // No bottom padding if navbar isn't shown
+      top: true, // Apply SafeArea to top universally
+      bottom:
+          !(showNavElements &&
+              isSmallScreen), // No bottom SafeArea if mobile navbar isn't shown
       child: Padding(
         padding: EdgeInsets.only(
-          // Only add bottom padding if navbar is shown on small screens
-          bottom: showNavBar && isSmallScreen ? AppStyles.navBarHeight : 0,
+          left:
+              (!isSmallScreen && showNavElements) ? AppStyles.sidebarWidth : 0,
+          bottom:
+              (showNavElements && isSmallScreen) ? AppStyles.navBarHeight : 0,
         ),
         child:
             _isTransitioning
-                ? Container(color: Theme.of(context).colorScheme.surface)
+                ? Container(
+                  color: theme.colorScheme.surface,
+                ) // Transition placeholder
                 : KeyedSubtree(
-                  key: ValueKey('page-${widget.location}'),
+                  key: ValueKey(
+                    'page-${widget.location}',
+                  ), // Ensure page rebuilds on location change
                   child: widget.child,
                 ),
       ),
     );
 
     if (isHomePage) {
-      // If it's the home page, wrap the content in a Stack with the background
       return Stack(
         children: [
-          // Background Image Layer
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            height: MediaQuery.of(context).size.height * 0.4, // 1/3 height
+            height: MediaQuery.of(context).size.height * 0.4,
             child: Image.asset(
               'assets/images/backgrounds/homepage.png',
               fit: BoxFit.cover,
-              // Optional: Add errorBuilder if image fails to load
               errorBuilder: (context, error, stackTrace) {
-                // Return a placeholder color or widget on error
-                return Container(color: Colors.grey);
+                return Container(
+                  color: Colors.grey,
+                ); // Fallback for image load error
               },
             ),
           ),
-          // Content Layer (already includes SafeArea)
-          content,
+          content, // The SafeArea wrapped content
         ],
       );
     } else {
-      // For other pages, just return the content directly
-      return content;
+      return content; // Just the SafeArea wrapped content
     }
   }
 
-  Widget _buildMobileNavBar(BuildContext context) {
+  Widget _buildDesktopSidebar(
+    BuildContext context,
+    bool isDark,
+    int currentIndex,
+    WidgetRef ref,
+  ) {
     final theme = Theme.of(context);
+    // Match mobile nav bar: Apply 85% opacity
+    final Color sidebarBackgroundColorWithOpacity =
+        isDark
+            ? AppTheme.darkNavBarBackground.withAlpha((255 * 0.85).round())
+            : Colors.white.withAlpha((255 * 0.85).round());
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final unreadCount = ref
+        .watch(unreadMessagesCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      bottom: 0,
+      width: AppStyles.sidebarWidth, // Defined in ui_styles.dart
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: AppStyles.standardBlur, // Use the same blur as mobile
+          child: Container(
+            decoration: BoxDecoration(
+              color:
+                  sidebarBackgroundColorWithOpacity, // Use color with opacity
+              border: Border(
+                right: BorderSide(
+                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Center(
+                    child: LogoWidget(height: 60, darkMode: isDark), // SVG Logo
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 12,
+                    ),
+                    children: [
+                      _buildSidebarItem(
+                        icon: CupertinoIcons.house,
+                        label: 'Início',
+                        isSelected: currentIndex == 0,
+                        onTap: () => _handleNavigation(0),
+                        textColor: textColor,
+                        theme: theme,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSidebarItem(
+                        icon: CupertinoIcons.person_2,
+                        label: 'Clientes',
+                        isSelected: currentIndex == 1,
+                        onTap: () => _handleNavigation(1),
+                        textColor: textColor,
+                        theme: theme,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSidebarItem(
+                        icon: CupertinoIcons.bubble_left,
+                        label: 'Mensagens',
+                        isSelected: currentIndex == 2,
+                        onTap: () => _handleNavigation(2),
+                        badgeCount: unreadCount,
+                        textColor: textColor,
+                        theme: theme,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSidebarItem(
+                        icon: CupertinoIcons.settings,
+                        label: 'Definições',
+                        isSelected: currentIndex == 3,
+                        onTap: () => _handleNavigation(3),
+                        textColor: textColor,
+                        theme: theme,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    int badgeCount = 0,
+    required Color textColor,
+    required ThemeData theme, // Pass theme for AppStyles
+  }) {
+    final Color tulipTreeColor = Color(
+      0xFFffbe45,
+    ); // Keep this specific color for selection
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      decoration:
+          isSelected
+              ? AppStyles.activeItemHighlight(context)
+              : null, // Use AppStyles for highlight
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
+                isSelected
+                    ? ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (Rect bounds) {
+                        return LinearGradient(
+                          colors: [
+                            tulipTreeColor,
+                            tulipTreeColor.withRed(
+                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds);
+                      },
+                      child: Icon(icon, size: 20),
+                    )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color:
+                          isSelected
+                              ? tulipTreeColor
+                              : textColor.withOpacity(0.7),
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      shadows:
+                          isSelected
+                              ? [
+                                Shadow(
+                                  color: tulipTreeColor.withOpacity(0.3),
+                                  blurRadius: 2.0,
+                                ),
+                              ]
+                              : null,
+                    ),
+                  ),
+                ),
+                if (badgeCount > 0) ...[
+                  Container(
+                    width: AppStyles.badgeSize, // From ui_styles.dart
+                    height: AppStyles.badgeSize, // From ui_styles.dart
+                    decoration:
+                        AppStyles.notificationBadge, // From ui_styles.dart
+                    alignment: Alignment.center,
+                    child: Text(
+                      badgeCount.toString(),
+                      style: AppStyles.badgeTextStyle(
+                        context,
+                      ), // From ui_styles.dart
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileNavBar(
+    BuildContext context,
+    ThemeData theme,
+    WidgetRef ref,
+  ) {
     final isDark = theme.brightness == Brightness.dark;
     final unreadCount = ref
         .watch(unreadMessagesCountProvider)
@@ -283,19 +497,24 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       right: 0,
       child: ClipRect(
         child: BackdropFilter(
-          filter: AppStyles.standardBlur,
+          filter:
+              AppStyles.standardBlur, // Assuming AppStyles.standardBlur exists
           child: Container(
-            height: AppStyles.navBarHeight,
+            height:
+                AppStyles
+                    .navBarHeight, // Assuming AppStyles.navBarHeight exists
             decoration: BoxDecoration(
               color:
                   isDark
-                      ? AppTheme.darkNavBarBackground
-                      : Colors.white.withAlpha((255 * 0.8).round()),
+                      ? AppTheme.darkNavBarBackground.withAlpha(
+                        (255 * 0.85).round(),
+                      ) // Adjusted alpha
+                      : Colors.white.withAlpha(
+                        (255 * 0.85).round(),
+                      ), // Adjusted alpha
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).dividerColor.withAlpha((255 * 0.1).round()),
+                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
                   width: 0.5,
                 ),
               ),
@@ -308,12 +527,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   label: 'Início',
                   isSelected: _selectedIndex == 0,
                   onTap: () => _handleNavigation(0),
+                  theme: theme, // Pass theme
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.person_2,
                   label: 'Clientes',
                   isSelected: _selectedIndex == 1,
                   onTap: () => _handleNavigation(1),
+                  theme: theme, // Pass theme
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.bubble_left,
@@ -321,12 +542,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   isSelected: _selectedIndex == 2,
                   onTap: () => _handleNavigation(2),
                   badgeCount: unreadCount,
+                  theme: theme, // Pass theme
                 ),
                 _buildTabItem(
                   icon: CupertinoIcons.settings,
                   label: 'Definições',
                   isSelected: _selectedIndex == 3,
                   onTap: () => _handleNavigation(3),
+                  theme: theme, // Pass theme
                 ),
               ],
             ),
@@ -342,9 +565,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     required bool isSelected,
     required VoidCallback onTap,
     int badgeCount = 0,
-    double width = 76,
+    double width = 76, // Default width, can be overridden
+    required ThemeData theme, // Added theme parameter
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
     final Color tulipTreeColor = Color(0xFFffbe45);
     final double fontSize = label.length > 8 ? 10.0 : 12.0;
@@ -353,7 +577,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       onTap: onTap,
       behavior: HitTestBehavior.translucent,
       child: SizedBox(
-        width: width,
+        width: width, // Ensure width is used
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -434,6 +658,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   bool _isBusinessHours() {
     final now = DateTime.now();
     final hour = now.hour;
+    // Example: Business hours 9 AM to 6 PM (18:00)
     return hour >= 9 && hour < 18;
   }
 }

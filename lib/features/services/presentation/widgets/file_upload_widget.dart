@@ -173,56 +173,60 @@ class FileUploadWidget extends ConsumerWidget {
           ),
         ),
         // --- Combined Add/Display Box ---
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12), // Slightly reduced padding
-          constraints: const BoxConstraints(
-            minHeight: 150,
-          ), // Ensure minimum height
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
-            borderRadius: BorderRadius.circular(12),
-            color:
-                colorScheme.surfaceContainerHighest, // Use a subtle background
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Allow column to shrink
-            mainAxisAlignment: MainAxisAlignment.center, // Center hint text
-            children: [
-              // --- Grid/Wrap for Previews --- (No Add Button here anymore)
-              if (files.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 0,
-                  ), // No bottom padding needed if files exist
-                  child: Wrap(
-                    spacing: 8.0, // Horizontal spacing between items
-                    runSpacing: 8.0, // Vertical spacing between lines
-                    children: List.generate(files.length, (index) {
-                      return _buildFilePreview(
-                        context,
-                        ref,
-                        files[index],
-                        index,
-                      );
-                    }),
-                    // _buildAddButton removed from here
-                  ),
-                ),
-
-              // --- Hint Text (Show only when no files) ---
-              if (files.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text(
-                    'Carregue uma foto ou PDF da fatura', // Replaced l10n.fileUploadHint
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+        GestureDetector(
+          onTap: () => _triggerFilePick(context, ref),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12), // Slightly reduced padding
+            constraints: const BoxConstraints(
+              minHeight: 150,
+            ), // Ensure minimum height
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(12),
+              color:
+                  colorScheme
+                      .surfaceContainerHighest, // Use a subtle background
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // Allow column to shrink
+              mainAxisAlignment: MainAxisAlignment.center, // Center hint text
+              children: [
+                // --- Grid/Wrap for Previews --- (No Add Button here anymore)
+                if (files.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: 0,
+                    ), // No bottom padding needed if files exist
+                    child: Wrap(
+                      spacing: 8.0, // Horizontal spacing between items
+                      runSpacing: 8.0, // Vertical spacing between lines
+                      children: List.generate(files.length, (index) {
+                        return _buildFilePreview(
+                          context,
+                          ref,
+                          files[index],
+                          index,
+                        );
+                      }),
+                      // _buildAddButton removed from here
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-            ],
+
+                // --- Hint Text (Show only when no files) ---
+                if (files.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Carregue uma foto ou PDF da fatura', // Replaced l10n.fileUploadHint
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],

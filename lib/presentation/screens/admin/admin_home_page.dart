@@ -789,6 +789,35 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     IconData itemIcon = CupertinoIcons.doc_plaintext;
     Color iconColor = theme.colorScheme.primary;
 
+    // Customize icon and color based on notification type
+    switch (notification.type) {
+      case NotificationType.newSubmission:
+        itemIcon = CupertinoIcons.doc_on_doc_fill;
+        iconColor = theme.colorScheme.primary;
+        break;
+      case NotificationType.statusChange:
+        itemIcon = CupertinoIcons.arrow_swap;
+        iconColor = Colors.orange;
+        break;
+      case NotificationType
+          .rejection: // Assuming this is for service submission rejections
+        itemIcon = CupertinoIcons.xmark_circle_fill;
+        iconColor = theme.colorScheme.error;
+        break;
+      case NotificationType.proposalRejected:
+        itemIcon =
+            CupertinoIcons
+                .hand_thumbsdown_fill; // Example icon for proposal rejection
+        iconColor =
+            theme
+                .colorScheme
+                .error; // Or a different color like Colors.deepOrange
+        break;
+      default:
+        itemIcon = CupertinoIcons.bell_fill;
+        iconColor = Colors.grey;
+    }
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
       leading: CircleAvatar(
@@ -956,6 +985,23 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           if (kDebugMode)
             print("Error: Metadata does NOT contain submissionId key.");
         }
+        break;
+      case NotificationType.proposalRejected:
+        if (kDebugMode) {
+          print(
+            "Proposal Rejected notification tapped. Proposal ID: ${notification.metadata['proposalId']}, Opportunity ID: ${notification.metadata['opportunityId']}",
+          );
+          // TODO: Implement navigation to proposal details or opportunity details for admin
+          // For now, just show a snackbar or log.
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Proposal Rejection: ${notification.metadata['proposalName'] ?? 'N/A'}',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
         break;
       // Add cases for other notification types if needed (e.g., chat message)
       default:

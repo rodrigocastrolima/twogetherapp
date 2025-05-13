@@ -16,10 +16,13 @@ class ResellerProviderListPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Resources'), // TODO: l10n (or different title?)
-        centerTitle: false,
-        elevation: 1,
-        shadowColor: theme.shadowColor.withOpacity(0.1),
+        title: const Text('Resources'), // TODO: l10n
+        centerTitle: true, // Centered title
+        elevation: 0, // Flat AppBar
+        backgroundColor:
+            theme.scaffoldBackgroundColor, // Match scaffold background
+        foregroundColor:
+            theme.colorScheme.onBackground, // Ensure text/icon contrast
       ),
       body: providersAsyncValue.when(
         data: (providers) {
@@ -28,13 +31,24 @@ class ResellerProviderListPage extends ConsumerWidget {
               child: Text('No resources available yet.'), // TODO: l10n
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16.0),
+          // Use ListView.builder for potentially long lists
+          return ListView.builder(
+            padding: EdgeInsets.zero, // Let ListTile handle its own padding
             itemCount: providers.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final provider = providers[index];
-              return _buildProviderCard(context, provider, theme);
+              // Add a Divider if not the last item for separation
+              return Column(
+                children: [
+                  _buildProviderListItem(context, provider, theme),
+                  if (index < providers.length - 1)
+                    const Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 0,
+                    ), // Standard divider
+                ],
+              );
             },
           );
         },
@@ -50,84 +64,65 @@ class ResellerProviderListPage extends ConsumerWidget {
               ),
             ),
       ),
-      // No FAB for resellers
     );
   }
 
-  // Reusable card, slightly modified for reseller view (no delete button)
-  Widget _buildProviderCard(
+  // Changed to _buildProviderListItem using ListTile
+  Widget _buildProviderListItem(
     BuildContext context,
     ProviderInfo provider,
     ThemeData theme,
   ) {
-    return Card(
-      elevation: 2,
-      shadowColor: theme.shadowColor.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          // Navigate to reseller file list page (Step 12)
-          context.push('/providers/${provider.id}'); // Use reseller path
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Provider Image/Logo
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: provider.imageUrl,
-                  height: 50,
-                  width: 50,
-                  fit: BoxFit.cover,
-                  placeholder:
-                      (context, url) => Container(
-                        height: 50,
-                        width: 50,
-                        color: theme.colorScheme.secondaryContainer.withOpacity(
-                          0.3,
-                        ),
-                        child: const CupertinoActivityIndicator(),
-                      ),
-                  errorWidget:
-                      (context, url, error) => Container(
-                        height: 50,
-                        width: 50,
-                        color: theme.colorScheme.errorContainer.withOpacity(
-                          0.3,
-                        ),
-                        child: Icon(
-                          CupertinoIcons.exclamationmark_triangle,
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
-                      ),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16.0,
+        vertical: 8.0,
+      ), // Adjust padding
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: provider.imageUrl,
+          height: 44, // Adjusted size for ListTile
+          width: 44, // Adjusted size for ListTile
+          fit: BoxFit.cover,
+          placeholder:
+              (context, url) => Container(
+                height: 44,
+                width: 44,
+                color: theme.colorScheme.secondaryContainer.withOpacity(0.3),
+                child: const CupertinoActivityIndicator(radius: 12),
+              ),
+          errorWidget:
+              (context, url, error) => Container(
+                height: 44,
+                width: 44,
+                color: theme.colorScheme.errorContainer.withOpacity(0.3),
+                child: Icon(
+                  CupertinoIcons
+                      .exclamationmark_triangle_fill, // Changed to filled icon
+                  color: theme.colorScheme.onErrorContainer,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 16),
-              // Provider Name
-              Expanded(
-                child: Text(
-                  provider.name,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Chevron only
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-                size: 20,
-              ),
-            ],
-          ),
         ),
       ),
+      title: Text(
+        provider.name,
+        style: theme.textTheme.titleMedium?.copyWith(
+          // Using titleMedium, can adjust
+          // fontWeight: FontWeight.w500, // Slightly less bold than w600
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Icon(
+        CupertinoIcons.chevron_forward, // Standard iOS forward chevron
+        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+        size: 20,
+      ),
+      onTap: () {
+        context.push('/providers/${provider.id}');
+      },
     );
   }
 }

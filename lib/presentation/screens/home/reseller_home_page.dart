@@ -54,6 +54,15 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   bool _initCheckDone = false; // Prevent re-checking prefs on every build
   // ---------------------
 
+  // --- Hover States for Icons ---
+  bool _isProfileHovering = false;
+  // For Notification and Help icons, hover state will be managed within _buildCircleIconButton
+  // or we might need to pass hover callbacks if preferred.
+  // For now, let's aim to make _buildCircleIconButton stateful if it's simple enough,
+  // or pass hover state down.
+  // Let's make _buildCircleIconButton a StatefulWidget to manage its own hover.
+  // --------------------------
+
   @override
   void initState() {
     super.initState();
@@ -261,27 +270,35 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                   // Action Icons
                                   Row(
                                     children: [
-                                      _buildCircleIconButton(
-                                        icon: CupertinoIcons.search,
-                                        onTap: () {
-                                          /* TODO */
-                                        },
-                                        isHighlighted: false,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      _buildCircleIconButton(
+                                      // SEARCH ICON REMOVED
+                                      // _buildCircleIconButton(
+                                      //   icon: CupertinoIcons.search,
+                                      //   onTap: () {
+                                      //     /* TODO */
+                                      //   },
+                                      //   isHighlighted: false,
+                                      // ),
+                                      // const SizedBox(width: 10), // REMOVED
+                                      _CircleIconButton(
+                                        // Changed to stateful version
                                         icon: CupertinoIcons.bell_fill,
                                         onTap: () {
                                           /* TODO */
                                         },
-                                        isHighlighted: false,
+                                        isHighlighted:
+                                            false, // This might be separate from hover scale
                                       ),
-                                      const SizedBox(width: 8),
+                                      const SizedBox(
+                                        width: 8,
+                                      ), // Adjusted from 10 to 8 if search is removed
                                       ScaleTransition(
-                                        scale: _helpIconAnimation,
-                                        child: _buildCircleIconButton(
+                                        scale:
+                                            _helpIconAnimation, // This is for the hint pulse
+                                        child: _CircleIconButton(
+                                          // Changed to stateful version
                                           icon: CupertinoIcons.question_circle,
-                                          isHighlighted: shouldAnimate,
+                                          isHighlighted:
+                                              shouldAnimate, // For hint pulse border/bg
                                           onTap:
                                               () => _handleHelpIconTap(
                                                 context,
@@ -353,23 +370,41 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     String? displayName,
     String? email,
   ) {
-    return GestureDetector(
-      onTap: () => context.push('/profile-details'),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withOpacity(0.2),
-          shape: BoxShape.circle,
-        ),
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: Center(
-            child: Text(
-              _getUserInitials(displayName, email),
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isProfileHovering = true),
+      onExit: (_) => setState(() => _isProfileHovering = false),
+      child: Transform.scale(
+        scale: _isProfileHovering ? 1.15 : 1.0,
+        child: GestureDetector(
+          onTap: () => context.push('/profile-details'),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withOpacity(0.2),
+              shape: BoxShape.circle,
+              boxShadow:
+                  _isProfileHovering
+                      ? [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                      : null,
+            ),
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: Center(
+                child: Text(
+                  _getUserInitials(displayName, email),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
@@ -380,6 +415,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   // --- Helper for Profile Icon Placeholder ---
   Widget _buildProfileIconPlaceholder(BuildContext context, ThemeData theme) {
+    // Placeholder doesn't need hover effects as it's temporary
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1436,6 +1472,90 @@ class _AutoDismissDialogContentState extends State<_AutoDismissDialogContent> {
         ),
       ),
       actions: const [], // No buttons needed for auto-dismiss
+    );
+  }
+}
+
+// Create a StatefulWidget for _CircleIconButton to manage its own hover state
+class _CircleIconButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isHighlighted; // For existing highlight (e.g. tutorial hint)
+
+  const _CircleIconButton({
+    required this.icon,
+    required this.onTap,
+    this.isHighlighted = false,
+  });
+
+  @override
+  _CircleIconButtonState createState() => _CircleIconButtonState();
+}
+
+class _CircleIconButtonState extends State<_CircleIconButton> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // Determine actual highlight based on prop or hover (prop takes precedence for color)
+    final bool actuallyHighlighted = widget.isHighlighted;
+
+    final bgColor =
+        actuallyHighlighted
+            ? theme.colorScheme.primary.withOpacity(0.85)
+            : _isHovering
+            ? theme.colorScheme.surface.withOpacity(
+              0.3,
+            ) // Slightly more opaque on hover
+            : theme.colorScheme.surface.withOpacity(0.15);
+
+    final iconColor =
+        actuallyHighlighted ? theme.colorScheme.onPrimary : Colors.white;
+
+    final borderColor =
+        actuallyHighlighted
+            ? theme.colorScheme.primary
+            : _isHovering
+            ? Colors.white.withOpacity(0.3) // Brighter border on hover
+            : Colors.white.withOpacity(0.1);
+
+    final double scale = _isHovering ? 1.15 : 1.0;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Transform.scale(
+        scale: scale,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.all(10.0),
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      actuallyHighlighted
+                          ? theme.colorScheme.primary.withOpacity(0.3)
+                          : _isHovering
+                          ? Colors.black.withOpacity(
+                            0.2,
+                          ) // Stronger shadow on hover
+                          : Colors.black.withOpacity(0.1),
+                  blurRadius:
+                      _isHovering ? 6 : 4, // Slightly larger blur on hover
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(color: borderColor, width: 0.5),
+            ),
+            child: Icon(widget.icon, color: iconColor, size: 22.0),
+          ),
+        ),
+      ),
     );
   }
 }

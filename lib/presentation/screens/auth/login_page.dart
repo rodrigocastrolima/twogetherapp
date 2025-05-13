@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/theme.dart';
 import '../../../presentation/layout/main_layout.dart';
 import '../../../app/router/app_router.dart';
@@ -21,49 +22,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _isForgotPasswordMode = false;
   bool _isSendingRecovery = false;
   bool _recoveryEmailSent = false;
+  String? _errorMessage; // For displaying errors directly on the form
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_clearError);
+    _passwordController.addListener(_clearError);
+  }
+
+  void _clearError() {
+    if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
+  }
 
   void _handleLogin() async {
-    // Get email and password first for validation
+    _clearError(); // Clear previous errors
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // Simple validation
     if (email.isEmpty || password.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, insira email e senha')),
-        );
+        setState(() {
+          _errorMessage = 'Por favor, insira email e senha';
+        });
       }
-      return; // Stop if validation fails
+      return;
     }
 
     try {
-      // Navigate to the loading route BEFORE attempting login
-      // Ensure context is still mounted before navigating
       if (mounted) {
         GoRouter.of(context).go('/auth-loading');
       }
-
-      // Attempt login - No need for try/finally for loading here
       await AppRouter.authNotifier.signInWithEmailAndPassword(email, password);
-
-      // On successful login, GoRouter's redirect logic will handle navigation
-      // away from /auth-loading automatically.
     } catch (e) {
-      // If login fails, navigate BACK to login page to show the error
       if (mounted) {
-        // Check if we are currently on the loading page before going back
-        final currentRoute = GoRouterState.of(context).matchedLocation;
-        if (currentRoute == '/auth-loading') {
-          GoRouter.of(context).go('/login');
-        }
-
-        // Delay showing the SnackBar slightly to ensure the login page is visible
-        Future.delayed(const Duration(milliseconds: 100), () {
+        GoRouter.of(context).pushReplacement('/login');
+        // Delay slightly for navigation to complete before setting state
+        Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Falha no login: ${e.toString()}')),
-            );
+            setState(() {
+              _errorMessage =
+                  'Falha no login: Credenciais inválidas ou problema de conexão.';
+              if (kDebugMode) {
+                print('Login error: ${e.toString()}');
+              }
+            });
           }
         });
       }
@@ -71,18 +78,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _sendRecoveryEmail() async {
+    _clearError(); // Clear previous errors
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Por favor, insira seu endereço de email.')),
-      );
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Por favor, insira seu endereço de email.';
+        });
+      }
       return;
     }
 
     setState(() {
       _isSendingRecovery = true;
-      _recoveryEmailSent =
-          false; // Ensure success message isn't shown during send
+      _recoveryEmailSent = false;
     });
 
     try {
@@ -90,37 +99,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final success = await authNotifier.requestPasswordReset(email);
       if (mounted) {
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Email de redefinição de senha enviado para $email. Verifique sua caixa de entrada.',
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Set state to show success message
+          // SnackBar removed, _recoveryEmailSent will trigger the success message in the form
           setState(() {
             _recoveryEmailSent = true;
           });
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Falha ao enviar email de redefinição. Verifique o endereço de email ou tente novamente mais tarde.',
-              ),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+          setState(() {
+            _errorMessage =
+                'Falha ao enviar email de redefinição. Verifique o endereço ou tente mais tarde.';
+          });
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ocorreu um erro inesperado: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        setState(() {
+          _errorMessage = 'Ocorreu um erro inesperado. Tente novamente.';
+          if (kDebugMode) {
+            print('Password reset error: ${e.toString()}');
+          }
+        });
       }
     } finally {
       if (mounted) {
@@ -136,6 +133,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       setState(() {
         _isForgotPasswordMode = false;
         _recoveryEmailSent = false;
+        _errorMessage = null; // Clear error on mode switch
       });
     }
   }
@@ -145,12 +143,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       setState(() {
         _isForgotPasswordMode = true;
         _recoveryEmailSent = false;
+        _errorMessage = null; // Clear error on mode switch
       });
     }
   }
 
   @override
   void dispose() {
+    _emailController.removeListener(_clearError);
+    _passwordController.removeListener(_clearError);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -160,9 +161,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
-    final double padding = size.width < 400 ? 12.0 : 16.0;
+    final double horizontalPadding =
+        size.width < 400 ? 12.0 : 16.0; // Renamed for clarity
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Background Image
@@ -176,93 +180,141 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
-          // Overlay to darken the image and improve text readability
+          // Overlay
           Container(
             width: double.infinity,
             height: double.infinity,
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withOpacity(0.25),
           ),
-          // Main Login Content within SafeArea
           SafeArea(
             child: Center(
               child: NoScrollbarBehavior.noScrollbars(
                 context,
                 SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
-                    horizontal: padding,
-                    vertical: padding,
-                  ),
+                    horizontal: horizontalPadding,
+                  ), // Removed vertical padding
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: isSmallScreen ? size.width * 0.8 : 400,
+                      maxWidth: isSmallScreen ? size.width * 0.85 : 420,
                     ),
-                    // Form content is now just the Column
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Form Container
                         Container(
-                          width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
+                                color:
+                                    isDarkMode
+                                        ? Colors.black.withOpacity(0.10)
+                                        : Colors.white.withOpacity(0.15),
+                                blurRadius: 10,
+                                spreadRadius: 0,
                               ),
                             ],
                           ),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isSmallScreen ? 18 : 24,
-                              vertical: isSmallScreen ? 24 : 32,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Logo inside the form
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        isSmallScreen ? size.width * 0.38 : 180,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: 10.0,
+                                sigmaY: 10.0,
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color:
+                                      isDarkMode
+                                          ? Colors.grey.shade800.withOpacity(
+                                            0.25,
+                                          )
+                                          : Colors.white.withOpacity(0.35),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isSmallScreen ? 20 : 28,
+                                    vertical: isSmallScreen ? 28 : 36,
                                   ),
-                                  child: AspectRatio(
-                                    aspectRatio: 2.0,
-                                    child: Image.asset(
-                                      'assets/images/twogether_logo_dark_br.png',
-                                      fit: BoxFit.contain,
-                                    ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          maxWidth:
+                                              isSmallScreen
+                                                  ? size.width * 0.45
+                                                  : 230,
+                                          maxHeight: 110,
+                                        ),
+                                        child: SvgPicture.asset(
+                                          'assets/images/twogether-retail_logo-04.svg',
+                                          fit: BoxFit.contain,
+                                          colorFilter: ColorFilter.mode(
+                                            isDarkMode
+                                                ? Colors.white.withOpacity(0.9)
+                                                : Colors.black.withOpacity(0.8),
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(height: isSmallScreen ? 24 : 30),
+                                      if (_errorMessage != null &&
+                                          _errorMessage!.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 16.0,
+                                          ),
+                                          child: Text(
+                                            _errorMessage!,
+                                            style: TextStyle(
+                                              color:
+                                                  isDarkMode
+                                                      ? Theme.of(context)
+                                                          .colorScheme
+                                                          .errorContainer
+                                                      : Theme.of(
+                                                        context,
+                                                      ).colorScheme.error,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 14,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      if (!_isForgotPasswordMode)
+                                        _buildLoginForm(context, isDarkMode)
+                                      else if (_isForgotPasswordMode &&
+                                          !_recoveryEmailSent)
+                                        _buildForgotPasswordForm(
+                                          context,
+                                          isDarkMode,
+                                        )
+                                      else
+                                        _buildSuccessMessage(context),
+                                    ],
                                   ),
                                 ),
-                                SizedBox(height: isSmallScreen ? 24 : 32),
-                                // --- Conditional Content ---
-                                if (!_isForgotPasswordMode)
-                                  _buildLoginForm(context)
-                                else if (_isForgotPasswordMode &&
-                                    !_recoveryEmailSent)
-                                  _buildForgotPasswordForm(context)
-                                else
-                                  _buildSuccessMessage(context),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                        // --- Links Below Form ---
                         Visibility(
                           visible: !_isForgotPasswordMode,
                           child: Padding(
-                            padding: const EdgeInsets.only(top: 24.0),
+                            padding: const EdgeInsets.only(top: 30.0),
                             child: TextButton(
                               onPressed: _switchToForgotPasswordMode,
                               style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.primary,
+                                foregroundColor: Colors.white,
                                 textStyle: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -273,13 +325,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         Visibility(
                           visible: _isForgotPasswordMode,
                           child: Padding(
-                            padding: const EdgeInsets.only(top: 24.0),
+                            padding: const EdgeInsets.only(top: 30.0),
                             child: TextButton(
                               onPressed: _switchToLoginMode,
                               style: TextButton.styleFrom(
-                                foregroundColor: AppTheme.primary,
+                                foregroundColor: Colors.white,
                                 textStyle: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -294,29 +346,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
-          // Powered by Upgraide Trademark (Outside SafeArea, inside main Stack)
           Positioned(
             bottom: 0,
             right: 0,
+            left: 0,
             child: Padding(
-              padding: const EdgeInsets.only(
-                right: 20.0,
-                bottom: 0.0,
-              ), // Keep same padding
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     'powered by',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withOpacity(0.8),
                     ),
                   ),
-                  const SizedBox(width: 1),
+                  const SizedBox(width: 2),
                   Image.asset(
                     'assets/images/upgraide.png',
-                    height: 100, // Keep the desired size
+                    height: 20,
+                    color: Colors.white.withOpacity(0.8),
+                    colorBlendMode: BlendMode.modulate,
                   ),
                 ],
               ),
@@ -327,93 +379,149 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  // --- Helper Widgets for Form States ---
-
-  Widget _buildLoginForm(BuildContext context) {
-    // Get the input decoration theme defaults from the main context
-    final themeDefaults = Theme.of(context).inputDecorationTheme;
+  Widget _buildLoginForm(BuildContext context, bool isDarkMode) {
+    final Color fieldFillColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.12)
+            : Colors.white.withOpacity(0.35);
+    final Color hintAndIconColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.65)
+            : Colors.black.withOpacity(0.55);
+    final Color inputTextColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.9)
+            : Colors.black.withOpacity(0.85);
+    final Color focusedBorderColor =
+        isDarkMode
+            ? Colors.grey.shade400.withOpacity(
+              0.7,
+            ) // Cleaner grey for dark mode
+            : Colors.grey.shade600.withOpacity(
+              0.7,
+            ); // Cleaner grey for light mode
+    final Color buttonBackgroundColor =
+        isDarkMode ? Colors.grey.shade800.withOpacity(0.8) : Colors.white;
+    final Color buttonTextColor = isDarkMode ? Colors.white : AppTheme.primary;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Email TextField
         TextField(
           controller: _emailController,
-          // Create InputDecoration based on theme, then override
           decoration: InputDecoration(
-            // Apply theme defaults first (like fill color, border)
-            filled: themeDefaults.filled,
-            fillColor: themeDefaults.fillColor,
-            border: themeDefaults.border,
-            enabledBorder: themeDefaults.enabledBorder,
-            focusedBorder: themeDefaults.focusedBorder,
-            contentPadding: themeDefaults.contentPadding,
-            isDense: themeDefaults.isDense,
-            // Now apply specific overrides
+            filled: true,
+            fillColor: fieldFillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14), // Slightly more rounded
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: Colors.white.withOpacity(0.15),
+                width: 0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: focusedBorderColor,
+                width: 1.0,
+              ), // Thinner border
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Email',
             hintStyle: TextStyle(
-              color: Colors.black45,
-              fontSize: 13,
+              color: hintAndIconColor,
+              fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
-            prefixIcon: Icon(
-              Icons.email_outlined,
-              color: Colors.black45,
-              size: 17,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 14.0, right: 10.0),
+              child: Icon(
+                Icons.email_outlined,
+                color: hintAndIconColor,
+                size: 21,
+              ),
             ),
+            isDense: true,
           ),
-          style: TextStyle(color: Colors.black87, fontSize: 13),
+          style: TextStyle(
+            color: inputTextColor,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
           keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 10),
-        // Password TextField
+        const SizedBox(height: 18),
         TextField(
           controller: _passwordController,
-          // Create InputDecoration based on theme, then override
           decoration: InputDecoration(
-            // Apply theme defaults first
-            filled: themeDefaults.filled,
-            fillColor: themeDefaults.fillColor,
-            border: themeDefaults.border,
-            enabledBorder: themeDefaults.enabledBorder,
-            focusedBorder: themeDefaults.focusedBorder,
-            contentPadding: themeDefaults.contentPadding,
-            isDense: themeDefaults.isDense,
-            // Now apply specific overrides
+            filled: true,
+            fillColor: fieldFillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: Colors.white.withOpacity(0.15),
+                width: 0.7,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: focusedBorderColor,
+                width: 1.0,
+              ), // Thinner border
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Senha',
             hintStyle: TextStyle(
-              color: Colors.black45,
-              fontSize: 13,
+              color: hintAndIconColor,
+              fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
-            prefixIcon: Icon(
-              Icons.lock_outline,
-              color: Colors.black45,
-              size: 17,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 14.0, right: 10.0),
+              child: Icon(
+                Icons.lock_outline,
+                color: hintAndIconColor,
+                size: 21,
+              ),
             ),
+            isDense: true,
           ),
-          style: TextStyle(color: Colors.black87, fontSize: 13),
+          style: TextStyle(
+            color: inputTextColor,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
           obscureText: true,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _handleLogin(),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 36),
         SizedBox(
           width: double.infinity,
-          height: 38,
+          height: 50,
           child: FilledButton(
             onPressed: _handleLogin,
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: AppTheme.primaryForeground,
+              backgroundColor: buttonBackgroundColor,
+              foregroundColor: buttonTextColor,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
               ),
+              padding: EdgeInsets.symmetric(vertical: 12),
             ),
             child: Text(
               'Entrar',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -421,87 +529,112 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
-  Widget _buildForgotPasswordForm(BuildContext context) {
+  Widget _buildForgotPasswordForm(BuildContext context, bool isDarkMode) {
+    final Color fieldFillColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.12)
+            : Colors.white.withOpacity(0.35);
+    final Color hintAndIconColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.65)
+            : Colors.black.withOpacity(0.55);
+    final Color inputTextColor =
+        isDarkMode
+            ? Colors.white.withOpacity(0.9)
+            : Colors.black.withOpacity(0.85);
+    final Color focusedBorderColor =
+        isDarkMode
+            ? Colors.grey.shade400.withOpacity(
+              0.7,
+            ) // Cleaner grey for dark mode
+            : Colors.grey.shade600.withOpacity(
+              0.7,
+            ); // Cleaner grey for light mode
+    final Color buttonBackgroundColor =
+        isDarkMode ? Colors.grey.shade800.withOpacity(0.8) : Colors.white;
+    final Color buttonTextColor = isDarkMode ? Colors.white : AppTheme.primary;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Theme(
-          data: Theme.of(context).copyWith(
-            inputDecorationTheme: InputDecorationTheme(
-              filled: true,
-              fillColor: const Color(0xFFF7F7F7),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outlineVariant.withOpacity(0.4),
-                  width: 1.0,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: AppTheme.primary, width: 1),
+        TextField(
+          controller: _emailController,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: fieldFillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: Colors.white.withOpacity(0.15),
+                width: 0.7,
               ),
             ),
-          ),
-          child: TextField(
-            controller: _emailController,
-            decoration: InputDecoration(
-              hintText: 'Email',
-              hintStyle: TextStyle(
-                color: Colors.black45,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              prefixIcon: Icon(
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: focusedBorderColor,
+                width: 1.0,
+              ), // Thinner border
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            hintText: 'Email',
+            hintStyle: TextStyle(
+              color: hintAndIconColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: 14.0, right: 10.0),
+              child: Icon(
                 Icons.email_outlined,
-                color: Colors.black45,
-                size: 17,
+                color: hintAndIconColor,
+                size: 21,
               ),
-              isDense: true,
             ),
-            style: TextStyle(color: Colors.black87, fontSize: 13),
-            keyboardType: TextInputType.emailAddress,
+            isDense: true,
           ),
+          style: TextStyle(
+            color: inputTextColor,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 30),
         SizedBox(
           width: double.infinity,
-          height: 38,
+          height: 50,
           child: FilledButton(
             onPressed: _isSendingRecovery ? null : _sendRecoveryEmail,
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              foregroundColor: AppTheme.primaryForeground,
+              backgroundColor: buttonBackgroundColor,
+              foregroundColor: buttonTextColor,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
               ),
+              padding: EdgeInsets.symmetric(vertical: 12),
             ),
             child:
                 _isSendingRecovery
                     ? SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: 22,
+                      height: 22,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.primaryForeground,
+                        strokeWidth: 2.8,
+                        color:
+                            buttonTextColor, // Use adapted button text color for consistency
                       ),
                     )
                     : Text(
                       'Recuperar Senha',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
           ),
@@ -511,17 +644,28 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildSuccessMessage(BuildContext context) {
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32.0),
+      padding: const EdgeInsets.symmetric(vertical: 36.0), // Increased padding
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
-          const SizedBox(height: 16),
+          Icon(
+            Icons.check_circle_outline_rounded, // More rounded icon
+            color: Colors.greenAccent.shade700, // Slightly deeper green
+            size: 60,
+          ),
+          const SizedBox(height: 22),
           Text(
             'Email de recuperação enviado com sucesso!',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color:
+                  isDarkMode
+                      ? Colors.white.withOpacity(0.95)
+                      : Colors.black.withOpacity(0.9),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

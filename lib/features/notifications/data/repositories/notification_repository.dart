@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/models/notification.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NotificationRepository {
   final FirebaseFirestore _firestore;
@@ -42,16 +43,19 @@ class NotificationRepository {
     }
   }
 
-  // Get admin notifications (submissions)
+  // Get admin notifications (submissions and rejections)
   Stream<List<UserNotification>> getAdminSubmissionNotifications() {
     try {
       if (kDebugMode) {
-        print('Getting admin submission notifications');
+        print('Getting admin submission and proposal rejection notifications');
       }
 
-      // Get all notifications with type 'newSubmission'
+      // Get all notifications with type 'newSubmission' or 'proposalRejected'
       return _notificationsRef
-          .where('type', isEqualTo: 'newSubmission')
+          .where(
+            'type',
+            whereIn: ['newSubmission', 'proposalRejected'],
+          ) // Updated to include proposalRejected
           .orderBy('createdAt', descending: true)
           .limit(50) // Limit to most recent 50 for performance
           .snapshots()
@@ -460,4 +464,58 @@ class NotificationRepository {
       return '';
     }
   }
+
+  // Create a new proposal rejected notification for admins/system
+  Future<String> createProposalRejectedNotification({
+    required String proposalId,
+    required String proposalName,
+    String? opportunityId,
+    String? clientName,
+    String? resellerName,
+    String? resellerId,
+  }) async {
+    final functionName = 'createProposalRejectedNotification';
+    if (kDebugMode) {
+      print('[$runtimeType] $functionName: Called for proposalId: $proposalId');
+    }
+    try {
+      final notification = UserNotification(
+        id: '', // Will be set by Firestore
+        userId: 'system', // System-level notification for admin/ops review
+        title: 'Proposta Rejeitada',
+        message:
+            'A proposta "$proposalName" para o cliente ${clientName ?? 'N/D'} foi rejeitada pelo revendedor ${resellerName ?? 'N/D'}.',
+        type: NotificationType.proposalRejected,
+        createdAt: DateTime.now(),
+        metadata: {
+          'proposalId': proposalId,
+          'proposalName': proposalName,
+          if (opportunityId != null) 'opportunityId': opportunityId,
+          if (clientName != null) 'clientName': clientName,
+          if (resellerName != null) 'resellerName': resellerName,
+          if (resellerId != null) 'resellerId': resellerId,
+          'reason':
+              'Rejected by reseller via app', // Placeholder, can be expanded later
+        },
+      );
+
+      final docRef = await _notificationsRef.add(notification.toFirestore());
+      if (kDebugMode) {
+        print(
+          '[$runtimeType] $functionName: Successfully created notification ${docRef.id}',
+        );
+      }
+      return docRef.id;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[$runtimeType] $functionName: Error: $e');
+      }
+      rethrow; // Rethrow to allow UI to handle it
+    }
+  }
 }
+
+// Provider for the NotificationRepository
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  return NotificationRepository();
+});

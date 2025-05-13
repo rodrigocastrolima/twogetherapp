@@ -121,8 +121,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/twogether_logo_light_br.png
-    - assets/images/twogether_logo_dark_br.png
+    - assets/images/twogether-retail_logo-04.svg
     - assets/images/edp_logo_br.png
     - assets/images/repsol_logo_br.png
     - assets/images/bg.jpg

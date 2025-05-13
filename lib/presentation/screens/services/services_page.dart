@@ -12,9 +12,7 @@ import '../../../features/services/data/repositories/service_submission_reposito
 import '../../widgets/success_dialog.dart'; // Import the success dialog
 
 class ServicesPage extends ConsumerStatefulWidget {
-  final Map<String, dynamic>? preFilledData;
-
-  const ServicesPage({super.key, this.preFilledData});
+  const ServicesPage({super.key});
 
   @override
   ConsumerState<ServicesPage> createState() => ServicesPageState();
@@ -44,30 +42,12 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   void initState() {
     super.initState();
     debugPrint('ServicesPage opened');
-    // Initialize controllers with pre-filled data if available
-    _companyNameController = TextEditingController(
-      text: widget.preFilledData?['companyName'],
-    );
-    _responsibleNameController = TextEditingController(
-      text: widget.preFilledData?['responsibleName'],
-    );
-    _nifController = TextEditingController(text: widget.preFilledData?['nif']);
-    _emailController = TextEditingController(
-      text: widget.preFilledData?['email'],
-    );
-    _phoneController = TextEditingController(
-      text: widget.preFilledData?['phone'],
-    );
-
-    // If we have pre-filled data, set the client type but don't skip steps
-    if (widget.preFilledData != null &&
-        widget.preFilledData!.containsKey('resubmissionId')) {
-      // Potentially pre-fill steps based on existing submission data
-      // For now, just log it
-      debugPrint(
-        "Handling potential resubmission for ID: ${widget.preFilledData!['resubmissionId']}",
-      );
-    }
+    // Initialize controllers (no longer using preFilledData)
+    _companyNameController = TextEditingController();
+    _responsibleNameController = TextEditingController();
+    _nifController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
 
     // Initialize animation controller
     _pulseController = AnimationController(
@@ -92,7 +72,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   void _handleCategorySelection(ServiceCategory category) {
-    if (!category.isAvailable) return;
+    // The onTapAction in _buildServiceCategoryStep handles showing the dialog
+    // for unavailable categories and only calls this method for available ones.
 
     setState(() {
       currentStep = 1;
@@ -316,7 +297,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           onPressed: handleBackPress,
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         ),
-        title: null,
+        title: Text(
+          'Serviços',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
+        ),
         centerTitle: true,
       ),
       body: Column(
@@ -351,32 +338,42 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             final isActive = currentStep >= stepIndex;
             final isCurrent = currentStep == stepIndex;
 
-            Widget circle = Container(
+            // Use AnimatedContainer for smoother transitions
+            Widget circleContent = Center(
+              child: Text(
+                '$stepIndex',
+                style: textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:
+                      isActive
+                          ? colorScheme.onPrimary
+                          : colorScheme
+                              .onSurfaceVariant, // Keep or adjust based on new bg
+                ),
+              ),
+            );
+
+            Widget circle = AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               width: isCurrent ? 28 : 24,
               height: isCurrent ? 28 : 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color:
-                    isActive ? colorScheme.primary : colorScheme.surfaceVariant,
+                    isActive
+                        ? colorScheme.primary
+                        : colorScheme
+                            .surfaceContainerHighest, // Softer inactive color
                 border:
                     isCurrent
                         ? Border.all(color: colorScheme.primary, width: 2)
                         : isActive
-                        ? null
-                        : Border.all(color: colorScheme.outlineVariant),
+                        ? null // No border for active but not current
+                        : Border.all(
+                          color: colorScheme.outline.withOpacity(0.5),
+                        ), // Subtle border for inactive
               ),
-              child: Center(
-                child: Text(
-                  '$stepIndex',
-                  style: textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color:
-                        isActive
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+              child: circleContent,
             );
 
             // Apply pulse animation only if current
@@ -387,15 +384,24 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             // Line
             final stepIndex = index ~/ 2 + 1;
             final isCompleted = currentStep > stepIndex;
+            // Use AnimatedContainer for smoother transitions
             return Expanded(
-              child: Container(
-                height: 1.5,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 2.0, // Slightly thicker line
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                ), // Reduced margin
                 decoration: BoxDecoration(
                   color:
                       isCompleted
                           ? colorScheme.primary
-                          : colorScheme.outlineVariant,
+                          : colorScheme.outline.withOpacity(
+                            0.3,
+                          ), // Softer inactive line
+                  borderRadius: BorderRadius.circular(
+                    1.0,
+                  ), // Rounded ends for the line
                 ),
               ),
             );
@@ -433,21 +439,83 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Criar Novo Serviço',
-              style: textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppConstants.spacing32),
-            ...ServiceCategory.values.map(
-              (category) => _buildSelectionTile(
+            ...ServiceCategory.values.map((category) {
+              VoidCallback onTapAction;
+              if (!category.isAvailable) {
+                // If category is not available, set onTap to show a dialog
+                onTapAction = () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible:
+                        true, // Allow dismissing by tapping outside
+                    builder: (BuildContext dialogContext) {
+                      final ThemeData dialogTheme = Theme.of(dialogContext);
+                      final bool isDark =
+                          dialogTheme.brightness == Brightness.dark;
+
+                      return AlertDialog(
+                        backgroundColor:
+                            isDark
+                                ? dialogTheme.colorScheme.surface.withOpacity(
+                                  0.9, // Slightly increased opacity for better readability
+                                )
+                                : Colors.white.withOpacity(0.9),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            16.0,
+                          ), // Slightly smaller radius
+                        ),
+                        titlePadding: const EdgeInsets.fromLTRB(
+                          // Adjusted padding
+                          20.0,
+                          20.0,
+                          20.0,
+                          0.0,
+                        ),
+                        contentPadding: const EdgeInsets.fromLTRB(
+                          // Adjusted padding
+                          20.0,
+                          12.0, // Reduced top padding for content
+                          20.0,
+                          20.0, // Reduced bottom padding
+                        ),
+                        title: Align(
+                          // Title is just centered text now
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Em Desenvolvimento',
+                            style: dialogTheme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        // Removed the Stack and Positioned widget for the close button
+                        content: Text(
+                          // Content is just centered text now
+                          'Esta funcionalidade estará disponível brevemente.',
+                          style: dialogTheme.textTheme.bodyMedium?.copyWith(
+                            color: dialogTheme.colorScheme.onSurfaceVariant,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+                    },
+                  );
+                };
+              } else {
+                // If category is available, set onTap to proceed
+                onTapAction = () => _handleCategorySelection(category);
+              }
+
+              return _buildSelectionTile(
                 title: category.displayName,
                 icon: _getCategoryIcon(category),
-                onTap: () => _handleCategorySelection(category),
+                onTap: onTapAction, // Use the determined onTapAction
                 isDisabled: !category.isAvailable,
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -465,13 +533,17 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tipo de Energia', style: textTheme.headlineMedium),
+            Text('Tipo de Energia', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
             ...EnergyType.values.map(
               (type) => _buildSelectionTile(
                 title: type.displayName,
                 icon: _getEnergyTypeIcon(type),
-                onTap: () => _handleEnergyTypeSelection(type),
+                onTap:
+                    () => _handleEnergyTypeSelection(
+                      type,
+                    ), // Correct onTap for this step
+                // isDisabled is not typically needed here as all energy types are usually selectable
               ),
             ),
           ],
@@ -483,21 +555,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   Widget _buildClientTypeStep() {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
-    final colorScheme = theme.colorScheme;
 
-    // Common structure for title and subtitle
+    // Common structure for title
     Widget buildHeader() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tipo de Cliente', style: textTheme.headlineMedium),
-          const SizedBox(height: AppConstants.spacing4),
-          Text(
-            'Selecione se o serviço é para uma empresa ou residência.',
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text('Tipo de Cliente', style: textTheme.headlineSmall),
           const SizedBox(height: AppConstants.spacing24),
         ],
       );
@@ -513,7 +577,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             buildHeader(),
             _buildClientCard(
               title: 'Empresarial',
-              subtitle: 'Serviços para NIFs empresariais.',
               imagePath: 'assets/images/edp_logo_br.png',
               onTap: () => _handleClientTypeSelection(ClientType.commercial),
             ),
@@ -522,7 +585,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               const SizedBox(height: AppConstants.spacing16),
               _buildClientCard(
                 title: 'Residencial',
-                subtitle: 'Serviços para NIFs particulares.',
                 imagePath: 'assets/images/repsol_logo_br.png',
                 onTap: () => _handleClientTypeSelection(ClientType.residential),
               ),
@@ -547,7 +609,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Detalhes do Cliente', style: textTheme.headlineMedium),
+            Text('Detalhes do Cliente', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
             if (_selectedClientType == ClientType.commercial) ...[
               _buildTextField(
@@ -663,64 +725,77 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final bool isDark = theme.brightness == Brightness.dark;
 
     final Color effectiveIconColor =
         isDisabled
-            ? Color.alphaBlend(
-              colorScheme.onSurface.withAlpha((255 * 0.38).round()),
-              Colors.transparent,
-            )
+            ? colorScheme.onSurface.withOpacity(0.38)
             : colorScheme.primary;
     final Color effectiveTextColor =
         isDisabled
-            ? Color.alphaBlend(
-              colorScheme.onSurface.withAlpha((255 * 0.38).round()),
-              Colors.transparent,
-            )
+            ? colorScheme.onSurface.withOpacity(0.38)
             : colorScheme.onSurface;
 
     return Card(
-      elevation: 1.0,
+      elevation: isDark ? 1.0 : 2.0,
+      shadowColor:
+          isDark ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.3),
       margin: const EdgeInsets.only(bottom: AppConstants.spacing12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: isDisabled ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    effectiveIconColor.withAlpha(
-                      (isDisabled ? 255 * 0.1 : 255 * 0.2).round(),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient:
+                isDark
+                    ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colorScheme.surfaceVariant.withOpacity(0.1),
+                        colorScheme.surfaceVariant.withOpacity(0.05),
+                      ],
+                    )
+                    : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.grey.shade50.withOpacity(0.5),
+                      ],
                     ),
-                    Colors.transparent,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppConstants.spacing16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
                   ),
-                  borderRadius: BorderRadius.circular(8.0),
+                  child: Icon(icon, color: effectiveIconColor, size: 28),
                 ),
-                child: Icon(icon, color: effectiveIconColor, size: 24),
-              ),
-              const SizedBox(width: AppConstants.spacing16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: effectiveTextColor,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(width: AppConstants.spacing16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: textTheme.titleMedium?.copyWith(
+                      color: effectiveTextColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              if (!isDisabled)
-                Icon(
-                  CupertinoIcons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-            ],
+                if (!isDisabled)
+                  Icon(
+                    CupertinoIcons.chevron_right,
+                    color: colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -729,7 +804,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   Widget _buildClientCard({
     required String title,
-    required String subtitle,
     required String imagePath,
     required VoidCallback onTap,
   }) {
@@ -739,48 +813,62 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     return Card(
       elevation: 1.0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      margin: const EdgeInsets.only(bottom: AppConstants.spacing12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppConstants.spacing16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
-                      ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient:
+                theme.brightness == Brightness.dark
+                    ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colorScheme.surfaceVariant.withOpacity(0.1),
+                        colorScheme.surfaceVariant.withOpacity(0.05),
+                      ],
+                    )
+                    : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white,
+                        Colors.grey.shade50.withOpacity(0.5),
+                      ],
                     ),
-                    const SizedBox(height: AppConstants.spacing4),
-                    Text(
-                      subtitle,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppConstants.spacing16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Image.asset(imagePath, fit: BoxFit.contain),
                 ),
-              ),
-              const SizedBox(width: AppConstants.spacing16),
-              SizedBox(
-                width: 80,
-                height: 40,
-                child: Image.asset(imagePath, fit: BoxFit.contain),
-              ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-                size: 20,
-              ),
-            ],
+                const SizedBox(width: AppConstants.spacing16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(
+                  CupertinoIcons.chevron_right,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -797,6 +885,18 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final bool isDarkMode = theme.brightness == Brightness.dark;
+
+    final Color fieldFillColor =
+        isDarkMode
+            ? colorScheme.surfaceVariant.withOpacity(
+              0.3,
+            ) // Adjusted for better fit with general theme
+            : colorScheme
+                .surfaceContainerLowest; // Using a light container color
+
+    final Color focusedBorderColor = colorScheme.primary;
+    // final Color hintColor = colorScheme.onSurfaceVariant.withOpacity(0.7);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,29 +904,56 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         Padding(
           padding: const EdgeInsets.only(
             bottom: AppConstants.spacing8,
-            left: AppConstants.spacing4,
+            // left: AppConstants.spacing4, // Label is now part of InputDecoration
           ),
-          child: Text(
-            label,
-            style: textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
-            ),
-          ),
+          // Text( // Label is now part of InputDecoration
+          //   label,
+          //   style: textTheme.titleSmall?.copyWith(
+          //     fontWeight: FontWeight.w500,
+          //     color: colorScheme.onSurface,
+          //   ),
+          // ),
         ),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
           decoration: InputDecoration(
+            labelText: label, // Use labelText for a floating label
             hintText: hint,
-            filled: false,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
+            filled: true,
+            fillColor: fieldFillColor,
+            hintStyle: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+            ),
+            labelStyle: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0), // Consistent rounding
+              borderSide: BorderSide.none, // No border by default
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide(
+                // Subtle border when enabled
+                color:
+                    isDarkMode
+                        ? colorScheme.outline.withOpacity(0.3)
+                        : colorScheme.outline.withOpacity(0.5),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide(
+                color: focusedBorderColor,
+                width: 1.5, // Slightly thicker border when focused
+              ),
+            ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppConstants.spacing16,
-              vertical: AppConstants.spacing16,
+              vertical: AppConstants.spacing12, // Adjusted padding
             ),
           ),
           style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),

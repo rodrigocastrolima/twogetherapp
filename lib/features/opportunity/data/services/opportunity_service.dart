@@ -66,9 +66,9 @@ class OpportunityService {
 
                     if (idValue == null || nameValue == null) {
                       if (kDebugMode) {
-                        print(
-                          '[OpportunityService] Error: Record missing required Id/Name field (case-insensitive check): $item',
-                        );
+                      print(
+                        '[OpportunityService] Error: Record missing required Id/Name field (case-insensitive check): $item',
+                      );
                       }
                       return null; // Skip this record
                     }
@@ -77,9 +77,9 @@ class OpportunityService {
                   } else {
                     // Log error or throw if the structure isn't as expected
                     if (kDebugMode) {
-                      print(
-                        '[OpportunityService] Error: Received non-map item in list: $item',
-                      );
+                    print(
+                      '[OpportunityService] Error: Received non-map item in list: $item',
+                    );
                     }
                     // throw const FormatException(
                     //   'Invalid data structure received from Cloud Function.',

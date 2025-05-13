@@ -20,6 +20,7 @@ interface SalesforceFileInfo {
 // Structure for the CPE_Proposta__c junction object data needed
 interface SalesforceCPEProposalData {
     Id: string;
+    CPE__c?: string; // Added to store the CPE SFID/Number
     Consumo_ou_Potencia_Pico__c?: number; // Nullable number
     Fidelizacao_Anos__c?: number; // Nullable number
     Comissao_Retail__c?: number; // Nullable number
@@ -149,7 +150,7 @@ export const getResellerProposalDetails = onCall(
                 'SELECT ' +
                 'Id, Name, Status__c, Data_de_Cria_o_da_Proposta__c, Data_de_Validade__c, ' +
                 'NIF__c, ' +
-                '(SELECT Id, Consumo_ou_Pot_ncia_Pico__c, Fideliza_o_Anos__c, Comiss_o_Retail__c FROM CPE_Propostas__r) ' +
+                '(SELECT Id, CPE__c, Consumo_ou_Pot_ncia_Pico__c, Fideliza_o_Anos__c, Comiss_o_Retail__c FROM CPE_Propostas__r) ' +
                 'FROM Proposta__c ' +
                 'WHERE Id = \'' + proposalId + '\' ' +
                 'LIMIT 1';

@@ -157,6 +157,7 @@ export const getResellerOpportunities = onCall(
                     Fase__c,
                     CreatedDate,
                     Nome_Entidade__c,
+                    Segmento_de_Cliente__c,
                     (SELECT Id, Status__c, Data_de_Cria_o_da_Proposta__c FROM Propostas__r ORDER BY CreatedDate DESC)
                 FROM Oportunidade__c
                 WHERE Agente_Retail__c = '${resellerSalesforceId}'

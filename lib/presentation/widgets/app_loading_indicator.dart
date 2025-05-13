@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'dart:async'; // Import for Timer
+import 'package:flutter_svg/flutter_svg.dart'; // Import for SVG
 
 /// A reusable loading indicator widget that shows the company logo centered
 /// and periodically rotating around the Y-axis on a solid background (white/primary).
@@ -13,41 +13,42 @@ class AppLoadingIndicator extends StatefulWidget {
 }
 
 class _AppLoadingIndicatorState extends State<AppLoadingIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  Timer? _timer;
+    with TickerProviderStateMixin {
+  late AnimationController _sweepController;
+  late AnimationController _rotationController;
+  late Animation<double> _sweepAngleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      // Slower duration for the flip animation
-      duration: const Duration(milliseconds: 2000), // Increased from 800ms
+
+    // Controller for the sweep angle (pulsating gap)
+    _sweepController = AnimationController(
+      duration: const Duration(milliseconds: 1500), // Faster, more dynamic feel
       vsync: this,
+    )..repeat(reverse: true); // Repeat and reverse for a pulsating effect
+
+    _sweepAngleAnimation = Tween<double>(
+      begin: math.pi / 2.5, // Start with a 60-degree arc (large gap)
+      end: math.pi * 1.8, // End with a ~324-degree arc (small gap)
+    ).animate(
+      CurvedAnimation(
+        parent: _sweepController,
+        curve: Curves.easeInOutSine, // Smooth, wobbly easing
+      ),
     );
 
-    // Start the first animation
-    _controller.forward();
-
-    // Listen for completion to schedule the next run
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        // Start a timer for a 1-second pause before the next animation
-        _timer = Timer(const Duration(seconds: 1), () {
-          // Pause for exactly 1 second
-          if (mounted) {
-            // Check if the widget is still in the tree
-            _controller.forward(from: 0.0); // Restart animation from beginning
-          }
-        });
-      }
-    });
+    // Controller for continuous rotation
+    _rotationController = AnimationController(
+      duration: const Duration(seconds: 2), // Rotation speed
+      vsync: this,
+    )..repeat(); // Continuous rotation, no reverse
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Cancel the timer if it's active
-    _controller.dispose(); // Dispose the controller
+    _sweepController.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
@@ -56,53 +57,103 @@ class _AppLoadingIndicatorState extends State<AppLoadingIndicator>
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // Choose the appropriate logo based on the theme
-    final logoAssetPath =
+    // Use theme.colorScheme.background for consistency with other app pages
+    final backgroundColor = theme.colorScheme.background;
+    final arcColor =
         isDarkMode
-            ? 'assets/images/twogether_logo_dark_br.png'
-            : 'assets/images/twogether_logo_light_br.png';
+            ? Colors.white
+            : Colors.black; // Arc is black in light mode, white in dark
+    final logoColor =
+        isDarkMode
+            ? Colors.white
+            : Colors.black; // Logo is black in light mode, white in dark
 
-    // Choose the background color based on the theme
-    final backgroundColor =
-        isDarkMode ? theme.colorScheme.primary : Colors.white;
-    // Use the contrasting color for the logo if needed, or adjust logo assets
-    final logoColorFilter =
-        isDarkMode
-            ? const ColorFilter.mode(Colors.white, BlendMode.srcIn)
-            : null; // Example: make dark logo white on primary background
+    const double logoSize = 180.0;
+    const double arcDataSize =
+        40.0; // Made arc smaller for under-logo placement
+    const double spacing = 0; // Spacing between logo and arc
 
     return Container(
-      // Fill the available space
       width: double.infinity,
       height: double.infinity,
       color: backgroundColor,
       child: Center(
-        // Use AnimatedBuilder to apply the 3D rotation
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform(
-              // Apply rotation around the Y-axis
-              transform:
-                  Matrix4.identity()
-                    ..setEntry(3, 2, 0.001) // Add a little perspective
-                    ..rotateY(
-                      _controller.value * 2 * math.pi,
-                    ), // Full 360 degrees
-              alignment: FractionalOffset.center,
-              child: child,
-            );
-          },
-          child: Image.asset(
-            logoAssetPath,
-            height: 160, // Adjust height as needed
-            width: 400, // Adjust width as needed
-            // Apply color filter if necessary for dark mode visibility
-            // color: isDarkMode ? Colors.white : null, // Alternative way to color
-            // colorBlendMode: isDarkMode ? BlendMode.srcIn : null,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Static SVG Logo
+            SvgPicture.asset(
+              'assets/images/twogether-retail_logo-04.svg',
+              height: logoSize,
+              width: logoSize,
+              colorFilter: ColorFilter.mode(logoColor, BlendMode.srcIn),
+            ),
+            const SizedBox(height: spacing), // Spacing
+            // Arc with animated sweep angle AND rotation
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _sweepController,
+                _rotationController,
+              ]), // Listen to both
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle:
+                      _rotationController.value *
+                      2 *
+                      math.pi, // Use rotation controller
+                  child: CustomPaint(
+                    size: const Size(arcDataSize, arcDataSize),
+                    painter: _DynamicArcPainter(
+                      color: arcColor,
+                      strokeWidth: 1.5,
+                      startAngle: -math.pi / 2, // Keep arc start at the top
+                      sweepAngle:
+                          _sweepAngleAnimation
+                              .value, // Sweep angle from its own animation
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
+  }
+}
+
+class _DynamicArcPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double startAngle;
+  final double sweepAngle;
+
+  _DynamicArcPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.startAngle,
+    required this.sweepAngle,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.round;
+
+    final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DynamicArcPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.startAngle != startAngle ||
+        oldDelegate.sweepAngle != sweepAngle;
   }
 }

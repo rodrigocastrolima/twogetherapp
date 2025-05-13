@@ -10,10 +10,12 @@ interface GetResellerProposalsInput {
     opportunityId: string;
 }
 
-// UPDATE: Interface now includes Id and Name
-interface SalesforceProposalRef { // Renamed from SalesforceProposalNameOnly
-    Id: string; // Added Id field
+// UPDATE: Interface now includes Id, Name, Status, and Creation Date
+interface SalesforceProposalRef { 
+    Id: string; 
     Name: string;
+    Status__c: string | null; // Added Status
+    Data_de_Cria_o_da_Proposta__c: string | null; // Added Creation Date
 }
 
 interface GetResellerProposalsResult {
@@ -119,12 +121,13 @@ export const getResellerOpportunityProposals = onCall(
             });
 
             // 5. --- SOQL Query (UPDATED) ---
-            // Select BOTH Id and Name fields
+            // Select Id, Name, Status__c, and Data_de_Cria_o_da_Proposta__c
+            // Order by creation date descending to get newest first
             const soqlQuery = `
-                SELECT Id, Name
+                SELECT Id, Name, Status__c, Data_de_Cria_o_da_Proposta__c
                 FROM Proposta__c
                 WHERE Oportunidade__c = '${opportunityId}'
-                ORDER BY Name
+                ORDER BY Data_de_Cria_o_da_Proposta__c DESC
             `;
 
             logger.info(`getResellerOpportunityProposals: Executing SOQL query for Opportunity ID ${opportunityId}`);
@@ -138,7 +141,7 @@ export const getResellerOpportunityProposals = onCall(
             // 6. --- Return Success ---
             return {
                 success: true,
-                proposals: result.records // Return the array of proposal records (now containing Id and Name)
+                proposals: result.records // Return the array of proposal records (now containing Id, Name, Status, and Creation Date)
             };
 
         } catch (err: any) {

@@ -113,6 +113,7 @@ class SalesforceOpportunity {
   final String? nifC; // NIF__c
   final String? faseC; // Fase__c
   final String? createdDate; // CreatedDate
+  final String? segmentoDeClienteC; // Segmento_de_Cliente__c
   final RelatedProposals?
   propostasR; // Propostas__r - Added for nested proposals
 
@@ -124,6 +125,7 @@ class SalesforceOpportunity {
     this.nifC, // Renamed for Dart convention
     this.faseC, // Renamed for Dart convention
     this.createdDate, // Renamed for Dart convention
+    this.segmentoDeClienteC, // <<< NEW PARAM
     this.propostasR, // Added
   });
 
@@ -177,6 +179,8 @@ class SalesforceOpportunity {
       nifC: json['NIF__c'] as String?,
       faseC: json['Fase__c'] as String?,
       createdDate: json['CreatedDate'] as String?,
+      segmentoDeClienteC:
+          json['Segmento_de_Cliente__c'] as String?, // <<< NEW MAPPING
       propostasR: relatedProposals, // Assign parsed proposals
     );
   }
@@ -194,6 +198,8 @@ class SalesforceOpportunity {
           nifC == other.nifC &&
           faseC == other.faseC &&
           createdDate == other.createdDate &&
+          segmentoDeClienteC ==
+              other.segmentoDeClienteC && // <<< NEW COMPARISON
           propostasR == other.propostasR; // Added
 
   @override
@@ -205,11 +211,12 @@ class SalesforceOpportunity {
       nifC.hashCode ^
       faseC.hashCode ^
       createdDate.hashCode ^
+      segmentoDeClienteC.hashCode ^ // <<< NEW HASHCODE PART
       propostasR.hashCode; // Added
 
   // Optional: Add toString for easier debugging
   @override
   String toString() {
-    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, nifC: $nifC, faseC: $faseC, createdDate: $createdDate, propostasR: $propostasR}'; // Updated
+    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, nifC: $nifC, faseC: $faseC, createdDate: $createdDate, segmentoDeClienteC: $segmentoDeClienteC, propostasR: $propostasR}'; // Updated
   }
 }
