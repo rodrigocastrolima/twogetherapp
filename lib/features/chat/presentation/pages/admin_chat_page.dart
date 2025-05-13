@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'dart:async';
-import '../../../../core/theme/theme.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../../domain/models/chat_conversation.dart';
 import '../providers/chat_provider.dart';
@@ -50,7 +49,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
 
   // Add a PageController to manage the page view
   final PageController _pageController = PageController(initialPage: 0);
-  double _currentPage = 0;
 
   @override
   void initState() {
@@ -59,11 +57,11 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
 
     // Add listener to page controller to update the current page value
     _pageController.addListener(() {
-      setState(() {
-        _currentPage = _pageController.page ?? 0;
-        // Update the filter state when page changes
-        // _showOnlyActive = _currentPage < 0.5;
-      });
+      // setState(() {
+      //   _currentPage = _pageController.page ?? 0;
+      //   // Update the filter state when page changes
+      //   // _showOnlyActive = _currentPage < 0.5;
+      // });
     });
   }
 
@@ -223,10 +221,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                             };
 
                             // ** Replace _buildChatUI call with ListView builder **
-                            final allFilteredConversations = [
-                              ...searchFilteredActiveConversations,
-                              ...searchFilteredInactiveConversations,
-                            ];
 
                             final allFilteredResellers =
                                 resellers.where((reseller) {
@@ -875,7 +869,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       context: context,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withAlpha((255 * 0.5).round()),
       pageBuilder: (
         BuildContext context,
         Animation<double> animation,
@@ -932,7 +926,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
 
                           Divider(
                             height: 1,
-                            color: Colors.grey.withOpacity(0.3),
+                            color: Colors.grey.withAlpha((255 * 0.3).round()),
                           ),
 
                           // Clear conversation option (formerly "Atualizar")
@@ -997,7 +991,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(24),
                                     side: BorderSide(
-                                      color: Colors.grey.withOpacity(0.2),
+                                      color: Colors.grey.withAlpha(
+                                        (255 * 0.2).round(),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1435,258 +1431,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
-    }
-  }
-
-  // Show dialog to select a reseller to start a new conversation
-  void _showStartNewChatDialog(BuildContext context, WidgetRef ref) {
-    // Watch conversations and resellers
-    final conversationsStream = ref.watch(conversationsProvider);
-    final resellersStream = ref.watch(resellersProvider);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          backgroundColor: Colors.grey[900],
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Start New Conversation',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                resellersStream.when(
-                  data: (resellers) {
-                    return conversationsStream.when(
-                      data: (conversations) {
-                        // Get all active conversations by reseller ID
-                        final activeConversationsByResellerId = {
-                          for (var conv in conversations.where(
-                            (c) => c.active ?? false,
-                          ))
-                            conv.resellerId: conv,
-                        };
-
-                        // Filter resellers that don't have an active conversation
-                        final resellersWithoutActiveConversation =
-                            resellers
-                                .where(
-                                  (reseller) =>
-                                      !activeConversationsByResellerId
-                                          .containsKey(reseller['id']),
-                                )
-                                .toList();
-
-                        if (resellersWithoutActiveConversation.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 20.0),
-                            child: Text(
-                              'Todos os revendedores já possuem conversas ativas.',
-                              style: TextStyle(color: Colors.white70),
-                              textAlign: TextAlign.center,
-                            ),
-                          );
-                        }
-
-                        return Container(
-                          constraints: BoxConstraints(
-                            maxHeight: MediaQuery.of(context).size.height * 0.5,
-                          ),
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount:
-                                resellersWithoutActiveConversation.length,
-                            itemBuilder: (context, index) {
-                              final reseller =
-                                  resellersWithoutActiveConversation[index];
-                              return ListTile(
-                                title: Text(
-                                  reseller['name'] ?? 'Unknown',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                subtitle: Text(
-                                  reseller['email'] ?? '',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                                leading: CircleAvatar(
-                                  backgroundColor: AppTheme.primary,
-                                  child: Text(
-                                    (reseller['name'] as String? ?? 'U')
-                                        .substring(0, 1)
-                                        .toUpperCase(),
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                onTap: () {
-                                  Navigator.of(context).pop();
-                                  _openOrCreateChat(context, reseller);
-                                },
-                              );
-                            },
-                          ),
-                        );
-                      },
-                      loading: () => const CircularProgressIndicator(),
-                      error:
-                          (_, __) => Text(
-                            'Error loading conversations',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                    );
-                  },
-                  loading: () => const CircularProgressIndicator(),
-                  error:
-                      (_, __) => Text(
-                        'Error loading resellers',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancel'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildConversationsContent(
-    List<ChatConversation> conversations,
-    List<Map<String, dynamic>> resellers,
-    Map<String, ChatConversation> conversationsByResellerId,
-    ThemeData theme,
-    bool showOnlyActive,
-  ) {
-    // Conversation content
-    if (conversations.isNotEmpty) {
-      return NoScrollbarBehavior.noScrollbars(
-        context,
-        ListView.builder(
-          padding: const EdgeInsets.only(top: 8, bottom: 12),
-          itemCount: resellers.length,
-          itemBuilder: (context, index) {
-            final reseller = resellers[index];
-            // Get the conversation for this reseller
-            final conversation = conversationsByResellerId[reseller['id']];
-            return _buildResellerItem(context, reseller, conversation);
-          },
-        ),
-      );
-    } else {
-      // Empty state for no conversations
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                _searchQuery.isNotEmpty
-                    ? CupertinoIcons.search
-                    : showOnlyActive
-                    ? CupertinoIcons.chat_bubble_2
-                    : CupertinoIcons.square_stack_3d_down_right,
-                size: 42,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _searchQuery.isNotEmpty
-                  ? "Nenhum resultado encontrado"
-                  : showOnlyActive
-                  ? "Nenhuma conversa ativa"
-                  : "Nenhuma conversa inativa",
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 280,
-              child: Text(
-                _searchQuery.isNotEmpty
-                    ? 'Tente ajustar a pesquisa ou filtros.'
-                    : showOnlyActive
-                    ? "Tente ver conversas inativas ou iniciar uma nova"
-                    : "Nenhuma conversa inativa encontrada",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_searchQuery.isNotEmpty)
-              CupertinoButton(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                color: theme.colorScheme.primary.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(24),
-                child: Text(
-                  'Limpar',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onPressed: () {
-                  _searchController.clear();
-                },
-              )
-            else
-              CupertinoButton(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                color: theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(24),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      CupertinoIcons.plus,
-                      color: theme.colorScheme.onPrimary,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Iniciar Conversa",
-                      style: TextStyle(
-                        color: theme.colorScheme.onPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                onPressed: () => _showStartNewChatDialog(context, ref),
-              ),
-          ],
-        ),
-      );
     }
   }
 }

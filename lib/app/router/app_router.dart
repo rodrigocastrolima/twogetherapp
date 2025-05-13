@@ -23,16 +23,16 @@ import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
-import '../../features/chat/data/repositories/chat_repository.dart';
-import '../../features/opportunity/presentation/pages/opportunity_verification_page.dart'
-    as admin_pages;
 import '../../core/services/salesforce_auth_service.dart';
 import '../../features/settings/presentation/pages/profile_page.dart';
 import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
 import '../../presentation/screens/admin/dev_tools_page.dart';
 import '../../core/models/service_submission.dart';
-import '../../features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
+import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
+import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
+import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
+import '../../presentation/widgets/app_loading_indicator.dart';
 
 import 'package:twogether/features/providers/presentation/pages/admin_provider_list_page.dart';
 import 'package:twogether/features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
@@ -42,18 +42,12 @@ import 'package:twogether/features/providers/presentation/pages/reseller_provide
 import 'package:twogether/features/providers/presentation/pages/reseller_provider_files_page.dart';
 import 'package:twogether/features/opportunity/presentation/pages/opportunity_verification_page.dart';
 import 'package:twogether/features/proposal/presentation/pages/proposal_creation_page.dart';
-import 'package:twogether/main.dart';
 import 'package:twogether/features/chat/presentation/pages/admin_chat_page.dart';
 import 'package:twogether/features/opportunity/data/models/salesforce_opportunity.dart'
     as data_models;
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'
     as proposal_models;
 import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
-import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
-import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
-import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
-import '../../presentation/widgets/app_loading_indicator.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -84,10 +78,11 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> _initAuth() async {
     _auth.authStateChanges().listen((User? user) async {
       if (user != null) {
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
             'Auth Listener: User is not null (UID: ${user.uid}). Entering try block...',
           );
+        }
         try {
           final doc = await _firestore.collection('users').doc(user.uid).get();
           if (doc.exists) {
@@ -127,17 +122,20 @@ class AuthNotifier extends ChangeNotifier {
             _initialPasswordChanged = initialPasswordChanged;
             _salesforceId = salesforceIdFromDb; // Store salesforceId
 
-            if (kDebugMode)
+            if (kDebugMode) {
               print(
                 'Auth Listener: User data fetched. Attempting token update...',
               );
+            }
 
             // *** Start FCM Token Logic ***
             // Get initial token and save it
             await _updateFcmToken();
             // Listen for token refreshes
             _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-              if (kDebugMode) print('FCM Token Refreshed.');
+              if (kDebugMode) {
+                print('FCM Token Refreshed.');
+              }
               await _updateFcmToken(
                 token: newToken,
               ); // Pass the new token directly
@@ -158,8 +156,9 @@ class AuthNotifier extends ChangeNotifier {
             _salesforceId = null; // Reset salesforceId
           }
         } catch (e) {
-          if (kDebugMode)
+          if (kDebugMode) {
             print('Auth Listener: ERROR caught in _initAuth try block: $e');
+          }
           if (kDebugMode) {
             print('Error fetching user data: $e');
           }
@@ -195,7 +194,9 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> _updateFcmToken({String? token}) async {
     final user = _auth.currentUser;
     if (user == null) {
-      if (kDebugMode) print('Cannot update FCM token, user is null.');
+      if (kDebugMode) {
+        print('Cannot update FCM token, user is null.');
+      }
       return;
     }
 
@@ -205,8 +206,9 @@ class AuthNotifier extends ChangeNotifier {
 
       if (fcmToken != null) {
         final userRef = _firestore.collection('users').doc(user.uid);
-        if (kDebugMode)
+        if (kDebugMode) {
           print('Attempting to add FCM token for user ${user.uid}');
+        }
         await userRef.set(
           // Use set with merge:true to handle doc creation if needed
           {
@@ -217,15 +219,18 @@ class AuthNotifier extends ChangeNotifier {
             merge: true,
           ), // Use merge to avoid overwriting other fields
         );
-        if (kDebugMode)
+        if (kDebugMode) {
           print('Successfully added FCM token for user ${user.uid}');
+        }
       } else {
-        if (kDebugMode)
+        if (kDebugMode) {
           print('FCM token is null, cannot update for user ${user.uid}');
+        }
       }
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('Error updating FCM token for user ${user.uid}: $e');
+      }
       // Decide if you want to rethrow or handle silently
     }
   }
@@ -235,7 +240,9 @@ class AuthNotifier extends ChangeNotifier {
     final uidToRemoveTokenFor = _auth.currentUser?.uid;
     if (uidToRemoveTokenFor == null) {
       // No user logged in, nothing to remove. This might happen if called after sign out completes.
-      if (kDebugMode) print('No user logged in, skipping FCM token removal.');
+      if (kDebugMode) {
+        print('No user logged in, skipping FCM token removal.');
+      }
       return;
     }
 
@@ -245,33 +252,34 @@ class AuthNotifier extends ChangeNotifier {
 
       if (fcmToken != null) {
         final userRef = _firestore.collection('users').doc(uidToRemoveTokenFor);
-        if (kDebugMode)
-          print(
-            'Attempting to remove FCM token for user ${uidToRemoveTokenFor}',
-          );
+        if (kDebugMode) {
+          print('Attempting to remove FCM token for user $uidToRemoveTokenFor');
+        }
         await userRef.update({
           'fcmTokens': FieldValue.arrayRemove([fcmToken]),
         });
-        if (kDebugMode)
-          print(
-            'Successfully removed FCM token for user ${uidToRemoveTokenFor}',
-          );
+        if (kDebugMode) {
+          print('Successfully removed FCM token for user $uidToRemoveTokenFor');
+        }
       } else {
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
-            'FCM token is null, cannot remove for user ${uidToRemoveTokenFor}',
+            'FCM token is null, cannot remove for user $uidToRemoveTokenFor',
           );
+        }
       }
     } catch (e) {
       // Log error but don't prevent sign-out
-      if (kDebugMode)
-        print('Error removing FCM token for user ${uidToRemoveTokenFor}: $e');
+      if (kDebugMode) {
+        print('Error removing FCM token for user $uidToRemoveTokenFor: $e');
+      }
       // Check if the error is due to the document not existing (already deleted?)
       if (e is FirebaseException && e.code == 'not-found') {
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
-            'User document ${uidToRemoveTokenFor} not found during token removal, might have been deleted.',
+            'User document $uidToRemoveTokenFor not found during token removal, might have been deleted.',
           );
+        }
       }
     }
   }
@@ -293,7 +301,9 @@ class AuthNotifier extends ChangeNotifier {
 
   // Sign in with email and password
   Future<void> signInWithEmailAndPassword(String email, String password) async {
-    print('AuthNotifier: signInWithEmailAndPassword called.'); // LOG
+    if (kDebugMode) {
+      print('AuthNotifier: signInWithEmailAndPassword called.');
+    } // LOG
     try {
       // For web platforms, always use local persistence
       if (kIsWeb) {
@@ -358,17 +368,23 @@ class AuthNotifier extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('AuthNotifier: Error during sign in: $e'); // LOG
+      if (kDebugMode) {
+        print('AuthNotifier: Error during sign in: $e');
+      } // LOG
       rethrow;
     }
-    print('AuthNotifier: signInWithEmailAndPassword finished.'); // LOG
+    if (kDebugMode) {
+      print('AuthNotifier: signInWithEmailAndPassword finished.');
+    } // LOG
   }
 
   // Mark first login as completed
   Future<void> completeFirstLogin() async {
-    print(
-      'AuthNotifier: completeFirstLogin called (now also sets initialPasswordChanged).',
-    ); // LOG
+    if (kDebugMode) {
+      print(
+        'AuthNotifier: completeFirstLogin called (now also sets initialPasswordChanged).',
+      );
+    } // LOG
     final user = _auth.currentUser;
     if (user != null) {
       try {
@@ -380,9 +396,11 @@ class AuthNotifier extends ChangeNotifier {
         _isFirstLogin = false;
         _initialPasswordChanged = true;
         notifyListeners();
-        print(
-          'AuthNotifier: State updated - isFirstLogin: false, initialPasswordChanged: true.',
-        ); // LOG
+        if (kDebugMode) {
+          print(
+            'AuthNotifier: State updated - isFirstLogin: false, initialPasswordChanged: true.',
+          );
+        } // LOG
       } catch (e) {
         if (kDebugMode) {
           print('Error updating first login / password changed status: $e');
@@ -391,27 +409,37 @@ class AuthNotifier extends ChangeNotifier {
         rethrow; // Rethrow for ChangePasswordPage to catch
       }
     }
-    print('AuthNotifier: completeFirstLogin finished.'); // LOG
+    if (kDebugMode) {
+      print('AuthNotifier: completeFirstLogin finished.');
+    } // LOG
   }
 
   // Update password
   Future<void> updatePassword(String newPassword) async {
-    print('AuthNotifier: updatePassword called.'); // LOG
+    if (kDebugMode) {
+      print('AuthNotifier: updatePassword called.');
+    } // LOG
     final user = _auth.currentUser;
     if (user != null) {
       try {
         await user.updatePassword(newPassword);
-        print('AuthNotifier: Firebase password updated.'); // LOG
+        if (kDebugMode) {
+          print('AuthNotifier: Firebase password updated.');
+        } // LOG
         await completeFirstLogin();
-        print('AuthNotifier: updatePassword finished successfully.'); // LOG
+        if (kDebugMode) {
+          print('AuthNotifier: updatePassword finished successfully.');
+        } // LOG
       } catch (e) {
-        print('AuthNotifier: Error updating password: $e'); // LOG
+        if (kDebugMode) {
+          print('AuthNotifier: Error updating password: $e');
+        } // LOG
         rethrow;
       }
     } else {
-      print(
-        'AuthNotifier: Error updating password - No authenticated user.',
-      ); // LOG
+      if (kDebugMode) {
+        print('AuthNotifier: Error updating password - No authenticated user.');
+      } // LOG
       throw Exception('No authenticated user');
     }
   }
@@ -527,8 +555,9 @@ class AppRouter {
     if (location.startsWith('/') && location.length == 1) return 0; // Home
     if (location.startsWith('/clients')) return 1;
     if (location.startsWith('/messages')) return 2;
-    if (location.startsWith('/settings'))
+    if (location.startsWith('/settings')) {
       return 3; // Renamed /profile to /settings
+    }
     return 0; // Default to home
   }
 
@@ -540,9 +569,11 @@ class AppRouter {
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
     redirect: (context, state) {
-      print(
-        'GoRouter Redirect: Checking auth state... Current location: ${state.uri.toString()}',
-      ); // LOG
+      if (kDebugMode) {
+        print(
+          'GoRouter Redirect: Checking auth state... Current location: ${state.uri.toString()}',
+        );
+      } // LOG
       try {
         final container = ProviderScope.containerOf(context);
         final salesforceAuthState = container.read(salesforceAuthProvider);
@@ -556,17 +587,21 @@ class AppRouter {
 
         // --- 0. Allow staying on /auth-loading while login process happens ---
         if (!isAuthenticated && isLoadingPage) {
-          print(
-            'GoRouter Redirect: On /auth-loading and not authenticated yet. Staying put.',
-          ); // LOG
+          if (kDebugMode) {
+            print(
+              'GoRouter Redirect: On /auth-loading and not authenticated yet. Staying put.',
+            );
+          } // LOG
           return null; // Stay on loading page
         }
 
         // --- 1. User Not Authenticated (and NOT on loading page) ---
         if (!isAuthenticated) {
-          print(
-            'GoRouter Redirect: Not logged in, redirecting to /login from ${state.uri.toString()}',
-          ); // LOG
+          if (kDebugMode) {
+            print(
+              'GoRouter Redirect: Not logged in, redirecting to /login from ${state.uri.toString()}',
+            );
+          } // LOG
           // Don't redirect to login if already there or on the loading page (handled above)
           return isLoginPage ? null : '/login';
         }
@@ -576,9 +611,11 @@ class AppRouter {
         // --- 2. Redirect AWAY from /auth-loading page after auth completes ---
         if (isLoadingPage) {
           final target = isAdmin ? '/admin' : '/';
-          print(
-            'GoRouter Redirect: Authenticated on loading page, redirecting to $target',
-          ); // LOG
+          if (kDebugMode) {
+            print(
+              'GoRouter Redirect: Authenticated on loading page, redirecting to $target',
+            );
+          } // LOG
           return target;
         }
 
@@ -591,9 +628,11 @@ class AppRouter {
           }
           // Redirect to the appropriate home page based on role.
           final target = isAdmin ? '/admin' : '/';
-          print(
-            'GoRouter Redirect: Logged in, redirecting to $target from ${state.uri.toString()}',
-          ); // LOG
+          if (kDebugMode) {
+            print(
+              'GoRouter Redirect: Logged in, redirecting to $target from ${state.uri.toString()}',
+            );
+          } // LOG
           return target;
         }
 
@@ -609,9 +648,11 @@ class AppRouter {
                 '[Redirect] Admin detected outside allowed routes ($currentRoute). Forcing to /admin.',
               );
             }
-            print(
-              'GoRouter Redirect: Admin detected outside allowed routes, redirecting to /admin from ${state.uri.toString()}',
-            ); // LOG
+            if (kDebugMode) {
+              print(
+                'GoRouter Redirect: Admin detected outside allowed routes, redirecting to /admin from ${state.uri.toString()}',
+              );
+            } // LOG
             return '/admin';
           }
 
@@ -662,9 +703,11 @@ class AppRouter {
                 '[Redirect] Reseller detected on admin/proposal route ($currentRoute). Forcing to /reseller.',
               );
             }
-            print(
-              'GoRouter Redirect: Reseller detected on admin/proposal route, redirecting to /reseller from ${state.uri.toString()}',
-            ); // LOG
+            if (kDebugMode) {
+              print(
+                'GoRouter Redirect: Reseller detected on admin/proposal route, redirecting to /reseller from ${state.uri.toString()}',
+              );
+            } // LOG
             return '/reseller'; // Use /reseller as base for reseller
           }
           // Allow reseller to stay on any other non-admin page.
@@ -672,10 +715,11 @@ class AppRouter {
         }
 
         // Allow access if no other rule applied
-        if (kDebugMode)
+        if (kDebugMode) {
           print(
             'GoRouter Redirect: No specific redirect needed for $currentRoute. Allowing access.',
           );
+        }
 
         return null; // Allow navigation
       } catch (e) {
@@ -1097,7 +1141,7 @@ class AppRouter {
                 body: Center(
                   child: Text('Error: Missing required proposal data'),
                 ),
-              ), // TODO: l10n
+              ),
             );
           }
 
@@ -1122,7 +1166,7 @@ class AppRouter {
                 body: Center(
                   child: Text('Error: Invalid or incomplete proposal data'),
                 ),
-              ), // TODO: l10n
+              ),
             );
           }
 

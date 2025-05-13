@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -9,7 +8,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../../../core/theme/theme.dart';
 import '../../domain/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
@@ -118,7 +116,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   @override
   void dispose() {
-    print('--- ChatPage dispose START ---');
+    if (kDebugMode) {
+      print('--- ChatPage dispose START ---');
+    }
     // Remove listener from text controller
     _messageController.removeListener(_updateHasText);
 
@@ -128,7 +128,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Set user as inactive in this conversation before disposing
     try {
       // Use the stored notifier instance directly
-      print('--- ChatPage dispose: Calling setUserActive(false) ---');
+      if (kDebugMode) {
+        print('--- ChatPage dispose: Calling setUserActive(false) ---');
+      }
       _chatNotifier.setUserActiveInConversation(widget.conversationId, false);
       /* --- REMOVE OLD LOGIC ---
       if (mounted) {
@@ -148,17 +150,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
-    print('--- ChatPage dispose END ---');
+    if (kDebugMode) {
+      print('--- ChatPage dispose END ---');
+    }
     super.dispose();
-  }
-
-  // Track user active status in conversation
-  void _setUserActiveInConversation(bool isActive) {
-    // Use the stored notifier
-    _chatNotifier.setUserActiveInConversation(widget.conversationId, isActive);
-    // ref
-    //     .read(chatNotifierProvider.notifier)
-    //     .setUserActiveInConversation(widget.conversationId, isActive);
   }
 
   void _markAsRead() {
@@ -329,15 +324,21 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Debug logging when messages stream changes
     if (kDebugMode && messagesStream is AsyncLoading) {
-      print('DEBUG: Messages stream loading for ${widget.conversationId}');
+      if (kDebugMode) {
+        print('DEBUG: Messages stream loading for ${widget.conversationId}');
+      }
     } else if (kDebugMode && messagesStream is AsyncError) {
-      print(
-        'DEBUG: Messages stream error: ${(messagesStream as AsyncError).error}',
-      );
+      if (kDebugMode) {
+        print(
+          'DEBUG: Messages stream error: ${(messagesStream as AsyncError).error}',
+        );
+      }
     } else if (kDebugMode && messagesStream is AsyncData) {
-      print(
-        'DEBUG: Messages loaded: ${(messagesStream as AsyncData<List<ChatMessage>>).value.length}',
-      );
+      if (kDebugMode) {
+        print(
+          'DEBUG: Messages loaded: ${(messagesStream as AsyncData<List<ChatMessage>>).value.length}',
+        );
+      }
     }
 
     // Check if support is online (between 9am and 6pm)
@@ -1353,13 +1354,13 @@ class SafeNetworkImage extends StatefulWidget {
   final BorderRadius borderRadius;
 
   const SafeNetworkImage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     this.fit = BoxFit.cover,
     this.width,
     this.height,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
-  }) : super(key: key);
+  });
 
   @override
   State<SafeNetworkImage> createState() => _SafeNetworkImageState();
@@ -1909,7 +1910,7 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         print('Error getting fresh download URL: $e');
       }
       // Any error, just let it fail so we show the placeholder
-      throw e;
+      rethrow;
     }
 
     // If anything fails, return the original URL with a cache-busting parameter
@@ -1938,7 +1939,11 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       if (sanitizedString.length % 4 != 0) {
         if (kDebugMode) {
           print('Correcting base64 padding for truncated data');
+        }
+        if (kDebugMode) {
           print('Original length: ${base64String.length}');
+        }
+        if (kDebugMode) {
           print('Sanitized length: ${sanitizedString.length}');
         }
 

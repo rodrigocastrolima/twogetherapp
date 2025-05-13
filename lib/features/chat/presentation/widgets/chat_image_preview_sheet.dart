@@ -2,11 +2,11 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import '../../../../core/theme/theme.dart';
+
 import '../providers/chat_provider.dart';
 
 class ChatImagePreviewSheet extends ConsumerStatefulWidget {
@@ -14,10 +14,10 @@ class ChatImagePreviewSheet extends ConsumerStatefulWidget {
   final String conversationId;
 
   const ChatImagePreviewSheet({
-    Key? key,
+    super.key,
     required this.imageFile,
     required this.conversationId,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ChatImagePreviewSheet> createState() =>
@@ -35,7 +35,6 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
     });
 
     // Keep track of the original context before async gap
-    final currentContext = context;
 
     try {
       if (kDebugMode) {
@@ -62,24 +61,22 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
       }
 
       // Close the bottom sheet on success
-      if (mounted) {
-        Navigator.pop(currentContext, true); // Indicate success
-      }
+      if (!mounted) return;
+      Navigator.pop(context, true); // Indicate success
     } on TimeoutException catch (e) {
       if (kDebugMode) {
         print('Error sending image: $e');
       }
-      if (mounted) {
-        // Show timeout error
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-            content: Text('Tempo limite de upload excedido.'),
-            backgroundColor: Theme.of(currentContext).colorScheme.error,
-          ),
-        );
-        // Close the bottom sheet even on timeout
-        Navigator.pop(currentContext, false);
-      }
+      if (!mounted) return;
+      // Show timeout error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Tempo limite de upload excedido.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      // Close the bottom sheet even on timeout
+      Navigator.pop(context, false);
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Error in _handleSendImage: $e');
@@ -89,16 +86,15 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
       // Generic error message (customize as needed)
       final errorMessage = 'Erro ao enviar imagem: ${e.toString()}';
 
-      if (mounted) {
-        ScaffoldMessenger.of(currentContext).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Theme.of(currentContext).colorScheme.error,
-          ),
-        );
-        // Close the bottom sheet on error
-        Navigator.pop(currentContext, false);
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      // Close the bottom sheet on error
+      Navigator.pop(context, false);
     } finally {
       // Ensure loading state is reset even if context is gone
       if (mounted) {
@@ -117,8 +113,8 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
 
     // Use a Scaffold for structure within the overlay route
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(
-        0.85,
+      backgroundColor: Colors.black.withAlpha(
+        (255 * 0.85).round(),
       ), // Dark semi-transparent background
       body: Stack(
         children: [
@@ -144,7 +140,7 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
               tooltip: 'Cancelar',
               onPressed: () => Navigator.pop(context, false),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withOpacity(0.3),
+                backgroundColor: Colors.black.withAlpha((255 * 0.3).round()),
               ),
             ),
           ),
@@ -191,7 +187,9 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
               if (snapshot.hasError ||
                   !snapshot.hasData ||
                   snapshot.data!.isEmpty) {
-                print('Error loading web preview: ${snapshot.error}');
+                if (kDebugMode) {
+                  print('Error loading web preview: ${snapshot.error}');
+                }
                 return _buildPreviewErrorWidget(
                   'Erro ao carregar pré-visualização',
                 );
@@ -200,9 +198,11 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
             },
           );
         } else {
-          print(
-            'Unsupported web image file type: ${widget.imageFile.runtimeType}',
-          );
+          if (kDebugMode) {
+            print(
+              'Unsupported web image file type: ${widget.imageFile.runtimeType}',
+            );
+          }
           return _buildPreviewErrorWidget('Tipo de ficheiro não suportado');
         }
       } else {
@@ -215,14 +215,18 @@ class _ChatImagePreviewSheetState extends ConsumerState<ChatImagePreviewSheet> {
         } else if (widget.imageFile is File) {
           return Image.file(widget.imageFile as File, fit: BoxFit.contain);
         } else {
-          print(
-            'Unsupported mobile image file type: ${widget.imageFile.runtimeType}',
-          );
+          if (kDebugMode) {
+            print(
+              'Unsupported mobile image file type: ${widget.imageFile.runtimeType}',
+            );
+          }
           return _buildPreviewErrorWidget('Tipo de ficheiro não suportado');
         }
       }
     } catch (e, stackTrace) {
-      print('Exception in _buildImagePreviewWidget: $e\n$stackTrace');
+      if (kDebugMode) {
+        print('Exception in _buildImagePreviewWidget: $e\n$stackTrace');
+      }
       return _buildPreviewErrorWidget('Erro ao exibir pré-visualização');
     }
   }

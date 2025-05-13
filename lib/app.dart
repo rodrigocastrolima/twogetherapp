@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'app/router/app_router.dart';
-import 'core/theme/theme.dart';
-import 'core/providers/theme_provider.dart';
-import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
-
 class App extends ConsumerWidget {
   const App({super.key});
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'theme.dart';
-import 'colors.dart';
 
 /// Common UI styles shared across the application
 class AppStyles {
@@ -185,11 +184,22 @@ class NoScrollbarBehavior extends ScrollBehavior {
   const NoScrollbarBehavior();
 
   @override
-  Widget buildViewportChrome(
+  Widget buildScrollbar(
     BuildContext context,
     Widget child,
-    AxisDirection axisDirection,
+    ScrollableDetails details,
   ) {
+    // Return child directly to remove scrollbar
+    return child;
+  }
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    // Return child directly to remove overscroll indicator
     return child;
   }
 

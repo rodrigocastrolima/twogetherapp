@@ -1,6 +1,7 @@
 ---
-description: fixing linting errors
+description: 
 globs: 
+alwaysApply: true
 ---
 # Common Lint Fix Rules (.mdc)
 

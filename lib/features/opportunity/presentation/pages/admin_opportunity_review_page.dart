@@ -11,7 +11,6 @@ import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
-import 'package:twogether/core/theme/theme.dart'; // Import AppTheme for context access if needed indirectly
 import 'package:twogether/core/services/salesforce_auth_service.dart'; // Import SF Auth Service
 import 'package:twogether/features/opportunity/data/models/create_opp_models.dart'; // Import models
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import provider
@@ -54,7 +53,7 @@ class _OpportunityDetailFormViewState
 
   // State variables for derived/fetched data
   String? _resellerDisplayName;
-  bool _isLoadingReseller = true;
+  bool _isLoadingReseller = true; // Restoring field
   String? _tipoOportunidadeValue;
   final String _faseValue = "0 - Oportunidade Identificada"; // Fixed value
   String? _resellerSalesforceId; // Added to store the fetched Salesforce ID
@@ -62,7 +61,7 @@ class _OpportunityDetailFormViewState
   // --- NEW: State for NIF Check --- //
   NifCheckStatus _nifCheckStatus = NifCheckStatus.initial;
   String? _nifCheckMessage;
-  bool _isCheckingNif = false;
+  bool _isCheckingNif = false; // Restoring field
   // --- END NEW --- //
 
   // State for submission button loading
@@ -221,7 +220,6 @@ class _OpportunityDetailFormViewState
 
   Future<void> _fetchResellerName() async {
     setState(() {
-      _isLoadingReseller = true;
       _resellerDisplayName = null; // Reset on fetch start
       _resellerSalesforceId = null; // Reset on fetch start
       _agenteRetailController.text = 'A carregar...'; // Loading...
@@ -541,105 +539,102 @@ class _OpportunityDetailFormViewState
   // --- NEW: Handler for the Approve Action ---
   Future<void> _approveSubmission() async {
     // 1. Validate Form
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Por favor, preencha todos os campos obrigatórios.',
-          ), // Please fill all required fields.
-        ),
-      );
-      return;
+    final isValid = _formKey.currentState?.validate() ?? false;
+
+    if (kDebugMode) {
+      print('User pressed approve. Validation passed: $isValid');
     }
 
-    // 2. Validate Reseller Salesforce ID
-    if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Não é possível aprovar: ID Salesforce do Revendedor em falta.',
-          ), // Cannot approve: Reseller Salesforce ID is missing.
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    // --- RE-ENABLE Salesforce Auth Check --- //
-    // 3. Get Salesforce Auth Details
-    final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
-    final String? accessToken = await sfAuthNotifier.getValidAccessToken();
-    final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
-
-    if (accessToken == null || instanceUrl == null) {
-      if (mounted) {
+    if (isValid) {
+      // 2. Validate Reseller Salesforce ID
+      if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Sessão Salesforce inválida. Tente sair e entrar novamente ou atualizar.', // Salesforce session invalid. Please try logging out and back in, or refresh.
-            ),
+              'Não é possível aprovar: ID Salesforce do Revendedor em falta.',
+            ), // Cannot approve: Reseller Salesforce ID is missing.
           ),
         );
+        return;
       }
-      setState(() => _isSubmitting = false);
-      return;
-    }
-    // print("--- SKIPPED Salesforce Auth Check for UI testing ---");
-    // --- END RE-ENABLE --- //
 
-    // --- RE-ENABLE Params creation --- //
-    // 4. Gather Parameters
-    final params = CreateOppParams(
-      submissionId: widget.submission.id!, // Assume ID is non-null here
-      accessToken: accessToken, // Use the fetched token
-      instanceUrl: instanceUrl, // Use the fetched URL
-      resellerSalesforceId:
-          _resellerSalesforceId!, // Use fetched Reseller SF ID
-      opportunityName: _nameController.text,
-      nif: _nifController.text,
-      companyName:
-          widget.submission.companyName ??
-          widget.submission.responsibleName, // Use fallback logic
-      segment: _selectedSegmentoCliente!, // Assume selected
-      solution: _selectedSolucao!, // Assume selected
-      closeDate:
-          _fechoController.text, // Pass the formatted string from date picker
-      opportunityType: _tipoOportunidadeValue!, // Assume determined
-      phase: _faseValue, // Use fixed value
-      fileUrls: widget.submission.documentUrls, // Pass the list of URLs/paths
-    );
-    // print("--- SKIPPED Param Creation for UI testing ---");
-    // --- END RE-ENABLE --- //
+      setState(() => _isSubmitting = true);
 
-    // 5. Call the Provider & Remove Dummy Result
-    try {
-      // --- RE-ENABLE the actual call --- //
-      final result = await ref.read(createOpportunityProvider(params).future);
+      // --- RE-ENABLE Salesforce Auth Check --- //
+      // 3. Get Salesforce Auth Details
+      final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
+      final String? accessToken = await sfAuthNotifier.getValidAccessToken();
+      final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
+
+      if (accessToken == null || instanceUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sessão Salesforce inválida. Tente sair e entrar novamente ou atualizar.', // Salesforce session invalid. Please try logging out and back in, or refresh.
+              ),
+            ),
+          );
+        }
+        setState(() => _isSubmitting = false);
+        return;
+      }
+      // print("--- SKIPPED Salesforce Auth Check for UI testing ---");
       // --- END RE-ENABLE --- //
 
-      // --- REMOVE Dummy Result --- //
-      /*
-      final result = CreateOppResult(
-        success: true,
-        opportunityId: 'DUMMY_OPP_ID_123', // Placeholder SF Opportunity ID
-        error: null,
-        sessionExpired: false,
+      // --- RE-ENABLE Params creation --- //
+      // 4. Gather Parameters
+      final params = CreateOppParams(
+        submissionId: widget.submission.id!, // Assume ID is non-null here
+        accessToken: accessToken, // Use the fetched token
+        instanceUrl: instanceUrl, // Use the fetched URL
+        resellerSalesforceId:
+            _resellerSalesforceId!, // Use fetched Reseller SF ID
+        opportunityName: _nameController.text,
+        nif: _nifController.text,
+        companyName:
+            widget.submission.companyName ??
+            widget.submission.responsibleName, // Use fallback logic
+        segment: _selectedSegmentoCliente!, // Assume selected
+        solution: _selectedSolucao!, // Assume selected
+        closeDate:
+            _fechoController.text, // Pass the formatted string from date picker
+        opportunityType: _tipoOportunidadeValue!, // Assume determined
+        phase: _faseValue, // Use fixed value
+        fileUrls: widget.submission.documentUrls, // Pass the list of URLs/paths
       );
-      */
-      // --- END REMOVE --- //
+      // print("--- SKIPPED Param Creation for UI testing ---");
+      // --- END RE-ENABLE --- //
 
-      _handleCreateResult(
-        result,
-      ); // Handle the actual success/failure from the function call
-    } catch (e) {
-      _handleCreateError(e);
-      // If an error happened *before* _handleCreateResult, reset loading state
-      if (mounted) {
-        setState(() => _isSubmitting = false);
+      // 5. Call the Provider & Remove Dummy Result
+      try {
+        // --- RE-ENABLE the actual call --- //
+        final result = await ref.read(createOpportunityProvider(params).future);
+        // --- END RE-ENABLE --- //
+
+        // --- REMOVE Dummy Result --- //
+        /*
+        final result = CreateOppResult(
+          success: true,
+          opportunityId: 'DUMMY_OPP_ID_123', // Placeholder SF Opportunity ID
+          error: null,
+          sessionExpired: false,
+        );
+        */
+        // --- END REMOVE --- //
+
+        _handleCreateResult(
+          result,
+        ); // Handle the actual success/failure from the function call
+      } catch (e) {
+        _handleCreateError(e);
+        // If an error happened *before* _handleCreateResult, reset loading state
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+        }
       }
+      // No finally block needed, _handleCreateResult manages state
     }
-    // No finally block needed, _handleCreateResult manages state
   }
 
   // --- NEW: Handler for Cloud Function Result ---
@@ -823,7 +818,9 @@ class _OpportunityDetailFormViewState
   // --- NEW: Handler for Provider Call Errors ---
   void _handleCreateError(Object e) {
     if (!mounted) return;
-    print("Error calling createOpportunityProvider: $e");
+    if (kDebugMode) {
+      print("Error calling createOpportunityProvider: $e");
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Erro: ${e.toString()}")), // Error: ...
     );
@@ -966,16 +963,16 @@ class _OpportunityDetailFormViewState
                   Expanded(
                     // Make TextFormField take available space
                     child: TextFormField(
-                controller: _nifController,
-                decoration: InputDecoration(
+                      controller: _nifController,
+                      decoration: InputDecoration(
                         labelText: 'NIF', // NIF (already Portuguese)
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
                           return 'NIF é obrigatório'; // NIF is required
-                  }
-                  return null;
-                },
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 12), // Adjusted spacing
@@ -1150,13 +1147,13 @@ class _OpportunityDetailFormViewState
                     // Update state/controller with pickedDate (formatted as YYYY-MM-DD)
                     setState(() {
                       _selectedFechoDate = pickedDate;
-                      _fechoController.text = DateFormat(
-                        'yyyy-MM-dd',
-                      ).format(pickedDate);
+                      _fechoController.text = DateFormat.yMd().format(
+                        pickedDate,
+                      );
+                      if (kDebugMode) {
+                        print('Selected Fecho Date: $_selectedFechoDate');
+                      }
                     });
-                    print(
-                      'Date selected: ${DateFormat('yyyy-MM-dd').format(pickedDate)}',
-                    );
                   }
                 },
                 validator: (value) {
@@ -1262,7 +1259,7 @@ class _OpportunityDetailFormViewState
     final rejectionReason = widget.submission.reviewDetails?.rejectionReason;
     final reviewTimestamp =
         widget.submission.reviewDetails?.reviewTimestamp
-            ?.toDate(); // Convert Timestamp to DateTime
+            .toDate(); // Convert Timestamp to DateTime
     final reviewerId =
         widget
             .submission
@@ -1279,7 +1276,7 @@ class _OpportunityDetailFormViewState
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(0.15),
+        color: theme.colorScheme.errorContainer.withAlpha((255 * 0.15).round()),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.colorScheme.errorContainer, width: 0.5),
       ),
@@ -1364,6 +1361,9 @@ class _OpportunityDetailFormViewState
                     ? null
                     : () async {
                       final reason = await _showRejectionDialog();
+                      if (kDebugMode) {
+                        print('Rejection reason: $reason');
+                      }
                       if (reason != null && reason.isNotEmpty) {
                         await _handleRejection(reason);
                       }
@@ -1402,7 +1402,9 @@ class _OpportunityDetailFormViewState
     const String adminId =
         "ADMIN_PLACEHOLDER_ID"; // Replace with actual admin ID fetch
     if (adminId == "ADMIN_PLACEHOLDER_ID") {
-      print("Warning: Using placeholder Admin ID for rejection.");
+      if (kDebugMode) {
+        print("Warning: Using placeholder Admin ID for rejection.");
+      }
       // Potentially show a warning SnackBar if needed
     }
 
@@ -1439,7 +1441,9 @@ class _OpportunityDetailFormViewState
           reason,
         );
       } catch (e) {
-        print("Error creating rejection notification: $e");
+        if (kDebugMode) {
+          print("Error creating rejection notification: $e");
+        }
         // Non-critical, don't fail the whole rejection
       }
       // ---------------------------------------------------
@@ -1459,7 +1463,9 @@ class _OpportunityDetailFormViewState
         }
       }
     } catch (e) {
-      print("Error rejecting submission: $e");
+      if (kDebugMode) {
+        print("Error rejecting submission: $e");
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1720,10 +1726,12 @@ class _OpportunityDetailFormViewState
       height: previewSize,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha(
+          (255 * 0.7).round(),
+        ),
+        borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
-          color: theme.dividerColor.withOpacity(0.3),
+          color: Colors.black.withAlpha((255 * 0.1).round()),
           width: 0.5,
         ),
       ),
@@ -1752,14 +1760,12 @@ class _OpportunityDetailFormViewState
     if (nifToCheck.isEmpty) {
       // Don't show error if empty, just reset status
       setState(() {
-        _isCheckingNif = false; // Ensure loading stops if it was triggered
         _nifCheckStatus = NifCheckStatus.initial;
         _nifCheckMessage = null;
       });
       return;
     } else if (!nifRegExp.hasMatch(nifToCheck)) {
       setState(() {
-        _isCheckingNif = false; // Ensure loading stops
         _nifCheckStatus = NifCheckStatus.error;
         _nifCheckMessage =
             'NIF Inválido (deve ter 9 dígitos)'; // Invalid NIF (must have 9 digits)
@@ -1769,7 +1775,6 @@ class _OpportunityDetailFormViewState
     // --- END ADDED ---
 
     setState(() {
-      _isCheckingNif = true;
       _nifCheckStatus = NifCheckStatus.loading;
       _nifCheckMessage = null;
     });
@@ -1789,7 +1794,9 @@ class _OpportunityDetailFormViewState
         _nifCheckMessage = 'Erro: Sessão Salesforce inválida ou expirada.';
       }
     } catch (e) {
-      print("Error fetching Salesforce auth details for NIF check: $e");
+      if (kDebugMode) {
+        print("Error fetching Salesforce auth details for NIF check: $e");
+      }
       _nifCheckStatus = NifCheckStatus.error;
       _nifCheckMessage = 'Erro ao obter detalhes da sessão Salesforce.';
     }
@@ -1797,7 +1804,7 @@ class _OpportunityDetailFormViewState
     if (!authValid) {
       // If auth details are invalid, update state and stop
       setState(() {
-        _isCheckingNif = false;
+        _nifCheckStatus = NifCheckStatus.error;
       });
       return;
     }
@@ -1823,8 +1830,9 @@ class _OpportunityDetailFormViewState
       // ... rest of the result handling ...
       final data = result.data;
       final bool exists = data['exists'] as bool? ?? false;
-      final String? accountId = data['accountId'] as String?;
-      final String? error = data['error'] as String?;
+      final String? errorMsg =
+          data['error']
+              as String?; // Renamed to avoid conflict with NifCheckStatus.error
       final bool sessionExpired = data['sessionExpired'] as bool? ?? false;
 
       if (sessionExpired) {
@@ -1832,17 +1840,16 @@ class _OpportunityDetailFormViewState
           _nifCheckStatus = NifCheckStatus.error;
           _nifCheckMessage = 'Erro: Sessão Salesforce expirou.';
         });
-      } else if (error != null) {
+      } else if (errorMsg != null) {
         setState(() {
           _nifCheckStatus = NifCheckStatus.error;
-          _nifCheckMessage = 'Erro na verificação: $error';
+          _nifCheckMessage = 'Erro na verificação: $errorMsg';
         });
       } else if (exists) {
         setState(() {
           _nifCheckStatus = NifCheckStatus.exists;
           _nifCheckMessage =
               'Cliente existe no Salesforce.'; // Simplified message
-          // accountId != null ? 'Cliente existe (ID: $accountId)' : 'Cliente existe';
         });
       } else {
         setState(() {
@@ -1852,17 +1859,20 @@ class _OpportunityDetailFormViewState
         });
       }
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException during NIF check: ${e.code} - ${e.message}",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException during NIF check: ${e.code} - ${e.message}",
+        );
+      }
       setState(() {
         _nifCheckStatus = NifCheckStatus.error;
         _nifCheckMessage =
             'Erro ao verificar NIF (${e.code})'; // Simplified Cloud Function error
-        // 'Erro Cloud Function (${e.code}): ${e.message ?? e.details ?? 'Unknown'}';
       });
     } catch (e) {
-      print("Generic error during NIF check: $e");
+      if (kDebugMode) {
+        print("Generic error during NIF check: $e");
+      }
       setState(() {
         _nifCheckStatus = NifCheckStatus.error;
         _nifCheckMessage =
@@ -1871,7 +1881,7 @@ class _OpportunityDetailFormViewState
     } finally {
       if (mounted) {
         setState(() {
-          _isCheckingNif = false;
+          _isCheckingNif = false; // Ensure loading state is reset
         });
       }
     }
@@ -1924,7 +1934,6 @@ class _OpportunityDetailFormViewState
         iconColor = Colors.red;
         break;
       case NifCheckStatus.initial:
-      default:
         // Show nothing initially
         return const SizedBox(width: 24); // Placeholder for alignment
     }

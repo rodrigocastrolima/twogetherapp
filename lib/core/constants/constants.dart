@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 // TODO: Review and potentially move some of these to theme or specific feature constants.
 
 class AppConstants {

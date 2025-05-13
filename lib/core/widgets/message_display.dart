@@ -9,7 +9,6 @@ class SuccessMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -53,8 +52,8 @@ class ErrorMessageWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(
-          0.5,
+        color: theme.colorScheme.errorContainer.withAlpha(
+          (255 * 0.5).round(),
         ), // Use theme error color
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(color: theme.colorScheme.error, width: 1),

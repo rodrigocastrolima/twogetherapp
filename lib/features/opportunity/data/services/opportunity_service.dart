@@ -1,5 +1,4 @@
 import 'dart:convert'; // <-- Import for base64Encode
-import 'dart:typed_data'; // <-- Import for Uint8List
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
@@ -66,25 +65,33 @@ class OpportunityService {
                     final dynamic nameValue = item['Name'] ?? item['name'];
 
                     if (idValue == null || nameValue == null) {
-                      print(
-                        '[OpportunityService] Error: Record missing required Id/Name field (case-insensitive check): $item',
-                      );
+                      if (kDebugMode) {
+                        print(
+                          '[OpportunityService] Error: Record missing required Id/Name field (case-insensitive check): $item',
+                        );
+                      }
                       return null; // Skip this record
                     }
                     // If checks pass, proceed with fromJson
                     return SalesforceOpportunity.fromJson(item);
                   } else {
                     // Log error or throw if the structure isn't as expected
-                    print(
-                      '[OpportunityService] Error: Received non-map item in list: $item',
-                    );
+                    if (kDebugMode) {
+                      print(
+                        '[OpportunityService] Error: Received non-map item in list: $item',
+                      );
+                    }
                     // throw const FormatException(
                     //   'Invalid data structure received from Cloud Function.',
                     // );
                     return null; // Skip this record
                   }
                 } catch (e) {
-                  print('[OpportunityService] Error parsing record $item: $e');
+                  if (kDebugMode) {
+                    print(
+                      '[OpportunityService] Error parsing record $item: $e',
+                    );
+                  }
                   return null; // Skip records that cause parsing errors
                 }
               })
@@ -710,7 +717,7 @@ class OpportunityService {
             error: null,
             sessionExpired: false,
           );
-        } catch (e, s) {
+        } catch (e) {
           if (kDebugMode) {
             print('[OpportunityService] Error decoding Base64 file data: $e');
           }
@@ -736,12 +743,11 @@ class OpportunityService {
           sessionExpired: false,
         );
       }
-    } on FirebaseFunctionsException catch (e, s) {
+    } on FirebaseFunctionsException catch (e) {
       if (kDebugMode) {
         print(
           '[OpportunityService] FirebaseFunctionsException calling downloadSalesforceFile: Code=${e.code}, Msg=${e.message}, Details=${e.details}',
         );
-        print(s); // Print stack trace
       }
       bool sessionExpired =
           (e.details as Map? ?? {})['sessionExpired'] == true ||
@@ -760,12 +766,11 @@ class OpportunityService {
         error: message,
         sessionExpired: sessionExpired,
       );
-    } catch (e, s) {
+    } catch (e) {
       if (kDebugMode) {
         print(
           '[OpportunityService] Unexpected error calling downloadSalesforceFile: $e',
         );
-        print(s); // Print stack trace
       }
       return (
         fileData: null,
