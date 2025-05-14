@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/chat/data/repositories/chat_repository.dart';
 import '../../widgets/success_dialog.dart';
+import '../../widgets/logo.dart';
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   const ChangePasswordPage({super.key});
@@ -46,81 +47,79 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     }
 
     _currentPasswordController.clear();
-    bool? reauthSuccess = await showDialog<bool>(
+    bool obscureCurrentPasswordDialog = true;
+
+    bool? reauthSuccess = await showCupertinoDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text('Reautenticação Necessária'),
+            return CupertinoAlertDialog(
+              title: const Text('Reautenticação Necessária'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  const Text(
                     'Por favor, insira a sua palavra-passe atual para continuar.',
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  CupertinoTextField(
                     controller: _currentPasswordController,
-                    obscureText: _obscureCurrentPassword,
+                    placeholder: 'Palavra-passe Atual',
+                    obscureText: obscureCurrentPasswordDialog,
                     autocorrect: false,
-                    decoration: InputDecoration(
-                      labelText: 'Palavra-passe Atual',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureCurrentPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setDialogState(() {
-                            _obscureCurrentPassword = !_obscureCurrentPassword;
-                          });
-                        },
-                      ),
+                    obscuringCharacter: '●',
+                    style: CupertinoTheme.of(dialogContext).textTheme.textStyle,
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                    decoration: BoxDecoration(
+                        color: CupertinoDynamicColor.resolve(CupertinoColors.systemGrey6, dialogContext),
+                        borderRadius: BorderRadius.circular(8.0),
                     ),
+                    suffix: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      child: Icon(
+                        obscureCurrentPasswordDialog
+                            ? CupertinoIcons.eye_slash_fill
+                            : CupertinoIcons.eye_fill,
+                        color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, dialogContext),
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
+                        });
+                      },
+                    ),
+                    suffixMode: OverlayVisibilityMode.editing,
                   ),
                 ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text('Cancelar'),
+                CupertinoDialogAction(
+                  child: const Text('Cancelar'),
+                  onPressed: () => Navigator.pop(dialogContext, false),
                 ),
-                ElevatedButton(
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  child: const Text('Confirmar'),
                   onPressed: () async {
-                    if (_currentPasswordController.text.isEmpty) {
-                      return;
-                    }
+                    if (_currentPasswordController.text.isEmpty) return;
                     try {
                       final credential = EmailAuthProvider.credential(
                         email: user.email!,
                         password: _currentPasswordController.text,
                       );
                       await user.reauthenticateWithCredential(credential);
-                      if (context.mounted) Navigator.pop(context, true);
+                      if (dialogContext.mounted) Navigator.pop(dialogContext, true);
                     } on FirebaseAuthException catch (e) {
-                      if (context.mounted) Navigator.pop(context, false);
-                      if (mounted) {
-                        setState(() {
-                          _errorMessage = 'Falha na reautenticação: ${e.code}';
-                          _isLoading = false;
-                        });
-                      }
+                      if (dialogContext.mounted) Navigator.pop(dialogContext, false);
+                      if (mounted) setState(() { _errorMessage = 'Falha na reautenticação: ${e.code}'; _isLoading = false; });
                     } catch (e) {
-                      if (context.mounted) Navigator.pop(context, false);
-                      if (mounted) {
-                        setState(() {
-                          _errorMessage =
-                              'Ocorreu um erro durante a reautenticação.';
-                          _isLoading = false;
-                        });
-                      }
+                      if (dialogContext.mounted) Navigator.pop(dialogContext, false);
+                      if (mounted) setState(() { _errorMessage = 'Ocorreu um erro durante a reautenticação.'; _isLoading = false; });
                     }
                   },
-                  child: Text('Confirmar'),
                 ),
               ],
             );
@@ -273,6 +272,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
 
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
@@ -352,34 +352,22 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
 
               const SizedBox(height: 32),
 
-              FilledButton(
-                onPressed: _isLoading ? null : _handleChangePassword,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton.filled(
+                  onPressed: _isLoading ? null : _handleChangePassword,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child:
-                    _isLoading
-                        ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              colorScheme.onPrimary,
-                            ),
-                          ),
-                        )
-                        : Text(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CupertinoActivityIndicator(color: CupertinoColors.white))
+                      : Text(
                           'Guardar Palavra-passe',
                           style: textTheme.labelLarge?.copyWith(
-                            color: colorScheme.onPrimary,
+                            color: CupertinoColors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                ),
               ),
             ],
           ),
@@ -399,6 +387,8 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
           onPressed: () => context.pop(),
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,
         ),
+        title: LogoWidget(height: 60, darkMode: isDark),
+        centerTitle: true,
       ),
       extendBodyBehindAppBar: true,
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -425,57 +415,39 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     required bool obscureText,
     required VoidCallback onToggleObscure,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final cupertinoTheme = CupertinoTheme.of(context);
+    final isDark = cupertinoTheme.brightness == Brightness.dark;
 
-    final InputDecoration effectiveDecoration = InputDecoration(
-      hintText: labelText,
-      hintStyle: textTheme.bodyLarge?.copyWith(
-        color: Color.alphaBlend(
-          colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()),
-          Colors.transparent,
-        ),
-      ),
-      filled: true,
-      fillColor: Color.alphaBlend(
-        colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
-        Colors.transparent,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      suffixIcon: IconButton(
-        icon: Icon(obscureText ? CupertinoIcons.eye_slash : CupertinoIcons.eye),
-        color: Color.alphaBlend(
-          colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
-          Colors.transparent,
-        ),
-        iconSize: 20,
-        tooltip: obscureText ? 'Show password' : 'Hide password',
-        onPressed: onToggleObscure,
-      ),
-    );
-
-    return TextField(
+    return CupertinoTextField(
       controller: controller,
-      decoration: effectiveDecoration,
-      style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
+      placeholder: labelText,
+      placeholderStyle: TextStyle(
+        color: CupertinoDynamicColor.resolve(CupertinoColors.placeholderText, context),
+      ),
+      style: cupertinoTheme.textTheme.textStyle.copyWith(
+        color: CupertinoDynamicColor.resolve(CupertinoColors.label, context),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       obscureText: obscureText,
       keyboardType: TextInputType.visiblePassword,
       autocorrect: false,
       enableSuggestions: false,
       obscuringCharacter: '●',
+      decoration: BoxDecoration(
+        color: CupertinoDynamicColor.resolve(isDark ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemGrey6, context),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      suffix: CupertinoButton(
+        padding: EdgeInsets.zero,
+        minSize: 0,
+        child: Icon(
+          obscureText ? CupertinoIcons.eye_slash_fill : CupertinoIcons.eye_fill,
+          color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, context),
+          size: 22,
+        ),
+        onPressed: onToggleObscure,
+      ),
+      suffixMode: OverlayVisibilityMode.editing,
     );
   }
 }

@@ -92,12 +92,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final width = MediaQuery.of(context).size.width;
     final isSmallScreen = width < 600; // Threshold for mobile/desktop
 
-    final Color backgroundColor = theme.colorScheme.surface;
+    // Determine the effective background color based on the selected index
+    final bool isHomePage = _selectedIndex == 0;
+    final Color effectiveBackgroundColor = isHomePage 
+        ? theme.colorScheme.surface // For home page, allows ResellerHomePage to control its specific background layers
+        : theme.colorScheme.background; // For other pages, use the darker background
+
     final bool showNavigation =
         widget.location != '/change-password'; // Renamed for clarity
 
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: effectiveBackgroundColor, // Use effective background color
       extendBodyBehindAppBar:
           true, // Keep for homepage transparent app bar effect
       extendBody: true, // Keep for homepage transparent app bar effect
@@ -107,13 +112,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               : null,
       body: Container(
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: effectiveBackgroundColor, // Use effective background color
         ), // Ensure full background coverage
         child: Material(
           color: Colors.transparent,
           child: Stack(
             children: [
-              _buildMainContent(isSmallScreen, showNavigation, theme),
+              _buildMainContent(isSmallScreen, showNavigation, theme, effectiveBackgroundColor),
               if (!isSmallScreen && showNavigation)
                 _buildDesktopSidebar(
                   context,
@@ -147,81 +152,47 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             surfaceTintColor: Colors.transparent,
             toolbarHeight: 56.0,
             leading: _selectedIndex == 2 ? null : null,
-            title:
-                _selectedIndex == 2
-                    ? Padding(
-                      padding: const EdgeInsets.only(top: 0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(
-                                    (255 * 0.05).round(),
+            title: _selectedIndex == 2
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Suporte Twogether',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: isOnline ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                          boxShadow: isOnline
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.green.withAlpha((255 * 0.4).round()),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
                                   ),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(6),
-                            child: Image.asset(
-                              'assets/images/twogether_logo_dark_br.png',
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Suporte Twogether',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: isOnline ? Colors.green : Colors.grey,
-                                  shape: BoxShape.circle,
-                                  boxShadow:
-                                      isOnline
-                                          ? [
-                                            BoxShadow(
-                                              color: Colors.green.withAlpha(
-                                                (255 * 0.4).round(),
-                                              ),
-                                              blurRadius: 3,
-                                              spreadRadius: 1,
-                                            ),
-                                          ]
-                                          : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                ]
+                              : null,
+                        ),
                       ),
-                    )
-                    : Container(
-                      height: 56.0,
-                      alignment: Alignment.center,
-                      child: LogoWidget(
-                        height: 40,
-                        darkMode:
-                            Theme.of(context).brightness == Brightness.dark,
-                      ),
+                    ],
+                  )
+                : Container(
+                    height: 56.0, 
+                    alignment: Alignment.center,
+                    child: LogoWidget(
+                      height: 40, 
+                      darkMode: theme.brightness == Brightness.dark,
                     ),
+                  ),
             centerTitle: true,
             actions: const [],
           ),
@@ -234,6 +205,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     bool isSmallScreen,
     bool showNavElements,
     ThemeData theme,
+    Color effectiveBackgroundColor, // Pass the color here
   ) {
     final bool isHomePage = widget.currentIndex == 0;
 
@@ -252,7 +224,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         child:
             _isTransitioning
                 ? Container(
-                  color: theme.colorScheme.surface,
+                  color: effectiveBackgroundColor, // Use effective background color for transition
                 ) // Transition placeholder
                 : KeyedSubtree(
                   key: ValueKey(

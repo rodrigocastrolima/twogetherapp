@@ -47,15 +47,19 @@ class NotificationRepository {
   Stream<List<UserNotification>> getAdminSubmissionNotifications() {
     try {
       if (kDebugMode) {
-        print('Getting admin submission and proposal rejection notifications');
+        print('Getting admin submission, proposal rejection, and proposal acceptance notifications');
       }
 
-      // Get all notifications with type 'newSubmission' or 'proposalRejected'
+      // Get all notifications with type 'newSubmission', 'proposalRejected', or 'proposalAccepted'
       return _notificationsRef
           .where(
             'type',
-            whereIn: ['newSubmission', 'proposalRejected'],
-          ) // Updated to include proposalRejected
+            whereIn: [
+              'newSubmission', 
+              'proposalRejected',
+              'proposalAccepted'
+            ],
+          ) 
           .orderBy('createdAt', descending: true)
           .limit(50) // Limit to most recent 50 for performance
           .snapshots()
@@ -511,6 +515,56 @@ class NotificationRepository {
         print('[$runtimeType] $functionName: Error: $e');
       }
       rethrow; // Rethrow to allow UI to handle it
+    }
+  }
+
+  // NEW METHOD: Create a new proposal accepted and documents submitted notification
+  Future<String> createProposalAcceptedNotification({
+    required String proposalId,
+    required String proposalName,
+    String? opportunityId, // Keep optional for now
+    String? clientNif, // Using NIF as client identifier
+    String? resellerName,
+    String? resellerId,
+  }) async {
+    final functionName = 'createProposalAcceptedNotification';
+    if (kDebugMode) {
+      print('[$runtimeType] $functionName: Called for proposalId: $proposalId');
+    }
+    try {
+      final notification = UserNotification(
+        id: '', // Will be set by Firestore
+        userId: 'system', // System-level notification for admin/ops review
+        title: 'Proposta Aceite e Documentos Submetidos',
+        message:
+            'Documentos submetidos para a proposta "$proposalName" (NIF: ${clientNif ?? 'N/D'}) pelo revendedor ${resellerName ?? 'N/D'}.',
+        type: NotificationType.proposalAccepted, // Assuming you have or will add this type
+        createdAt: DateTime.now(),
+        metadata: {
+          'proposalId': proposalId,
+          'proposalName': proposalName,
+          if (opportunityId != null) 'opportunityId': opportunityId,
+          if (clientNif != null) 'clientNif': clientNif,
+          if (resellerName != null) 'resellerName': resellerName,
+          if (resellerId != null) 'resellerId': resellerId,
+          'status': 'Accepted and Documents Submitted',
+        },
+      );
+
+      final docRef = await _notificationsRef.add(notification.toFirestore());
+      if (kDebugMode) {
+        print(
+          '[$runtimeType] $functionName: Successfully created notification ${docRef.id}',
+        );
+      }
+      return docRef.id;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[$runtimeType] $functionName: Error: $e');
+      }
+      // It's often better not to rethrow here if notification failure shouldn't block primary flow
+      // Consider just logging or returning an empty/error indicator if UI needs to know
+      return ''; // Or throw specific error if needed by caller
     }
   }
 }

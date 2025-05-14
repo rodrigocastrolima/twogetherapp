@@ -8,6 +8,14 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:mime/mime.dart';
+import '../../widgets/logo.dart'; // Import LogoWidget
+import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../features/notifications/data/repositories/notification_repository.dart';
+import 'package:flutter/foundation.dart';
+import '../../widgets/success_dialog.dart'; // Import the success dialog
+import '../../widgets/app_loading_indicator.dart'; // Import the custom loading indicator
+import 'package:go_router/go_router.dart'; // Import go_router
+import '../../../features/proposal/presentation/providers/proposal_providers.dart'; // Import for provider invalidation
 
 // Enum to represent different document types
 enum DocumentType { contract, idDocument, proofOfAddress, crcDocument }
@@ -15,12 +23,14 @@ enum DocumentType { contract, idDocument, proofOfAddress, crcDocument }
 // ConsumerStatefulWidget to potentially access providers if needed (e.g., for NIF)
 class SubmitProposalDocumentsPage extends ConsumerStatefulWidget {
   final String proposalId;
+  final String proposalName;
   final List<SalesforceCPEProposalData> cpeList;
   final String nif;
 
   const SubmitProposalDocumentsPage({
     super.key,
     required this.proposalId,
+    required this.proposalName,
     required this.cpeList,
     required this.nif,
   });
@@ -48,6 +58,20 @@ class _SubmitProposalDocumentsPageState
     for (var cpe in widget.cpeList) {
       _contractFiles[cpe.id] = null;
     }
+  }
+
+  bool _areAllDocumentsReady() {
+    if (!_isDigitallySigned) {
+      // Check all contract files if not digitally signed
+      for (var cpeEntry in _contractFiles.entries) {
+        if (cpeEntry.value == null) return false;
+      }
+    }
+    // Check other mandatory documents
+    if (_idDocumentFile == null) return false;
+    if (_proofOfAddressFile == null) return false;
+    if (_crcDocumentFile == null) return false;
+    return true;
   }
 
   // Method to pick a file
@@ -113,30 +137,27 @@ class _SubmitProposalDocumentsPageState
 
   // Placeholder for file upload logic
   Future<void> _submitDocuments() async {
-    if (_isLoading) return;
+    if (_isLoading || !_areAllDocumentsReady()) return;
 
     setState(() => _isLoading = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
 
     // 1. Validation
     List<String> missingFiles = [];
     if (!_isDigitallySigned) {
       for (var cpeEntry in _contractFiles.entries) {
         if (cpeEntry.value == null) {
-          // Find corresponding CPE Data for the ID
           final cpeData = widget.cpeList.firstWhere(
             (c) => c.id == cpeEntry.key,
             orElse:
                 () =>
                     SalesforceCPEProposalData(id: 'unknown', attachedFiles: []),
           );
-          // Use the ID for the message, showing last 6 chars
           final String displayId =
               cpeData.id.length > 6
                   ? cpeData.id.substring(cpeData.id.length - 6)
                   : cpeData.id;
-          missingFiles.add('Contrato (ID: ...$displayId)'); // Use ID in message
+          missingFiles.add('Contrato (ID: ...$displayId)');
         }
       }
     }
@@ -152,7 +173,7 @@ class _SubmitProposalDocumentsPageState
           backgroundColor: Colors.orange,
         ),
       );
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -237,19 +258,13 @@ class _SubmitProposalDocumentsPageState
 
       // 4. If any upload failed, stop here
       if (uploadErrorOccurred) {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
       // 5. Call Cloud Function
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       final callable = functions.httpsCallable('acceptProposalAndUploadDocs');
-
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('A submeter documentos para Salesforce...'),
-        ),
-      );
 
       final result = await callable.call<Map<String, dynamic>>({
         'proposalId': widget.proposalId,
@@ -259,14 +274,44 @@ class _SubmitProposalDocumentsPageState
 
       // 6. Handle result
       if (result.data['success'] == true) {
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Documentos submetidos com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
+        // Invalidate the provider for proposal details to ensure refresh
+        ref.invalidate(resellerProposalDetailsProvider(widget.proposalId));
+
+        // --- Create Notification Document ---
+        try {
+          final currentUser = ref.read(currentUserProvider);
+          final notificationRepo = ref.read(notificationRepositoryProvider);
+          
+          // Assuming opportunityId might be null or not available here
+          await notificationRepo.createProposalAcceptedNotification(
+            proposalId: widget.proposalId,
+            proposalName: widget.proposalName, // Now available via widget
+            opportunityId: null, // Or pass if available from somewhere
+            clientNif: widget.nif,
+            resellerName: currentUser?.displayName,
+            resellerId: currentUser?.uid,
+          );
+          if (kDebugMode) {
+            print('Proposal acceptance notification created successfully.');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error creating proposal acceptance notification: $e');
+            // Optionally show a non-blocking error to user or log to a monitoring service
+            // but don't let this error block the primary success flow.
+          }
+        }
+        // --- END Notification Document Creation ---
+
+        // Show success dialog instead of SnackBar
+        await showSuccessDialog(
+          context: context, // context is available here
+          message: 'Documentos submetidos com sucesso!',
+          onDismissed: () {
+            // Navigate to home page
+            context.go('/'); 
+          },
         );
-        // Optional: Check result.data['proposalUpdateStatus'] if needed
-        navigator.pop(); // Go back on success
       } else {
         final errorMsg =
             result.data['message'] ??
@@ -280,6 +325,7 @@ class _SubmitProposalDocumentsPageState
         );
       }
     } on FirebaseFunctionsException catch (e) {
+      if (mounted) setState(() => _isLoading = false); // Ensure loader stops on error
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Erro Cloud Function (${e.code}): ${e.message}'),
@@ -287,16 +333,13 @@ class _SubmitProposalDocumentsPageState
         ),
       );
     } catch (e) {
+      if (mounted) setState(() => _isLoading = false); // Ensure loader stops on error
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Ocorreu um erro inesperado: $e'),
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
     }
   }
 
@@ -351,111 +394,97 @@ class _SubmitProposalDocumentsPageState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bool allDocumentsReady = _areAllDocumentsReady();
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Submeter Documentos'), // TODO: Localize
-        centerTitle: true,
-      ),
-      body: IgnorePointer(
-        ignoring: _isLoading,
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-              child: Opacity(
-                opacity: _isLoading ? 0.5 : 1.0,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Carregar documentos necessários:', // TODO: Localize
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-
-            // --- Digital Signature Toggle ---
-            SwitchListTile.adaptive(
-                      title: const Text('Contratos assinados digitalmente'),
-              value: _isDigitallySigned,
-              onChanged: (bool value) {
-                setState(() {
-                  _isDigitallySigned = value;
-                  if (_isDigitallySigned) {
-                    _contractFiles.updateAll((key, _) => null);
-                  }
-                });
-              },
-                      contentPadding: EdgeInsets.zero,
-              secondary: Icon(
-                _isDigitallySigned
-                    ? CupertinoIcons.checkmark_seal_fill
-                    : CupertinoIcons.checkmark_seal,
-                        color:
-                            _isDigitallySigned
-                                ? theme.colorScheme.primary
-                                : null,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-                    // --- File Upload Section ---
-            if (!_isDigitallySigned)
-              ...widget.cpeList.map((cpe) {
-                String shortId =
-                    cpe.id.length > 6
-                        ? cpe.id.substring(cpe.id.length - 6)
-                        : cpe.id;
-                return _buildFileUploadPlaceholder(
-                  context,
-                          'Contrato Assinado (CPE ...$shortId)',
-                  Icons.description_outlined,
-                  DocumentType.contract,
-                          _contractFiles[cpe.id],
-                          cpeProposalId: cpe.id,
-                );
-              }).toList(),
-
-            const Divider(height: 24),
-
-            _buildFileUploadPlaceholder(
-              context,
-                      'Documento de identificação (CC)',
-              CupertinoIcons.person_crop_rectangle,
-              DocumentType.idDocument,
-              _idDocumentFile,
-            ),
-            _buildFileUploadPlaceholder(
-              context,
-                      'Prova de residência',
-              CupertinoIcons.house,
-              DocumentType.proofOfAddress,
-              _proofOfAddressFile,
-            ),
-            _buildFileUploadPlaceholder(
-              context,
-                      'Certidão Permanente (CRC)',
-              CupertinoIcons.doc_chart,
-              DocumentType.crcDocument,
-              _crcDocumentFile,
-            ),
-            const SizedBox(height: 32),
-
-            // --- Submit Button ---
-            Center(
-              child: CupertinoButton.filled(
-                        onPressed: _isLoading ? null : _submitDocuments,
-                        child: const Text('Submeter Documentos'),
-                      ),
-                    ),
-                    const SizedBox(height: 40), // Extra padding at bottom
-                  ],
-                ),
-              ),
-            ),
-            // --- Loading Indicator Overlay ---
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
-          ],
+      // Conditionally show AppBar
+      appBar: _isLoading ? null : AppBar(
+        leading: IconButton(
+          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+          // Disable back button during non-loading interactions if needed, 
+          // but primarily relying on the full-screen loader to block.
+          onPressed: () => Navigator.of(context).pop(), 
         ),
+        title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Stack(
+        children: [
+          // Main content column (conditionally visible or behind loader)
+          if (!_isLoading) // Only build the main content if not loading
+            Column( 
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+                  child: Text(
+                    'Carregar documentos',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                       fontWeight: FontWeight.bold,
+                       color: theme.colorScheme.onSurface, 
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile.adaptive(
+                          title: const Text('Contratos assinados digitalmente'),
+                          value: _isDigitallySigned,
+                          onChanged: (bool value) { // Already disabled by _isLoading in onPressed of button
+                            setState(() {
+                              _isDigitallySigned = value;
+                              if (_isDigitallySigned) {
+                                _contractFiles.updateAll((key, _) => null);
+                              }
+                            });
+                          },
+                          contentPadding: EdgeInsets.zero,
+                          secondary: Icon(
+                            _isDigitallySigned ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.checkmark_seal,
+                            color: _isDigitallySigned ? theme.colorScheme.primary : null,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!_isDigitallySigned)
+                          ...widget.cpeList.map((cpe) {
+                            String shortId = cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id;
+                            return _buildFileUploadPlaceholder(
+                              context,
+                              'Contrato Assinado (CPE ...$shortId)',
+                              Icons.description_outlined,
+                              DocumentType.contract,
+                              _contractFiles[cpe.id],
+                              cpeProposalId: cpe.id,
+                            );
+                          }).toList(),
+                        const Divider(height: 24),
+                        _buildFileUploadPlaceholder(context, 'Documento de identificação (CC)', CupertinoIcons.person_crop_rectangle, DocumentType.idDocument, _idDocumentFile),
+                        _buildFileUploadPlaceholder(context, 'Prova de residência', CupertinoIcons.house, DocumentType.proofOfAddress, _proofOfAddressFile),
+                        _buildFileUploadPlaceholder(context, 'Certidão Permanente (CRC)', CupertinoIcons.doc_chart, DocumentType.crcDocument, _crcDocumentFile),
+                        const SizedBox(height: 32),
+                        Center(
+                          child: CupertinoButton.filled(
+                            onPressed: _isLoading || !allDocumentsReady ? null : _submitDocuments,
+                            child: const Text('Submeter Documentos'),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          // Custom loading indicator as overlay
+          if (_isLoading)
+            const AppLoadingIndicator(), 
+        ],
       ),
     );
   }

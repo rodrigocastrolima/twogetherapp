@@ -1,12 +1,13 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:typed_data'; // Added for Uint8List
+import 'dart:typed_data';
 
 class FullScreenImageViewer extends StatelessWidget {
-  final String? imageUrl; // Made nullable
-  final String? imageName; // Optional name for context
+  final String? imageUrl;
+  final String? imageName;
   final Uint8List? imageBytes;
 
   const FullScreenImageViewer({
@@ -17,12 +18,9 @@ class FullScreenImageViewer extends StatelessWidget {
   }) : assert(
          imageUrl != null || imageBytes != null,
          'Either imageUrl or imageBytes must be provided',
-       ); // Ensure one is provided
-
-  // --- Action Handlers ---
+       );
 
   Future<void> _onDownload(BuildContext context) async {
-    // Only allow download if imageUrl exists
     if (imageUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Download not available for local data')),
@@ -37,127 +35,112 @@ class FullScreenImageViewer extends StatelessWidget {
         throw 'Could not launch $imageUrl';
       }
     } catch (e) {
-      print('Error launching URL for download: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open image link: $e')),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open image link: $e')),
+          );
       }
     }
   }
 
   Future<void> _onShare(BuildContext context) async {
-    // Only allow sharing URL if imageUrl exists
-    if (imageUrl == null) {
-      // TODO: Implement sharing bytes (requires saving to temp file first)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sharing local data not implemented yet')),
-      );
-      return;
-    }
-    try {
-      // Share the image URL
-      await Share.share('Check out this image: $imageUrl');
-    } catch (e) {
-      print('Error sharing image link: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share image link: $e')),
+    if (imageUrl == null && imageBytes == null) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No image data to share.')),
         );
-      }
+        return;
+    }
+    
+    if (imageUrl != null) {
+        try {
+            await Share.share('Check out this image: ${imageUrl!}');
+        } catch (e) {
+            if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not share image link: $e')),
+                );
+            }
+        }
+    } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sharing local image data not yet fully implemented.')),
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Determine if actions requiring a URL should be enabled
     final bool urlActionsEnabled = imageUrl != null;
-
-    return Scaffold(
-      // Use a dark background for better contrast
-      backgroundColor: Colors.black.withOpacity(0.85),
-      appBar: AppBar(
-        // Make AppBar transparent
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Use white icon color for contrast
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.close), // Use close icon
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          child: const Icon(CupertinoIcons.clear, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share Image',
-            // Disable if showing bytes and URL sharing is not appropriate
-            onPressed: urlActionsEnabled ? () => _onShare(context) : null,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Open Image Link',
-            // Disable if showing bytes
-            onPressed: urlActionsEnabled ? () => _onDownload(context) : null,
-          ),
-        ],
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (imageUrl != null || imageBytes != null)
+              CupertinoButton(
+                padding: const EdgeInsets.all(8.0),
+                child: const Icon(CupertinoIcons.share, size: 24),
+                onPressed: () => _onShare(context),
+              ),
+            if (urlActionsEnabled)
+              CupertinoButton(
+                padding: const EdgeInsets.all(8.0),
+                child: const Icon(CupertinoIcons.cloud_download, size: 24),
+                onPressed: () => _onDownload(context),
+              ),
+          ],
+        ),
       ),
-      body: SafeArea(
+      child: SafeArea(
         child: Center(
           child: InteractiveViewer(
             panEnabled: true,
             minScale: 0.5,
             maxScale: 4.0,
-            // --- MODIFIED: Conditionally use Image.memory or Image.network --- //
-            child:
-                imageBytes != null
-                    ? Image.memory(
-                      imageBytes!,
-                      fit: BoxFit.contain,
-                      // Optional: Add error builder for memory image if needed
-                      errorBuilder: (context, error, stackTrace) {
-                        print('Error loading image from memory: $error');
-                        return _buildErrorWidget();
-                      },
-                    )
-                    : Image.network(
-                      imageUrl!, // Known to be non-null if imageBytes is null
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            value:
-                                loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        print('Error loading image from network: $error');
-                        return _buildErrorWidget();
-                      },
-                    ),
-            // --- END MODIFICATION --- //
+            child: imageBytes != null
+                ? Image.memory(
+                    imageBytes!,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildErrorWidget(context);
+                    },
+                  )
+                : Image.network(
+                    imageUrl!, 
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CupertinoActivityIndicator(
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildErrorWidget(context);
+                    },
+                  ),
           ),
         ),
       ),
     );
   }
 
-  // Helper for error display
-  Widget _buildErrorWidget() {
-    return const Center(
+  Widget _buildErrorWidget(BuildContext context) {
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, color: Colors.red, size: 50),
-          SizedBox(height: 16),
-          Text('Could not load image', style: TextStyle(color: Colors.white70)),
+          Icon(CupertinoIcons.exclamationmark_circle, color: CupertinoDynamicColor.resolve(CupertinoColors.systemRed, context), size: 50),
+          const SizedBox(height: 16),
+          Text(
+            'Could not load image',
+            style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
+          ),
         ],
       ),
     );

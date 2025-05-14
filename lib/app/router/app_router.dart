@@ -721,7 +721,6 @@ class AppRouter {
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          // Determine the current index dynamically
           final currentIndex = _calculateCurrentIndex(state);
           final location = state.matchedLocation;
           return MainLayout(
@@ -733,53 +732,19 @@ class AppRouter {
         routes: [
           GoRoute(
             path: '/',
-            pageBuilder:
-                (context, state) => NoTransitionPage(child: ResellerHomePage()),
+            pageBuilder: (context, state) => NoTransitionPage(child: ResellerHomePage()),
           ),
           GoRoute(
             path: '/clients',
-            pageBuilder:
-                (context, state) =>
-                    NoTransitionPage(child: reseller_clients.ClientsPage()),
+            pageBuilder: (context, state) => NoTransitionPage(child: reseller_clients.ClientsPage()),
           ),
           GoRoute(
             path: '/messages',
-            pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: MessagesPage()),
+            pageBuilder: (context, state) => const NoTransitionPage(child: MessagesPage()),
           ),
           GoRoute(
-            path: '/settings', // Renamed from /profile for clarity
-            pageBuilder:
-                (context, state) => const NoTransitionPage(
-                  child:
-                      SettingsPage(), // This is the main settings *tab* content
-                ),
-          ),
-          GoRoute(
-            path: '/providers', // List providers for reseller
-            pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: ResellerProviderListPage()),
-            routes: [
-              GoRoute(
-                path: ':providerId', // View provider files for reseller
-                pageBuilder: (context, state) {
-                  final providerId = state.pathParameters['providerId'];
-                  if (providerId == null) {
-                    return const NoTransitionPage(
-                      child: Scaffold(
-                        body: Center(child: Text('Error: Missing Provider ID')),
-                      ),
-                    );
-                  }
-                  // Point to the actual ResellerProviderFilesPage
-                  return NoTransitionPage(
-                    child: ResellerProviderFilesPage(providerId: providerId),
-                  );
-                },
-              ),
-            ],
+            path: '/settings',
+            pageBuilder: (context, state) => const NoTransitionPage(child: SettingsPage()),
           ),
         ],
       ),
@@ -1173,6 +1138,36 @@ class AppRouter {
               // Use Scaffold to provide a basic structure, but body is the indicator
               body: AppLoadingIndicator(),
             ),
+      ),
+      // ADD /providers route here as a top-level route
+      GoRoute(
+        path: '/providers', 
+        parentNavigatorKey: _rootNavigatorKey, // Use the global key
+        pageBuilder: (context, state) {
+          // Use MaterialPage with fullscreenDialog for a similar presentation to /services
+          return MaterialPage(
+            fullscreenDialog: true, 
+            child: const ResellerProviderListPage(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: ':providerId', 
+            parentNavigatorKey: _rootNavigatorKey, // Ensure sub-route also uses root navigator if it's a new page
+            pageBuilder: (context, state) {
+              final providerId = state.pathParameters['providerId'];
+              if (providerId == null) {
+                return const MaterialPage(
+                  child: Scaffold(body: Center(child: Text('Error: Missing Provider ID'))),
+                );
+              }
+              return MaterialPage(
+                fullscreenDialog: true, // Or false if it should push normally over ResellerProviderListPage
+                child: ResellerProviderFilesPage(providerId: providerId),
+              );
+            },
+          ),
+        ],
       ),
     ],
     // Optional: Add error page handling

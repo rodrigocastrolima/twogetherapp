@@ -10,6 +10,7 @@ import '../../../../core/utils/constants.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../../../../app/router/app_router.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../presentation/widgets/logo.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);
@@ -155,19 +156,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? theme.colorScheme.background : Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0.0,
         leading: IconButton(
-          icon: const Icon(CupertinoIcons.chevron_left),
+          icon: Icon(
+            CupertinoIcons.chevron_left,
+            color: theme.colorScheme.onSurface,
+          ),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
             }
           },
         ),
+        title: LogoWidget(
+          height: 60,
+          darkMode: isDark,
+        ),
+        centerTitle: true,
       ),
       body:
           _isLoading

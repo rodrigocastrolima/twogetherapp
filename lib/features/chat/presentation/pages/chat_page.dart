@@ -429,43 +429,27 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             Expanded(
               child: messagesStream.when(
                 data: (messages) {
-                  // Filter out any default messages that might have been saved to the database
-                  final realMessages =
-                      messages.where((m) => !m.isDefault).toList();
-
-                  // If there are no messages, show the empty state with welcome message
-                  // (only for non-admin view)
+                  final realMessages = messages.where((m) => !m.isDefault).toList();
                   if (realMessages.isEmpty && !widget.isAdminView) {
                     return _buildEmptyStateUI(context);
                   } else if (realMessages.isEmpty && widget.isAdminView) {
-                    // For admin view, show a simpler empty state
                     return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            CupertinoIcons.chat_bubble_2,
-                            color: Colors.grey.withOpacity(0.5),
-                            size: 48,
-                          ),
+                          Icon(CupertinoIcons.chat_bubble_2, color: CupertinoColors.systemGrey.resolveFrom(context), size: 48),
                           const SizedBox(height: 16),
-                          Text(
-                            'Sem mensagens ainda',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.withOpacity(0.8),
-                            ),
-                          ),
+                          Text('Sem mensagens ainda', style: TextStyle(fontSize: 16, color: CupertinoColors.systemGrey.resolveFrom(context).withOpacity(0.8))),
                         ],
                       ),
                     );
                   }
-
-                  return NoScrollbarBehavior.noScrollbars(
-                    context,
-                    ListView.builder(
+                  // Correctly use ScrollConfiguration with NoScrollbarBehavior
+                  return ScrollConfiguration(
+                    behavior: const NoScrollbarBehavior(),
+                    child: ListView.builder(
                       controller: _scrollController,
-                      reverse: true, // Show newest at the bottom
+                      reverse: true, 
                       padding: const EdgeInsets.all(20),
                       itemCount: realMessages.length,
                       itemBuilder: (context, index) {

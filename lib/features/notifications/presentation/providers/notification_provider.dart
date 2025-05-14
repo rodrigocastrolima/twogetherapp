@@ -17,6 +17,13 @@ final userNotificationsProvider =
       if (!isAuthenticated || FirebaseAuth.instance.currentUser == null) {
         return Stream.value([]);
       }
+      
+      // Add a flag to track if the app is active
+      final isAppActive = ref.watch(isAppActiveProvider);
+      if (!isAppActive) {
+        return Stream.value([]); // Return empty stream when app is in background
+      }
+      
       final repository = ref.watch(notificationRepositoryProvider);
       return repository.getUserNotifications();
     });
@@ -27,9 +34,19 @@ final unreadNotificationsCountProvider = StreamProvider.autoDispose<int>((ref) {
   if (!isAuthenticated) {
     return Stream.value(0);
   }
+  
+  // Add a flag to track if the app is active
+  final isAppActive = ref.watch(isAppActiveProvider);
+  if (!isAppActive) {
+    return Stream.value(0); // Return 0 when app is in background
+  }
+  
   final repository = ref.watch(notificationRepositoryProvider);
   return repository.getUnreadNotificationsCount();
 });
+
+// Add a provider to track app lifecycle state
+final isAppActiveProvider = StateProvider<bool>((ref) => true);
 
 // Counter for generating refresh tokens
 final _notificationRefreshCounterProvider = StateProvider<int>((ref) => 0);

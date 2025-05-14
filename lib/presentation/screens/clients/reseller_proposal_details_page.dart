@@ -617,7 +617,6 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                                         .nifC; // <-- Get NIF from proposal data
 
                                 if (nif == null || nif.isEmpty) {
-                                  // Handle case where NIF is missing - show error?
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -626,7 +625,7 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                                       backgroundColor: Colors.red,
                                     ),
                                   );
-                                  return; // <--- Error is triggered here
+                                  return;
                                 }
 
                                 Navigator.push(
@@ -636,8 +635,9 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                                         (context) =>
                                             SubmitProposalDocumentsPage(
                                               proposalId: proposalId,
+                                              proposalName: proposalName,
                                               cpeList: cpeList,
-                                              nif: nif, // <-- Pass the NIF
+                                              nif: nif,
                                             ),
                                   ),
                                 );

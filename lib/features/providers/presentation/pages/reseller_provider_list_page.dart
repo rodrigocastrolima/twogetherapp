@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_info.dart';
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 
 class ResellerProviderListPage extends ConsumerWidget {
   const ResellerProviderListPage({super.key});
@@ -13,16 +14,22 @@ class ResellerProviderListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final providersAsyncValue = ref.watch(providersStreamProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark; // For LogoWidget
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Resources'), // TODO: l10n
-        centerTitle: true, // Centered title
-        elevation: 0, // Flat AppBar
-        backgroundColor:
-            theme.scaffoldBackgroundColor, // Match scaffold background
-        foregroundColor:
-            theme.colorScheme.onBackground, // Ensure text/icon contrast
+        leading: IconButton(
+          icon: Icon(
+            CupertinoIcons.chevron_left,
+            color: theme.colorScheme.onSurface, // Consistent icon color
+          ),
+          onPressed: () => context.pop(),
+        ),
+        title: LogoWidget(height: 60, darkMode: isDark), // Use LogoWidget
+        centerTitle: true, 
+        elevation: 0, 
+        backgroundColor: Colors.transparent, // Transparent background
+        scrolledUnderElevation: 0.0, // Prevent tint on scroll
       ),
       body: providersAsyncValue.when(
         data: (providers) {

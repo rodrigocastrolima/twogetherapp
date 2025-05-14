@@ -275,7 +275,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         screenWidth < 600; // Threshold for mobile/desktop
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: theme.colorScheme.background,
       body: SafeArea(
         bottom: false,
         top: false,
@@ -686,7 +686,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     Key? key,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme; // Added for gradient
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
     final mutedTextColor =
@@ -712,50 +711,33 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
 
     final cardName = opportunity.accountName ?? opportunity.name;
 
+    // Style adjustments for dark mode to match notification cards
+    final cardBackgroundColor = isDark ? theme.colorScheme.surface : Colors.white; // Or theme.cardColor for light
+    final cardShadowColor = isDark 
+        ? theme.colorScheme.shadow.withOpacity(0.2) 
+        : theme.colorScheme.shadow.withOpacity(0.08); // from notification card
+    final cardElevation = isDark ? 2.0 : 2.0; // Consistent elevation, or adjust as needed
+    final cardBorder = isDark 
+        ? BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.05), width: 1.0)
+        : BorderSide.none;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
       child: Card(
-        // Changed from Material to Card
         key: key,
-        // color: statusVisuals.cardBgColor, // Color will be handled by gradient in Container
-        elevation: isDark ? 1.0 : 2.0, // Adjusted elevation
-        shadowColor:
-            isDark
-                ? Colors.black.withOpacity(0.5)
-                : Colors.grey.withOpacity(0.3), // Adjusted shadowColor
+        color: cardBackgroundColor, // Apply conditional background color
+        elevation: cardElevation, 
+        shadowColor: cardShadowColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
-          // side: BorderSide(color: statusVisuals.outlineColor, width: 1.5), // Removed BorderSide
+          borderRadius: BorderRadius.circular(12.0), // Match notification card radius
+          side: cardBorder, // Apply conditional border
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {
             context.push('/opportunity-details', extra: opportunity);
           },
-          child: Container(
-            // Added Container for gradient
-            decoration: BoxDecoration(
-              gradient:
-                  isDark
-                      ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          colorScheme.surfaceVariant.withOpacity(0.1),
-                          colorScheme.surfaceVariant.withOpacity(0.05),
-                        ],
-                      )
-                      : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white,
-                          Colors.grey.shade50.withOpacity(0.5),
-                        ],
-                      ),
-            ),
-            child: SizedBox(
-              // Keep the SizedBox for fixed height
+          child: SizedBox( 
               height: 88.0,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -799,14 +781,13 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                         statusVisuals.icon,
                         color:
                             statusVisuals
-                                .iconColor, // Icon color remains based on status
+                                .iconColor, 
                         size: 24,
                       ),
                   ],
                 ),
               ),
             ),
-          ),
         ),
       ),
     );

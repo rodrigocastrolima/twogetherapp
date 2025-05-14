@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o { // The {bucket} variable refers to your Storage bucket name
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Function to check if the user has the 'admin' custom claim
+    function isAdmin() {
+      // Use the same custom claim check as in Firestore rules
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // --- Rules for Provider Images ---
+    match /provider_images/{providerId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Rules for Provider Files ---
+    match /provider_files/{providerId}/{fileId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Rules for Proposal Attachments --- 
+    match /proposals/{opportunityId}/{cpeIndex}/{fileName} {
+      allow write: if isAuthenticated();
+      allow read: if isAuthenticated();
+    }
+
+    // --- TEMPORARY DEBUGGING RULE for Submission Attachments ---
+    // You can likely remove this now if submissions are handled differently
+    match /submissions/{submissionId}/{allPaths=**} {
+      allow write: if isAuthenticated();
+      allow read: if isAuthenticated();
+    }
+
+    // --- NEW TEMPORARY RULE FOR CHAT IMAGES ---
+    match /chat_images/{allPaths=**} {
+      allow read: if isAuthenticated(); // Allow authenticated users to read
+      allow write: if isAuthenticated(); // Allow authenticated users to write
+    }
+  }
+} 

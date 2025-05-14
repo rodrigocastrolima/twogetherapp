@@ -782,14 +782,25 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final theme = Theme.of(context);
     final dateFormatter = DateFormat.yMd().add_jm();
     final formattedDate = dateFormatter.format(notification.createdAt);
-    final resellerName = notification.metadata['resellerName'] ?? 'Unknown';
-    final clientName = notification.metadata['clientName'] ?? '?';
+    final resellerName = notification.metadata['resellerName'] ?? 'Unknown Reseller';
+    
+    // Determine the second part of the subtitle based on notification type
+    String secondarySubtitleText = '?';
+    if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
+      secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
+    } else if (notification.type == NotificationType.newSubmission) {
+      secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
+    } else {
+      // Fallback for other types, can be clientName or another relevant piece of metadata
+      secondarySubtitleText = notification.metadata['clientName'] ?? '?'; 
+    }
+
     final isNew = !notification.isRead;
 
     IconData itemIcon = CupertinoIcons.doc_plaintext;
     Color iconColor = theme.colorScheme.primary;
 
-    // Customize icon and color based on notification type
+    // Icon and color logic (remains the same as your last correct version)
     switch (notification.type) {
       case NotificationType.newSubmission:
         itemIcon = CupertinoIcons.doc_on_doc_fill;
@@ -799,19 +810,17 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         itemIcon = CupertinoIcons.arrow_swap;
         iconColor = Colors.orange;
         break;
-      case NotificationType
-          .rejection: // Assuming this is for service submission rejections
+      case NotificationType.rejection: 
         itemIcon = CupertinoIcons.xmark_circle_fill;
         iconColor = theme.colorScheme.error;
         break;
       case NotificationType.proposalRejected:
-        itemIcon =
-            CupertinoIcons
-                .hand_thumbsdown_fill; // Example icon for proposal rejection
-        iconColor =
-            theme
-                .colorScheme
-                .error; // Or a different color like Colors.deepOrange
+        itemIcon = CupertinoIcons.hand_thumbsdown_fill;
+        iconColor = theme.colorScheme.error;
+        break;
+      case NotificationType.proposalAccepted: 
+        itemIcon = CupertinoIcons.check_mark_circled_solid; 
+        iconColor = Colors.green; 
         break;
       default:
         itemIcon = CupertinoIcons.bell_fill;
@@ -822,7 +831,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
       leading: CircleAvatar(
         radius: 20,
-        backgroundColor: iconColor.withAlpha(26), // Use withAlpha
+        backgroundColor: iconColor.withAlpha(26), 
         child: Icon(itemIcon, size: 20, color: iconColor),
       ),
       title: Text(
@@ -835,7 +844,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        '$resellerName / $clientName',
+        '$resellerName / $secondarySubtitleText', // Use the new secondarySubtitleText
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         ),

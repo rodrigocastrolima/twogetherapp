@@ -22,6 +22,7 @@ import 'dart:async'; // Import for StreamSubscription
 import 'core/utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/providers/theme_provider.dart';
+import 'features/notifications/presentation/providers/notification_provider.dart';
 import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
 import 'core/theme/ui_styles.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Import intl
@@ -160,14 +161,28 @@ class TwogetherApp extends ConsumerStatefulWidget {
   ConsumerState<TwogetherApp> createState() => _TwogetherAppState();
 }
 
-class _TwogetherAppState extends ConsumerState<TwogetherApp> {
+class _TwogetherAppState extends ConsumerState<TwogetherApp> with WidgetsBindingObserver {
   StreamSubscription<User?>? _authSubscription;
   bool _initialAuthCheckDone = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _listenForAuthAndTriggerSalesforceCheck();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Update the app active state in the provider
+    ref.read(isAppActiveProvider.notifier).state = state == AppLifecycleState.resumed;
   }
 
   void _listenForAuthAndTriggerSalesforceCheck() {
@@ -197,12 +212,6 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> {
         // print('TwogetherApp State: User signed out, resetting Salesforce check flag.');
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
   }
 
   @override

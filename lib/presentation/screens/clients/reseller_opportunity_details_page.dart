@@ -62,6 +62,12 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
         iconColor: Colors.green,
         isInteractive: true,
       );
+    case 'Enviada': // Specific case for Enviada
+      return _ProposalStatusVisuals(
+        iconData: CupertinoIcons.exclamationmark_circle_fill, // Changed to exclamation mark
+        iconColor: CupertinoColors.activeBlue, 
+        isInteractive: true,
+      );
     case 'Cancelada':
     case 'Não Aprovada':
       return _ProposalStatusVisuals(
@@ -75,7 +81,6 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
         iconColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
         isInteractive: false,
       );
-    case 'Enviada':
     case 'Pendente':
     case 'Em Aprovação':
     case 'Aprovada':
@@ -85,7 +90,7 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
     case 'Criação':
     case '--Nenhum --':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.doc_text,
+        iconData: CupertinoIcons.doc_text, 
         iconColor: theme.colorScheme.onSurfaceVariant,
         isInteractive: true,
       );

@@ -41,7 +41,7 @@ class ResellerHomePage extends ConsumerStatefulWidget {
 
 // Add SingleTickerProviderStateMixin for AnimationController
 class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _isEarningsVisible = true;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
@@ -50,8 +50,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   // --- Animation State ---
   late AnimationController _helpIconAnimationController;
   late Animation<double> _helpIconAnimation;
-  bool _hasSeenHintLocally = false; // Keep track of local dismissal
-  bool _initCheckDone = false; // Prevent re-checking prefs on every build
+  bool _hasSeenHintLocally = false;
+  bool _initCheckDone = false;
+  bool _isAppActive = true; // Add this flag
   // ---------------------
 
   // --- Hover States for Icons ---
@@ -66,11 +67,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     // Set up listener to detect manual pull-to-refresh
     _scrollController.addListener(() {
-      // If we're overscrolling at the top (pulling down)
       if (_scrollController.position.pixels < -50) {
-        // Trigger the refresh
         _refreshIndicatorKey.currentState?.show();
       }
     });
@@ -86,50 +87,50 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         curve: Curves.easeInOut,
       ),
     );
-    // -------------------------------------
 
     // --- Check local preference ONCE after first frame ---
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted && !_initCheckDone) {
         final prefs = await SharedPreferences.getInstance();
-        final seenHint =
-            prefs.getBool(AppConstants.kHasSeenHelpIconHint) ?? false;
-        setState(() {
-          _hasSeenHintLocally = seenHint;
-          _initCheckDone = true;
-        });
-        print('initState - _hasSeenHintLocally: $_hasSeenHintLocally'); // Debug
+        final seenHint = prefs.getBool(AppConstants.kHasSeenHelpIconHint) ?? false;
+        if (mounted) {
+          setState(() {
+            _hasSeenHintLocally = seenHint;
+            _initCheckDone = true;
+          });
+        }
       }
     });
-    // -----------------------------------------------------
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final authNotifier = ref.read(authNotifierProvider); // Read it here
+    if (state == AppLifecycleState.paused) {
+      // App is in background
+      setState(() {
+        _isAppActive = false;
+      });
+      _helpIconAnimationController.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      // App is back in foreground
+      setState(() {
+        _isAppActive = true;
+      });
+      // Use authNotifier here
+      if (_isAppActive && authNotifier.isFirstLogin && !_hasSeenHintLocally) {
+        _helpIconAnimationController.repeat(reverse: true);
+      }
+    }
   }
 
   @override
   void dispose() {
-    // Make sure to cancel any animations or ongoing operations
+    WidgetsBinding.instance.removeObserver(this);
+    _helpIconAnimationController.stop();
+    _helpIconAnimationController.dispose();
     _scrollController.dispose();
-    _helpIconAnimationController.dispose(); // Dispose animation controller
-    // Clean up any resources to prevent leaks
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Ensure all resources are properly released
-      if (mounted) {
-        setState(() {});
-      }
-    });
     super.dispose();
-  }
-
-  // Perform the refresh operation
-  Future<void> _onRefresh() async {
-    // Refresh providers instead of just toggling visibility
-    ref.refresh(resellerTotalCommissionProvider);
-    ref.refresh(userNotificationsProvider);
-
-    // The UI will update automatically when the providers rebuild.
-    // No need for setState or explicit waiting here unless desired for indicator duration.
-
-    // Optional: Simulate a minimum duration for the refresh indicator if needed
-    // await Future.delayed(const Duration(milliseconds: 500));
   }
 
   // Helper method to get user initials
@@ -167,6 +168,19 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
+  // Perform the refresh operation
+  Future<void> _onRefresh() async {
+    // Refresh providers instead of just toggling visibility
+    ref.refresh(resellerTotalCommissionProvider);
+    ref.refresh(userNotificationsProvider);
+
+    // The UI will update automatically when the providers rebuild.
+    // No need for setState or explicit waiting here unless desired for indicator duration.
+
+    // Optional: Simulate a minimum duration for the refresh indicator if needed
+    // await Future.delayed(const Duration(milliseconds: 500));
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -181,14 +195,15 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // -------------------------------
 
     // --- Determine if animation should run ---
-    final bool shouldAnimate = isFirstLogin && !_hasSeenHintLocally;
+    // Use local _isAppActive and isFirstLogin from authNotifier
+    final bool currentShouldAnimate = _isAppActive && isFirstLogin && !_hasSeenHintLocally;
     // Start/stop animation controller based on state
-    if (shouldAnimate && !_helpIconAnimationController.isAnimating) {
+    if (currentShouldAnimate && !_helpIconAnimationController.isAnimating) {
       print(
         "Build: Starting animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
       );
       _helpIconAnimationController.repeat(reverse: true);
-    } else if (!shouldAnimate && _helpIconAnimationController.isAnimating) {
+    } else if (!currentShouldAnimate && _helpIconAnimationController.isAnimating) {
       print(
         "Build: Stopping animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
       );
@@ -298,11 +313,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                           // Changed to stateful version
                                           icon: CupertinoIcons.question_circle,
                                           isHighlighted:
-                                              shouldAnimate, // For hint pulse border/bg
+                                              currentShouldAnimate, // For hint pulse border/bg
                                           onTap:
                                               () => _handleHelpIconTap(
                                                 context,
-                                                shouldAnimate,
+                                                currentShouldAnimate, // Pass currentShouldAnimate
                                               ),
                                         ),
                                       ),
@@ -442,9 +457,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   // --- Helper for Help Icon Tap Logic ---
   Future<void> _handleHelpIconTap(
     BuildContext context,
-    bool shouldAnimate,
+    bool wasAnimating, // Renamed from shouldAnimate to reflect its state when tapped
   ) async {
-    if (shouldAnimate) {
+    if (wasAnimating) { // Use the passed parameter
       print('Help icon tapped while animating. Stopping animation.');
       _helpIconAnimationController.stop();
       final prefs = await SharedPreferences.getInstance();

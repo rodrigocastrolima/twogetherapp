@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; // Changed to Cupertino
+import 'package:flutter/material.dart'; // Still need for ScaffoldMessenger, PDFView, Image, etc.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart'; // For PDF display
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
 // import 'package:file_saver/file_saver.dart'; // Needed for download action
 
@@ -223,49 +224,41 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       '*** SecureFileViewer BUILD: isLoading=$_isLoading, error=$_error, localPath=$_localTempFilePath ***',
     );
 
-    return Scaffold(
-      backgroundColor: Colors.grey[300],
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        iconTheme: IconThemeData(color: Theme.of(context).primaryColor),
-        title: Text(
-          widget.title,
-          style: const TextStyle(color: Colors.black87),
-          overflow: TextOverflow.ellipsis,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(widget.title, overflow: TextOverflow.ellipsis),
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          child: const Icon(CupertinoIcons.clear, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share File',
-            // Disable if loading or no file
-            onPressed:
-                _isLoading || (_localTempFilePath == null && _fileBytes == null)
-                    ? null
-                    : () => _onShare(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Save File',
-            // Disable if loading or no file
-            onPressed:
-                _isLoading || _fileBytes == null
-                    ? null
-                    : () => _onDownload(context),
-          ),
-        ],
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            CupertinoButton(
+              padding: const EdgeInsets.all(8.0),
+              child: const Icon(CupertinoIcons.share, size: 24),
+              onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
+                  ? null
+                  : () => _onShare(context),
+            ),
+            CupertinoButton(
+              padding: const EdgeInsets.all(8.0),
+              child: const Icon(CupertinoIcons.cloud_download, size: 24),
+              onPressed: _isLoading || _fileBytes == null
+                  ? null
+                  : () => _onDownload(context),
+            ),
+          ],
+        ),
       ),
-      body: _buildBody(),
+      child: _buildBody(context),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CupertinoActivityIndicator());
     }
 
     if (_error != null) {
@@ -275,7 +268,9 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
           padding: const EdgeInsets.all(16.0),
           child: Text(
             _error!,
-            style: TextStyle(color: Colors.red[700]),
+            style: TextStyle(
+              color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context),
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -356,10 +351,10 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
                 error: error,
                 stackTrace: stackTrace,
               );
-              return const Center(
+              return Center(
                 child: Text(
                   'Could not display image.',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context)),
                 ),
               );
             },
@@ -370,25 +365,39 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
     // Fallback for other types or if something went wrong
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.insert_drive_file_outlined, size: 60),
-          const SizedBox(height: 16),
-          Text(
-            // Show extension if available, otherwise content type
-            'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.download),
-            label: const Text('Save File'),
-            onPressed:
-                _isLoading || _fileBytes == null
-                    ? null
-                    : () => _onDownload(context),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.doc_text_fill, // Using a Cupertino icon
+              size: 60,
+              color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              // Show extension if available, otherwise content type
+              'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
+            ),
+            const SizedBox(height: 24),
+            CupertinoButton.filled(
+              onPressed: _isLoading || _fileBytes == null
+                  ? null
+                  : () => _onDownload(context),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(CupertinoIcons.cloud_download_fill),
+                  SizedBox(width: 8),
+                  Text('Save File'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

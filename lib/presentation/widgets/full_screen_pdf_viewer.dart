@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -9,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:typed_data';
 
 class FullScreenPdfViewer extends StatefulWidget {
   final String? pdfUrl;
@@ -38,8 +39,6 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
       Completer<PDFViewController>();
   int? pages = 0;
   int? currentPage = 0;
-  bool isReady = false;
-  String errorMessage = '';
 
   @override
   void initState() {
@@ -55,7 +54,8 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
     try {
       final fileName = widget.pdfName ?? const Uuid().v4();
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$fileName.pdf');
+      final safeFileName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
+      final file = File('${dir.path}/$safeFileName');
 
       if (widget.pdfBytes != null) {
         await file.writeAsBytes(widget.pdfBytes!, flush: true);
@@ -101,9 +101,11 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   // --- Action Handlers ---
   Future<void> _onDownload(BuildContext context) async {
     if (widget.pdfUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download not available for local data')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download not available for local data')),
+        );
+      }
       return;
     }
     final Uri url = Uri.parse(widget.pdfUrl!);
@@ -130,11 +132,11 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
         await Share.shareXFiles(
           [XFile(localPath!)],
           text: widget.pdfName ?? 'PDF Document',
-          sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
+          sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
         );
       } catch (e) {
-        print('Error sharing PDF file: $e');
-        if (context.mounted) {
+        if (kDebugMode) print('Error sharing PDF file: $e');
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Could not share PDF file: $e')),
           );
@@ -163,41 +165,39 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
     final bool downloadEnabled = widget.pdfUrl != null;
     final bool shareEnabled = localPath != null || widget.pdfUrl != null;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[300], // Lighter background for PDF contrast
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        iconTheme: IconThemeData(color: Theme.of(context).primaryColor),
-        title: Text(
-          widget.pdfName ?? 'PDF Viewer',
-          style: TextStyle(color: Colors.black87),
-          overflow: TextOverflow.ellipsis,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(widget.pdfName ?? 'PDF Viewer', overflow: TextOverflow.ellipsis),
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          child: const Icon(CupertinoIcons.clear, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share PDF',
-            onPressed: shareEnabled ? () => _onShare(context) : null,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Open PDF Link (if available)',
-            onPressed: downloadEnabled ? () => _onDownload(context) : null,
-          ),
-        ],
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (shareEnabled)
+              CupertinoButton(
+                padding: const EdgeInsets.all(8.0),
+                child: const Icon(CupertinoIcons.share, size: 24),
+                onPressed: () => _onShare(context),
+              ),
+            if (downloadEnabled)
+              CupertinoButton(
+                padding: const EdgeInsets.all(8.0),
+                child: const Icon(CupertinoIcons.cloud_download, size: 24),
+                onPressed: () => _onDownload(context),
+              ),
+          ],
+        ),
       ),
-      body: _buildBody(),
+      child: _buildBody(context),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CupertinoActivityIndicator());
     }
     if (_loadError != null) {
       return Center(
@@ -205,7 +205,9 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
           padding: const EdgeInsets.all(16.0),
           child: Text(
             _loadError!,
-            style: TextStyle(color: Colors.red[700]),
+            style: TextStyle(
+              color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context),
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -221,24 +223,17 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
         pageSnap: true,
         defaultPage: currentPage ?? 0,
         fitPolicy: FitPolicy.BOTH,
-        preventLinkNavigation: false, // Allow links within PDF
+        preventLinkNavigation: false,
         onRender: (_pages) {
-          setState(() {
-            pages = _pages;
-            isReady = true;
-          });
+          if(mounted) setState(() => pages = _pages);
         },
         onError: (error) {
-          setState(() {
-            errorMessage = error.toString();
-          });
-          print(error.toString());
+          if(mounted) setState(() => _loadError = error.toString());
+          if (kDebugMode) print(error.toString());
         },
         onPageError: (page, error) {
-          setState(() {
-            errorMessage = '$page: ${error.toString()}';
-          });
-          print('$page: ${error.toString()}');
+          if(mounted) setState(() => _loadError = 'Error on page $page: ${error.toString()}');
+          if (kDebugMode) print('$page: ${error.toString()}');
         },
         onViewCreated: (PDFViewController pdfViewController) {
           if (!_controller.isCompleted) {
@@ -246,14 +241,18 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
           }
         },
         onPageChanged: (int? page, int? total) {
-          print('page change: $page/$total');
-          setState(() {
-            currentPage = page;
-          });
+          if (kDebugMode) print('page change: $page/$total');
+          if(mounted) setState(() => currentPage = page);
         },
       );
     }
-    // Fallback if path is somehow null after loading finishes
-    return const Center(child: Text('Could not load PDF path.'));
+    return Center(
+      child: Text(
+        'Could not load PDF path.',
+        style: TextStyle(
+          color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+        ),
+      ),
+    );
   }
 }
