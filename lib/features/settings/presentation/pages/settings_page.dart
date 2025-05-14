@@ -294,7 +294,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withAlpha((255 * 0.8).round()),
+                color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color:

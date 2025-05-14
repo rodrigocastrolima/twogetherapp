@@ -84,12 +84,12 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                             : CupertinoIcons.eye_fill,
                         color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, dialogContext),
                         size: 22,
-                      ),
-                      onPressed: () {
-                        setDialogState(() {
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
                           obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
-                        });
-                      },
+                          });
+                        },
                     ),
                     suffixMode: OverlayVisibilityMode.editing,
                   ),
@@ -118,7 +118,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     } catch (e) {
                       if (dialogContext.mounted) Navigator.pop(dialogContext, false);
                       if (mounted) setState(() { _errorMessage = 'Ocorreu um erro durante a reautenticação.'; _isLoading = false; });
-                    }
+                      }
                   },
                 ),
               ],
@@ -355,19 +355,19 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
               SizedBox(
                 width: double.infinity,
                 child: CupertinoButton.filled(
-                  onPressed: _isLoading ? null : _handleChangePassword,
+                onPressed: _isLoading ? null : _handleChangePassword,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   borderRadius: BorderRadius.circular(12),
                   child: _isLoading
                       ? const SizedBox(height: 20, width: 20, child: CupertinoActivityIndicator(color: CupertinoColors.white))
-                      : Text(
+                        : Text(
                           'Guardar Palavra-passe',
                           style: textTheme.labelLarge?.copyWith(
                             color: CupertinoColors.white,
                             fontWeight: FontWeight.w600,
                           ),
+                          ),
                         ),
-                ),
               ),
             ],
           ),

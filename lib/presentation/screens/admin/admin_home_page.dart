@@ -29,19 +29,20 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   void initState() {
     super.initState();
 
-    // Set up callback to refresh notifications when a new one is created
+    // Auto-refresh: Set up listener for notification changes
     ServiceSubmissionRepository.onNotificationCreated = () {
-      // if (kDebugMode) { // Removed print
-      //   print('AdminHomePage: Notification creation callback triggered');
-      // }
-
-      // Run this in the next frame to ensure it happens after build
-      Future.microtask(() {
-        if (mounted) {
-          refreshAdminNotifications(ref);
-        }
-      });
+      if (mounted) {
+        // Automatically refresh notifications when new ones arrive
+        refreshAdminNotifications(ref);
+      }
     };
+    
+    // Initial load of notifications
+    Future.microtask(() {
+      if (mounted) {
+        refreshAdminNotifications(ref);
+      }
+    });
   }
 
   @override
@@ -53,49 +54,142 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!; // REMOVED UNUSED l10n variable
     final theme = Theme.of(context);
-    final now = DateTime.now();
-    final timeFormatter = DateFormat.jm().format(now);
+    // final bool isDarkMode = theme.brightness == Brightness.dark;
+    // final Color pageBackgroundColor = isDarkMode ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface, // Use surface, not background
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 24, top: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome/Time Section
-            _buildWelcomeSection(context, timeFormatter),
-            const SizedBox(height: 24),
-
-            // --- Updated Statistics Section ---
-            _buildStatisticsSection(context),
-            const SizedBox(height: 24),
-
-            // --- NEW: Provider Resources Section ---
-            _buildProviderResourcesSection(context, theme),
-            const SizedBox(height: 24),
-
-            // --- Recent Activity Section ---
-            _buildSubmissionsNotificationSection(context),
-          ],
+      backgroundColor: theme.colorScheme.surface, // Use theme surface color
+      // appBar: AppBar( // AppBar removed
+      //   backgroundColor: pageBackgroundColor, 
+      //   elevation: 0,
+      //   scrolledUnderElevation: 0.0, // Ensure no color change on scroll
+      //   title: null,
+      //   automaticallyImplyLeading: false,
+      //   actions: [
+      //     _buildDropboxButton(context),
+      //     const SizedBox(width: 16),
+      //   ],
+      // ),
+      body: SafeArea(
+        child: ScrollConfiguration(
+          behavior: const NoScrollbarBehavior(), // Custom ScrollBehavior to hide scrollbar
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPageHeader(context), // Renamed and modified header
+                const SizedBox(height: 24),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth >= 768) { // Desktop / Wide screen layout
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2, // Give more space to activity
+                            child: _buildRecentActivitySection(context),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 1,
+                            child: Column( // Column for Dropbox and future items
+                              crossAxisAlignment: CrossAxisAlignment.end, // Align Dropbox to the right
+                              children: [
+                                _buildDropboxButton(context),
+                                // Add other widgets for the right column here if needed
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    } else { // Mobile / Narrow screen layout
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDropboxButton(context), // Dropbox button at the top for mobile
+                          const SizedBox(height: 16), 
+                          _buildRecentActivitySection(context), // Activity below Dropbox
+                        ],
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildWelcomeSection(BuildContext context, String time) {
+  Widget _buildPageHeader(BuildContext context) { // Renamed from _buildSubmissionsHeader
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 4.0),
+      child: Text(
+        'Início', // Changed title
+        style: theme.textTheme.headlineMedium?.copyWith(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentActivitySection(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16.0, left: 4.0, right: 4.0), // Consistent padding
+          child: Text(
+            'Atividade Recente',
+            style: theme.textTheme.titleLarge?.copyWith( // Adjusted style for subsection
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        _buildNotificationsList(context),
+      ],
+    );
+  }
+
+  Widget _buildDropboxButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDarkMode = theme.brightness == Brightness.dark;
+
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Adjusted padding for a page button
+      color: isDarkMode 
+          ? theme.colorScheme.surfaceContainerHighest // Use M3 equivalent
+          : theme.colorScheme.secondaryContainer, // Use M3 equivalent
+      borderRadius: BorderRadius.circular(12), // Standard Apple-like border radius
+      onPressed: () {
+        context.push('/admin/providers');
+      },
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(
+            CupertinoIcons.cloud_download,
+            size: 18, // Smaller icon
+            color: isDarkMode 
+                ? Colors.white 
+                : const Color(0xFF000000),
+          ),
+          const SizedBox(width: 6), // Smaller spacing
           Text(
-            time,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            'Dropbox',
+            style: theme.textTheme.labelMedium?.copyWith( // Smaller text style
+              fontWeight: FontWeight.w500,
+              color: isDarkMode 
+                  ? Colors.white 
+                  : const Color(0xFF000000),
             ),
           ),
         ],
@@ -103,12 +197,370 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     );
   }
 
+  Widget _buildNotificationsList(BuildContext context) {
+    final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
+    final notificationActions = ref.read(notificationActionsProvider);
+    final theme = Theme.of(context);
+
+    return notificationsStream.when(
+      data: (notifications) {
+        if (notifications.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    CupertinoIcons.bell_slash,
+                    size: 48,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhuma Atividade Recente',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(0),
+          itemCount: notifications.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final notification = notifications[index];
+            return _buildNotificationCard(
+              context,
+              notification,
+              onTap: () => _handleAdminNotificationTap(
+                context,
+                notification,
+                notificationActions,
+              ),
+            );
+          },
+        );
+      },
+      loading: () => Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: CupertinoActivityIndicator(),
+        ),
+      ),
+      error: (error, stackTrace) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              CupertinoIcons.exclamationmark_triangle,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Falha ao carregar atividade',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer.withOpacity(0.8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: theme.colorScheme.primary,
+              borderRadius: BorderRadius.circular(20),
+              child: Text(
+                'Tentar Novamente',
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
+                ),
+              ),
+              onPressed: () {
+                refreshAdminNotifications(ref);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationCard(
+    BuildContext context,
+    UserNotification notification, {
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final dateFormatter = DateFormat.yMd('pt_PT').add_jm();
+    final formattedDate = dateFormatter.format(notification.createdAt);
+    final resellerName = notification.metadata['resellerName'] ?? 'Revendedor Desconhecido';
+    
+    // Determine the second part of the subtitle based on notification type
+    String secondarySubtitleText = '?';
+    if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
+      secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
+    } else if (notification.type == NotificationType.newSubmission) {
+      secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
+    } else {
+      secondarySubtitleText = notification.metadata['clientName'] ?? '?'; 
+    }
+
+    final isNew = !notification.isRead;
+
+    IconData itemIcon = CupertinoIcons.doc_plaintext;
+    Color iconColor;
+
+    // Icon and color logic
+    switch (notification.type) {
+      case NotificationType.newSubmission:
+        itemIcon = CupertinoIcons.doc_on_doc_fill;
+        iconColor = const Color(0xFF3B82F6); // Blue
+        break;
+      case NotificationType.statusChange:
+        itemIcon = CupertinoIcons.arrow_swap;
+        iconColor = const Color(0xFFF59E0B); // Amber
+        break;
+      case NotificationType.rejection: 
+        itemIcon = CupertinoIcons.xmark_circle_fill;
+        iconColor = const Color(0xFFEF4444); // Red
+        break;
+      case NotificationType.proposalRejected:
+        itemIcon = CupertinoIcons.hand_thumbsdown_fill;
+        iconColor = const Color(0xFFEF4444); // Red
+        break;
+      case NotificationType.proposalAccepted: 
+        itemIcon = CupertinoIcons.check_mark_circled_solid; 
+        iconColor = const Color(0xFF10B981); // Green
+        break;
+      default:
+        itemIcon = CupertinoIcons.bell_fill;
+        iconColor = const Color(0xFF6B7280); // Gray
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.brightness == Brightness.dark 
+            ? const Color(0xFF1C1C1E) 
+            : const Color(0xFFF5F5F7),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0), // Reduced padding
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center, // Center items vertically
+              children: [
+                // Leading avatar with improved styling
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(itemIcon, size: 20, color: iconColor),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Title and subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        notification.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 14, // Slightly smaller for mobile
+                        ),
+                        maxLines: 1, // Ensure single line
+                        overflow: TextOverflow.ellipsis, // Add ellipsis
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$resellerName / $secondarySubtitleText',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 12, // Slightly smaller for mobile
+                        ),
+                        maxLines: 1, // Ensure single line
+                        overflow: TextOverflow.ellipsis, // Add ellipsis
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Trailing date and unread indicator
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formattedDate,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11, // Slightly smaller for mobile
+                      ),
+                    ),
+                    if (isNew) const SizedBox(height: 4),
+                    if (isNew)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: iconColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Admin Notification Tap Handler --- //
+  void _handleAdminNotificationTap(
+    BuildContext context,
+    UserNotification notification,
+    NotificationActions actions,
+  ) async {
+    // Log and mark as read
+    if (kDebugMode) {
+      print("Notification ID: ${notification.id}");
+      print("Notification Type: ${notification.type}");
+    }
+    
+    await actions.markAsRead(notification.id);
+
+    // Navigate based on type
+    if (!context.mounted) return;
+    
+    String snackBarMessage = 'Ação desconhecida';
+    bool showSnackBar = false;
+
+    switch (notification.type) {
+      case NotificationType.newSubmission:
+      case NotificationType.statusChange:
+      case NotificationType.rejection:
+        if (notification.metadata.containsKey('submissionId')) {
+          final submissionId = notification.metadata['submissionId'] as String?;
+          if (submissionId != null) {
+            await _fetchAndNavigateToDetailAdmin(context, submissionId);
+          } else {
+            snackBarMessage = 'ID da submissão não encontrado.';
+            showSnackBar = true;
+          }
+        } else {
+          snackBarMessage = 'Metadados da submissão em falta.';
+          showSnackBar = true;
+        }
+        break;
+      case NotificationType.proposalRejected:
+        snackBarMessage = 'Rejeição de Proposta: ${notification.metadata['proposalName'] ?? 'N/A'}';
+        showSnackBar = true;
+        break;
+      default:
+        snackBarMessage = 'Tipo de notificação não tratado: ${notification.type}';
+        showSnackBar = true;
+        break;
+    }
+
+    if (showSnackBar && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(snackBarMessage),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _fetchAndNavigateToDetailAdmin(
+    BuildContext context,
+    String submissionId,
+  ) async {
+    try {
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('serviceSubmissions')
+          .doc(submissionId)
+          .get();
+
+      if (!context.mounted) return;
+
+      if (docSnapshot.exists) {
+        final submission = ServiceSubmission.fromFirestore(docSnapshot);
+        context.push('/admin/opportunity-detail', extra: submission);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível encontrar os detalhes da submissão.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) print("Error fetching submission document: $e");
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar detalhes da submissão: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildStatisticsSection(BuildContext context) {
     final theme = Theme.of(context);
 
     // Navigation action for the icon button
     void navigateToDetails() {
-      // print('Navigating to Statistics Detail - Filter: $_selectedTimeFilter'); // Removed print
       context.push(
         '/admin/stats-detail',
         extra: {'timeFilter': _selectedTimeFilter},
@@ -128,7 +580,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'Statistics',
+                'Estatísticas',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface,
@@ -158,13 +610,13 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                             String text;
                             switch (filter) {
                               case TimeFilter.weekly:
-                                text = 'Weekly'; // TODO: l10n
+                                text = 'Semanal';
                                 break;
                               case TimeFilter.monthly:
-                                text = 'Monthly'; // TODO: l10n
+                                text = 'Mensal';
                                 break;
                               case TimeFilter.cycle:
-                                text = 'Cycle'; // TODO: l10n
+                                text = 'Ciclo';
                                 break;
                             }
                             return DropdownMenuItem<TimeFilter>(
@@ -231,9 +683,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Submissions',
+                                  'Submissões',
                                   style: theme.textTheme.titleSmall,
-                                ), // TODO: l10n
+                                ),
                                 const SizedBox(height: 8),
                                 Expanded(
                                   child: _buildSubmissionsChart(
@@ -250,9 +702,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Estimated Revenue',
+                                  'Receita Estimada',
                                   style: theme.textTheme.titleSmall,
-                                ), // TODO: l10n
+                                ),
                                 const SizedBox(height: 8),
                                 Expanded(
                                   child: _buildRevenueChart(
@@ -273,9 +725,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Submissions',
+                              'Submissões',
                               style: theme.textTheme.titleSmall,
-                            ), // TODO: l10n
+                            ),
                             const SizedBox(height: 8),
                             AspectRatio(
                               aspectRatio: 1.8,
@@ -291,9 +743,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Estimated Revenue',
+                              'Receita Estimada',
                               style: theme.textTheme.titleSmall,
-                            ), // TODO: l10n
+                            ),
                             const SizedBox(height: 8),
                             AspectRatio(
                               aspectRatio: 1.8,
@@ -321,11 +773,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     String bottomTitleInterval = 'D'; // D for Day number
     if (filter == TimeFilter.weekly) {
       days = 7;
-      bottomTitleInterval = 'WD'; // WD for Week Day initial
+      bottomTitleInterval = 'DS'; // DS for Dia da Semana (Weekday initial)
     }
     if (filter == TimeFilter.cycle) {
       days = 90;
-      bottomTitleInterval = 'W#'; // W# for Week Number
+      bottomTitleInterval = 'S#'; // S# for Semana Número (Week Number)
     }
     final spots = _generatePlaceholderSpots(days, 50);
     double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
@@ -446,11 +898,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     String bottomTitleInterval = 'D';
     if (filter == TimeFilter.weekly) {
       days = 7;
-      bottomTitleInterval = 'WD';
+      bottomTitleInterval = 'DS';
     }
     if (filter == TimeFilter.cycle) {
       days = 90;
-      bottomTitleInterval = 'W#';
+      bottomTitleInterval = 'S#';
     }
     final spots = _generatePlaceholderSpots(days, 5000, isDouble: true);
     double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
@@ -543,6 +995,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                 // Format as currency for tooltip
                 final currencyFormatter = NumberFormat.simpleCurrency(
                   decimalDigits: 0,
+                  locale: 'pt_PT', // Assuming Portuguese (Portugal)
                 );
                 String tooltipText = currencyFormatter.format(flSpot.y);
                 return LineTooltipItem(
@@ -594,290 +1047,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     });
   }
 
-  Widget _buildSubmissionsNotificationSection(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!; // Already removed unused
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Activity',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Consumer(
-                builder: (context, ref, _) {
-                  return Row(
-                    children: [
-                      CupertinoButton(
-                        padding: const EdgeInsets.all(4.0),
-                        minSize: 0,
-                        child: Icon(
-                          CupertinoIcons.refresh,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant.withAlpha(
-                            178,
-                          ), // Use withAlpha
-                        ),
-                        onPressed: () {
-                          refreshAdminNotifications(ref);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      CupertinoButton(
-                        padding: const EdgeInsets.all(4.0),
-                        minSize: 0,
-                        child: Icon(
-                          CupertinoIcons.checkmark_circle,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant.withAlpha(
-                            178,
-                          ), // Use withAlpha
-                        ),
-                        onPressed: () {
-                          final notificationActions = ref.read(
-                            notificationActionsProvider,
-                          );
-                          notificationActions.markAllAsRead();
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildNotificationsList(context),
-      ],
-    );
-  }
-
-  Widget _buildNotificationsList(BuildContext context) {
-    final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
-    final notificationActions = ref.read(notificationActionsProvider);
-    final theme = Theme.of(context);
-
-    return notificationsStream.when(
-      data: (notifications) {
-        if (notifications.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.bell_slash,
-                    size: 40,
-                    color: theme.colorScheme.onSurfaceVariant.withAlpha(
-                      153,
-                    ), // Use withAlpha
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No Recent Activity',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withAlpha(
-                        204,
-                      ), // Use withAlpha
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          itemCount: notifications.length,
-          separatorBuilder:
-              (context, index) => Divider(
-                height: 1,
-                thickness: 0.5,
-                color: theme.dividerColor.withAlpha(128), // Use withAlpha
-                indent: 16,
-                endIndent: 16,
-              ),
-          itemBuilder: (context, index) {
-            final notification = notifications[index];
-            // --- FIXED: Call the correct handler --- //
-            return _buildEnhancedNotificationItem(
-              context,
-              notification,
-              onTap:
-                  () => _handleAdminNotificationTap(
-                    context,
-                    notification,
-                    notificationActions,
-                  ),
-            );
-          },
-        );
-      },
-      loading:
-          () => const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32.0),
-              child: CupertinoActivityIndicator(),
-            ),
-          ),
-      error:
-          (error, stackTrace) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    CupertinoIcons.exclamationmark_triangle,
-                    size: 48,
-                    color: Colors.orange,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load activity',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    error.toString(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  CupertinoButton(
-                    child: Text('Try Again'),
-                    onPressed: () {
-                      refreshAdminNotifications(ref);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-    );
-  }
-
-  Widget _buildEnhancedNotificationItem(
-    BuildContext context,
-    UserNotification notification, {
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final dateFormatter = DateFormat.yMd().add_jm();
-    final formattedDate = dateFormatter.format(notification.createdAt);
-    final resellerName = notification.metadata['resellerName'] ?? 'Unknown Reseller';
-    
-    // Determine the second part of the subtitle based on notification type
-    String secondarySubtitleText = '?';
-    if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
-      secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
-    } else if (notification.type == NotificationType.newSubmission) {
-      secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
-    } else {
-      // Fallback for other types, can be clientName or another relevant piece of metadata
-      secondarySubtitleText = notification.metadata['clientName'] ?? '?'; 
-    }
-
-    final isNew = !notification.isRead;
-
-    IconData itemIcon = CupertinoIcons.doc_plaintext;
-    Color iconColor = theme.colorScheme.primary;
-
-    // Icon and color logic (remains the same as your last correct version)
-    switch (notification.type) {
-      case NotificationType.newSubmission:
-        itemIcon = CupertinoIcons.doc_on_doc_fill;
-        iconColor = theme.colorScheme.primary;
-        break;
-      case NotificationType.statusChange:
-        itemIcon = CupertinoIcons.arrow_swap;
-        iconColor = Colors.orange;
-        break;
-      case NotificationType.rejection: 
-        itemIcon = CupertinoIcons.xmark_circle_fill;
-        iconColor = theme.colorScheme.error;
-        break;
-      case NotificationType.proposalRejected:
-        itemIcon = CupertinoIcons.hand_thumbsdown_fill;
-        iconColor = theme.colorScheme.error;
-        break;
-      case NotificationType.proposalAccepted: 
-        itemIcon = CupertinoIcons.check_mark_circled_solid; 
-        iconColor = Colors.green; 
-        break;
-      default:
-        itemIcon = CupertinoIcons.bell_fill;
-        iconColor = Colors.grey;
-    }
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-      leading: CircleAvatar(
-        radius: 20,
-        backgroundColor: iconColor.withAlpha(26), 
-        child: Icon(itemIcon, size: 20, color: iconColor),
-      ),
-      title: Text(
-        notification.title,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: isNew ? FontWeight.bold : FontWeight.normal,
-          color: theme.colorScheme.onSurface,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '$resellerName / $secondarySubtitleText', // Use the new secondarySubtitleText
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            formattedDate,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          if (isNew) const SizedBox(height: 4),
-          if (isNew)
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-      onTap: onTap,
-      dense: true,
-    );
-  }
-
   // --- Helper Functions for Chart Titles ---
 
   Widget _bottomTitleWidgets(
@@ -898,17 +1067,19 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       return Container();
     }
 
+    // Use 'pt_PT' for Portuguese date formatting
+    final locale = 'pt_PT';
+
     switch (intervalType) {
-      case 'WD': // Weekly - Day Initials
-        // Calculate the date corresponding to the index (assuming today is the last day)
+      case 'DS': // Weekly - Day Initials (Dia da Semana)
         DateTime date = DateTime.now().subtract(
           Duration(days: totalDays - 1 - dayIndex),
         );
-        text = DateFormat.E().format(date)[0]; // First letter of weekday
+        text = DateFormat.E(locale).format(date)[0].toUpperCase(); 
         break;
-      case 'W#': // Cycle - Week Number
+      case 'S#': // Cycle - Week Number (Semana Número)
         int weekNumber = (dayIndex / 7).floor() + 1;
-        text = 'W$weekNumber';
+        text = 'S$weekNumber';
         break;
       case 'D': // Monthly - Day Number
       default:
@@ -917,7 +1088,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
 
     return SideTitleWidget(
-      meta: meta,
+      meta: meta, // Reverted to meta
       space: 8.0,
       child: Text(text, style: style),
     );
@@ -939,6 +1110,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     if (isCurrency) {
       final currencyFormatter = NumberFormat.compactSimpleCurrency(
         decimalDigits: 0,
+        locale: 'pt_PT', // Assuming Portuguese (Portugal)
       );
       text = currencyFormatter.format(value);
     } else {
@@ -946,138 +1118,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
 
     return SideTitleWidget(
-      meta: meta,
+      meta: meta, // Reverted to meta
       space: 8.0,
       child: Text(text, style: style, textAlign: TextAlign.left),
     );
-  }
-
-  // --- UPDATED: Admin Notification Tap Handler --- //
-  void _handleAdminNotificationTap(
-    BuildContext context,
-    UserNotification notification,
-    NotificationActions actions,
-  ) async {
-    // *** ADDED Logging ***
-    if (kDebugMode) {
-      print("--- Admin Notification Tap Handler ---");
-      print("Notification ID: ${notification.id}");
-      print("Notification Type: ${notification.type}");
-      print("Notification Metadata: ${notification.metadata}");
-    }
-    // **********************
-
-    // Mark as read first
-    await actions.markAsRead(notification.id);
-
-    // Navigate based on type
-    switch (notification.type) {
-      case NotificationType.newSubmission:
-      case NotificationType.statusChange:
-      case NotificationType.rejection:
-        if (kDebugMode)
-          print(
-            "Type matched (${notification.type}). Checking for submissionId...",
-          );
-        if (notification.metadata.containsKey('submissionId')) {
-          if (kDebugMode) print("Metadata contains submissionId key.");
-          final submissionId = notification.metadata['submissionId'] as String?;
-          if (submissionId != null) {
-            if (kDebugMode)
-              print("Submission ID is not null: $submissionId. Navigating...");
-            // Fetch and navigate
-            await _fetchAndNavigateToDetailAdmin(context, submissionId);
-          } else {
-            if (kDebugMode) print("Error: Submission ID value is null.");
-          }
-        } else {
-          if (kDebugMode)
-            print("Error: Metadata does NOT contain submissionId key.");
-        }
-        break;
-      case NotificationType.proposalRejected:
-        if (kDebugMode) {
-          print(
-            "Proposal Rejected notification tapped. Proposal ID: ${notification.metadata['proposalId']}, Opportunity ID: ${notification.metadata['opportunityId']}",
-          );
-          // TODO: Implement navigation to proposal details or opportunity details for admin
-          // For now, just show a snackbar or log.
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Proposal Rejection: ${notification.metadata['proposalName'] ?? 'N/A'}',
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        break;
-      // Add cases for other notification types if needed (e.g., chat message)
-      default:
-        if (kDebugMode)
-          print(
-            "Notification type (${notification.type}) does not trigger navigation in this handler.",
-          );
-        break;
-    }
-    if (kDebugMode)
-      print("--- End Admin Notification Tap Handler ---"); // Log end
-
-    // Use mounted check before interacting with context across async gap
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notification marked as read.'), // TODO: l10n
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  // --- NEW HELPER: Fetch Submission and Navigate (Admin version) --- //
-  Future<void> _fetchAndNavigateToDetailAdmin(
-    BuildContext context,
-    String submissionId,
-  ) async {
-    if (kDebugMode)
-      print("Fetching submission details for ID (Admin): $submissionId");
-    try {
-      final docSnapshot =
-          await FirebaseFirestore.instance
-              .collection('serviceSubmissions')
-              .doc(submissionId)
-              .get();
-
-      if (!context.mounted) return;
-
-      if (docSnapshot.exists) {
-        final submission = ServiceSubmission.fromFirestore(docSnapshot);
-        // --- REVERTED NAVIGATION PATH --- //
-        context.push('/admin/opportunity-detail', extra: submission);
-        // --- END REVERT --- //
-      } else {
-        if (kDebugMode)
-          print("Error: Submission document not found for ID: $submissionId");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not find the submission details.',
-            ), // TODO: l10n
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) print("Error fetching submission document: $e");
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading submission details: $e'), // TODO: l10n
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   // --- NEW: Provider Resources Section Widget ---
@@ -1088,7 +1132,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Provider Resources', // TODO: l10n
+            'Recursos do Fornecedor',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurface,
@@ -1119,7 +1163,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        'Manage Provider Documents', // TODO: l10n
+                        'Gerir Documentos do Fornecedor',
                         style: theme.textTheme.titleMedium,
                       ),
                     ),
@@ -1142,4 +1186,22 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   }
 
   // --------------------------------------------------------- //
+}
+
+// Custom ScrollBehavior to hide the scrollbar
+class NoScrollbarBehavior extends ScrollBehavior {
+  const NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    // Hide scrollbar by returning the child directly
+    return child;
+  }
+
+  @override
+  TargetPlatform getPlatform(BuildContext context) => TargetPlatform.android;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
 }

@@ -90,7 +90,7 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
     case 'Criação':
     case '--Nenhum --':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.doc_text, 
+        iconData: CupertinoIcons.doc_text,
         iconColor: theme.colorScheme.onSurfaceVariant,
         isInteractive: true,
       );
@@ -105,8 +105,13 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
 
 class OpportunityDetailsPage extends ConsumerWidget {
   final SalesforceOpportunity opportunity;
+  final String? heroTag;
 
-  const OpportunityDetailsPage({super.key, required this.opportunity});
+  const OpportunityDetailsPage({
+    super.key, 
+    required this.opportunity,
+    this.heroTag,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -132,6 +137,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
     // -------------------------------------
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor, // Ensure background color is set
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -359,7 +365,7 @@ class OpportunityDetailsPage extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radius),
       ),
-      color: theme.cardColor,
+      color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
       shadowColor: shadowColor,
       margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 0),
       child: ListTile(

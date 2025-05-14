@@ -102,9 +102,9 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   Future<void> _onDownload(BuildContext context) async {
     if (widget.pdfUrl == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download not available for local data')),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Download not available for local data')),
+      );
       }
       return;
     }
@@ -181,15 +181,15 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
                 padding: const EdgeInsets.all(8.0),
                 child: const Icon(CupertinoIcons.share, size: 24),
                 onPressed: () => _onShare(context),
-              ),
+          ),
             if (downloadEnabled)
               CupertinoButton(
                 padding: const EdgeInsets.all(8.0),
                 child: const Icon(CupertinoIcons.cloud_download, size: 24),
                 onPressed: () => _onDownload(context),
-              ),
-          ],
-        ),
+          ),
+        ],
+      ),
       ),
       child: _buildBody(context),
     );

@@ -239,18 +239,18 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
               padding: const EdgeInsets.all(8.0),
               child: const Icon(CupertinoIcons.share, size: 24),
               onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
-                  ? null
-                  : () => _onShare(context),
-            ),
+                    ? null
+                    : () => _onShare(context),
+          ),
             CupertinoButton(
               padding: const EdgeInsets.all(8.0),
               child: const Icon(CupertinoIcons.cloud_download, size: 24),
               onPressed: _isLoading || _fileBytes == null
-                  ? null
-                  : () => _onDownload(context),
-            ),
-          ],
-        ),
+                    ? null
+                    : () => _onDownload(context),
+          ),
+        ],
+      ),
       ),
       child: _buildBody(context),
     );
@@ -367,26 +367,26 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
             Icon(
               CupertinoIcons.doc_text_fill, // Using a Cupertino icon
               size: 60,
               color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
             ),
-            const SizedBox(height: 16),
-            Text(
-              // Show extension if available, otherwise content type
-              'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
+          const SizedBox(height: 16),
+          Text(
+            // Show extension if available, otherwise content type
+            'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
               textAlign: TextAlign.center,
               style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
-            ),
+          ),
             const SizedBox(height: 24),
             CupertinoButton.filled(
               onPressed: _isLoading || _fileBytes == null
-                  ? null
-                  : () => _onDownload(context),
+                    ? null
+                    : () => _onDownload(context),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -395,8 +395,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
                   Text('Save File'),
                 ],
               ),
-            ),
-          ],
+          ),
+        ],
         ),
       ),
     );

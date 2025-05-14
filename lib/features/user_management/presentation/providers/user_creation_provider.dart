@@ -1,16 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math';
-import 'package:flutter/services.dart'; // For Clipboard
 
 import '../../../auth/domain/models/app_user.dart';
-// import '../../../../core/providers/firebase_providers.dart'; // Was incorrect
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../salesforce/data/services/salesforce_user_sync_service.dart';
+import '../../../salesforce/data/services/salesforce_connection_service.dart';
 import '../../../auth/data/services/firebase_functions_service.dart';
 
 // State for the user creation process
@@ -99,7 +95,9 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
 
   // Step 1: Verify Salesforce ID and check Firestore
   Future<void> verifySalesforceUser(String salesforceId) async {
-    if (state.isLoading) return;
+    if (state.isLoading) {
+      return;
+    }
 
     state = state.copyWith(
       isLoading: true,
@@ -109,21 +107,20 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
     );
 
     try {
-      final salesforceService = SalesforceUserSyncService();
-      final initialized = await salesforceService.initialize();
-      if (!initialized) {
-        throw Exception('Failed to connect to Salesforce.');
-      }
+      final salesforceConnectionService = _ref.read(salesforceConnectionServiceProvider);
+      final salesforceService = SalesforceUserSyncService(salesforceService: salesforceConnectionService);
 
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[UserCreationNotifier] Fetching Salesforce user: $salesforceId');
+      }
       final userData = await salesforceService.getSalesforceUserById(
         salesforceId,
       );
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] Salesforce user data fetched: ${userData ?? "Not Found"}',
         );
+      }
 
       if (userData == null || userData.isEmpty) {
         state = state.copyWith(
@@ -134,20 +131,22 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
         return;
       }
 
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] Checking for existing Firestore user with Salesforce ID: $salesforceId',
         );
+      }
       final existingUsers =
           await _firestore
               .collection('users')
               .where('salesforceId', isEqualTo: salesforceId)
               .limit(1)
               .get();
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] Firestore check complete. Found: ${existingUsers.docs.length}',
         );
+      }
 
       if (existingUsers.docs.isNotEmpty) {
         state = state.copyWith(
@@ -159,8 +158,9 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
       }
 
       // --- Data is valid, prepare for verification dialog ---
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[UserCreationNotifier] Proceeding to password generation.');
+      }
       const chars =
           'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()';
       final random = Random.secure();
@@ -187,10 +187,11 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
       }
 
       // Set state to trigger verification dialog in UI
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] Setting state to show verification dialog (in two steps).',
         );
+      }
       // Step 1: Set loading to false first
       state = state.copyWith(isLoading: false);
       // Step 2: Immediately set the dialog flag and data
@@ -204,13 +205,15 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
         },
       );
       // Log the state immediately after setting it
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] State AFTER setting showVerificationDialog: $state',
         );
+      }
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[UserCreationNotifier] Error caught during verification: $e');
+      }
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to verify Salesforce user: ${e.toString()}',
@@ -221,8 +224,9 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
 
   // Step 2: Create user after UI confirmation
   Future<void> confirmAndCreateUser() async {
-    if (state.isLoading || state.verificationData == null)
+    if (state.isLoading || state.verificationData == null) {
       return; // Need data from previous step
+    }
 
     final data = state.verificationData!;
     final email = data['email'] as String;
@@ -247,38 +251,65 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
 
       state = state.copyWith(loadingMessage: 'Creating Firebase User...');
       final authRepository = _ref.read(authRepositoryProvider);
-      // Make sure UserRole.reseller is accessible
-      final newUser = await authRepository.createUserWithEmailAndPassword(
+      final result = await authRepository.createUserWithEmailAndPassword(
         email: email,
         password: password,
-        role: UserRole.reseller,
         displayName: displayName,
+        role: UserRole.reseller,
       );
 
-      state = state.copyWith(
-        loadingMessage: 'Synchronizing with Salesforce...',
-      );
-      await _syncUserWithSalesforce(
-        newUser.uid,
+      final firebaseUid = result.uid;
+      if (kDebugMode) {
+        print(
+          '[UserCreationNotifier] Firebase user created with UID: $firebaseUid',
+        );
+      }
+
+      state = state.copyWith(loadingMessage: 'Syncing Salesforce Data...');
+      final salesforceConnectionService = _ref.read(salesforceConnectionServiceProvider);
+      final salesforceService = SalesforceUserSyncService(salesforceService: salesforceConnectionService);
+      final syncSuccess = await salesforceService.syncSalesforceUserToFirebase(
+        firebaseUid,
         salesforceId,
-      ); // Internal helper
+      );
 
-      if (kDebugMode)
+      if (!syncSuccess) {
+        // Log error but proceed, as account exists. User can retry sync or admin can fix.
+        if (kDebugMode) {
+          print(
+            '[UserCreationNotifier] Salesforce data sync failed for user $firebaseUid.',
+          );
+        }
+        // Optionally set a non-blocking error message or specific flag in state
+      } else {
+        if (kDebugMode) {
+          print(
+            '[UserCreationNotifier] Salesforce data synced successfully for user $firebaseUid.',
+          );
+        }
+      }
+
+      // Prepare success data for UI
+      final successDisplayData = {
+        'displayName': displayName,
+        'email': email,
+        'password': password,
+      };
+
+      if (kDebugMode) {
         print(
           '[UserCreationNotifier] User created. Setting state to show success dialog.',
         );
+      }
       state = state.copyWith(
         isLoading: false,
         showSuccessDialog: true,
-        successData: {
-          'displayName': displayName,
-          'email': email,
-          'password': password,
-        },
+        successData: successDisplayData,
       );
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         print('[UserCreationNotifier] Error caught during creation: $e');
+      }
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to create user: ${e.toString()}',
@@ -287,42 +318,37 @@ class UserCreationNotifier extends StateNotifier<UserCreationState> {
     }
   }
 
-  // Internal helper to sync Salesforce data
-  Future<void> _syncUserWithSalesforce(String uid, String salesforceId) async {
-    // (This method remains largely the same, but doesn't need context or snackbars)
-    try {
-      await _firestore.collection('users').doc(uid).update({
-        'salesforceId': salesforceId,
-        'lastSalesforceSync': FieldValue.serverTimestamp(),
-      });
-
-      final syncService = SalesforceUserSyncService();
-      final success = await syncService.syncSalesforceUserToFirebase(
-        uid,
-        salesforceId,
-      );
-
-      if (!success) {
-        if (kDebugMode)
-          print(
-            '[UserCreationNotifier] Warning: Failed to sync all data from Salesforce.',
-          );
-        // Optionally update state with a non-blocking warning?
-      }
-    } catch (e) {
-      if (kDebugMode)
-        print(
-          '[UserCreationNotifier] Warning: Error syncing data from Salesforce: $e',
-        );
-      // Optionally update state with a non-blocking warning?
+  // --- UI Trigger Resets ---
+  void clearVerificationDialog() {
+    if (state.showVerificationDialog) {
+      state = state.copyWith(showVerificationDialog: false, verificationData: null);
     }
   }
 
-  // --- Removed UI Helper Methods (_showVerificationDialog, _showSuccessDialog, _showErrorDialog, _showSnackbar) ---
+  void clearErrorDialog() {
+    if (state.showErrorDialog) {
+      state = state.copyWith(showErrorDialog: false, errorMessage: null);
+    }
+  }
+
+  void clearSuccessDialog() {
+    if (state.showSuccessDialog) {
+      state = state.copyWith(showSuccessDialog: false, successData: null);
+    }
+  }
+
+  void resetAllDialogs() {
+    state = state.copyWith(resetDialogTriggers: true);
+  }
 }
 
-// Provider definition remains the same
+// Provider for UserCreationNotifier
 final userCreationProvider =
     StateNotifierProvider<UserCreationNotifier, UserCreationState>((ref) {
-      return UserCreationNotifier(ref, FirebaseFirestore.instance);
-    });
+  final firestore = ref.watch(firestoreProvider);
+  return UserCreationNotifier(ref, firestore);
+});
+
+// Provider for Firestore - Assuming it's defined elsewhere, or add simple one:
+final firestoreProvider = Provider((ref) => FirebaseFirestore.instance);
+// Remove this if you have a more specific firestoreProvider (e.g., from firebase_providers.dart)

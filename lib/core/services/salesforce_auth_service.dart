@@ -630,10 +630,9 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
         final data = result.data;
         final String? newAccessToken = data['accessToken'] as String?;
         final String? newInstanceUrl = data['instanceUrl'] as String?;
-        // The cloud function currently doesn't return expiry or a new refresh token.
-        // We'll use a default expiry and reuse the existing refresh token.
-        // TODO: Update Cloud Function to return expiresInSeconds for better accuracy.
-        const defaultExpiresIn = 7200; // 2 hours
+        final int? expiresInFromCloud = data['expiresInSeconds'] as int?;
+
+        final int effectiveExpiresIn = expiresInFromCloud ?? 7200; // Default to 2 hours
 
         if (newAccessToken != null && newInstanceUrl != null) {
           if (kDebugMode) {
@@ -645,9 +644,9 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
             accessToken: newAccessToken,
             refreshToken: _refreshToken!, // Reuse existing refresh token
             instanceUrl: newInstanceUrl,
-            expiresInSeconds: defaultExpiresIn,
+            expiresInSeconds: effectiveExpiresIn,
           );
-          state = SalesforceAuthState.authenticated; // Back to authenticated
+          state = SalesforceAuthState.authenticated;
           return true;
         } else {
           _lastError =
@@ -692,90 +691,80 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
         return false;
       }
     } else {
-      // --- MOBILE: Original Direct Refresh Logic ---
+      // --- MOBILE: Use Cloud Function for Refresh (now same as web) ---
       if (kDebugMode) {
         print(
-          'SalesforceAuthNotifier: Attempting mobile token refresh directly...',
+          'SalesforceAuthNotifier: Attempting mobile token refresh via Cloud Function...',
         );
       }
-      // Indicate refresh is in progress (optional, but good practice)
-      // state = SalesforceAuthState.authenticating;
+      state =
+          SalesforceAuthState.authenticating; // Indicate refresh is in progress
       _lastError = null;
 
       try {
-        final response = await http.post(
-          Uri.parse(_tokenEndpoint),
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: {
-            'grant_type': 'refresh_token',
-            'refresh_token': _refreshToken!,
-            'client_id': _clientId,
-          },
-        );
+        final HttpsCallable callable = FirebaseFunctions.instance
+        // .useFunctionsEmulator('localhost', 5001) // Uncomment for emulator
+        .httpsCallable('refreshSalesforceToken');
 
-        final responseBody = json.decode(response.body);
+        final result = await callable.call<Map<String, dynamic>>({
+          'refreshToken': _refreshToken!,
+        });
 
-        if (response.statusCode == 200) {
-          final newAccessToken = responseBody['access_token'] as String?;
-          final newInstanceUrl = responseBody['instance_url'] as String?;
-          // Use a default expiry and reuse the existing refresh token.
-          const defaultExpiresIn = 7200; // 2 hours in seconds
+        final data = result.data;
+        final String? newAccessToken = data['accessToken'] as String?;
+        final String? newInstanceUrl = data['instanceUrl'] as String?;
+        final int? expiresInFromCloud = data['expiresInSeconds'] as int?;
 
-          if (newAccessToken == null || newInstanceUrl == null) {
-            if (kDebugMode) {
-              print(
-                'SalesforceAuthNotifier: Mobile refresh response missing access_token or instance_url.',
-              );
-            }
-            _lastError =
-                'Mobile refresh failed: Incomplete token data received.';
-            // state = SalesforceAuthState.error; // Or unauthenticated?
-            return false;
-          }
+        final int effectiveExpiresIn = expiresInFromCloud ?? 7200; // Default to 2 hours
 
+        if (newAccessToken != null && newInstanceUrl != null) {
           if (kDebugMode) {
-            print('SalesforceAuthNotifier: Mobile token refresh successful.');
+            print(
+              'SalesforceAuthNotifier: Mobile token refresh via Cloud Function successful.',
+            );
           }
           await _storeTokens(
             accessToken: newAccessToken,
             refreshToken: _refreshToken!, // Reuse existing refresh token
             instanceUrl: newInstanceUrl,
-            expiresInSeconds: defaultExpiresIn,
+            expiresInSeconds: effectiveExpiresIn,
           );
-          // state = SalesforceAuthState.authenticated; // Ensure state is updated if needed
-          _lastError = null; // Clear previous errors
+          state = SalesforceAuthState.authenticated;
           return true;
         } else {
-          // Handle refresh error (e.g., refresh token revoked)
-          final error = responseBody['error'] as String? ?? 'unknown_error';
-          final errorDescription =
-              responseBody['error_description'] as String? ?? 'No description.';
-          _lastError = 'Mobile refresh failed: $error ($errorDescription)';
+          _lastError =
+              'Mobile refresh failed: Cloud Function returned incomplete data.';
           if (kDebugMode) {
-            print(
-              'SalesforceAuthNotifier: Mobile token refresh failed. Status: ${response.statusCode}, Error: $error, Desc: $errorDescription',
-            );
+            print('SalesforceAuthNotifier: Error - $_lastError');
+            print('Received data: $data');
           }
-          // If the grant is invalid (e.g., revoked token), clear everything
-          if (error == 'invalid_grant') {
-            if (kDebugMode) {
-              print(
-                'SalesforceAuthNotifier: Invalid grant detected during mobile refresh. Clearing tokens.',
-              );
-            }
-            await _clearTokens(); // This sets state to unauthenticated
-          } else {
-            // For other errors, maybe don't clear tokens automatically?
-            state = SalesforceAuthState.error;
-          }
+          state = SalesforceAuthState.error;
           return false;
         }
-      } catch (e) {
-        _lastError = 'Mobile refresh failed: Exception occurred: $e';
+      } on FirebaseFunctionsException catch (e) {
+        _lastError =
+            'Mobile refresh Cloud Function failed: Code [${e.code}] Message [${e.message}] Details [${e.details}]';
         if (kDebugMode) {
-          print(
-            'SalesforceAuthNotifier: Exception during mobile token refresh: $e',
-          );
+          print('SalesforceAuthNotifier: $_lastError');
+        }
+        if (e.code == 'functions-error' &&
+            e.message != null &&
+            (e.message!.contains('invalid_grant') ||
+                e.message!.contains('refresh_token validity expired'))) {
+          if (kDebugMode) {
+            print(
+              'SalesforceAuthNotifier: Invalid grant detected during mobile refresh (CF). Clearing tokens.',
+            );
+          }
+          await _clearTokens();
+        } else {
+          state = SalesforceAuthState.error;
+        }
+        return false;
+      } catch (e) {
+        _lastError = 'Mobile refresh via CF failed: Exception: $e';
+        if (kDebugMode) {
+          print('SalesforceAuthNotifier: $_lastError');
         }
         state = SalesforceAuthState.error;
         return false;

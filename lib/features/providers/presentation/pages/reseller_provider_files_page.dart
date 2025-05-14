@@ -9,12 +9,17 @@ import '../../../../core/theme/theme.dart';
 // Import the viewers
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget for AppBar
 
 class ResellerProviderFilesPage extends ConsumerWidget {
   final String providerId;
-  // TODO: Pass provider name for AppBar title
+  final String providerName;
 
-  const ResellerProviderFilesPage({super.key, required this.providerId});
+  const ResellerProviderFilesPage({
+    super.key, 
+    required this.providerId,
+    required this.providerName,
+  });
 
   // --- File Tap Handler ---
   Future<void> _handleFileTap(BuildContext context, ProviderFile file) async {
@@ -22,33 +27,10 @@ class ResellerProviderFilesPage extends ConsumerWidget {
     final url = Uri.parse(file.downloadUrl);
 
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].contains(fileType)) {
-      // Navigate to FullScreenImageViewer
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => FullScreenImageViewer(
-                imageUrl: file.downloadUrl,
-                imageName: file.fileName,
-              ),
-          fullscreenDialog: true, // Present as a modal
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => FullScreenImageViewer(imageUrl: file.downloadUrl, imageName: file.fileName), fullscreenDialog: true));
     } else if (fileType == 'pdf') {
-      // Navigate to FullScreenPdfViewer
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => FullScreenPdfViewer(
-                pdfUrl: file.downloadUrl,
-                pdfName: file.fileName,
-              ),
-          fullscreenDialog: true,
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => FullScreenPdfViewer(pdfUrl: file.downloadUrl, pdfName: file.fileName), fullscreenDialog: true));
     } else {
-      // Attempt to launch URL for other types
       try {
         if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -56,12 +38,8 @@ class ResellerProviderFilesPage extends ConsumerWidget {
           throw 'Could not launch $url';
         }
       } catch (e) {
-        print('Error launching file URL: $e');
-        // Use ScaffoldMessenger directly for error feedback
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open file link: $e')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Não foi possível abrir o link do ficheiro: $e')));
         }
       }
     }
@@ -71,35 +49,46 @@ class ResellerProviderFilesPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filesAsyncValue = ref.watch(providerFilesStreamProvider(providerId));
     final theme = Theme.of(context);
-    final String appBarTitle = 'Resources'; // Placeholder title
+    final isDark = theme.brightness == Brightness.dark; // For LogoWidget in AppBar
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: false,
-        elevation: 1,
-        shadowColor: theme.shadowColor.withOpacity(0.1),
+        leading: IconButton(
+          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: LogoWidget(height: 60, darkMode: isDark),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0.0,
       ),
-      body: filesAsyncValue.when(
+      body: Column( // Wrap body in Column to add title
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0), // Add padding for the title
+            child: Text(
+              providerName, // Display the provider name
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+      ),
+          ),
+          Expanded( // Make the ListView take remaining space
+            child: filesAsyncValue.when(
         data: (files) {
           if (files.isEmpty) {
             return const Center(
-              child: Text(
-                'No files available for this provider yet.',
-              ), // TODO: l10n
+                    child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'), // Portuguese
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // Added vertical padding too
             itemCount: files.length,
             separatorBuilder:
-                (context, index) => Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: theme.dividerColor.withOpacity(0.5),
-                  indent: 16,
-                  endIndent: 16,
-                ),
+                      (context, index) => const SizedBox(height: 12), // Use SizedBox for spacing
             itemBuilder: (context, index) {
               final file = files[index];
               return _buildFileListItem(context, file, theme);
@@ -111,14 +100,13 @@ class ResellerProviderFilesPage extends ConsumerWidget {
             (error, stack) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error loading files: $error',
-                  textAlign: TextAlign.center,
+                      child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center), // Portuguese
                 ),
               ),
             ),
       ),
-      // No FAB for resellers
+        ],
+      ),
     );
   }
 
@@ -128,43 +116,61 @@ class ResellerProviderFilesPage extends ConsumerWidget {
     ProviderFile file,
     ThemeData theme,
   ) {
-    final dateFormatter = DateFormat.yMd().add_jm();
     final fileIcon = _getFileIcon(file.fileType);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return ListTile(
-      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 28),
-      title: Text(
+    return GestureDetector(
+      onTap: () => _handleFileTap(context, file),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
+        decoration: BoxDecoration(
+          color: isDark ? theme.colorScheme.surfaceVariant.withOpacity(0.3) : theme.canvasColor, // Subtle background
+          borderRadius: BorderRadius.circular(12.0),
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(isDark ? 0.2 : 0.1),
+            width: 1.0,
+          )
+        ),
+        child: Row(
+          children: [
+            Icon(fileIcon, color: theme.colorScheme.primary, size: 36), // Larger icon
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
         file.fileName,
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w500,
         ),
-        maxLines: 1,
+                    maxLines: 2, // Allow more lines for longer names
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+                  if (file.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
             file.description,
-            style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Uploaded: ${dateFormatter.format(file.uploadedAt.toDate())}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
+            Icon(
+              CupertinoIcons.chevron_forward, // Changed from chevron_right
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+              size: 22,
           ),
         ],
       ),
-      trailing: Icon(
-        CupertinoIcons.chevron_right,
-        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-        size: 20,
       ),
-      onTap: () => _handleFileTap(context, file), // Call handler on tap
     );
   }
 
@@ -196,3 +202,7 @@ class ResellerProviderFilesPage extends ConsumerWidget {
     }
   }
 }
+
+
+
+

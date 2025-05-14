@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'salesforce_connection_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// A service for synchronizing user data between Salesforce and Firebase
 class SalesforceUserSyncService {
@@ -8,7 +9,7 @@ class SalesforceUserSyncService {
   final FirebaseFirestore _firestore;
 
   // Default field mapping between Salesforce and Firebase
-  static const Map<String, String> DEFAULT_FIELD_MAPPING = {
+  static const Map<String, String> _defaultFieldMapping = {
     'Id': 'salesforceId',
     'Name': 'displayName',
     'Email': 'email',
@@ -23,15 +24,10 @@ class SalesforceUserSyncService {
   };
 
   SalesforceUserSyncService({
-    SalesforceConnectionService? salesforceService,
+    required SalesforceConnectionService salesforceService,
     FirebaseFirestore? firestore,
-  }) : _salesforceService = salesforceService ?? SalesforceConnectionService(),
+  }) : _salesforceService = salesforceService,
        _firestore = firestore ?? FirebaseFirestore.instance;
-
-  /// Initialize the Salesforce connection
-  Future<bool> initialize() {
-    return _salesforceService.initialize();
-  }
 
   /// Get the Salesforce user data for a specific ID
   Future<Map<String, dynamic>?> getSalesforceUserById(
@@ -43,7 +39,7 @@ class SalesforceUserSyncService {
 
     try {
       // Build query to fetch the Salesforce user - only request valid fields
-      final fieldList = DEFAULT_FIELD_MAPPING.keys.join(', ');
+      final fieldList = _defaultFieldMapping.keys.join(', ');
       final query =
           "SELECT $fieldList FROM User WHERE Id = '${salesforceId.replaceAll("'", "\\'")}' LIMIT 1";
       final encodedQuery = Uri.encodeComponent(query);
@@ -324,7 +320,7 @@ class SalesforceUserSyncService {
   ) {
     final Map<String, dynamic> result = {};
 
-    DEFAULT_FIELD_MAPPING.forEach((salesforceField, firebaseField) {
+    _defaultFieldMapping.forEach((salesforceField, firebaseField) {
       if (salesforceUser.containsKey(salesforceField)) {
         result[firebaseField] = salesforceUser[salesforceField];
       }
@@ -336,11 +332,24 @@ class SalesforceUserSyncService {
   /// Ensure we have an active connection to Salesforce
   Future<bool> _ensureConnected() async {
     if (!_salesforceService.isConnected) {
-      return await _salesforceService.initialize();
+      if (kDebugMode) {
+        print(
+          'SalesforceUserSyncService: Salesforce not connected. User may need to sign in.',
+        );
+      }
+      return false;
     }
     return true;
   }
 
   /// Get the field mapping to use for syncing Salesforce data to Firebase
-  Map<String, String> get salesforceFieldMapping => DEFAULT_FIELD_MAPPING;
+  Map<String, String> get salesforceFieldMapping => _defaultFieldMapping;
+
+  static Map<String, String> getDefaultFieldMapping() => _defaultFieldMapping;
 }
+
+// Define the provider for SalesforceUserSyncService
+final salesforceUserSyncServiceProvider = Provider<SalesforceUserSyncService>((ref) {
+  final salesforceConnectionService = ref.watch(salesforceConnectionServiceProvider);
+  return SalesforceUserSyncService(salesforceService: salesforceConnectionService);
+});

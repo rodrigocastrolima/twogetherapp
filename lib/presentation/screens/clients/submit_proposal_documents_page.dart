@@ -416,7 +416,7 @@ class _SubmitProposalDocumentsPageState
           if (!_isLoading) // Only build the main content if not loading
             Column( 
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
                   child: Text(
@@ -430,57 +430,57 @@ class _SubmitProposalDocumentsPageState
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SwitchListTile.adaptive(
-                          title: const Text('Contratos assinados digitalmente'),
-                          value: _isDigitallySigned,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile.adaptive(
+                      title: const Text('Contratos assinados digitalmente'),
+              value: _isDigitallySigned,
                           onChanged: (bool value) { // Already disabled by _isLoading in onPressed of button
-                            setState(() {
-                              _isDigitallySigned = value;
-                              if (_isDigitallySigned) {
-                                _contractFiles.updateAll((key, _) => null);
-                              }
-                            });
-                          },
-                          contentPadding: EdgeInsets.zero,
-                          secondary: Icon(
+                setState(() {
+                  _isDigitallySigned = value;
+                  if (_isDigitallySigned) {
+                    _contractFiles.updateAll((key, _) => null);
+                  }
+                });
+              },
+                      contentPadding: EdgeInsets.zero,
+              secondary: Icon(
                             _isDigitallySigned ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.checkmark_seal,
                             color: _isDigitallySigned ? theme.colorScheme.primary : null,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (!_isDigitallySigned)
-                          ...widget.cpeList.map((cpe) {
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (!_isDigitallySigned)
+              ...widget.cpeList.map((cpe) {
                             String shortId = cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id;
-                            return _buildFileUploadPlaceholder(
-                              context,
-                              'Contrato Assinado (CPE ...$shortId)',
-                              Icons.description_outlined,
-                              DocumentType.contract,
-                              _contractFiles[cpe.id],
-                              cpeProposalId: cpe.id,
-                            );
-                          }).toList(),
-                        const Divider(height: 24),
+                return _buildFileUploadPlaceholder(
+                  context,
+                          'Contrato Assinado (CPE ...$shortId)',
+                  Icons.description_outlined,
+                  DocumentType.contract,
+                          _contractFiles[cpe.id],
+                          cpeProposalId: cpe.id,
+                );
+              }).toList(),
+            const Divider(height: 24),
                         _buildFileUploadPlaceholder(context, 'Documento de identificação (CC)', CupertinoIcons.person_crop_rectangle, DocumentType.idDocument, _idDocumentFile),
                         _buildFileUploadPlaceholder(context, 'Prova de residência', CupertinoIcons.house, DocumentType.proofOfAddress, _proofOfAddressFile),
                         _buildFileUploadPlaceholder(context, 'Certidão Permanente (CRC)', CupertinoIcons.doc_chart, DocumentType.crcDocument, _crcDocumentFile),
-                        const SizedBox(height: 32),
-                        Center(
-                          child: CupertinoButton.filled(
+            const SizedBox(height: 32),
+            Center(
+              child: CupertinoButton.filled(
                             onPressed: _isLoading || !allDocumentsReady ? null : _submitDocuments,
-                            child: const Text('Submeter Documentos'),
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+                        child: const Text('Submeter Documentos'),
+                      ),
                     ),
-                  ),
+                        const SizedBox(height: 40),
+                  ],
                 ),
-              ],
+              ),
             ),
+          ],
+        ),
           // Custom loading indicator as overlay
           if (_isLoading)
             const AppLoadingIndicator(), 

@@ -1,11 +1,14 @@
-import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../firebase_options.dart';
 import '../features/salesforce/data/services/salesforce_connection_service.dart';
+import '../features/salesforce/data/services/salesforce_user_sync_service.dart';
 
 /// Script to synchronize Salesforce user data to Firebase
 ///
@@ -13,7 +16,7 @@ import '../features/salesforce/data/services/salesforce_connection_service.dart'
 /// flutter run -d chrome -t lib/scripts/sync_salesforce_user_data.dart
 
 // Configuration for field mapping between Salesforce and Firebase
-const Map<String, String> DEFAULT_FIELD_MAPPING = {
+const Map<String, String> _defaultFieldMapping = {
   'Id': 'salesforceId',
   'Name': 'displayName',
   'Email': 'email',
@@ -21,11 +24,10 @@ const Map<String, String> DEFAULT_FIELD_MAPPING = {
   'Phone': 'phoneNumber',
   'MobilePhone': 'mobilePhone',
   'Department': 'department',
-  'Title': 'title',
-  'CompanyName': 'companyName',
-  'ManagerId': 'managerId',
-  'UserRoleId': 'userRoleId',
-  'ProfileId': 'profileId',
+  'Username': 'salesforceUsername',
+  'FirstName': 'firstName',
+  'LastName': 'lastName',
+  'Revendedor_Retail__c': 'revendedorRetail',
 };
 
 void main() async {
@@ -34,55 +36,49 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Run the app
-  runApp(const SalesforceUserSyncApp());
-}
-
-class SalesforceUserSyncApp extends StatelessWidget {
-  const SalesforceUserSyncApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+  runApp(
+    ProviderScope(
+      // Wrap with ProviderScope to use Riverpod providers
+      child: MaterialApp(
+        home: SalesforceUserSyncScreen(), // Removed const
+        debugShowCheckedModeBanner: false,
       ),
-      home: const SalesforceUserSyncScreen(),
-    );
-  }
+    ),
+  );
 }
 
-class SalesforceUserSyncScreen extends StatefulWidget {
-  const SalesforceUserSyncScreen({Key? key}) : super(key: key);
+class SalesforceUserSyncScreen extends ConsumerStatefulWidget {
+  SalesforceUserSyncScreen({super.key}); // Removed const
 
   @override
-  State<SalesforceUserSyncScreen> createState() =>
+  ConsumerState<SalesforceUserSyncScreen> createState() =>
       _SalesforceUserSyncScreenState();
 }
 
-class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
-  final SalesforceConnectionService _salesforceService =
-      SalesforceConnectionService();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
+class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScreen> {
+  late SalesforceConnectionService _connectionService;
+  late SalesforceUserSyncService _syncService;
+  final TextEditingController _salesforceIdController = TextEditingController();
+  String _syncStatus = 'Not connected';
   bool _isLoading = false;
-  bool _isConnected = false;
-  String _statusMessage = 'Not connected to Salesforce';
-  List<Map<String, dynamic>> _salesforceUsers = [];
-  List<Map<String, dynamic>> _firebaseUsers = [];
-  Map<String, String> _fieldMapping = DEFAULT_FIELD_MAPPING;
-  TextEditingController _salesforceIdController = TextEditingController();
+  final List<String> _logs = [];
+  bool _isSuperAdmin = false;
 
-  // Status tracking
+  List<Map<String, dynamic>> _sfUsers = [];
+  List<Map<String, dynamic>> _fbUsers = [];
   int _syncedCount = 0;
   int _errorCount = 0;
-  List<String> _logs = [];
+
+  Map<String, String> get _fieldMapping =>
+      SalesforceUserSyncService.getDefaultFieldMapping();
 
   @override
   void initState() {
     super.initState();
-    _connectToSalesforce();
+    _connectionService = ref.read(salesforceConnectionServiceProvider);
+    _syncService = ref.read(salesforceUserSyncServiceProvider);
+    _checkSuperAdmin();
+    _updateConnectionStatus();
   }
 
   @override
@@ -91,289 +87,191 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
     super.dispose();
   }
 
-  // Connect to Salesforce
-  Future<void> _connectToSalesforce() async {
+  void _updateConnectionStatus() {
     setState(() {
-      _isLoading = true;
-      _statusMessage = 'Connecting to Salesforce...';
-      _addLog('Connecting to Salesforce...');
-    });
-
-    try {
-      final success = await _salesforceService.initialize();
-
-      setState(() {
-        _isConnected = success;
-        _isLoading = false;
-        _statusMessage =
-            success
-                ? 'Connected to Salesforce: ${_salesforceService.instanceUrl}'
-                : 'Failed to connect to Salesforce';
-        _addLog(_statusMessage);
-      });
-
-      if (success) {
-        await _fetchSalesforceUsers();
-        await _fetchFirebaseUsers();
+      if (_connectionService.isConnected) {
+        _syncStatus = 'Connected to Salesforce: ${_connectionService.instanceUrl}';
+        _addLog('Successfully connected to Salesforce.');
+        _fetchSalesforceUsers();
+        _fetchFirebaseUsers();
+      } else {
+        _syncStatus = 'Salesforce not connected. Please sign in via the main app.';
+        _addLog(_syncStatus);
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _isConnected = false;
-        _statusMessage = 'Error connecting to Salesforce: $e';
-        _addLog('Error: $_statusMessage');
-      });
+    });
+  }
+
+  Future<void> _checkSuperAdmin() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (userDoc.exists && userDoc.data()?['isSuperAdmin'] == true) {
+        setState(() {
+          _isSuperAdmin = true;
+        });
+      }
     }
   }
 
-  // Fetch users from Salesforce
-  Future<void> _fetchSalesforceUsers() async {
+  void _log(String message) {
+    if (kDebugMode) {
+      print(message);
+    }
     setState(() {
-      _isLoading = true;
-      _statusMessage = 'Fetching Salesforce users...';
-      _addLog(_statusMessage);
+      _logs.insert(0, '${DateTime.now().toIso8601String()}: $message');
     });
+  }
 
+  Future<void> _fetchSalesforceUsers() async {
+    if (!_connectionService.isConnected) {
+      _log('Cannot fetch Salesforce users: Not connected.');
+      return;
+    }
+    _log('Fetching Salesforce users...');
+    setState(() => _isLoading = true);
     try {
-      // Build the fields to query based on the field mapping
-      final fieldList = _fieldMapping.keys.join(', ');
-
-      // Query to get users with selected fields
-      final query = 'SELECT $fieldList FROM User WHERE IsActive = true';
+      final query =
+          'SELECT ${SalesforceUserSyncService.getDefaultFieldMapping().keys.join(',')} FROM User WHERE IsActive = true';
       final encodedQuery = Uri.encodeComponent(query);
-
-      final data = await _salesforceService.get(
+      final data = await _connectionService.get(
         '/services/data/v58.0/query/?q=$encodedQuery',
       );
 
-      if (data == null || !data.containsKey('records')) {
-        setState(() {
-          _isLoading = false;
-          _statusMessage = 'Failed to fetch Salesforce users';
-          _addLog('Error: $_statusMessage');
-        });
-        return;
-      }
-
-      final records = data['records'] as List<dynamic>;
-      _salesforceUsers =
-          records.map((record) => record as Map<String, dynamic>).toList();
-
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Found ${_salesforceUsers.length} Salesforce users';
-        _addLog(_statusMessage);
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Error fetching Salesforce users: $e';
-        _addLog('Error: $_statusMessage');
-      });
-    }
-  }
-
-  // Fetch users from Firebase
-  Future<void> _fetchFirebaseUsers() async {
-    setState(() {
-      _isLoading = true;
-      _statusMessage = 'Fetching Firebase users...';
-      _addLog(_statusMessage);
-    });
-
-    try {
-      final querySnapshot = await _firestore.collection('users').get();
-
-      _firebaseUsers =
-          querySnapshot.docs
-              .map((doc) => {'id': doc.id, ...doc.data()})
-              .toList();
-
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Found ${_firebaseUsers.length} Firebase users';
-        _addLog(_statusMessage);
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Error fetching Firebase users: $e';
-        _addLog('Error: $_statusMessage');
-      });
-    }
-  }
-
-  // Sync a specific Salesforce user to Firebase
-  Future<bool> _syncSalesforceUser(String salesforceId) async {
-    try {
-      _addLog('Syncing user with Salesforce ID: $salesforceId');
-
-      // Find user in Salesforce
-      final salesforceUser = _salesforceUsers.firstWhere(
-        (user) => user['Id'] == salesforceId,
-        orElse: () => <String, dynamic>{},
-      );
-
-      if (salesforceUser.isEmpty) {
-        _addLog('Error: Salesforce user not found with ID: $salesforceId');
-        return false;
-      }
-
-      // Find matching Firebase user
-      final firebaseUser = _firebaseUsers.firstWhere(
-        (user) => user['salesforceId'] == salesforceId,
-        orElse: () => <String, dynamic>{},
-      );
-
-      // Map Salesforce data to Firebase format
-      final firebaseData = _mapSalesforceToFirebase(salesforceUser);
-
-      // Add timestamp for the sync
-      firebaseData['salesforceSyncedAt'] = FieldValue.serverTimestamp();
-
-      if (firebaseUser.isNotEmpty) {
-        // Update existing user
-        final userId = firebaseUser['id'];
-        _addLog('Updating existing Firebase user: $userId');
-
-        await _firestore.collection('users').doc(userId).update(firebaseData);
-
-        _addLog('Successfully updated user: $userId with Salesforce data');
-        return true;
+      if (data != null && data['records'] != null) {
+        _sfUsers = List<Map<String, dynamic>>.from(data['records']);
+        _log('Found ${_sfUsers.length} Salesforce users');
       } else {
-        // Check if there's a Firebase user with matching email
-        final email = salesforceUser['Email'];
-        if (email != null) {
-          final userByEmail = _firebaseUsers.firstWhere(
-            (user) => user['email'] == email,
-            orElse: () => <String, dynamic>{},
-          );
-
-          if (userByEmail.isNotEmpty) {
-            // Update existing user with email match
-            final userId = userByEmail['id'];
-            _addLog('Found Firebase user by email: $userId');
-
-            await _firestore
-                .collection('users')
-                .doc(userId)
-                .update(firebaseData);
-
-            _addLog('Successfully updated user: $userId with Salesforce data');
-            return true;
-          }
-        }
-
-        _addLog(
-          'No matching Firebase user found for Salesforce ID: $salesforceId',
-        );
-        return false;
+        _log('Failed to fetch Salesforce users or no users found.');
+        _sfUsers = [];
       }
     } catch (e) {
-      _addLog('Error syncing user: $e');
+      _log('Error fetching Salesforce users: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchFirebaseUsers() async {
+    _log('Fetching Firebase users...');
+    setState(() => _isLoading = true);
+    try {
+      final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+      _fbUsers = querySnapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
+      _log('Found ${_fbUsers.length} Firebase users');
+    } catch (e) {
+      _log('Error fetching Firebase users: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<bool> _syncSalesforceUser(String salesforceId) async {
+    if (!_isSuperAdmin) {
+      _log('Error: Only Super Admins can sync users.');
       return false;
     }
+    _log('Attempting to sync Salesforce user ID: $salesforceId to Firebase...');
+    setState(() => _isLoading = true);
+    bool success = false;
+    try {
+      final sfUser = await _syncService.getSalesforceUserById(salesforceId);
+      if (sfUser == null || sfUser['Email'] == null) {
+        _log('Could not find Salesforce user or user has no email for ID: $salesforceId');
+        setState(() => _isLoading = false);
+        return false;
+      }
+
+      final email = sfUser['Email'] as String;
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        _log('No Firebase user found with email: $email to sync with Salesforce ID: $salesforceId');
+        setState(() => _isLoading = false);
+        return false;
+      }
+      
+      final firebaseUserId = querySnapshot.docs.first.id;
+      success = await _syncService.syncSalesforceUserToFirebase(firebaseUserId, salesforceId);
+      
+      if (success) {
+        _log('Successfully synced Salesforce user ID: $salesforceId to Firebase user: $firebaseUserId');
+      } else {
+        _log('Failed to sync Salesforce user ID: $salesforceId');
+      }
+    } catch (e) {
+      _log('Error syncing Salesforce user $salesforceId: $e');
+      success = false;
+    } finally {
+      setState(() => _isLoading = false);
+    }
+    return success;
   }
 
-  // Sync all Salesforce users to Firebase
   Future<void> _syncAllUsers() async {
+    if (!_isSuperAdmin) {
+      _log('Error: Only Super Admins can perform full sync.');
+      return;
+    }
+    if (!_connectionService.isConnected) {
+      _log('Cannot sync all users: Salesforce not connected.');
+      return;
+    }
+
+    _log('Starting sync of all Salesforce users to Firebase...');
     setState(() {
       _isLoading = true;
       _syncedCount = 0;
       _errorCount = 0;
-      _statusMessage = 'Starting sync of all users...';
-      _addLog(_statusMessage);
     });
 
-    try {
-      for (final salesforceUser in _salesforceUsers) {
-        final salesforceId = salesforceUser['Id'];
-        if (salesforceId != null) {
-          final success = await _syncSalesforceUser(salesforceId);
-          if (success) {
-            _syncedCount++;
-          } else {
-            _errorCount++;
-          }
-        }
-      }
-
-      setState(() {
-        _isLoading = false;
-        _statusMessage =
-            'Sync completed. Success: $_syncedCount, Errors: $_errorCount';
-        _addLog(_statusMessage);
-      });
-
-      // Refresh Firebase users to show updated data
-      await _fetchFirebaseUsers();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Error syncing users: $e';
-        _addLog('Error: $_statusMessage');
-      });
-    }
-  }
-
-  // Sync a single user by Salesforce ID
-  Future<void> _syncSingleUser() async {
-    final salesforceId = _salesforceIdController.text.trim();
-    if (salesforceId.isEmpty) {
-      setState(() {
-        _statusMessage = 'Please enter a Salesforce ID';
-        _addLog('Error: $_statusMessage');
-      });
+    await _fetchSalesforceUsers(); 
+    if (_sfUsers.isEmpty) {
+      _log('No Salesforce users to sync.');
+      setState(() => _isLoading = false);
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _statusMessage = 'Syncing user with ID: $salesforceId';
-      _addLog(_statusMessage);
-    });
-
-    try {
-      final success = await _syncSalesforceUser(salesforceId);
-
-      setState(() {
-        _isLoading = false;
-        _statusMessage =
-            success
-                ? 'Successfully synced user with ID: $salesforceId'
-                : 'Failed to sync user with ID: $salesforceId';
-        _addLog(_statusMessage);
-      });
-
-      // Refresh Firebase users list
-      if (success) {
-        await _fetchFirebaseUsers();
+    for (final salesforceUser in _sfUsers) {
+      final salesforceId = salesforceUser['Id'] as String?;
+      if (salesforceId != null) {
+        final success = await _syncSalesforceUser(salesforceId);
+        if (success) {
+          setState(() => _syncedCount++);
+        } else {
+          setState(() => _errorCount++);
+        }
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _statusMessage = 'Error syncing user: $e';
-        _addLog('Error: $_statusMessage');
-      });
+    }
+    _log('Sync all users completed. Success: $_syncedCount, Errors: $_errorCount');
+    await _fetchFirebaseUsers(); 
+    setState(() => _isLoading = false);
+  }
+
+  void _syncSingleUserFromInput() async {
+    final salesforceId = _salesforceIdController.text.trim();
+    if (salesforceId.isEmpty) {
+      _log('Please enter a Salesforce ID to sync.');
+      return;
+    }
+    if (!_isSuperAdmin) {
+      _log('Error: Only Super Admins can sync users.');
+      return;
+    }
+    final success = await _syncSalesforceUser(salesforceId);
+    if (success) {
+      await _fetchFirebaseUsers();
     }
   }
 
-  // Map Salesforce data to Firebase format using field mapping
-  Map<String, dynamic> _mapSalesforceToFirebase(
-    Map<String, dynamic> salesforceUser,
-  ) {
-    final Map<String, dynamic> result = {};
-
-    _fieldMapping.forEach((salesforceField, firebaseField) {
-      if (salesforceUser.containsKey(salesforceField)) {
-        result[firebaseField] = salesforceUser[salesforceField];
-      }
-    });
-
-    return result;
-  }
-
-  // Add a log entry
   void _addLog(String message) {
     setState(() {
       _logs.add('${DateTime.now().toString().substring(11, 19)} - $message');
@@ -384,17 +282,12 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Salesforce User Sync'),
+        title: const Text('Salesforce User Sync Util'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed:
-                _isLoading
-                    ? null
-                    : () async {
-                      await _connectToSalesforce();
-                    },
-            tooltip: 'Reconnect',
+            onPressed: _isLoading ? null : _updateConnectionStatus,
+            tooltip: 'Refresh Connection & Data',
           ),
         ],
       ),
@@ -402,25 +295,16 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
         children: [
           // Status bar
           Container(
-            color:
-                _isConnected ? Colors.green.shade100 : Colors.orange.shade100,
+            color: Colors.green.shade100,
             padding: const EdgeInsets.all(8),
             child: Row(
               children: [
-                Icon(
-                  _isConnected ? Icons.check_circle : Icons.warning,
-                  color: _isConnected ? Colors.green : Colors.orange,
-                ),
+                const Icon(Icons.check_circle),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _statusMessage,
-                    style: TextStyle(
-                      color:
-                          _isConnected
-                              ? Colors.green.shade900
-                              : Colors.orange.shade900,
-                    ),
+                    _syncStatus,
+                    style: const TextStyle(color: Colors.green),
                   ),
                 ),
                 if (_isLoading)
@@ -461,7 +345,7 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed:
-                          _isLoading || !_isConnected ? null : _syncSingleUser,
+                          _isLoading ? null : _syncSingleUserFromInput,
                       child: const Text('Sync User'),
                     ),
                   ],
@@ -472,11 +356,9 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
                 // Sync all users
                 ElevatedButton.icon(
                   icon: const Icon(Icons.sync),
-                  label: Text('Sync All Users (${_salesforceUsers.length})'),
+                  label: const Text('Sync All Users'),
                   onPressed:
-                      _isLoading || !_isConnected || _salesforceUsers.isEmpty
-                          ? null
-                          : _syncAllUsers,
+                      _isLoading ? null : _syncAllUsers,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
@@ -485,23 +367,6 @@ class _SalesforceUserSyncScreenState extends State<SalesforceUserSyncScreen> {
               ],
             ),
           ),
-
-          // Status summary
-          if (_syncedCount > 0 || _errorCount > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Synced: $_syncedCount'),
-                  const SizedBox(width: 16),
-                  Icon(Icons.error, color: Colors.red, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Errors: $_errorCount'),
-                ],
-              ),
-            ),
 
           // Log output
           Expanded(

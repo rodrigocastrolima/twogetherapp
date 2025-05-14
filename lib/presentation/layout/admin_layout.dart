@@ -182,13 +182,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         toolbarHeight: 80,
                         leading: null,
                         title: Center(
-                          child: Text(
-                            widget.pageTitle,
-                            style: TextStyle(
-                              color: AppTheme.foreground,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          child: LogoWidget(height: 40, darkMode: isDark),
                         ),
                         centerTitle: true,
                         actions: [],

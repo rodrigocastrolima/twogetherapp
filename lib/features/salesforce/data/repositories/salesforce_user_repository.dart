@@ -22,14 +22,14 @@ class SalesforceUserRepository {
   Future<List<Map<String, dynamic>>> getSalesforceUsers() async {
     try {
       if (!_connectionService.isConnected) {
-        await _connectionService.refreshTokenUsingFirebaseFunction();
+        throw Exception('Salesforce not connected. Please sign in.');
       }
 
       final accessToken = await _connectionService.accessToken;
-      final instanceUrl = _connectionService.instanceUrl;
+      final instanceUrl = await _connectionService.instanceUrl;
 
       if (accessToken == null || instanceUrl == null) {
-        throw Exception('Not connected to Salesforce');
+        throw Exception('Salesforce authentication token or instance URL is missing.');
       }
 
       // Query to get all active users with their IDs, names, and emails
@@ -68,14 +68,14 @@ class SalesforceUserRepository {
   Future<String?> getSalesforceUserIdByEmail(String email) async {
     try {
       if (!_connectionService.isConnected) {
-        await _connectionService.refreshTokenUsingFirebaseFunction();
+        throw Exception('Salesforce not connected. Please sign in.');
       }
 
       final accessToken = await _connectionService.accessToken;
-      final instanceUrl = _connectionService.instanceUrl;
+      final instanceUrl = await _connectionService.instanceUrl;
 
       if (accessToken == null || instanceUrl == null) {
-        throw Exception('Not connected to Salesforce');
+        throw Exception('Salesforce authentication token or instance URL is missing.');
       }
 
       // Query for specific user by email

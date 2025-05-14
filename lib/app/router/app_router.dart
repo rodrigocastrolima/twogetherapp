@@ -48,6 +48,7 @@ import 'package:twogether/features/opportunity/data/models/salesforce_opportunit
 import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'
     as proposal_models;
 import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
+import 'package:twogether/features/providers/domain/models/provider_info.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -529,6 +530,38 @@ final authNotifierProvider = ChangeNotifierProvider<AuthNotifier>((ref) {
 });
 // ***************************************
 
+// Custom page transitions
+class _SlideTransition extends CustomTransitionPage<void> {
+  _SlideTransition({
+    required Widget child, 
+    bool reverse = false,
+    Duration transitionDuration = const Duration(milliseconds: 300),
+  }) : super(
+          child: child,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0); // Start from right
+            const end = Offset.zero;
+            const reversedBegin = Offset(-1.0, 0.0); // Start from left for reverse
+            
+            final tween = Tween(
+              begin: reverse ? reversedBegin : begin, 
+              end: end
+            );
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
+            final offsetAnimation = curvedAnimation.drive(tween);
+            
+            return SlideTransition(
+              position: offsetAnimation,
+              child: child,
+            );
+          },
+          transitionDuration: transitionDuration,
+        );
+}
+
 class AppRouter {
   // *** REMOVE potentially duplicate static key if it exists ***
   // static final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -710,9 +743,7 @@ class AppRouter {
       GoRoute(
         path: '/change-password',
         pageBuilder:
-            (context, state) => MaterialPage(
-              key: const ValueKey('__changePasswordPageKey__'),
-              fullscreenDialog: true,
+            (context, state) => _SlideTransition(
               child: const ChangePasswordPage(),
             ),
       ),
@@ -934,9 +965,7 @@ class AppRouter {
       GoRoute(
         path: '/profile-details',
         pageBuilder:
-            (context, state) => MaterialPage(
-              key: const ValueKey('__profilePageKey__'),
-              fullscreenDialog: true,
+            (context, state) => _SlideTransition(
               child: ProfilePage(),
             ),
       ),
@@ -944,7 +973,9 @@ class AppRouter {
         path: '/services',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          return MaterialPage(fullscreenDialog: true, child: ServicesPage());
+          return _SlideTransition(
+            child: ServicesPage(),
+          );
         },
       ),
       GoRoute(
@@ -1079,8 +1110,7 @@ class AppRouter {
               ),
             );
           }
-          return MaterialPage(
-            fullscreenDialog: false,
+          return _SlideTransition(
             child: OpportunityDetailsPage(opportunity: opportunity),
           );
         },
@@ -1122,8 +1152,7 @@ class AppRouter {
               ),
             );
           }
-          return MaterialPage(
-            fullscreenDialog: false,
+          return _SlideTransition(
             child: ResellerProposalDetailsPage(
               proposalId: proposalId,
               proposalName: proposalName,
@@ -1142,28 +1171,30 @@ class AppRouter {
       // ADD /providers route here as a top-level route
       GoRoute(
         path: '/providers', 
-        parentNavigatorKey: _rootNavigatorKey, // Use the global key
+        parentNavigatorKey: _rootNavigatorKey, 
         pageBuilder: (context, state) {
-          // Use MaterialPage with fullscreenDialog for a similar presentation to /services
-          return MaterialPage(
-            fullscreenDialog: true, 
+          return _SlideTransition(
             child: const ResellerProviderListPage(),
           );
         },
         routes: [
           GoRoute(
             path: ':providerId', 
-            parentNavigatorKey: _rootNavigatorKey, // Ensure sub-route also uses root navigator if it's a new page
+            parentNavigatorKey: _rootNavigatorKey, 
             pageBuilder: (context, state) {
               final providerId = state.pathParameters['providerId'];
-              if (providerId == null) {
+              final providerInfo = state.extra as ProviderInfo?;
+
+              if (providerId == null || providerInfo == null) {
                 return const MaterialPage(
-                  child: Scaffold(body: Center(child: Text('Error: Missing Provider ID'))),
+                  child: Scaffold(body: Center(child: Text('Error: Missing Provider ID or Info'))),
                 );
               }
-              return MaterialPage(
-                fullscreenDialog: true, // Or false if it should push normally over ResellerProviderListPage
-                child: ResellerProviderFilesPage(providerId: providerId),
+              return _SlideTransition(
+                child: ResellerProviderFilesPage(
+                  providerId: providerId,
+                  providerName: providerInfo.name,
+                ),
               );
             },
           ),

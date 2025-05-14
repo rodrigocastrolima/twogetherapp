@@ -1,0 +1,13 @@
+[
+  {
+    "origin": [
+      "https://twogetherapp-65678.web.app",
+      "https://twogetherapp-65678.firebaseapp.com",
+      "http://localhost:3000",
+      "http://localhost:5000",
+      "http://localhost"
+    ],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+] 

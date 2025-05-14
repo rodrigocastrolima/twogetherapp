@@ -19,15 +19,15 @@ interface SalesforceRefreshResponse {
 
 // Interface for the data returned to the client
 interface RefreshResult {
-  newAccessToken: string;
-  newInstanceUrl: string;
-  newExpiresInSeconds: number; // We'll likely use a default
+  accessToken: string;
+  instanceUrl: string;
+  expiresInSeconds: number;
 }
 
 // Define constants
 // Use the standard Salesforce login URL for token exchange/refresh
 const SALESFORCE_TOKEN_ENDPOINT = "https://login.salesforce.com/services/oauth2/token";
-const DEFAULT_EXPIRY_SECONDS = 28800; // 8 hours
+const DEFAULT_EXPIRY_SECONDS = 7200; // 2 hours
 
 /**
  * Refreshes a Salesforce access token using a refresh token.
@@ -102,9 +102,9 @@ export const refreshSalesforceToken = onCall(
 
         // Return the new access token, instance URL, and a default expiry
         return {
-          newAccessToken: response.data.access_token,
-          newInstanceUrl: response.data.instance_url,
-          newExpiresInSeconds: DEFAULT_EXPIRY_SECONDS, // Use default as expires_in not usually returned
+          accessToken: response.data.access_token,
+          instanceUrl: response.data.instance_url,
+          expiresInSeconds: DEFAULT_EXPIRY_SECONDS,
         };
       } else {
         // Handle unexpected successful status codes or missing data

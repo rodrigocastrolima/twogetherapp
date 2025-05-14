@@ -41,7 +41,9 @@ dependencies:
   flutter_svg: ^2.0.10+1
   fl_chart: ^0.71.0
   cached_network_image: ^3.3.1
-  carousel_slider: ^4.2.1
+  carousel_slider: ^5.0.0
+  flutter_staggered_animations: ^1.1.1 # Added package
+
   # State Management
   flutter_riverpod: ^2.5.1
   equatable: ^2.0.5

@@ -154,45 +154,45 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             leading: _selectedIndex == 2 ? null : null,
             title: _selectedIndex == 2
                 ? Row(
-                    mainAxisSize: MainAxisSize.min,
+                        mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
+                        children: [
                       Text(
-                        'Suporte Twogether',
-                        style: TextStyle(
+                                'Suporte Twogether',
+                                style: TextStyle(
                           fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface,
-                        ),
-                      ),
+                                ),
+                              ),
                       const SizedBox(width: 8),
-                      Container(
+                              Container(
                         width: 10,
                         height: 10,
-                        decoration: BoxDecoration(
-                          color: isOnline ? Colors.green : Colors.grey,
-                          shape: BoxShape.circle,
+                                decoration: BoxDecoration(
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                  shape: BoxShape.circle,
                           boxShadow: isOnline
-                              ? [
-                                  BoxShadow(
+                                          ? [
+                                            BoxShadow(
                                     color: Colors.green.withAlpha((255 * 0.4).round()),
                                     blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ],
-                  )
-                : Container(
-                    height: 56.0, 
-                    alignment: Alignment.center,
-                    child: LogoWidget(
-                      height: 40, 
+                                              spreadRadius: 1,
+                                            ),
+                                          ]
+                                          : null,
+                                ),
+                              ),
+                            ],
+                    )
+                    : Container(
+                      height: 56.0,
+                      alignment: Alignment.center,
+                      child: LogoWidget(
+                        height: 40,
                       darkMode: theme.brightness == Brightness.dark,
+                      ),
                     ),
-                  ),
             centerTitle: true,
             actions: const [],
           ),

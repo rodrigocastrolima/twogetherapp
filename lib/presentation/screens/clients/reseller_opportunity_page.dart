@@ -8,6 +8,8 @@ import '../../../features/opportunity/data/models/salesforce_opportunity.dart'
     as sfo;
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'reseller_opportunity_details_page.dart';
 
 // Enum for filter status
 enum OpportunityFilterStatus {
@@ -35,6 +37,19 @@ enum OpportunityFilterStatus {
   }
 }
 
+// Define a class to hold status visuals
+class _StatusVisuals {
+  final IconData? icon;
+  final Color iconColor;
+  final Color cardIndicatorColor;
+
+  _StatusVisuals({
+    this.icon,
+    required this.iconColor,
+    required this.cardIndicatorColor,
+  });
+}
+
 class ClientsPage extends ConsumerStatefulWidget {
   const ClientsPage({super.key});
 
@@ -48,6 +63,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   OpportunityFilterStatus _selectedFilter = OpportunityFilterStatus.todos;
   bool _isSearchFocused = false;
   final FocusNode _searchFocusNode = FocusNode();
+  final GlobalKey _cardKey = GlobalKey();
 
   @override
   void initState() {
@@ -353,20 +369,28 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                     return _buildEmptyState(context);
                   }
 
-                  return ListView.separated(
-                    padding: EdgeInsets.zero,
+                  return AnimationLimiter(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
                     itemCount: displayOpportunities.length,
-                    separatorBuilder:
-                        (context, index) => const SizedBox.shrink(),
                     itemBuilder: (context, index) {
-                      final sfo.SalesforceOpportunity opportunity =
-                          displayOpportunities[index];
-                      return _buildOpportunityCard(
+                        final opportunity = displayOpportunities[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 375),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              child: _buildOpportunityCard(
                         context,
                         opportunity,
                         key: ValueKey(opportunity.id),
+                              ),
+                            ),
+                          ),
                       );
                     },
+                    ),
                   );
                 },
                 loading: () => _buildLoadingIndicator(context, isDark),
@@ -625,59 +649,133 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  ({IconData? icon, Color iconColor, Color outlineColor, Color cardBgColor})
-  _getStatusVisuals(String? status, BuildContext context) {
+  // Helper to get visuals for opportunity status
+  _StatusVisuals _getStatusVisuals(String? status, BuildContext context) {
     final theme = Theme.of(context);
-    final defaultCardBg = theme.cardColor;
-    final defaultOutline = theme.dividerColor.withAlpha(150);
-
-    const Color greenColor = Color(0xFF34C759);
-    const Color blueColor = Color(0xFF007AFF);
-    const Color orangeColor = Color(0xFFFF9500);
-    const Color redColor = Color(0xFFFF3B30);
+    final isDark = theme.brightness == Brightness.dark;
 
     switch (status) {
       case 'Aceite':
-        return (
-          icon: CupertinoIcons.check_mark_circled_solid,
-          iconColor: greenColor,
-          outlineColor: greenColor.withAlpha(150),
-          cardBgColor: defaultCardBg,
+        return _StatusVisuals(
+          icon: CupertinoIcons.checkmark_seal_fill,
+          iconColor: Colors.green,
+          cardIndicatorColor: Colors.green.withAlpha((255 * 0.1).round()),
         );
       case 'Enviada':
-      case 'Em Aprovação':
-        return (
+        return _StatusVisuals(
           icon: CupertinoIcons.exclamationmark_circle_fill,
-          iconColor: blueColor,
-          outlineColor: blueColor.withAlpha(150),
-          cardBgColor: defaultCardBg,
+          iconColor: Colors.blue,
+          cardIndicatorColor: Colors.blue.withAlpha((255 * 0.1).round()),
         );
-      case 'Aprovada':
-      case 'Expirada':
-      case 'Criação':
-      case 'Em Análise':
-        return (
-          icon: CupertinoIcons.clock_fill,
-          iconColor: orangeColor,
-          outlineColor: orangeColor.withAlpha(150),
-          cardBgColor: defaultCardBg,
+      case 'Em Aprovação':
+        return _StatusVisuals(
+          icon: CupertinoIcons.doc_text,
+          iconColor: theme.primaryColor,
+          cardIndicatorColor: theme.primaryColor.withAlpha((255 * 0.1).round()),
         );
       case 'Não Aprovada':
       case 'Cancelada':
-        return (
-          icon: CupertinoIcons.xmark_circle_fill,
-          iconColor: redColor,
-          outlineColor: redColor.withAlpha(150),
-          cardBgColor: defaultCardBg,
+        return _StatusVisuals(
+          icon: CupertinoIcons.xmark_seal_fill,
+          iconColor: Colors.red,
+          cardIndicatorColor: Colors.red.withAlpha((255 * 0.1).round()),
+        );
+      case 'Expirada':
+        return _StatusVisuals(
+          icon: CupertinoIcons.clock_fill,
+          iconColor: Colors.orange,
+          cardIndicatorColor: Colors.orange.withAlpha((255 * 0.1).round()),
         );
       default:
-        return (
-          icon: CupertinoIcons.question_circle_fill,
-          iconColor: theme.dividerColor,
-          outlineColor: defaultOutline,
-          cardBgColor: defaultCardBg,
+        return _StatusVisuals(
+          icon: CupertinoIcons.doc_text,
+          iconColor: theme.colorScheme.onSurfaceVariant,
+          cardIndicatorColor: theme.colorScheme.primary.withAlpha((255 * 0.05).round()),
         );
     }
+  }
+
+  // Build the custom filter dropdown
+  Widget _buildFilterDropdown(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
+    final borderColor = isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final dropdownColor = theme.colorScheme.surface;
+
+    return Container(
+      // padding: const EdgeInsets.symmetric(vertical: 0), // Removed to let DropdownButtonFormField control height primarily
+      decoration: BoxDecoration(
+        color: dropdownColor,
+        borderRadius: BorderRadius.circular(10.0), // Match search bar
+        border: Border.all(color: borderColor.withOpacity(0.5), width: 1.0),
+      ),
+      child: DropdownButtonFormField<OpportunityFilterStatus>(
+        isDense: true,
+        value: _selectedFilter,
+        icon: Icon(
+          CupertinoIcons.chevron_down,
+          size: 16,
+          color: textColor.withOpacity(0.7),
+        ),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12.0,
+            vertical: 11.0,
+          ), // Adjusted for vertical alignment
+          border: InputBorder.none,
+          isDense: true, // Makes the field more compact vertically
+        ),
+        isExpanded: true,
+        onChanged: (OpportunityFilterStatus? newValue) {
+          if (newValue != null && newValue != _selectedFilter) {
+            setState(() {
+              _selectedFilter = newValue;
+            });
+          }
+        },
+        items: OpportunityFilterStatus.values.map((OpportunityFilterStatus status) {
+          return DropdownMenuItem<OpportunityFilterStatus>(
+            value: status,
+            child: Text(
+              status.displayName,
+              style: TextStyle(
+                fontSize: 15,
+                color: textColor,
+              ), // Style for the selected item text
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // Build the desktop filter dropdown
+  Widget _buildDesktopFilterDropdown(BuildContext context) {
+    // Reuse the same implementation as the standard filter dropdown
+    // with any adjustments needed for desktop layout
+    return _buildFilterDropdown(context);
+  }
+
+  // Get rect of widget using its GlobalKey
+  Rect? _getWidgetRect(GlobalKey key) {
+    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return null;
+    
+    final position = renderBox.localToGlobal(Offset.zero);
+    return Rect.fromLTWH(
+      position.dx,
+      position.dy,
+      renderBox.size.width,
+      renderBox.size.height,
+        );
+    }
+
+  // Navigate to detail page with animation
+  void _navigateToDetailPage(BuildContext context, sfo.SalesforceOpportunity opportunity, GlobalKey cardKey) {
+    // Instead of complex custom route, use GoRouter with extra data
+    // This ensures the details page is shown as a separate route without nesting
+    context.push('/opportunity-details', extra: opportunity);
   }
 
   Widget _buildOpportunityCard(
@@ -685,6 +783,62 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     sfo.SalesforceOpportunity opportunity, {
     Key? key,
   }) {
+    // Create a unique key for this specific card
+    final cardKey = GlobalKey();
+
+    return _AnimatedOpportunityCard(
+      opportunity: opportunity, 
+      cardKey: cardKey,
+      onTap: (cardKey) => _navigateToDetailPage(context, opportunity, cardKey),
+    );
+  }
+}
+
+// Separate card widget with animation
+class _AnimatedOpportunityCard extends StatefulWidget {
+  final sfo.SalesforceOpportunity opportunity;
+  final GlobalKey cardKey;
+  final Function(GlobalKey) onTap;
+
+  const _AnimatedOpportunityCard({
+    required this.opportunity,
+    required this.cardKey,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimatedOpportunityCard> createState() => _AnimatedOpportunityCardState();
+}
+
+class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard> 
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
@@ -692,52 +846,101 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
 
     String? latestStatus;
-    if (opportunity.propostasR?.records != null &&
-        opportunity.propostasR!.records.isNotEmpty) {
-      latestStatus = opportunity.propostasR!.records.first.statusC;
+    if (widget.opportunity.propostasR?.records != null &&
+        widget.opportunity.propostasR!.records.isNotEmpty) {
+      latestStatus = widget.opportunity.propostasR!.records.first.statusC;
     }
 
-    final statusVisuals = _getStatusVisuals(latestStatus, context);
+    // Create our own simple status visual properties
+    IconData? statusIcon;
+    Color statusIconColor = theme.colorScheme.onSurfaceVariant;
+    
+    // Basic status icon mapping
+    switch (latestStatus) {
+      case 'Aceite':
+        statusIcon = CupertinoIcons.checkmark_seal_fill;
+        statusIconColor = Colors.green;
+        break;
+      case 'Enviada':
+        statusIcon = CupertinoIcons.exclamationmark_circle_fill;
+        statusIconColor = Colors.blue;
+        break;
+      case 'Não Aprovada':
+      case 'Cancelada':
+        statusIcon = CupertinoIcons.xmark_seal_fill;
+        statusIconColor = Colors.red;
+        break;
+      case 'Expirada':
+        statusIcon = CupertinoIcons.clock_fill;
+        statusIconColor = Colors.orange;
+        break;
+      default:
+        statusIcon = CupertinoIcons.doc_text;
+        statusIconColor = theme.colorScheme.onSurfaceVariant;
+    }
 
     String displayDate = '';
-    if (opportunity.createdDate != null) {
+    if (widget.opportunity.createdDate != null) {
       try {
-        final dateTime = DateTime.parse(opportunity.createdDate!);
+        final dateTime = DateTime.parse(widget.opportunity.createdDate!);
         displayDate = DateFormat('dd/MM/yy', 'pt_PT').format(dateTime);
       } catch (e) {
         displayDate = '';
       }
     }
 
-    final cardName = opportunity.accountName ?? opportunity.name;
+    final cardName = widget.opportunity.accountName ?? widget.opportunity.name;
 
-    // Style adjustments for dark mode to match notification cards
-    final cardBackgroundColor = isDark ? theme.colorScheme.surface : Colors.white; // Or theme.cardColor for light
-    final cardShadowColor = isDark 
-        ? theme.colorScheme.shadow.withOpacity(0.2) 
-        : theme.colorScheme.shadow.withOpacity(0.08); // from notification card
-    final cardElevation = isDark ? 2.0 : 2.0; // Consistent elevation, or adjust as needed
-    final cardBorder = isDark 
-        ? BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.05), width: 1.0)
-        : BorderSide.none;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-      child: Card(
-        key: key,
-        color: cardBackgroundColor, // Apply conditional background color
-        elevation: cardElevation, 
-        shadowColor: cardShadowColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0), // Match notification card radius
-          side: cardBorder, // Apply conditional border
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            context.push('/opportunity-details', extra: opportunity);
-          },
-          child: SizedBox( 
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: child,
+        );
+      },
+      child: Material(
+        type: MaterialType.transparency,
+          child: Container(
+          key: widget.cardKey,
+          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0), 
+            decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
+            borderRadius: BorderRadius.circular(12.0),
+            boxShadow: [
+              BoxShadow(
+                color: isDark 
+                    ? theme.colorScheme.shadow.withOpacity(0.2) 
+                    : theme.colorScheme.shadow.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+            border: Border.all(
+              color: isDark 
+                  ? theme.colorScheme.onSurface.withOpacity(0.05) 
+                  : Colors.transparent,
+              width: isDark ? 1.0 : 0,
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12.0), 
+            onTap: () {
+              // Play the press animation
+              _controller.forward().then((_) {
+                // Navigate after animation completes
+                widget.onTap(widget.cardKey);
+                
+                // Reset the animation after navigation
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) {
+                    _controller.reverse();
+                  }
+                });
+              });
+            },
+            child: SizedBox(
               height: 88.0,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -751,108 +954,23 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                         children: [
                           FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text(
-                              cardName,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                color: textColor,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            child: Text(cardName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
                           ),
-                          if (displayDate.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              displayDate,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: mutedTextColor,
-                              ),
-                            ),
-                          ],
+                          if (displayDate.isNotEmpty) ...[const SizedBox(height: 4), Text(displayDate, style: TextStyle(fontSize: 13, color: mutedTextColor))],
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    if (statusVisuals.icon != null)
-                      Icon(
-                        statusVisuals.icon,
-                        color:
-                            statusVisuals
-                                .iconColor, 
-                        size: 24,
-                      ),
+                    if (statusIcon != null) Icon(statusIcon, color: statusIconColor, size: 24),
                   ],
                 ),
               ),
             ),
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDesktopFilterDropdown(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final dropdownColor = isDark ? AppTheme.darkInput : AppTheme.input;
-    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final borderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
-
-    return Container(
-      // padding: const EdgeInsets.symmetric(vertical: 0), // Removed to let DropdownButtonFormField control height primarily
-      decoration: BoxDecoration(
-        color: dropdownColor,
-        borderRadius: BorderRadius.circular(10.0), // Match search bar
-        border: Border.all(color: borderColor.withOpacity(0.5), width: 1.0),
-      ),
-      child: DropdownButtonFormField<OpportunityFilterStatus>(
-        value: _selectedFilter,
-        items:
-            OpportunityFilterStatus.values.map((
-              OpportunityFilterStatus status,
-            ) {
-              return DropdownMenuItem<OpportunityFilterStatus>(
-                value: status,
-                child: Text(
-                  status.displayName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: textColor,
-                    fontWeight: FontWeight.normal,
-                  ), // Ensure normal weight
-                ),
-              );
-            }).toList(),
-        onChanged: (OpportunityFilterStatus? newValue) {
-          if (newValue != null) {
-            setState(() {
-              _selectedFilter = newValue;
-            });
-          }
-        },
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12.0,
-            vertical: 11.0,
-          ), // Adjusted for vertical alignment
-          border: InputBorder.none,
-          isDense: true, // Makes the field more compact vertically
-        ),
-        isExpanded: true,
-        dropdownColor: dropdownColor,
-        icon: Icon(
-          CupertinoIcons.chevron_down,
-          color:
-              isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground,
-          size: 18,
-        ),
-        style: TextStyle(
-          fontSize: 15,
-          color: textColor,
-        ), // Style for the selected item text
       ),
     );
   }
 }
+
+

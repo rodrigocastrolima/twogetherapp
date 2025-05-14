@@ -582,7 +582,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             ),
             // Conditionally show Residential card only if not Solar
             if (_selectedEnergyType != EnergyType.solar) ...[
-              const SizedBox(height: AppConstants.spacing16),
               _buildClientCard(
                 title: 'Residencial',
                 imagePath: 'assets/images/repsol_logo_br.png',
@@ -747,24 +746,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            gradient:
-                isDark
-                    ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colorScheme.surfaceVariant.withOpacity(0.1),
-                        colorScheme.surfaceVariant.withOpacity(0.05),
-                      ],
-                    )
-                    : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        Colors.grey.shade50.withOpacity(0.5),
-                      ],
-                    ),
+            color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
+            borderRadius: BorderRadius.circular(16.0),
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppConstants.spacing16),
@@ -820,24 +803,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            gradient:
-                theme.brightness == Brightness.dark
-                    ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colorScheme.surfaceVariant.withOpacity(0.1),
-                        colorScheme.surfaceVariant.withOpacity(0.05),
-                      ],
-                    )
-                    : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        Colors.grey.shade50.withOpacity(0.5),
-                      ],
-                    ),
+            color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
+            borderRadius: BorderRadius.circular(16.0),
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppConstants.spacing16),
@@ -883,80 +850,36 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     void Function(String)? onChanged,
   }) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    final bool isDarkMode = theme.brightness == Brightness.dark;
+    final cupertinoTheme = CupertinoTheme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    final Color fieldFillColor =
-        isDarkMode
-            ? colorScheme.surfaceVariant.withOpacity(
-              0.3,
-            ) // Adjusted for better fit with general theme
-            : colorScheme
-                .surfaceContainerLowest; // Using a light container color
+    // Determine background color similar to ChangePasswordPage
+    final Color textFieldBackgroundColor = CupertinoDynamicColor.resolve(
+        isDark ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemGrey6,
+        context);
 
-    final Color focusedBorderColor = colorScheme.primary;
-    // final Color hintColor = colorScheme.onSurfaceVariant.withOpacity(0.7);
+    final Color placeholderColor = CupertinoDynamicColor.resolve(CupertinoColors.placeholderText, context);
+    final Color textColor = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            bottom: AppConstants.spacing8,
-            // left: AppConstants.spacing4, // Label is now part of InputDecoration
-          ),
-          // Text( // Label is now part of InputDecoration
-          //   label,
-          //   style: textTheme.titleSmall?.copyWith(
-          //     fontWeight: FontWeight.w500,
-          //     color: colorScheme.onSurface,
-          //   ),
-          // ),
-        ),
-        TextField(
+        CupertinoTextField(
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
-          decoration: InputDecoration(
-            labelText: label, // Use labelText for a floating label
-            hintText: hint,
-            filled: true,
-            fillColor: fieldFillColor,
-            hintStyle: textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
-            ),
-            labelStyle: textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.0), // Consistent rounding
-              borderSide: BorderSide.none, // No border by default
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.0),
-              borderSide: BorderSide(
-                // Subtle border when enabled
-                color:
-                    isDarkMode
-                        ? colorScheme.outline.withOpacity(0.3)
-                        : colorScheme.outline.withOpacity(0.5),
-                width: 1.0,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.0),
-              borderSide: BorderSide(
-                color: focusedBorderColor,
-                width: 1.5, // Slightly thicker border when focused
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacing16,
-              vertical: AppConstants.spacing12, // Adjusted padding
-            ),
+          placeholder: label,
+          placeholderStyle: TextStyle(
+            color: placeholderColor,
           ),
-          style: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
+          style: cupertinoTheme.textTheme.textStyle.copyWith(
+            color: textColor,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            color: textFieldBackgroundColor,
+            borderRadius: BorderRadius.circular(8.0),
+          ),
         ),
       ],
     );

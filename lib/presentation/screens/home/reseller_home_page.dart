@@ -11,7 +11,6 @@ import 'dart:math';
 import '../../../core/theme/ui_styles.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/notification.dart';
-import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
@@ -24,6 +23,7 @@ import '../../widgets/onboarding/app_tutorial_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedPreferences again
 import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; // Import package
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -41,7 +41,7 @@ class ResellerHomePage extends ConsumerStatefulWidget {
 
 // Add SingleTickerProviderStateMixin for AnimationController
 class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isEarningsVisible = true;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
@@ -63,6 +63,20 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   // or pass hover state down.
   // Let's make _buildCircleIconButton a StatefulWidget to manage its own hover.
   // --------------------------
+
+  // +++ NEW: Animation State for Commission Box Glow +++
+  late AnimationController _glowController;
+  late Animation<double> _glowAnimation;
+  // +++ END NEW +++
+
+  // --- Animation State for Firefly Effect ---
+  // _fireflyPositionAnimation will represent progress around the perimeter (0.0 to 1.0)
+  // No explicit Animation<double> needed if we directly use _fireflyController.value
+
+  // +++ NEW: Animation Controller for Firefly Flash +++
+  late AnimationController _fireflyFlashController;
+  late Animation<double> _fireflyFlashAnimation;
+  // +++ END NEW +++
 
   @override
   void initState() {
@@ -88,16 +102,51 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
       ),
     );
 
+    // +++ NEW: Initialize Glow Animation Controller +++
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2), // Duration of one pulse cycle
+    )..repeat(reverse: true); // Repeat and reverse for pulsing
+
+    _glowAnimation = Tween<double>(begin: 0.3, end: 0.7).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    ); // Animates opacity of the glow
+    // +++ END NEW +++
+
+    // Initialize Firefly Animation Controller
+    // _fireflyController = AnimationController(
+    //   vsync: this,
+    //   duration: const Duration(seconds: 8), // Time to travel around the perimeter once
+    // )..repeat(); // Continuous loop
+
+    // +++ NEW: Initialize Firefly Flash Animation Controller +++
+    _fireflyFlashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300), // Short flash duration
+    );
+    _fireflyFlashAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fireflyFlashController, curve: Curves.easeInOut),
+    );
+
+    // Trigger flash periodically or based on _fireflyController
+    // _fireflyController.addListener(() {
+    //   // Example: Flash when the firefly is roughly at the start (or any other condition)
+    //   if (_fireflyController.value < 0.05 && !_fireflyFlashController.isAnimating) {
+    //     _fireflyFlashController.forward().then((_) => _fireflyFlashController.reverse());
+    //   }
+    //   // More sophisticated flashing logic can be added here, e.g., random intervals
+    // });
+
     // --- Check local preference ONCE after first frame ---
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted && !_initCheckDone) {
         final prefs = await SharedPreferences.getInstance();
         final seenHint = prefs.getBool(AppConstants.kHasSeenHelpIconHint) ?? false;
         if (mounted) {
-          setState(() {
-            _hasSeenHintLocally = seenHint;
-            _initCheckDone = true;
-          });
+        setState(() {
+          _hasSeenHintLocally = seenHint;
+          _initCheckDone = true;
+        });
         }
       }
     });
@@ -130,6 +179,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     _helpIconAnimationController.stop();
     _helpIconAnimationController.dispose();
     _scrollController.dispose();
+    _glowController.dispose(); // +++ NEW: Dispose glow controller +++
+    // _fireflyController.dispose(); // Dispose firefly controller
+    _fireflyFlashController.dispose(); // +++ NEW: Dispose flash controller +++
     super.dispose();
   }
 
@@ -185,33 +237,19 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final theme = Theme.of(context);
-
-    // --- WATCH AuthNotifier state ---
     final authNotifier = ref.watch(authNotifierProvider);
     final bool isFirstLogin = authNotifier.isFirstLogin;
     final bool passwordHasBeenChanged =
         authNotifier
             .initialPasswordChanged; // Still needed for password reminder
-    // -------------------------------
+    final bool currentShouldAnimateHelpIcon = _isAppActive && isFirstLogin && !_hasSeenHintLocally;
 
-    // --- Determine if animation should run ---
-    // Use local _isAppActive and isFirstLogin from authNotifier
-    final bool currentShouldAnimate = _isAppActive && isFirstLogin && !_hasSeenHintLocally;
-    // Start/stop animation controller based on state
-    if (currentShouldAnimate && !_helpIconAnimationController.isAnimating) {
-      print(
-        "Build: Starting animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
-      );
+    if (currentShouldAnimateHelpIcon && !_helpIconAnimationController.isAnimating) {
       _helpIconAnimationController.repeat(reverse: true);
-    } else if (!currentShouldAnimate && _helpIconAnimationController.isAnimating) {
-      print(
-        "Build: Stopping animation (isFirstLogin: $isFirstLogin, !_hasSeenHintLocally: ${!_hasSeenHintLocally})",
-      );
+    } else if (!currentShouldAnimateHelpIcon && _helpIconAnimationController.isAnimating) {
       _helpIconAnimationController.stop();
-      // Reset scale immediately when stopping
       _helpIconAnimationController.value = 0.0;
     }
-    // ----------------------------------------
 
     final statusBarHeight = MediaQuery.of(context).padding.top;
 
@@ -313,11 +351,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                           // Changed to stateful version
                                           icon: CupertinoIcons.question_circle,
                                           isHighlighted:
-                                              currentShouldAnimate, // For hint pulse border/bg
+                                              currentShouldAnimateHelpIcon, // For hint pulse border/bg
                                           onTap:
                                               () => _handleHelpIconTap(
                                                 context,
-                                                currentShouldAnimate, // Pass currentShouldAnimate
+                                                currentShouldAnimateHelpIcon, // Pass currentShouldAnimate
                                               ),
                                         ),
                                       ),
@@ -330,9 +368,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                             Expanded(
                               child: Center(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  // Ensure _buildCommissionBox is the direct child here
                                   child: _buildCommissionBox(),
                                 ),
                               ),
@@ -355,9 +392,19 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Animate Quick Actions Section
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: AnimationConfiguration.synchronized(
+                          duration: const Duration(milliseconds: 400),
+                          // delay: const Duration(milliseconds: 150), // Optional delay
+                          child: SlideAnimation(
+                            verticalOffset: 50.0, // Slide from bottom
+                            child: FadeInAnimation(
                         child: _buildQuickActionsSection(),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 30),
                       Padding(
@@ -542,10 +589,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   // --- MODIFIED Quick Actions Section ---
   Widget _buildQuickActionsSection() {
     final theme = Theme.of(context);
-    // Use LayoutBuilder for responsiveness if buttons might wrap
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        bool useColumn = constraints.maxWidth < 380; // Example breakpoint
+    // No LayoutBuilder for now, will use a Row of two buttons
+    // For extreme narrowness, they might wrap if Row uses WrapAlignment, 
+    // but typically two icon buttons fit well.
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,145 +600,81 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
               'Ações Rápidas',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 16),
-            useColumn
-                ? Column(
-                  // Vertical layout for smaller screens
+        const SizedBox(height: 20), // Increased spacing after title
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround, // Distribute space
                   children: [
-                    _buildQuickActionButton(
-                      theme: theme,
-                      text: 'Criar Novo Serviço',
-                      icon: CupertinoIcons.add_circled,
-                      gradientColors: [
-                        AppTheme.primary,
-                        Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
-                            AppTheme.primary,
-                      ],
+            _buildCupertinoQuickActionButton(
+              context: context,
+              text: 'Novo Serviço',
+              icon: CupertinoIcons.add_circled_solid, 
                       onPressed: () => context.push('/services'),
                     ),
-                    const SizedBox(height: 12),
-                    _buildQuickActionButton(
-                      theme: theme,
-                      text: "Recursos Fornecedor", // TODO: l10n
+            _buildCupertinoQuickActionButton(
+              context: context,
+              text: "Dropbox", 
                       icon: CupertinoIcons.folder_fill,
-                      gradientColors: [
-                        Colors.deepPurple.shade400,
-                        Colors.deepPurple.shade600,
-                      ],
-                      onPressed:
-                          () => context.push('/providers'), // Use reseller path
+              onPressed: () => context.push('/providers'),
                     ),
                   ],
-                )
-                : Row(
-                  // Horizontal layout for larger screens
-                  children: [
-                    Expanded(
-                      child: _buildQuickActionButton(
-                        theme: theme,
-                        text: 'Criar Novo Serviço',
-                        icon: CupertinoIcons.add_circled,
-                        gradientColors: [
-                          AppTheme.primary,
-                          Color.lerp(AppTheme.primary, Colors.blue, 0.4) ??
-                              AppTheme.primary,
+        ),
                         ],
-                        onPressed: () => context.push('/services'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickActionButton(
-                        theme: theme,
-                        text: "Recursos Fornecedor", // TODO: l10n
-                        icon: CupertinoIcons.folder_fill,
-                        gradientColors: [
-                          Colors.deepPurple.shade400,
-                          Colors.deepPurple.shade600,
-                        ],
-                        onPressed:
-                            () =>
-                                context.push('/providers'), // Use reseller path
-                      ),
-                    ),
-                  ],
-                ),
-          ],
-        );
-      },
     );
   }
 
-  // --- NEW Helper for Quick Action Button --- //
-  Widget _buildQuickActionButton({
-    required ThemeData theme,
+  // --- NEW Helper for Cupertino-style Quick Action Button --- //
+  Widget _buildCupertinoQuickActionButton({
+    required BuildContext context,
     required String text,
     required IconData icon,
-    required List<Color> gradientColors,
     required VoidCallback onPressed,
   }) {
-    return Container(
-      width: double.infinity,
-      height: 50,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-      child: ElevatedButton(
+    final theme = Theme.of(context);
+    // final isDark = theme.brightness == Brightness.dark; // Might not be needed if not styling background per mode
+    final Color iconColor = theme.colorScheme.primary; // Primary color for the icon itself
+    final Color textColor = theme.colorScheme.onSurface; 
+
+    const double iconSize = 36.0; // Slightly larger icon if it doesn't have a backing circle
+    const double textSize = 13.0;
+    // Overall tap target size can be adjusted by padding if needed
+
+    return CupertinoButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Container(
-            alignment: Alignment.center,
-            child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0), // Padding for the tappable area
+      // minSize: 0, // Allow button to be as small as its content if padding is precise
+      child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 20, color: Colors.white),
-                const SizedBox(width: 10),
+          Icon(icon, size: iconSize, color: iconColor), // Icon without a separate background circle
+          const SizedBox(height: 8), 
                 Text(
                   text,
-                  style: theme.textTheme.labelLarge?.copyWith(
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textColor,
+              fontSize: textSize,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    letterSpacing: 0.3,
                   ),
+            maxLines: 1, // Ensure text doesn't wrap too much if long
+            overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildNotificationsSection() {
     final theme = Theme.of(context);
-    // *** Read password change status here as well ***
     final authNotifier = ref.watch(authNotifierProvider);
     final bool passwordHasBeenChanged = authNotifier.initialPasswordChanged;
-    // ************************************************
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header with badge
         Row(
           children: [
             Text(
@@ -703,44 +685,16 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
               ),
             ),
             const SizedBox(width: 8),
-
-            // Use the unread count provider for the badge
             Consumer(
               builder: (context, ref, child) {
-                final unreadCountStream = ref.watch(
-                  unreadNotificationsCountProvider,
-                );
-
+                final unreadCountStream = ref.watch(unreadNotificationsCountProvider,);
                 return unreadCountStream.when(
                   data: (count) {
-                    if (count <= 0) {
-                      return const SizedBox.shrink();
-                    }
-
+                    if (count <= 0) return const SizedBox.shrink();
                     return Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withOpacity(0.3),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          count > 99 ? '99+' : count.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      width: 24, height: 24,
+                      decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)]),
+                      child: Center(child: Text(count > 99 ? '99+' : count.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
                     );
                   },
                   loading: () => const SizedBox(width: 24, height: 24),
@@ -752,78 +706,36 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         ),
         const SizedBox(height: 8),
 
-        // Pendentes section with total pending amount
+        // Pendentes section (remains the same)
         Consumer(
           builder: (context, ref, child) {
             final notificationsStream = ref.watch(userNotificationsProvider);
-
             return notificationsStream.when(
               data: (notifications) {
-                // Calculate total monetary values from rejection notifications
                 double pendingAmount = 0.0;
                 for (final notification in notifications) {
                   if (notification.type == NotificationType.rejection) {
                     final amount = notification.metadata['amount'];
-                    if (amount != null) {
-                      pendingAmount += (amount is double) ? amount : 0.0;
+                    if (amount != null) pendingAmount += (amount is double) ? amount : 0.0;
                     }
                   }
-                }
-
-                // Show Pendentes card if there are pending amounts
                 if (pendingAmount > 0) {
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
+                      color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              theme.brightness == Brightness.dark
-                                  ? theme.colorScheme.shadow.withOpacity(0.3)
-                                  : theme.colorScheme.shadow.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                          spreadRadius: 0,
-                        ),
-                      ],
-                      border: Border.all(
-                        color:
-                            theme.brightness == Brightness.dark
-                                ? theme.colorScheme.onSurface.withOpacity(0.05)
-                                : Colors.transparent,
-                        width: theme.brightness == Brightness.dark ? 1 : 0,
-                      ),
+                      boxShadow: [BoxShadow(color: theme.brightness == Brightness.dark ? theme.colorScheme.shadow.withOpacity(0.3) : theme.colorScheme.shadow.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 3), spreadRadius: 0)],
+                      border: Border.all(color: theme.brightness == Brightness.dark ? theme.colorScheme.onSurface.withOpacity(0.05) : Colors.transparent, width: theme.brightness == Brightness.dark ? 1 : 0),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Pendentes',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
+                        Text('Pendentes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '-${pendingAmount.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.red,
-                            ),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text('-${pendingAmount.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red)),
                         ),
                       ],
                     ),
@@ -832,27 +744,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   return const SizedBox.shrink();
                 }
               },
-              loading:
-                  () => const Center(
-                    child: SizedBox(
-                      height: 50,
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-              error:
-                  (_, __) => Center(
-                    child: Text(
-                      'Falha ao carregar notificações',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  ),
+              loading: () => const Center(child: SizedBox(height: 50, child: CircularProgressIndicator())),
+              error: (_, __) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
             );
           },
         ),
-
         const SizedBox(height: 16),
 
-        // List of notifications
+        // List of notifications with animation
         Consumer(
           builder: (context, ref, child) {
             final notificationsStream = ref.watch(userNotificationsProvider);
@@ -860,89 +759,53 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
             return notificationsStream.when(
               data: (notificationsFromProvider) {
-                // --- Create and Inject Password Reminder ---
-                List<UserNotification> combinedNotifications = [
-                  ...notificationsFromProvider,
-                ];
-
-                // Get current user ID for the fake notification
-                final currentUserId =
-                    FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
-
+                List<UserNotification> combinedNotifications = [...notificationsFromProvider];
+                final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
                 if (!passwordHasBeenChanged) {
                   final passwordReminder = UserNotification(
-                    id: '__password_reminder__', // Special ID
-                    userId: currentUserId, // <-- ADD userId
-                    title: 'Security Recommendation', // TODO: l10n
-                    message: 'Change your initial password.', // TODO: l10n
-                    type: NotificationType.system, // Use system type for now
-                    createdAt: DateTime.now(), // Timestamp doesn't matter much
-                    isRead: true, // Mark as read so it doesn't affect badge
-                    metadata: {
-                      'isPasswordReminder': true,
-                    }, // Extra flag if needed
+                    id: '__password_reminder__', userId: currentUserId,
+                    title: 'Security Recommendation', message: 'Change your initial password.',
+                    type: NotificationType.system, createdAt: DateTime.now(), isRead: true,
+                    metadata: { 'isPasswordReminder': true },
                   );
-                  // Add reminder to the beginning of the list
                   combinedNotifications.insert(0, passwordReminder);
                 }
-                // -----------------------------------------
 
                 if (combinedNotifications.isEmpty) {
-                  // Use the original empty state logic
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            CupertinoIcons.bell_slash,
-                            size: 48,
-                            color: theme.colorScheme.onSurface.withOpacity(0.4),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Sem notificações',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.7,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: Column(children: [Icon(CupertinoIcons.bell_slash, size: 48, color: theme.colorScheme.onSurface.withOpacity(0.4)), const SizedBox(height: 16), Text('Sem notificações', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)))]),
                     ),
                   );
                 }
 
-                // Build list using ListView.builder
-                return ListView.builder(
-                  shrinkWrap:
-                      true, // Prevent infinite height error in Column/ScrollView
-                  physics:
-                      const NeverScrollableScrollPhysics(), // Prevent nested scrolling
+                return AnimationLimiter(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                   itemCount: combinedNotifications.length,
                   itemBuilder: (context, index) {
                     final notification = combinedNotifications[index];
-                    return _buildNotificationItem(
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 375),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            child: _buildNotificationItem(
                       notification: notification,
-                      onTap: () {
-                        _handleNotificationTap(
-                          notification,
-                          notificationActions,
+                              onTap: () => _handleNotificationTap(notification, notificationActions),
+                            ),
+                          ),
+                        ),
                         );
                       },
-                    );
-                  },
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (_, __) => Center(
-                    child: Text(
-                      'Falha ao carregar notificações',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  ),
+              error: (_, __) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
             );
           },
         ),
@@ -1044,7 +907,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -1152,14 +1015,12 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   Widget _buildCommissionBox() {
     final theme = Theme.of(context);
-    // Watch the commission provider
     final commissionAsync = ref.watch(resellerTotalCommissionProvider);
 
     return Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          // Keep only border, shadow, and radius
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
           boxShadow: [
@@ -1181,7 +1042,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Account title section with shimmer effect
                   ShaderMask(
                     shaderCallback: (bounds) {
                       return LinearGradient(
@@ -1202,10 +1062,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Balance amount with visibility toggle
                   GestureDetector(
                     onTap: () {
                       setState(() {
@@ -1215,175 +1072,27 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Amount section - Use commissionAsync.when
                         commissionAsync.when(
                           data: (commissionValue) {
-                            // Format the commission value
-                            final currencyFormat = NumberFormat.currency(
-                              locale: 'pt_PT',
-                              symbol: '€',
-                              decimalDigits: 2,
-                            );
-                            final formattedCommission = currencyFormat.format(
-                              commissionValue,
-                            );
-
+                            final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
+                            final formattedCommission = currencyFormat.format(commissionValue);
                             return _isEarningsVisible
-                                ? Row(
-                                  children: [
-                                    Text(
-                                      formattedCommission, // Display formatted value
-                                      style: theme.textTheme.headlineSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.2,
-                                                ),
-                                                blurRadius: 3,
-                                                offset: const Offset(0, 1),
-                                              ),
-                                            ],
-                                          ),
-                                    ),
-                                    // Removed currency symbol text as it's in the format
-                                    const SizedBox(width: 10),
-                                    // Eye icon toggle
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        CupertinoIcons.eye_fill,
-                                        size: 18,
-                                        color: Colors.white.withOpacity(0.9),
-                                      ),
-                                    ),
-                                  ],
-                                )
+                                ? Row(children: [Text(formattedCommission, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))])), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))] )
                                 : _buildHiddenAmountRow(theme);
                           },
-                          loading:
-                              () =>
-                                  // Show placeholder while loading
-                                  _isEarningsVisible
-                                      ? Row(
-                                        children: [
-                                          Text(
-                                            '--,-- €', // Loading placeholder
-                                            style: theme.textTheme.headlineSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white
-                                                      .withOpacity(0.7),
-                                                ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              CupertinoIcons.eye_fill,
-                                              size: 18,
-                                              color: Colors.white.withOpacity(
-                                                0.9,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                      : _buildHiddenAmountRow(theme),
-                          error:
-                              (error, stack) =>
-                                  // Show N/A on error
-                                  _isEarningsVisible
-                                      ? Row(
-                                        children: [
-                                          Text(
-                                            'N/A', // Error placeholder
-                                            style: theme.textTheme.headlineSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white
-                                                      .withOpacity(0.7),
-                                                ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              CupertinoIcons.eye_fill,
-                                              size: 18,
-                                              color: Colors.white.withOpacity(
-                                                0.9,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                      : _buildHiddenAmountRow(theme),
+                          loading: () => _isEarningsVisible ? Row(children: [Text('--,-- €', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
+                          error: (error, stack) => _isEarningsVisible ? Row(children: [Text('N/A', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  // VIEW DETAILS button with enhanced styling
                   SizedBox(
                     height: 36,
                     child: ElevatedButton(
                       onPressed: () => context.push('/dashboard'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.1),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        side: BorderSide(
-                          color: Colors.white.withOpacity(0.4),
-                          width: 1,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Ver Detalhes',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            CupertinoIcons.chevron_right,
-                            size: 12,
-                            color: Colors.white,
-                          ),
-                        ],
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.1), foregroundColor: Colors.white, elevation: 0, side: BorderSide(color: Colors.white.withOpacity(0.4), width: 1), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [Text('Ver Detalhes', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: 0.3)), const SizedBox(width: 4), Icon(CupertinoIcons.chevron_right, size: 12, color: Colors.white)]),
                     ),
                   ),
                 ],

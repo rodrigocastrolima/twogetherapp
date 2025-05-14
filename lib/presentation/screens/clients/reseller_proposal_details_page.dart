@@ -363,9 +363,7 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                               horizontal: 8.0,
                             ), // Spacing between buttons
                             decoration: BoxDecoration(
-                              color:
-                                  theme
-                                      .cardColor, // Changed to cardColor for white/neutral background
+                              color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
                                 color: CupertinoColors.systemGrey4,
@@ -573,9 +571,7 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
                               horizontal: 8.0,
                             ), // Spacing between buttons
                             decoration: BoxDecoration(
-                              color:
-                                  theme
-                                      .cardColor, // Changed to cardColor for white/neutral background
+                              color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
                                 color: CupertinoColors.systemGrey4,
@@ -702,7 +698,9 @@ class ResellerProposalDetailsPage extends ConsumerWidget {
   // Helper to build a card for each CPE
   Widget _buildCpeCard(BuildContext context, SalesforceCPEProposalData cpe) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark; // Added for standardized color
     return Card(
+      color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
