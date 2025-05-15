@@ -51,4 +51,7 @@ class AppColors {
   static const gradientStart = Color(0xFFD4E0F7); // very soft light blue
   static const gradientMiddle = Color(0xFFB1CCF8); // soft sky blue
   static const gradientEnd = Color(0xFF9DB9F0); // light periwinkle blue
+
+  // Brand highlight color (sidebar/nav highlight)
+  static const tulipTree = Color(0xFFFFBE45); // Official yellow for highlights
 }

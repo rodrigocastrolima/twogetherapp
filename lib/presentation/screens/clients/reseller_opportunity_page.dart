@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'reseller_opportunity_details_page.dart';
+import '../../../core/theme/ui_styles.dart';
 
 // Enum for filter status
 enum OpportunityFilterStatus {
@@ -126,75 +127,67 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   }
 
   Widget _buildFilterSegments(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedColor = isDark ? AppTheme.darkPrimary : AppTheme.primary;
-    final unselectedColor = isDark ? AppTheme.darkInput : Colors.grey[200];
-    final selectedFgColor =
-        isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground;
-    final unselectedFgColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.foreground;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final selectedColor = theme.colorScheme.primary;
+    final unselectedColor = theme.colorScheme.surfaceVariant;
+    final selectedFgColor = theme.colorScheme.onPrimary;
+    final unselectedFgColor = theme.colorScheme.onSurfaceVariant;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: SegmentedButton<OpportunityFilterStatus>(
-        segments: const <ButtonSegment<OpportunityFilterStatus>>[
-          ButtonSegment<OpportunityFilterStatus>(
-            value: OpportunityFilterStatus.todos,
-            label: Text('Todos'),
-          ),
-          ButtonSegment<OpportunityFilterStatus>(
-            value: OpportunityFilterStatus.ativos,
-            label: Text('Ativos'),
-          ),
-          ButtonSegment<OpportunityFilterStatus>(
-            value: OpportunityFilterStatus.acaoNecessaria,
-            label: Text('Ação'), // Shortened for space
-          ),
-          ButtonSegment<OpportunityFilterStatus>(
-            value: OpportunityFilterStatus.pendentes,
-            label: Text('Pendentes'),
-          ),
-          ButtonSegment<OpportunityFilterStatus>(
-            value: OpportunityFilterStatus.rejeitados,
-            label: Text('Rejeitados'),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
-        selected: <OpportunityFilterStatus>{_selectedFilter},
-        onSelectionChanged: (Set<OpportunityFilterStatus> newSelection) {
-          setState(() {
-            _selectedFilter = newSelection.first;
-          });
-        },
-        style: ButtonStyle(
-          backgroundColor: MaterialStateProperty.resolveWith<Color?>((
-            Set<MaterialState> states,
-          ) {
-            if (states.contains(MaterialState.selected)) {
-              return selectedColor;
-            }
-            return unselectedColor; // Use the component's default for unselected
-          }),
-          foregroundColor: MaterialStateProperty.resolveWith<Color?>((
-            Set<MaterialState> states,
-          ) {
-            if (states.contains(MaterialState.selected)) {
-              return selectedFgColor;
-            }
-            return unselectedFgColor;
-          }),
-          side: MaterialStateProperty.resolveWith<BorderSide?>((
-            Set<MaterialState> states,
-          ) {
-            return BorderSide(color: selectedColor.withAlpha(100));
-          }),
-          textStyle: MaterialStateProperty.all<TextStyle>(
-            const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ), // Adjust font size
-          ),
-        ),
-        showSelectedIcon: false,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: OpportunityFilterStatus.values.map((status) {
+          final bool isSelected = _selectedFilter == status;
+          return Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeInOut,
+              margin: const EdgeInsets.symmetric(horizontal: 2.0),
+              decoration: BoxDecoration(
+                color: isSelected ? selectedColor : unselectedColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    setState(() {
+                      _selectedFilter = status;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0),
+                    child: Center(
+                      child: Text(
+                        status.displayName,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: isSelected ? selectedFgColor : unselectedFgColor,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -295,111 +288,139 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       body: SafeArea(
         bottom: false,
         top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child:
-                  isSmallScreen
-                      ? Row(
-                        // Mobile UI
-                        children: [
-                          Expanded(child: _buildSearchBar(context)),
-                          if (!_isSearchFocused) const SizedBox(width: 8),
-                          _buildFilterPicker(context),
-                        ],
-                      )
-                      : Padding(
-                        // Added Padding for desktop top spacing
-                        padding: const EdgeInsets.only(top: 16.0),
-                        child: Row(
-                          // Desktop/Web UI
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .center, // Align items vertically
-                          children: [
-                            Expanded(
-                              // flex: 2, // Search bar will take remaining space
-                              child: _buildDesktopSearchBar(context),
-                            ),
-                            const SizedBox(width: 16),
-                            // Expanded(
-                            //   flex: 1,
-                            //   child: _buildDesktopFilterDropdown(context),
-                            // ),
-                            SizedBox(
-                              // Constrain width of the dropdown
-                              width: 200.0,
-                              child: _buildDesktopFilterDropdown(context),
-                            ),
-                          ],
-                        ),
-                      ),
-            ),
-            Expanded(
-              child: opportunitiesAsync.when(
-                data: (opportunities) {
-                  // Apply status filter first
-                  List<sfo.SalesforceOpportunity> statusFilteredOpportunities =
-                      opportunities
-                          .where(
-                            (opportunity) =>
-                                _matchesFilter(opportunity, _selectedFilter),
-                          )
-                          .toList();
-
-                  // Then apply search filter
-                  final displayOpportunities =
-                      _searchQuery.isEmpty
-                          ? statusFilteredOpportunities // Use status-filtered list
-                          : statusFilteredOpportunities.where((opportunity) {
-                            // Filter on status-filtered list
-                            final query = _searchQuery.toLowerCase();
-                            final nameMatch = (opportunity.name)
-                                .toLowerCase()
-                                .contains(query);
-                            final accountNameMatch = (opportunity.accountName ??
-                                    '')
-                                .toLowerCase()
-                                .contains(query);
-                            return nameMatch || accountNameMatch;
-                          }).toList();
-
-                  if (displayOpportunities.isEmpty) {
-                    return _buildEmptyState(context);
-                  }
-
-                  return AnimationLimiter(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    itemCount: displayOpportunities.length,
-                    itemBuilder: (context, index) {
-                        final opportunity = displayOpportunities[index];
-                        return AnimationConfiguration.staggeredList(
-                          position: index,
-                          duration: const Duration(milliseconds: 375),
-                          child: SlideAnimation(
-                            verticalOffset: 50.0,
-                            child: FadeInAnimation(
-                              child: _buildOpportunityCard(
-                        context,
-                        opportunity,
-                        key: ValueKey(opportunity.id),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'Clientes',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child:
+                      isSmallScreen
+                          ? Row(
+                              children: [
+                                Expanded(child: _buildSearchBar(context)),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 160,
+                                  child: _buildFilterDropdown(context),
+                                ),
+                              ],
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: _buildDesktopSearchBar(context),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  SizedBox(
+                                    width: 200.0,
+                                    child: _buildDesktopFilterDropdown(context),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
+                ),
+                Expanded(
+                  child: opportunitiesAsync.when(
+                    data: (opportunities) {
+                      // Apply status filter first
+                      List<sfo.SalesforceOpportunity> statusFilteredOpportunities =
+                          opportunities
+                              .where(
+                                (opportunity) =>
+                                    _matchesFilter(opportunity, _selectedFilter),
+                              )
+                              .toList();
+
+                      // Then apply search filter
+                      final displayOpportunities =
+                          _searchQuery.isEmpty
+                              ? statusFilteredOpportunities
+                              : statusFilteredOpportunities.where((opportunity) {
+                                final query = _searchQuery.toLowerCase();
+                                final nameMatch = (opportunity.name)
+                                    .toLowerCase()
+                                    .contains(query);
+                                final accountNameMatch = (opportunity.accountName ??
+                                        '')
+                                    .toLowerCase()
+                                    .contains(query);
+                                return nameMatch || accountNameMatch;
+                              }).toList();
+
+                      if (displayOpportunities.isEmpty) {
+                        return _buildEmptyState(context);
+                      }
+
+                      return AnimationLimiter(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                          itemCount: displayOpportunities.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final opportunity = displayOpportunities[index];
+                            return AnimationConfiguration.staggeredList(
+                              position: index,
+                              duration: const Duration(milliseconds: 375),
+                              child: SlideAnimation(
+                                verticalOffset: 50.0,
+                                child: FadeInAnimation(
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: Material(
+                                      color: theme.colorScheme.surface,
+                                      elevation: 2,
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(14),
+                                        onTap: () {
+                                          // Play the press animation
+                                          _cardKey.currentState?.setState(() {}); // Dummy setState to trigger animation if needed
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: _buildOpportunityCard(
+                                            context,
+                                            opportunity,
+                                            key: ValueKey(opportunity.id),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       );
                     },
-                    ),
-                  );
-                },
-                loading: () => _buildLoadingIndicator(context, isDark),
-                error:
-                    (error, stackTrace) =>
-                        _buildErrorState(context, error, isDark),
-              ),
+                    loading: () => _buildLoadingIndicator(context, isDark),
+                    error:
+                        (error, stackTrace) =>
+                            _buildErrorState(context, error, isDark),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(context, isDark),
@@ -408,175 +429,24 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   }
 
   Widget _buildSearchBar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final placeholderColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final iconColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final textFieldBackgroundColor =
-        isDark
-            ? AppTheme.darkInput.withAlpha(180) // Slightly more transparent
-            : AppTheme.secondary.withAlpha(180); // Slightly more transparent
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return SizeTransition(
-          sizeFactor: animation,
-          axis: Axis.horizontal,
-          axisAlignment: -1.0, // Align to the left during transition
-          child: child,
-        );
-      },
-      child:
-          _isSearchFocused
-              ? Container(
-                key: const ValueKey('search_field_expanded'),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CupertinoTextField(
-                        controller: _searchController,
-                        focusNode: _searchFocusNode,
-                        placeholder: 'Buscar cliente',
-                        placeholderStyle: TextStyle(
-                          color: placeholderColor,
-                          fontSize: 14,
-                        ),
-                        prefix: Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Icon(
-                            CupertinoIcons.search,
-                            color: iconColor,
-                            size: 18,
-                          ),
-                        ),
-                        suffix:
-                            _searchQuery.isNotEmpty
-                                ? CupertinoButton(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  minSize: 0,
-                                  child: Icon(
-                                    CupertinoIcons.clear_circled_solid,
-                                    color: iconColor,
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    // No need to call setState as controller listener handles it
-                                  },
-                                )
-                                : null,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 10,
-                        ), // Adjusted padding
-                        decoration: BoxDecoration(
-                          color: textFieldBackgroundColor,
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        style: TextStyle(fontSize: 15, color: textColor),
-                        autofocus: true, // Focus when it becomes visible
-                        onTapOutside: (event) {
-                          // Added to handle tap outside
-                          if (_searchFocusNode.hasFocus) {
-                            _searchFocusNode.unfocus();
-                          }
-                        },
-                      ),
-                    ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      minSize: 0,
-                      child: Text(
-                        'Cancelar',
-                        style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 15,
-                        ),
-                      ),
-                      onPressed: () {
-                        _searchController.clear();
-                        _searchFocusNode
-                            .unfocus(); // This will trigger the focus listener
-                        setState(() {
-                          _isSearchFocused = false;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              )
-              : Container(
-                key: const ValueKey('search_icon_collapsed'),
-                alignment: Alignment.centerLeft, // Keep icon to the left
-                child: CupertinoButton(
-                  padding: const EdgeInsets.all(0), // Minimal padding
-                  child: Icon(
-                    CupertinoIcons.search,
-                    color: iconColor,
-                    size: 26, // Slightly larger icon when collapsed
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isSearchFocused = true;
-                    });
-                    // _searchFocusNode.requestFocus(); // Request focus after state change allowing field to build
-                  },
-                ),
-              ),
+    final theme = Theme.of(context);
+    final textColor = theme.brightness == Brightness.dark ? AppTheme.darkForeground : AppTheme.foreground;
+    final borderRadius = BorderRadius.circular(12.0);
+    return SizedBox(
+      height: 40,
+      child: TextField(
+        controller: _searchController,
+        style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+        decoration: AppStyles.searchInputDecoration(context, 'Buscar cliente...'),
+        onChanged: (value) {
+          setState(() => _searchQuery = value.trim());
+        },
+      ),
     );
   }
 
   Widget _buildDesktopSearchBar(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final placeholderColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final iconColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final textFieldBackgroundColor =
-        isDark
-            ? AppTheme.darkInput.withAlpha(
-              200,
-            ) // Slightly less transparent than mobile's expanded
-            : AppTheme.secondary.withAlpha(200);
-
-    return CupertinoTextField(
-      controller: _searchController,
-      focusNode:
-          _searchFocusNode, // Reuse focus node if needed for other logic, or remove if not
-      placeholder: 'Buscar cliente...',
-      placeholderStyle: TextStyle(color: placeholderColor, fontSize: 14),
-      prefix: Padding(
-        padding: const EdgeInsets.only(left: 10),
-        child: Icon(CupertinoIcons.search, color: iconColor, size: 18),
-      ),
-      suffix:
-          _searchQuery.isNotEmpty
-              ? CupertinoButton(
-                padding: const EdgeInsets.only(right: 8),
-                minSize: 0,
-                child: Icon(
-                  CupertinoIcons.clear_circled_solid,
-                  color: iconColor,
-                  size: 18,
-                ),
-                onPressed: () {
-                  _searchController.clear();
-                },
-              )
-              : null,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      decoration: BoxDecoration(
-        color: textFieldBackgroundColor,
-        borderRadius: BorderRadius.circular(10.0),
-      ),
-      style: TextStyle(fontSize: 15, color: textColor),
-      // No autofocus for desktop, typically.
-      // No onTapOutside needed as it's always visible.
-    );
+    return _buildSearchBar(context);
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -700,33 +570,39 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final borderColor = isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-    final dropdownColor = theme.colorScheme.surface;
+    final borderRadius = BorderRadius.circular(12.0);
 
-    return Container(
-      // padding: const EdgeInsets.symmetric(vertical: 0), // Removed to let DropdownButtonFormField control height primarily
-      decoration: BoxDecoration(
-        color: dropdownColor,
-        borderRadius: BorderRadius.circular(10.0), // Match search bar
-        border: Border.all(color: borderColor.withOpacity(0.5), width: 1.0),
-      ),
+    return SizedBox(
+      height: 40,
       child: DropdownButtonFormField<OpportunityFilterStatus>(
-        isDense: true,
         value: _selectedFilter,
+        isDense: true,
         icon: Icon(
-          CupertinoIcons.chevron_down,
-          size: 16,
-          color: textColor.withOpacity(0.7),
+          Icons.keyboard_arrow_down_rounded,
+          size: 18,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
+        style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
         decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12.0,
-            vertical: 11.0,
-          ), // Adjusted for vertical alignment
-          border: InputBorder.none,
-          isDense: true, // Makes the field more compact vertically
+          filled: true,
+          fillColor: theme.colorScheme.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          border: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: borderRadius,
+            borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+          ),
         ),
-        isExpanded: true,
+        dropdownColor: theme.colorScheme.surface,
+        borderRadius: borderRadius,
+        alignment: Alignment.center,
         onChanged: (OpportunityFilterStatus? newValue) {
           if (newValue != null && newValue != _selectedFilter) {
             setState(() {
@@ -737,12 +613,13 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         items: OpportunityFilterStatus.values.map((OpportunityFilterStatus status) {
           return DropdownMenuItem<OpportunityFilterStatus>(
             value: status,
-            child: Text(
-              status.displayName,
-              style: TextStyle(
-                fontSize: 15,
-                color: textColor,
-              ), // Style for the selected item text
+            alignment: Alignment.center,
+            child: Center(
+              child: Text(
+                status.displayName,
+                style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+                textAlign: TextAlign.center,
+              ),
             ),
           );
         }).toList(),
@@ -854,14 +731,16 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
     // Create our own simple status visual properties
     IconData? statusIcon;
     Color statusIconColor = theme.colorScheme.onSurfaceVariant;
-    
-    // Basic status icon mapping
+    // Basic status icon mapping with fallback
     switch (latestStatus) {
       case 'Aceite':
         statusIcon = CupertinoIcons.checkmark_seal_fill;
+        // Fallback if not available
+        statusIcon ??= Icons.check_circle;
         statusIconColor = Colors.green;
         break;
       case 'Enviada':
+      case 'Em Aprovação':
         statusIcon = CupertinoIcons.exclamationmark_circle_fill;
         statusIconColor = Colors.blue;
         break;
@@ -871,7 +750,9 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
         statusIconColor = Colors.red;
         break;
       case 'Expirada':
+      case 'Aprovada':
         statusIcon = CupertinoIcons.clock_fill;
+        statusIcon ??= Icons.access_time;
         statusIconColor = Colors.orange;
         break;
       default:
@@ -899,73 +780,36 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
           child: child,
         );
       },
-      child: Material(
-        type: MaterialType.transparency,
-          child: Container(
-          key: widget.cardKey,
-          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0), 
-            decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
-            borderRadius: BorderRadius.circular(12.0),
-            boxShadow: [
-              BoxShadow(
-                color: isDark 
-                    ? theme.colorScheme.shadow.withOpacity(0.2) 
-                    : theme.colorScheme.shadow.withOpacity(0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-                spreadRadius: 0,
-              ),
-            ],
-            border: Border.all(
-              color: isDark 
-                  ? theme.colorScheme.onSurface.withOpacity(0.05) 
-                  : Colors.transparent,
-              width: isDark ? 1.0 : 0,
-            ),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12.0), 
-            onTap: () {
-              // Play the press animation
-              _controller.forward().then((_) {
-                // Navigate after animation completes
-                widget.onTap(widget.cardKey);
-                
-                // Reset the animation after navigation
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  if (mounted) {
-                    _controller.reverse();
-                  }
-                });
-              });
-            },
-            child: SizedBox(
-              height: 88.0,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+      child: SizedBox(
+        height: 64.0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            // Navigate to details page
+            context.push('/opportunity-details', extra: widget.opportunity);
+          },
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(cardName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ),
-                          if (displayDate.isNotEmpty) ...[const SizedBox(height: 4), Text(displayDate, style: TextStyle(fontSize: 13, color: mutedTextColor))],
-                        ],
-                      ),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(cardName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
-                    const SizedBox(width: 12),
-                    if (statusIcon != null) Icon(statusIcon, color: statusIconColor, size: 24),
+                    if (displayDate.isNotEmpty) ...[const SizedBox(height: 4), Text(displayDate, style: TextStyle(fontSize: 13, color: mutedTextColor))],
                   ],
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              if (statusIcon != null) Icon(statusIcon, color: statusIconColor, size: 24),
+            ],
           ),
         ),
       ),

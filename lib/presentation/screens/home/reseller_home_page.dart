@@ -32,6 +32,53 @@ const double _iconPadding = 10.0; // From _buildCircleIconButton
 const double _totalIconSpace = (_iconPadding * 2) + _iconSize;
 const double _topRightPadding = 20.0; // Horizontal padding from header
 
+// Place this at the top-level, outside of _ResellerHomePageState
+class _QuickActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: 170,
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 36, color: theme.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ResellerHomePage extends ConsumerStatefulWidget {
   const ResellerHomePage({super.key});
 
@@ -253,6 +300,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
     final statusBarHeight = MediaQuery.of(context).padding.top;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isWideScreen = screenWidth > 900;
+
     // --- Build method uses Stack structure similar to old code ---
     return Scaffold(
       backgroundColor:
@@ -383,38 +433,45 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                 // --- Bottom Content Area (Opaque Background) ---
                 Container(
                   width: double.infinity,
-                  // Use theme background color here
                   color: theme.colorScheme.background,
-                  padding: const EdgeInsets.only(
-                    top: 20,
-                    bottom: 60,
-                  ), // Adjust padding as needed
+                  padding: const EdgeInsets.only(top: 20, bottom: 60),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: isWideScreen
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 340,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Animate Quick Actions Section
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: AnimationConfiguration.synchronized(
-                          duration: const Duration(milliseconds: 400),
-                          // delay: const Duration(milliseconds: 150), // Optional delay
-                          child: SlideAnimation(
-                            verticalOffset: 50.0, // Slide from bottom
-                            child: FadeInAnimation(
-                        child: _buildQuickActionsSection(),
+                                      _buildQuickActionsSection(),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 40),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildNotificationsSection(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildQuickActionsSection(),
+                                const SizedBox(height: 30),
+                                _buildNotificationsSection(),
+                                const SizedBox(height: 40),
+                              ],
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildNotificationsSection(),
-                      ),
-                      const SizedBox(
-                        height: 40,
-                      ), // Ensure enough space at bottom
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -442,19 +499,10 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
           onTap: () => context.push('/profile-details'),
           child: Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity(0.2),
-              shape: BoxShape.circle,
-              boxShadow:
-                  _isProfileHovering
-                      ? [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.3),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                      : null,
+            decoration: AppStyles.circularIconButtonStyle(
+              context,
+              isHovering: _isProfileHovering,
+              isHighlighted: false,
             ),
             child: SizedBox(
               width: 22,
@@ -589,80 +637,38 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   // --- MODIFIED Quick Actions Section ---
   Widget _buildQuickActionsSection() {
     final theme = Theme.of(context);
-    // No LayoutBuilder for now, will use a Row of two buttons
-    // For extreme narrowness, they might wrap if Row uses WrapAlignment, 
-    // but typically two icon buttons fit well.
-
-        return Column(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 600;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Ações Rápidas',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-              ),
+              color: theme.colorScheme.onSurface,
             ),
-        const SizedBox(height: 20), // Increased spacing after title
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround, // Distribute space
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 24,
+            runSpacing: 16,
                   children: [
-            _buildCupertinoQuickActionButton(
-              context: context,
-              text: 'Novo Serviço',
-              icon: CupertinoIcons.add_circled_solid, 
-                      onPressed: () => context.push('/services'),
-                    ),
-            _buildCupertinoQuickActionButton(
-              context: context,
-              text: "Dropbox", 
+              _QuickActionCard(
+                icon: CupertinoIcons.add_circled_solid,
+                label: 'Novo Serviço',
+                onTap: () => context.push('/services'),
+              ),
+              _QuickActionCard(
                       icon: CupertinoIcons.folder_fill,
-              onPressed: () => context.push('/providers'),
-                    ),
-                  ],
-        ),
-                        ],
-    );
-  }
-
-  // --- NEW Helper for Cupertino-style Quick Action Button --- //
-  Widget _buildCupertinoQuickActionButton({
-    required BuildContext context,
-    required String text,
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    final theme = Theme.of(context);
-    // final isDark = theme.brightness == Brightness.dark; // Might not be needed if not styling background per mode
-    final Color iconColor = theme.colorScheme.primary; // Primary color for the icon itself
-    final Color textColor = theme.colorScheme.onSurface; 
-
-    const double iconSize = 36.0; // Slightly larger icon if it doesn't have a backing circle
-    const double textSize = 13.0;
-    // Overall tap target size can be adjusted by padding if needed
-
-    return CupertinoButton(
-        onPressed: onPressed,
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0), // Padding for the tappable area
-      // minSize: 0, // Allow button to be as small as its content if padding is precise
-      child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-              children: [
-          Icon(icon, size: iconSize, color: iconColor), // Icon without a separate background circle
-          const SizedBox(height: 8), 
-                Text(
-                  text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: textColor,
-              fontSize: textSize,
-                    fontWeight: FontWeight.w500,
-                  ),
-            maxLines: 1, // Ensure text doesn't wrap too much if long
-            overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                label: 'Dropbox',
+                onTap: () => context.push('/providers'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -705,53 +711,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
           ],
         ),
         const SizedBox(height: 8),
-
-        // Pendentes section (remains the same)
-        Consumer(
-          builder: (context, ref, child) {
-            final notificationsStream = ref.watch(userNotificationsProvider);
-            return notificationsStream.when(
-              data: (notifications) {
-                double pendingAmount = 0.0;
-                for (final notification in notifications) {
-                  if (notification.type == NotificationType.rejection) {
-                    final amount = notification.metadata['amount'];
-                    if (amount != null) pendingAmount += (amount is double) ? amount : 0.0;
-                    }
-                  }
-                if (pendingAmount > 0) {
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: theme.brightness == Brightness.dark ? theme.colorScheme.shadow.withOpacity(0.3) : theme.colorScheme.shadow.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 3), spreadRadius: 0)],
-                      border: Border.all(color: theme.brightness == Brightness.dark ? theme.colorScheme.onSurface.withOpacity(0.05) : Colors.transparent, width: theme.brightness == Brightness.dark ? 1 : 0),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Pendentes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text('-${pendingAmount.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.red)),
-                        ),
-                      ],
-                    ),
-                  );
-                } else {
-                  return const SizedBox.shrink();
-                }
-              },
-              loading: () => const Center(child: SizedBox(height: 50, child: CircularProgressIndicator())),
-              error: (_, __) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-
-        // List of notifications with animation
         Consumer(
           builder: (context, ref, child) {
             final notificationsStream = ref.watch(userNotificationsProvider);
@@ -793,14 +752,93 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         child: SlideAnimation(
                           verticalOffset: 50.0,
                           child: FadeInAnimation(
-                            child: _buildNotificationItem(
-                      notification: notification,
-                              onTap: () => _handleNotificationTap(notification, notificationActions),
+                            child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+                                color: theme.colorScheme.surface,
+                                elevation: 2,
+                                borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => _handleNotificationTap(notification, notificationActions),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Notification icon
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                                            color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                                                color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                                          child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
+                ),
+                const SizedBox(width: 16),
+                // Notification content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                                                    _getNotificationDateString(notification),
+                            style: TextStyle(
+                              fontSize: 12,
+                                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
+                          if (!notification.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
                         ),
-                        );
-                      },
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                                                notification.metadata['clientName']?.toString() ?? notification.message,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+                                    ),
+                                  ),
+                                ),
+            ),
+          ),
+        ),
+      ),
+                      );
+                    },
                   ),
                 );
               },
@@ -811,6 +849,61 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         ),
       ],
     );
+  }
+
+  // Helper methods for notification icon and color
+  IconData _getNotificationIconData(UserNotification notification) {
+    switch (notification.type) {
+      case NotificationType.statusChange:
+        final status = notification.metadata['newStatus'] as String? ?? '';
+        if (status == 'approved') {
+          return Icons.swap_horiz_rounded;
+        } else if (status == 'rejected') {
+          return Icons.warning_amber_rounded;
+        } else {
+          return Icons.swap_horiz_rounded;
+        }
+      case NotificationType.rejection:
+        return Icons.warning_amber_rounded;
+      case NotificationType.payment:
+        return Icons.payments_rounded;
+      case NotificationType.system:
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  Color _getNotificationIconColor(UserNotification notification, ThemeData theme) {
+    switch (notification.type) {
+      case NotificationType.statusChange:
+        final status = notification.metadata['newStatus'] as String? ?? '';
+        if (status == 'approved') {
+          return theme.colorScheme.tertiary;
+        } else if (status == 'rejected') {
+          return theme.colorScheme.error;
+        } else {
+          return theme.colorScheme.secondary;
+        }
+      case NotificationType.rejection:
+        return theme.colorScheme.error;
+      case NotificationType.payment:
+        return theme.colorScheme.tertiary;
+      case NotificationType.system:
+      default:
+        return theme.colorScheme.primary;
+    }
+  }
+
+  String _getNotificationDateString(UserNotification notification) {
+    final formatter = DateFormat('dd MMM');
+    final timeFormatter = DateFormat('HH:mm');
+    final formattedDate = formatter.format(notification.createdAt);
+    final formattedTime = timeFormatter.format(notification.createdAt);
+    if (notification.createdAt.day == DateTime.now().day) {
+      return 'Today, $formattedTime';
+    } else {
+      return formattedDate;
+    }
   }
 
   // --- Helper method to handle notification tap
@@ -858,185 +951,18 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     }
   }
 
-  // New method to build a notification item
-  Widget _buildNotificationItem({
-    required UserNotification notification,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    IconData icon;
-    Color iconColor;
-
-    // Set icon and color based on notification type
-    switch (notification.type) {
-      case NotificationType.statusChange:
-        icon = Icons.swap_horiz_rounded;
-        final status = notification.metadata['newStatus'] as String? ?? '';
-        if (status == 'approved') {
-          iconColor = theme.colorScheme.tertiary;
-        } else if (status == 'rejected') {
-          iconColor = theme.colorScheme.error;
-        } else {
-          iconColor = theme.colorScheme.secondary;
-        }
-        break;
-      case NotificationType.rejection:
-        icon = Icons.warning_amber_rounded;
-        iconColor = theme.colorScheme.error;
-        break;
-      case NotificationType.payment:
-        icon = Icons.payments_rounded;
-        iconColor = theme.colorScheme.tertiary;
-        break;
-      case NotificationType.system:
-      default:
-        icon = Icons.notifications;
-        iconColor = theme.colorScheme.primary;
-    }
-
-    // Format date
-    final formatter = DateFormat('dd MMM');
-    final timeFormatter = DateFormat('HH:mm');
-    final formattedDate = formatter.format(notification.createdAt);
-    final formattedTime = timeFormatter.format(notification.createdAt);
-    final dateString =
-        notification.createdAt.day == DateTime.now().day
-            ? 'Today, ${formattedTime}'
-            : formattedDate;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color:
-                theme.brightness == Brightness.dark
-                    ? theme.colorScheme.shadow.withOpacity(0.2)
-                    : theme.colorScheme.shadow.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
-          ),
-        ],
-        border: Border.all(
-          color:
-              theme.brightness == Brightness.dark
-                  ? theme.colorScheme.onSurface.withOpacity(0.05)
-                  : Colors.transparent,
-          width: theme.brightness == Brightness.dark ? 1 : 0,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Notification icon
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: iconColor.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(icon, color: iconColor, size: 18),
-                ),
-                const SizedBox(width: 16),
-
-                // Notification content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            dateString,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.7,
-                              ),
-                            ),
-                          ),
-                          if (!notification.isRead)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notification.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notification.metadata['clientName']?.toString() ??
-                            notification.message,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildCommissionBox() {
     final theme = Theme.of(context);
     final commissionAsync = ref.watch(resellerTotalCommissionProvider);
 
     return Material(
       color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-              spreadRadius: -4,
-            ),
-          ],
-        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-            child: Padding(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: Container(
+            decoration: AppStyles.glassCard(context),
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1074,29 +1000,35 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                       children: [
                         commissionAsync.when(
                           data: (commissionValue) {
-                            final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
-                            final formattedCommission = currencyFormat.format(commissionValue);
+                          final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
+                          final formattedCommission = currencyFormat.format(commissionValue);
                             return _isEarningsVisible
-                                ? Row(children: [Text(formattedCommission, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))])), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))] )
+                              ? Row(children: [Text(formattedCommission, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))])), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))] )
                                 : _buildHiddenAmountRow(theme);
                           },
-                          loading: () => _isEarningsVisible ? Row(children: [Text('--,-- €', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
-                          error: (error, stack) => _isEarningsVisible ? Row(children: [Text('N/A', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
-                        ),
-                      ],
-                    ),
+                        loading: () => _isEarningsVisible ? Row(children: [Text('--,-- €', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
+                        error: (error, stack) => _isEarningsVisible ? Row(children: [Text('N/A', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
+                      ),
+                    ],
                   ),
+                ),
                   const SizedBox(height: 20),
                   SizedBox(
-                    height: 36,
-                    child: ElevatedButton(
+                  height: 40,
+                  child: OutlinedButton(
                       onPressed: () => context.push('/dashboard'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.1), foregroundColor: Colors.white, elevation: 0, side: BorderSide(color: Colors.white.withOpacity(0.4), width: 1), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [Text('Ver Detalhes', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500, color: Colors.white, letterSpacing: 0.3)), const SizedBox(width: 4), Icon(CupertinoIcons.chevron_right, size: 12, color: Colors.white)]),
+                    style: AppStyles.glassButtonStyle(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                        Text('Ver Detalhes'),
+                          const SizedBox(width: 4),
+                        Icon(CupertinoIcons.chevron_right, size: 12, color: Colors.white),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-              ),
             ),
           ),
         ),
@@ -1222,28 +1154,7 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Determine actual highlight based on prop or hover (prop takes precedence for color)
     final bool actuallyHighlighted = widget.isHighlighted;
-
-    final bgColor =
-        actuallyHighlighted
-            ? theme.colorScheme.primary.withOpacity(0.85)
-            : _isHovering
-            ? theme.colorScheme.surface.withOpacity(
-              0.3,
-            ) // Slightly more opaque on hover
-            : theme.colorScheme.surface.withOpacity(0.15);
-
-    final iconColor =
-        actuallyHighlighted ? theme.colorScheme.onPrimary : Colors.white;
-
-    final borderColor =
-        actuallyHighlighted
-            ? theme.colorScheme.primary
-            : _isHovering
-            ? Colors.white.withOpacity(0.3) // Brighter border on hover
-            : Colors.white.withOpacity(0.1);
-
     final double scale = _isHovering ? 1.15 : 1.0;
 
     return MouseRegion(
@@ -1256,27 +1167,16 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
           onTap: widget.onTap,
           child: Container(
             padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color:
-                      actuallyHighlighted
-                          ? theme.colorScheme.primary.withOpacity(0.3)
-                          : _isHovering
-                          ? Colors.black.withOpacity(
-                            0.2,
-                          ) // Stronger shadow on hover
-                          : Colors.black.withOpacity(0.1),
-                  blurRadius:
-                      _isHovering ? 6 : 4, // Slightly larger blur on hover
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(color: borderColor, width: 0.5),
+            decoration: AppStyles.circularIconButtonStyle(
+              context,
+              isHovering: _isHovering,
+              isHighlighted: actuallyHighlighted,
             ),
-            child: Icon(widget.icon, color: iconColor, size: 22.0),
+            child: Icon(widget.icon,
+                color: actuallyHighlighted
+                    ? theme.colorScheme.onPrimary
+                    : Colors.white,
+                size: 22.0),
           ),
         ),
       ),

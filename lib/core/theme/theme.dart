@@ -71,6 +71,9 @@ class AppTheme {
     0xFF3A6491,
   ); // Medium-dark blue at bottom
 
+  // Brand highlight color (sidebar/nav highlight)
+  static const tulipTree = Color(0xFFFFBE45); // Official yellow for highlights
+
   static const double radius = 8.0;
 
   static ThemeData light() {

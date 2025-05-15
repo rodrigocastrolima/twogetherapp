@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'package:twogether/core/utils/html_file_stub.dart' as io_file;
+import 'dart:html' as html show window, Url, Blob, AnchorElement;
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
@@ -51,11 +52,60 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
       _isLoading = true;
       _loadError = null;
     });
+
+    if (kIsWeb) {
+      if (widget.pdfBytes != null) {
+        try {
+          final blob = html.Blob([widget.pdfBytes!], 'application/pdf');
+          final url = html.Url.createObjectUrlFromBlob(blob);
+          html.window.open(url, '_blank');
+          if (mounted) Navigator.of(context).pop(); 
+          return;
+        } catch (e) {
+          if (kDebugMode) print("Error opening PDF blob on web: $e");
+          if (mounted) {
+            setState(() {
+              _loadError = "Failed to display PDF on web: ${e.toString()}";
+              _isLoading = false;
+            });
+          }
+        }
+      } else if (widget.pdfUrl != null) {
+        try {
+          final Uri uri = Uri.parse(widget.pdfUrl!);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+            if (mounted) Navigator.of(context).pop();
+            return;
+          } else {
+            throw 'Could not launch ${widget.pdfUrl}';
+          }
+        } catch (e) {
+          if (kDebugMode) print("Error launching PDF URL on web: $e");
+          if (mounted) {
+            setState(() {
+              _loadError = "Failed to open PDF URL: ${e.toString()}";
+              _isLoading = false;
+            });
+          }
+        }
+      } else {
+         if (mounted) {
+            setState(() {
+              _loadError = "No PDF data or URL provided for web.";
+              _isLoading = false;
+            });
+          }
+      }
+      return;
+    }
+
+    // --- Mobile Only Logic --- 
     try {
       final fileName = widget.pdfName ?? const Uuid().v4();
       final dir = await getTemporaryDirectory();
       final safeFileName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
-      final file = File('${dir.path}/$safeFileName');
+      final file = io_file.File('${dir.path}/$safeFileName');
 
       if (widget.pdfBytes != null) {
         await file.writeAsBytes(widget.pdfBytes!, flush: true);
@@ -85,10 +135,10 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
           );
         }
       } else {
-        throw Exception('Neither PDF bytes nor URL were provided.');
+        throw Exception('Neither PDF bytes nor URL were provided for mobile.');
       }
     } catch (e) {
-      print("Error loading PDF: $e");
+      print("Error loading PDF for mobile: $e");
       if (mounted) {
         setState(() {
           _loadError = "Failed to load PDF: ${e.toString()}";
@@ -196,6 +246,30 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   }
 
   Widget _buildBody(BuildContext context) {
+    if (kIsWeb) {
+      // For web, if _loadPdf initiated a new tab and popped, this won't be shown long.
+      // If there was an error loading for web, it's shown here.
+      if (_isLoading) return const Center(child: CupertinoActivityIndicator());
+      if (_loadError != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              _loadError!,
+              style: TextStyle(
+                color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        );
+      }
+      // If web successfully opened in new tab, this page is already popped or user is on new tab.
+      // Showing a placeholder or an "Opened in new tab" message might be good if not auto-popping.
+      return const Center(child: Text("PDF is being opened in a new tab..."));
+    }
+
+    // --- Mobile Only Body Logic --- 
     if (_isLoading) {
       return const Center(child: CupertinoActivityIndicator());
     }
@@ -213,7 +287,7 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
         ),
       );
     }
-    if (localPath != null) {
+    if (localPath != null) { // This will only be true for mobile now
       return PDFView(
         filePath: localPath,
         enableSwipe: true,
@@ -248,10 +322,8 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
     }
     return Center(
       child: Text(
-        'Could not load PDF path.',
-        style: TextStyle(
-          color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
-        ),
+        'Could not load PDF for mobile.',
+        style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context)),
       ),
     );
   }

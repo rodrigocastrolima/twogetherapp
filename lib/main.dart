@@ -26,6 +26,7 @@ import 'features/notifications/presentation/providers/notification_provider.dart
 import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
 import 'core/theme/ui_styles.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Import intl
+import 'dart:ui' as ui;
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -59,10 +60,19 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setPathUrlStrategy();
 
+  
   // Initialize date formatting for the 'pt_PT' locale
   await initializeDateFormatting('pt_PT', null);
 
+  // Initialize Firebase first
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Then set persistence for web platforms
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+  }
+
+  // Initialize Firebase Analytics
 
   // Initialize SharedPreferences FIRST
   final sharedPreferences = await SharedPreferences.getInstance();
@@ -116,11 +126,6 @@ void main() async {
     if (kDebugMode) {
       print('Error initializing FilePicker: $e');
     }
-  }
-
-  // Set default persistence to SESSION only on web platforms
-  if (kIsWeb) {
-    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
   }
 
   // Configure Firebase Functions

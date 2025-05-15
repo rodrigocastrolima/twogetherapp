@@ -347,7 +347,7 @@ final userCreationProvider =
     StateNotifierProvider<UserCreationNotifier, UserCreationState>((ref) {
   final firestore = ref.watch(firestoreProvider);
   return UserCreationNotifier(ref, firestore);
-});
+    });
 
 // Provider for Firestore - Assuming it's defined elsewhere, or add simple one:
 final firestoreProvider = Provider((ref) => FirebaseFirestore.instance);

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../opportunity/data/models/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
+import '../../domain/models/dashboard_stats.dart';
 import '../../../../core/models/service_submission.dart';
 import '../../../proposal/data/models/salesforce_proposal.dart';
 import '../../../proposal/data/models/salesforce_proposal_ref.dart';
@@ -885,6 +886,54 @@ class SalesforceRepository {
   // --- End Helper methods ---
 
   // -------------------------------------
+
+  /// Fetches dashboard stats for a specific reseller
+  /// Handles token refresh automatically.
+  ///
+  /// [resellerSalesforceId] is the Salesforce User ID of the reseller
+  /// Returns a [DashboardStats] object or throws an exception
+  Future<DashboardStats> getResellerDashboardStats(
+    String resellerSalesforceId, {
+    int retryCount = 0,
+  }) async {
+    if (retryCount > 1) {
+      throw Exception("Failed to fetch dashboard stats after token refresh attempt.");
+    }
+
+    if (kDebugMode) {
+      print('Fetching dashboard stats for Salesforce ID: $resellerSalesforceId (Attempt ${retryCount + 1})');
+    }
+
+    // Validate input
+    if (resellerSalesforceId.isEmpty) {
+      throw Exception('Reseller Salesforce ID cannot be empty');
+    }
+
+    // Prepare the Cloud Function call
+    final callable = _functions.httpsCallable('getResellerDashboardStats');
+    final params = {'resellerSalesforceId': resellerSalesforceId};
+
+    try {
+      // Make the call
+      final result = await callable.call<Map<String, dynamic>>(params);
+      final data = result.data;
+
+      if (kDebugMode) {
+        print('Cloud Function response: $data');
+      }
+
+      if (data['success'] == true) {
+        return DashboardStats.fromJson(data);
+      } else {
+        throw Exception(data['error'] ?? 'Failed to fetch dashboard stats');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching dashboard stats: $e');
+      }
+      throw Exception('Failed to fetch dashboard stats: $e');
+    }
+  }
 }
 
 /// Provider for the SalesforceRepository

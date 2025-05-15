@@ -13,6 +13,7 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 // Provider for the stream of user notifications
 final userNotificationsProvider =
     StreamProvider.autoDispose<List<UserNotification>>((ref) {
+      ref.keepAlive();
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
       if (!isAuthenticated || FirebaseAuth.instance.currentUser == null) {
         return Stream.value([]);
@@ -30,6 +31,7 @@ final userNotificationsProvider =
 
 // Stream provider for unread notifications count
 final unreadNotificationsCountProvider = StreamProvider.autoDispose<int>((ref) {
+  ref.keepAlive();
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
   if (!isAuthenticated) {
     return Stream.value(0);

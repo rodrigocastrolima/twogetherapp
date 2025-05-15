@@ -10,6 +10,7 @@ import '../../../features/services/presentation/providers/service_submission_pro
 import '../../../features/services/data/repositories/service_submission_repository.dart'
     as repo;
 import '../../widgets/success_dialog.dart'; // Import the success dialog
+import '../../widgets/logo.dart'; // Import the LogoWidget
 
 class ServicesPage extends ConsumerStatefulWidget {
   const ServicesPage({super.key});
@@ -295,24 +296,40 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         leading: IconButton(
           icon: Icon(CupertinoIcons.chevron_left, color: colorScheme.onSurface),
           onPressed: handleBackPress,
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          tooltip: '',
         ),
-        title: Text(
-          'Serviços',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
+        title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
         centerTitle: true,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Only show step indicator after step 0
-          if (currentStep > 0) _buildStepIndicator(),
-          Expanded(child: _buildCurrentStep()),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Serviços',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              // Step indicator (show after step 0)
+              if (currentStep > 0) ...[
+                const SizedBox(height: 24),
+                _buildStepIndicator(),
+              ],
+              const SizedBox(height: 24),
+              Expanded(
+                child: _buildCurrentStep(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -320,89 +337,89 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   // --- UI Builder Methods --- //
 
   Widget _buildStepIndicator() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final totalSteps = 3;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    const totalSteps = 3;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppConstants.spacing8,
-        horizontal: AppConstants.spacing16,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(totalSteps * 2 - 1, (index) {
           if (index.isEven) {
-            // Circle
             final stepIndex = index ~/ 2 + 1;
-            final isActive = currentStep >= stepIndex;
-            final isCurrent = currentStep == stepIndex;
-
-            // Use AnimatedContainer for smoother transitions
-            Widget circleContent = Center(
-              child: Text(
-                '$stepIndex',
-                style: textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color:
-                      isActive
-                          ? colorScheme.onPrimary
-                          : colorScheme
-                              .onSurfaceVariant, // Keep or adjust based on new bg
-                ),
-              ),
-            );
+            final bool isActive = currentStep == stepIndex;
+            final bool isCompleted = currentStep > stepIndex;
+            final bool isActiveOrCompleted = currentStep >= stepIndex;
+            final double size = isActiveOrCompleted ? 28 : 20;
+            final Color fillColor = isActiveOrCompleted
+                ? colorScheme.primary
+                : colorScheme.surface;
+            final Color borderColor = isActiveOrCompleted
+                ? colorScheme.primary
+                : colorScheme.outline.withOpacity(0.4);
+            final Color textColor = isActiveOrCompleted
+                ? colorScheme.onPrimary
+                : colorScheme.onSurfaceVariant.withOpacity(0.7);
+            final FontWeight fontWeight = isActive ? FontWeight.bold : FontWeight.w500;
+            final List<BoxShadow> boxShadow = isActive
+                ? [
+                    BoxShadow(
+                      color: colorScheme.primary.withOpacity(0.10),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [];
 
             Widget circle = AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: isCurrent ? 28 : 24,
-              height: isCurrent ? 28 : 24,
+              duration: const Duration(milliseconds: 200),
+              width: size,
+              height: size,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
               decoration: BoxDecoration(
+                color: fillColor,
+                border: Border.all(color: borderColor, width: 1.5),
                 shape: BoxShape.circle,
-                color:
-                    isActive
-                        ? colorScheme.primary
-                        : colorScheme
-                            .surfaceContainerHighest, // Softer inactive color
-                border:
-                    isCurrent
-                        ? Border.all(color: colorScheme.primary, width: 2)
-                        : isActive
-                        ? null // No border for active but not current
-                        : Border.all(
-                          color: colorScheme.outline.withOpacity(0.5),
-                        ), // Subtle border for inactive
+                boxShadow: boxShadow,
               ),
-              child: circleContent,
+              child: Center(
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: Center(
+                    child: Text(
+                      '$stepIndex',
+                      textAlign: TextAlign.center,
+                      style: textTheme.labelLarge?.copyWith(
+                        color: textColor,
+                        fontWeight: fontWeight,
+                        fontSize: isActiveOrCompleted ? 16 : 14,
+                        letterSpacing: 0.2,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             );
 
-            // Apply pulse animation only if current
-            return isCurrent
-                ? ScaleTransition(scale: _pulseAnimation, child: circle)
-                : circle;
+            // Add pulse animation for active step
+            if (isActive) {
+              circle = ScaleTransition(scale: _pulseAnimation, child: circle);
+            }
+
+            return circle;
           } else {
-            // Line
-            final stepIndex = index ~/ 2 + 1;
-            final isCompleted = currentStep > stepIndex;
-            // Use AnimatedContainer for smoother transitions
+            // Line between steps
+            final prevStep = (index - 1) ~/ 2 + 1;
+            final isActiveOrCompletedLine = currentStep > prevStep;
             return Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                height: 2.0, // Slightly thicker line
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                ), // Reduced margin
-                decoration: BoxDecoration(
-                  color:
-                      isCompleted
-                          ? colorScheme.primary
-                          : colorScheme.outline.withOpacity(
-                            0.3,
-                          ), // Softer inactive line
-                  borderRadius: BorderRadius.circular(
-                    1.0,
-                  ), // Rounded ends for the line
-                ),
+              child: Container(
+                height: 1.0,
+                color: isActiveOrCompletedLine
+                    ? colorScheme.primary
+                    : theme.colorScheme.outline.withOpacity(0.25),
               ),
             );
           }
@@ -430,8 +447,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
   Widget _buildServiceCategoryStep() {
     final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -439,83 +454,24 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ...ServiceCategory.values.map((category) {
-              VoidCallback onTapAction;
-              if (!category.isAvailable) {
-                // If category is not available, set onTap to show a dialog
-                onTapAction = () {
-                  showDialog(
-                    context: context,
-                    barrierDismissible:
-                        true, // Allow dismissing by tapping outside
-                    builder: (BuildContext dialogContext) {
-                      final ThemeData dialogTheme = Theme.of(dialogContext);
-                      final bool isDark =
-                          dialogTheme.brightness == Brightness.dark;
-
-                      return AlertDialog(
-                        backgroundColor:
-                            isDark
-                                ? dialogTheme.colorScheme.surface.withOpacity(
-                                  0.9, // Slightly increased opacity for better readability
-                                )
-                                : Colors.white.withOpacity(0.9),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            16.0,
-                          ), // Slightly smaller radius
-                        ),
-                        titlePadding: const EdgeInsets.fromLTRB(
-                          // Adjusted padding
-                          20.0,
-                          20.0,
-                          20.0,
-                          0.0,
-                        ),
-                        contentPadding: const EdgeInsets.fromLTRB(
-                          // Adjusted padding
-                          20.0,
-                          12.0, // Reduced top padding for content
-                          20.0,
-                          20.0, // Reduced bottom padding
-                        ),
-                        title: Align(
-                          // Title is just centered text now
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Em Desenvolvimento',
-                            style: dialogTheme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        // Removed the Stack and Positioned widget for the close button
-                        content: Text(
-                          // Content is just centered text now
-                          'Esta funcionalidade estará disponível brevemente.',
-                          style: dialogTheme.textTheme.bodyMedium?.copyWith(
-                            color: dialogTheme.colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                    },
-                  );
-                };
-              } else {
-                // If category is available, set onTap to proceed
-                onTapAction = () => _handleCategorySelection(category);
-              }
-
-              return _buildSelectionTile(
+            for (final (i, category) in ServiceCategory.values.indexed) ...[
+              ServiceCategoryCard(
                 title: category.displayName,
                 icon: _getCategoryIcon(category),
-                onTap: onTapAction, // Use the determined onTapAction
-                isDisabled: !category.isAvailable,
-              );
-            }),
+                enabled: category.isAvailable,
+                onTap: category.isAvailable ? () => _handleCategorySelection(category) : null,
+                trailing: category.isAvailable
+                    ? Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20)
+                    : Text(
+                        'Brevemente...',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                        ),
+                      ),
+              ),
+              if (i != ServiceCategory.values.length - 1)
+                const SizedBox(height: 16),
+            ],
           ],
         ),
       ),
@@ -535,17 +491,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           children: [
             Text('Tipo de Energia', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
-            ...EnergyType.values.map(
-              (type) => _buildSelectionTile(
+            ...EnergyType.values.map((type) {
+              final isSelected = false; // No selection highlight for now
+              final icon = _getEnergyTypeIcon(type);
+              return _EnergyTypeCard(
                 title: type.displayName,
-                icon: _getEnergyTypeIcon(type),
-                onTap:
-                    () => _handleEnergyTypeSelection(
-                      type,
-                    ), // Correct onTap for this step
-                // isDisabled is not typically needed here as all energy types are usually selectable
-              ),
-            ),
+                icon: icon,
+                onTap: () => _handleEnergyTypeSelection(type),
+              );
+            }),
           ],
         ),
       ),
@@ -575,18 +529,18 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             buildHeader(),
-            _buildClientCard(
-              title: 'Empresarial',
-              imagePath: 'assets/images/edp_logo_br.png',
-              onTap: () => _handleClientTypeSelection(ClientType.commercial),
-            ),
-            // Conditionally show Residential card only if not Solar
-            if (_selectedEnergyType != EnergyType.solar) ...[
-              _buildClientCard(
-                title: 'Residencial',
-                imagePath: 'assets/images/repsol_logo_br.png',
-                onTap: () => _handleClientTypeSelection(ClientType.residential),
+            ...[
+              _ClientTypeCard(
+                title: 'Empresarial',
+                imagePath: 'assets/images/edp_logo_br.png',
+                onTap: () => _handleClientTypeSelection(ClientType.commercial),
               ),
+              if (_selectedEnergyType != EnergyType.solar)
+                _ClientTypeCard(
+                  title: 'Residencial',
+                  imagePath: 'assets/images/repsol_logo_br.png',
+                  onTap: () => _handleClientTypeSelection(ClientType.residential),
+                ),
             ],
           ],
         ),
@@ -850,35 +804,37 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     void Function(String)? onChanged,
   }) {
     final theme = Theme.of(context);
-    final cupertinoTheme = CupertinoTheme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    // Determine background color similar to ChangePasswordPage
-    final Color textFieldBackgroundColor = CupertinoDynamicColor.resolve(
-        isDark ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemGrey6,
-        context);
-
-    final Color placeholderColor = CupertinoDynamicColor.resolve(CupertinoColors.placeholderText, context);
-    final Color textColor = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CupertinoTextField(
+        Text(
+          label,
+          style: textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
           controller: controller,
           keyboardType: keyboardType,
           onChanged: onChanged,
-          placeholder: label,
-          placeholderStyle: TextStyle(
-            color: placeholderColor,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: theme.inputDecorationTheme.fillColor,
+            border: theme.inputDecorationTheme.border,
+            enabledBorder: theme.inputDecorationTheme.enabledBorder,
+            focusedBorder: theme.inputDecorationTheme.focusedBorder,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            hintStyle: theme.inputDecorationTheme.hintStyle,
           ),
-          style: cupertinoTheme.textTheme.textStyle.copyWith(
-            color: textColor,
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          decoration: BoxDecoration(
-            color: textFieldBackgroundColor,
-            borderRadius: BorderRadius.circular(8.0),
+          style: textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -917,5 +873,225 @@ class NoScrollbarBehavior extends ScrollBehavior {
     ScrollableDetails details,
   ) {
     return child;
+  }
+}
+
+// Add ServiceCategoryCard widget for consistent, interactive cards
+class ServiceCategoryCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const ServiceCategoryCard({
+    required this.title,
+    required this.icon,
+    this.enabled = true,
+    this.onTap,
+    this.trailing,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isEnabled = enabled;
+    return Material(
+      color: theme.colorScheme.surface,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: isEnabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isEnabled
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withOpacity(0.38),
+                size: 28,
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: isEnabled
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurface.withOpacity(0.38),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Card for energy type selection, matching service card style
+class _EnergyTypeCard extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _EnergyTypeCard({
+    required this.title,
+    required this.icon,
+    this.onTap,
+    super.key,
+  });
+
+  @override
+  State<_EnergyTypeCard> createState() => _EnergyTypeCardState();
+}
+
+class _EnergyTypeCardState extends State<_EnergyTypeCard> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: const EdgeInsets.only(bottom: 16),
+        color: theme.colorScheme.surface,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              color: _isHovering
+                  ? theme.colorScheme.surface.withOpacity(0.97)
+                  : theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(_isHovering ? 0.10 : 0.06),
+                  blurRadius: _isHovering ? 10 : 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: Row(
+              children: [
+                Icon(widget.icon, color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Card for client type selection, matching service card style
+class _ClientTypeCard extends StatefulWidget {
+  final String title;
+  final String imagePath;
+  final VoidCallback? onTap;
+
+  const _ClientTypeCard({
+    required this.title,
+    required this.imagePath,
+    this.onTap,
+    super.key,
+  });
+
+  @override
+  State<_ClientTypeCard> createState() => _ClientTypeCardState();
+}
+
+class _ClientTypeCardState extends State<_ClientTypeCard> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: const EdgeInsets.only(bottom: 16),
+        color: theme.colorScheme.surface,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              color: _isHovering
+                  ? theme.colorScheme.surface.withOpacity(0.97)
+                  : theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(_isHovering ? 0.10 : 0.06),
+                  blurRadius: _isHovering ? 10 : 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Image.asset(widget.imagePath, fit: BoxFit.contain),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

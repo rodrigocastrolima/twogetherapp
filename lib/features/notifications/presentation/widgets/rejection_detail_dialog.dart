@@ -24,7 +24,7 @@ class RejectionDetailDialog extends StatelessWidget {
     // Extract data safely from metadata
     final String clientName =
         notification.metadata['clientName']?.toString() ??
-        'Desconhecido'; // Hardcoded Portuguese fallback
+        'Desconhecido';
     final String? rejectionReason =
         notification.metadata['rejectionReason']?.toString();
 
@@ -36,109 +36,105 @@ class RejectionDetailDialog extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.0),
         ),
-        // Use ClipRRect and Container for background and clipping
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16.0),
           child: Container(
-            padding: const EdgeInsets.all(20.0),
-            constraints: const BoxConstraints(maxWidth: 450),
+            padding: const EdgeInsets.all(28.0),
+            constraints: const BoxConstraints(maxWidth: 440),
             decoration: BoxDecoration(
-              // Use theme surface color with alpha for slight transparency
-              color: colorScheme.surface.withAlpha((255 * 0.95).round()),
+              color: colorScheme.surface.withAlpha((255 * 0.97).round()),
               borderRadius: BorderRadius.circular(16.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // --- Header Row with Title and Close Button ---
-                Stack(
-                  alignment: Alignment.center, // Center the title
+                // Header Row with Icon, Title, and Close Button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Title and Icon (centered)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 4.0, // Adjust top padding slightly
-                        bottom: 15.0,
-                      ), // Add vertical padding
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons
-                                .warning_amber_rounded, // CHANGED: Use Material warning icon
-                            color: colorScheme.error, // Keep theme error color
-                            size:
-                                24, // Slightly larger standard Material icon size
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Oportunidade Rejeitada', // Hardcoded Portuguese
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: colorScheme.error,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Oportunidade Rejeitada',
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.left,
                       ),
                     ),
-                    // Close button (top-right)
-                    Positioned(
-                      top: -8, // Adjust position to align visually
-                      right: -8, // Adjust position
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.close, // Standard close icon
-                          color: colorScheme.onSurfaceVariant, // Subtle color
-                          size: 20, // Smaller size for close button
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                        tooltip: 'Fechar', // Hardcoded Portuguese
-                        splashRadius: 20,
-                        padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints(), // Remove default padding
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 22,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Fechar',
+                      splashRadius: 22,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                // Two-column layout for Client and Date
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildDetailColumn(
+                        context,
+                        label: 'Cliente:',
+                        value: clientName,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildDetailColumn(
+                        context,
+                        label: 'Data:',
+                        value: _formatDate(notification.createdAt, context),
+                        alignRight: true,
                       ),
                     ),
                   ],
                 ),
-
-                // --- Details ---
-                _buildDetailRow(
-                  context,
-                  label: 'Cliente:', // Hardcoded Portuguese
-                  value: clientName,
+                const SizedBox(height: 18),
+                // Rejection Reason
+                Text(
+                  'Motivo da Rejeição:',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                const SizedBox(height: 8), // Add some space instead of divider
-                _buildDetailRow(
-                  context,
-                  label: 'Data:', // Hardcoded Portuguese
-                  value: _formatDate(notification.createdAt, context),
-                ),
-                const SizedBox(height: 8), // Add some space instead of divider
-                // --- Rejection Reason ---
-                Padding(
-                  padding: const EdgeInsets.only(top: 12.0, bottom: 6.0),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceVariant.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Text(
-                    'Motivo da Rejeição:', // Hardcoded Portuguese
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                    rejectionReason ?? 'Nenhuma razão fornecida.',
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ),
-                Text(
-                  rejectionReason ??
-                      'Nenhuma razão fornecida.', // Hardcoded Portuguese
-                  style: textTheme.bodyMedium?.copyWith(
-                    // Use bodyMedium from theme
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-
-                // --- Removed Close Button ---
-                // const SizedBox(height: 25),
-                // CupertinoButton(...)
               ],
             ),
           ),
@@ -147,42 +143,36 @@ class RejectionDetailDialog extends StatelessWidget {
     );
   }
 
-  // Helper for detail rows using theme styles
-  Widget _buildDetailRow(
+  // Helper for detail columns (for two-column layout)
+  Widget _buildDetailColumn(
     BuildContext context, {
     required String label,
     required String value,
+    bool alignRight = false,
   }) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: textTheme.bodyMedium?.copyWith(
-              // Use bodyMedium from theme
-              color: colorScheme.onSurfaceVariant,
-            ),
+    return Column(
+      crossAxisAlignment:
+          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: textTheme.bodyMedium?.copyWith(
-                // Use bodyMedium from theme
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.w500, // Keep slight emphasis on value
-              ),
-            ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

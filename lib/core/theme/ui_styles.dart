@@ -177,6 +177,119 @@ class AppStyles {
       ),
     );
   }
+
+  // Consistent card shadow for all cards (matches notification card)
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.2),
+      blurRadius: 6,
+      offset: const Offset(0, 3),
+    ),
+  ];
+
+  // Reusable solid card style for app-wide use
+  static BoxDecoration solidCard(BuildContext context) {
+    final theme = Theme.of(context);
+    return BoxDecoration(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: cardShadow,
+    );
+  }
+
+  static ButtonStyle glassButtonStyle(BuildContext context) {
+    return OutlinedButton.styleFrom(
+      backgroundColor: Colors.white.withOpacity(0.10),
+      foregroundColor: Colors.white,
+      side: BorderSide(color: Colors.white.withOpacity(0.25), width: 1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.3,
+      ),
+      elevation: 0,
+    ).copyWith(
+      overlayColor: MaterialStateProperty.all(Colors.white.withOpacity(0.08)),
+    );
+  }
+
+  static BoxDecoration circularIconButtonStyle(BuildContext context, {bool isHighlighted = false, bool isHovering = false}) {
+    final theme = Theme.of(context);
+    final baseColor = theme.colorScheme.surface.withOpacity(0.15);
+    final hoverColor = theme.colorScheme.surface.withOpacity(0.3);
+    final highlightColor = theme.colorScheme.primary.withOpacity(0.85);
+    final color = isHighlighted
+        ? highlightColor
+        : isHovering
+            ? hoverColor
+            : baseColor;
+    final borderColor = isHighlighted
+        ? theme.colorScheme.primary
+        : isHovering
+            ? Colors.white.withOpacity(0.3)
+            : Colors.white.withOpacity(0.1);
+    final boxShadow = isHighlighted
+        ? [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ]
+        : isHovering
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ];
+    return BoxDecoration(
+      color: color,
+      shape: BoxShape.circle,
+      border: Border.all(color: borderColor, width: 0.5),
+      boxShadow: boxShadow,
+    );
+  }
+
+  static InputDecoration searchInputDecoration(BuildContext context, String hintText) {
+    final theme = Theme.of(context);
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+      ),
+      filled: true,
+      fillColor: theme.colorScheme.surface,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      prefixIcon: Icon(
+        Icons.search,
+        size: 20,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+      ),
+    );
+  }
 }
 
 /// Custom ScrollBehavior that removes scrollbars
@@ -210,4 +323,17 @@ class NoScrollbarBehavior extends ScrollBehavior {
       child: child,
     );
   }
+}
+
+extension ChatTheme on ThemeData {
+  Color get messageBubbleSent => const Color(0xFF0B84FE); // iPhone blue
+  Color get messageBubbleReceived =>
+      brightness == Brightness.dark
+          ? colorScheme.surfaceVariant.withOpacity(0.7)
+          : const Color(0xFFE9E9EB);
+  Color get messageBubbleTextSent => Colors.white;
+  Color get messageBubbleTextReceived =>
+      brightness == Brightness.dark
+          ? colorScheme.onSurfaceVariant
+          : colorScheme.onSurface;
 }

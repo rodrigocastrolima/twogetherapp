@@ -19,12 +19,14 @@ const String _clientId =
 // Define platform-specific redirect URIs
 const String _mobileRedirectUri = 'com.twogether.app://oauth-callback';
 // !! IMPORTANT: Using hash-based redirect for web !!
-// !! IMPORTANT: Ensure this exact URI is added to Salesforce Connected App Callback URLs !!
-const String _webRedirectUri =
-    'http://localhost:5000/#/callback'; // Changed path to hash fragment
+// !! IMPORTANT: Ensure these exact URIs are added to Salesforce Connected App Callback URLs !!
+const String _webRedirectUriLocal = 'http://localhost:5000/#/callback';
+const String _webRedirectUriProd = 'https://twogetherapp-65678.web.app/#/callback';
 
-// Select the correct redirect URI based on the platform
-final String _redirectUri = kIsWeb ? _webRedirectUri : _mobileRedirectUri;
+// Select the correct redirect URI based on the platform and environment
+final String _redirectUri = kIsWeb 
+    ? (const bool.fromEnvironment('dart.vm.product') ? _webRedirectUriProd : _webRedirectUriLocal)
+    : _mobileRedirectUri;
 // Define the callback scheme needed by flutter_web_auth_2 (null for web)
 final String? _callbackUrlScheme =
     kIsWeb ? null : _mobileRedirectUri.split('://').first;
@@ -754,13 +756,13 @@ class SalesforceAuthNotifier extends StateNotifier<SalesforceAuthState> {
           if (kDebugMode) {
             print(
               'SalesforceAuthNotifier: Invalid grant detected during mobile refresh (CF). Clearing tokens.',
-            );
-          }
+              );
+            }
           await _clearTokens();
-        } else {
-          state = SalesforceAuthState.error;
-        }
-        return false;
+          } else {
+            state = SalesforceAuthState.error;
+          }
+          return false;
       } catch (e) {
         _lastError = 'Mobile refresh via CF failed: Exception: $e';
         if (kDebugMode) {

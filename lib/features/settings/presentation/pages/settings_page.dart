@@ -34,28 +34,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
             horizontal: AppConstants.spacing16,
-            vertical: AppConstants.spacing24,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Configurações',
-                style: AppTextStyles.h2.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      'Definições',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      textAlign: TextAlign.left,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSettingsMenu(
+                    context,
+                    ref,
+                    themeNotifier,
+                    currentTheme,
+                    theme,
+                  ),
+                ],
               ),
-              const SizedBox(height: AppConstants.spacing32),
-              _buildSettingsMenu(
-                context,
-                ref,
-                themeNotifier,
-                currentTheme,
-                theme,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -156,7 +164,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           _buildSettingsTile(
             icon: Icons.person_outline,
             title: 'Perfil',
-            subtitle: 'Editar perfil',
+            subtitle: 'Ver perfil',
             trailing: Icon(
               Icons.chevron_right,
               color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
@@ -181,7 +189,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               onChanged: (bool value) {
                 if (kDebugMode) {
-                  print('[SettingsPage] Theme switch toggled: $value');
+                  // print('[SettingsPage] Theme switch toggled: $value');
                 }
                 themeNotifier.setTheme(
                   value ? ThemeMode.dark : ThemeMode.light,
@@ -268,61 +276,49 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     List<Widget> items,
     ThemeData theme,
   ) {
+    // If this is a single-action card, build it directly with InkWell+Material
+    if (items.length == 1 && items.first is _SingleActionSettingsTile) {
+      final data = items.first as _SingleActionSettingsTile;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
+              child: Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+                textAlign: TextAlign.left,
+              ),
+            ),
+          data,
+        ],
+      );
+    }
+    // Otherwise, multi-row card
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (title.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacing16,
-              vertical: AppConstants.spacing8,
-            ),
+            padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
             child: Text(
               title,
-              style: TextStyle(
-                fontSize: 13,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withAlpha(
-                  (255 * 0.5).round(),
-                ),
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
+              textAlign: TextAlign.left,
             ),
           ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color:
-                      theme.brightness == Brightness.dark
-                          ? theme.colorScheme.onSurface.withAlpha(
-                            (255 * 0.05).round(),
-                          )
-                          : theme.dividerColor.withAlpha((255 * 0.1).round()),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        theme.brightness == Brightness.dark
-                            ? theme.colorScheme.shadow.withAlpha(
-                              (255 * 0.2).round(),
-                            )
-                            : theme.colorScheme.shadow.withAlpha(
-                              (255 * 0.08).round(),
-                            ),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                    spreadRadius: 0,
-                  ),
-                ],
-              ),
-              child: Column(children: items),
-            ),
-          ),
+        Material(
+          color: theme.colorScheme.surface,
+          elevation: 2,
+          borderRadius: BorderRadius.circular(10),
+          child: Column(children: items),
         ),
       ],
     );
@@ -337,47 +333,129 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     Color? textColor,
     required ThemeData theme,
   }) {
-    final Color defaultTextColor = theme.colorScheme.onSurface;
-    final Color iconColor =
-        textColor ?? theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
-    final Color subtitleColor =
-        textColor != null
-            ? textColor.withAlpha((255 * 0.7).round())
-            : theme.colorScheme.onSurface.withAlpha((255 * 0.6).round());
+    final isError = textColor == theme.colorScheme.error;
+    // For single-action cards, return a _SingleActionSettingsTile
+    if (onTap != null) {
+      return _SingleActionSettingsTile(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        trailing: trailing,
+        onTap: onTap,
+        textColor: textColor,
+        theme: theme,
+      );
+    }
+    // For multi-row cards, return the row widget
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isError ? theme.colorScheme.error.withOpacity(0.8) : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing,
+          ],
+        ],
+      ),
+    );
+  }
+}
 
+class _SingleActionSettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final Color? textColor;
+  final ThemeData theme;
+  const _SingleActionSettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.textColor,
+    required this.theme,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = textColor == theme.colorScheme.error;
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppConstants.spacing16,
-          vertical: AppConstants.spacing12,
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: iconColor, size: 24),
-            const SizedBox(width: AppConstants.spacing16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: textColor ?? defaultTextColor,
+      borderRadius: BorderRadius.circular(10),
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      child: Material(
+        color: theme.colorScheme.surface,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 14, color: subtitleColor),
-                  ),
-                ],
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isError ? theme.colorScheme.error.withOpacity(0.8) : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (trailing != null) trailing,
-          ],
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing!,
+              ],
+            ],
+          ),
         ),
       ),
     );

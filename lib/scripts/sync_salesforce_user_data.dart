@@ -41,10 +41,10 @@ void main() async {
       // Wrap with ProviderScope to use Riverpod providers
       child: MaterialApp(
         home: SalesforceUserSyncScreen(), // Removed const
-        debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       ),
     ),
-  );
+    );
 }
 
 class SalesforceUserSyncScreen extends ConsumerStatefulWidget {
@@ -109,7 +109,7 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
           .doc(user.uid)
           .get();
       if (userDoc.exists && userDoc.data()?['isSuperAdmin'] == true) {
-        setState(() {
+      setState(() {
           _isSuperAdmin = true;
         });
       }
@@ -160,8 +160,8 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
     try {
       final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
       _fbUsers = querySnapshot.docs
-          .map((doc) => {'id': doc.id, ...doc.data()})
-          .toList();
+              .map((doc) => {'id': doc.id, ...doc.data()})
+              .toList();
       _log('Found ${_fbUsers.length} Firebase users');
     } catch (e) {
       _log('Error fetching Firebase users: $e');
@@ -188,7 +188,7 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
 
       final email = sfUser['Email'] as String;
       final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
+                .collection('users')
           .where('email', isEqualTo: email)
           .limit(1)
           .get();
@@ -242,15 +242,15 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
 
     for (final salesforceUser in _sfUsers) {
       final salesforceId = salesforceUser['Id'] as String?;
-      if (salesforceId != null) {
-        final success = await _syncSalesforceUser(salesforceId);
-        if (success) {
+        if (salesforceId != null) {
+          final success = await _syncSalesforceUser(salesforceId);
+          if (success) {
           setState(() => _syncedCount++);
-        } else {
+          } else {
           setState(() => _errorCount++);
+          }
         }
       }
-    }
     _log('Sync all users completed. Success: $_syncedCount, Errors: $_errorCount');
     await _fetchFirebaseUsers(); 
     setState(() => _isLoading = false);
@@ -266,10 +266,10 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
       _log('Error: Only Super Admins can sync users.');
       return;
     }
-    final success = await _syncSalesforceUser(salesforceId);
-    if (success) {
-      await _fetchFirebaseUsers();
-    }
+      final success = await _syncSalesforceUser(salesforceId);
+      if (success) {
+        await _fetchFirebaseUsers();
+      }
   }
 
   void _addLog(String message) {
@@ -364,9 +364,9 @@ class _SalesforceUserSyncScreenState extends ConsumerState<SalesforceUserSyncScr
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
-          ),
 
           // Log output
           Expanded(

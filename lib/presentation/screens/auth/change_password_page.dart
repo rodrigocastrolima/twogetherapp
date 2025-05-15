@@ -49,60 +49,65 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     _currentPasswordController.clear();
     bool obscureCurrentPasswordDialog = true;
 
-    bool? reauthSuccess = await showCupertinoDialog<bool>(
+    bool? reauthSuccess = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
+        final theme = Theme.of(context);
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return CupertinoAlertDialog(
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('Reautenticação Necessária'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Por favor, insira a sua palavra-passe atual para continuar.',
-                  ),
+                  const Text('Por favor, insira a sua palavra-passe atual para continuar.'),
                   const SizedBox(height: 16),
-                  CupertinoTextField(
+                  TextField(
                     controller: _currentPasswordController,
-                    placeholder: 'Palavra-passe Atual',
                     obscureText: obscureCurrentPasswordDialog,
-                    autocorrect: false,
-                    obscuringCharacter: '●',
-                    style: CupertinoTheme.of(dialogContext).textTheme.textStyle,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                    decoration: BoxDecoration(
-                        color: CupertinoDynamicColor.resolve(CupertinoColors.systemGrey6, dialogContext),
-                        borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    suffix: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: Icon(
-                        obscureCurrentPasswordDialog
-                            ? CupertinoIcons.eye_slash_fill
-                            : CupertinoIcons.eye_fill,
-                        color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, dialogContext),
-                        size: 22,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: theme.inputDecorationTheme.fillColor,
+                      border: theme.inputDecorationTheme.border,
+                      enabledBorder: theme.inputDecorationTheme.enabledBorder,
+                      focusedBorder: theme.inputDecorationTheme.focusedBorder,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      hintText: 'Palavra-passe Atual',
+                      hintStyle: theme.inputDecorationTheme.hintStyle,
+                      suffixIcon: Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: IconButton(
+                          icon: Icon(
+                            obscureCurrentPasswordDialog ? Icons.visibility_off : Icons.visibility,
+                            color: theme.inputDecorationTheme.hintStyle?.color,
+                            size: 21,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
+                            });
+                          },
                         ),
-                        onPressed: () {
-                          setDialogState(() {
-                          obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
-                          });
-                        },
+                      ),
+                      isDense: true,
                     ),
-                    suffixMode: OverlayVisibilityMode.editing,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textInputAction: TextInputAction.done,
                   ),
                 ],
               ),
               actions: [
-                CupertinoDialogAction(
-                  child: const Text('Cancelar'),
+                TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancelar'),
                 ),
-                CupertinoDialogAction(
-                  isDefaultAction: true,
-                  child: const Text('Confirmar'),
+                TextButton(
                   onPressed: () async {
                     if (_currentPasswordController.text.isEmpty) return;
                     try {
@@ -118,8 +123,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                     } catch (e) {
                       if (dialogContext.mounted) Navigator.pop(dialogContext, false);
                       if (mounted) setState(() { _errorMessage = 'Ocorreu um erro durante a reautenticação.'; _isLoading = false; });
-                      }
+                    }
                   },
+                  child: const Text('Confirmar', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -277,102 +283,102 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     final size = MediaQuery.of(context).size;
     final isSmallScreen = size.width < 600;
     final double horizontalPadding = isSmallScreen ? 24.0 : 32.0;
-    final double verticalPadding = isSmallScreen ? 32.0 : 48.0;
+    final double topPadding = isSmallScreen ? 32.0 : 48.0;
 
-    Widget pageContent = Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isSmallScreen ? size.width * 0.9 : 400,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
+    Widget pageContent = Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
                 'Alterar Palavra-passe',
-                textAlign: TextAlign.center,
-                style: textTheme.headlineMedium?.copyWith(
+                style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
                 ),
+                textAlign: TextAlign.left,
               ),
-              const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Crie uma nova palavra-passe segura para a sua conta.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.left,
+              ),
+            ),
+            const SizedBox(height: 40),
+            _buildLoginStylePasswordField(
+              context: context,
+              controller: _newPasswordController,
+              labelText: 'Nova Palavra-passe',
+              obscureText: _obscureNewPassword,
+              onToggleObscure: () {
+                setState(() {
+                  _obscureNewPassword = !_obscureNewPassword;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildLoginStylePasswordField(
+              context: context,
+              controller: _confirmPasswordController,
+              labelText: 'Confirmar Nova Palavra-passe',
+              obscureText: _obscureConfirmPassword,
+              onToggleObscure: () {
+                setState(() {
+                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                });
+              },
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 24),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: Text(
-                  'Crie uma nova palavra-passe segura para a sua conta.',
+                  _errorMessage!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                   textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
                 ),
-              ),
-              SizedBox(height: isSmallScreen ? 32 : 40),
-
-              _buildPasswordField(
-                context: context,
-                controller: _newPasswordController,
-                labelText: 'Nova Palavra-passe',
-                obscureText: _obscureNewPassword,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureNewPassword = !_obscureNewPassword;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              _buildPasswordField(
-                context: context,
-                controller: _confirmPasswordController,
-                labelText: 'Confirmar Nova Palavra-passe',
-                obscureText: _obscureConfirmPassword,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                  });
-                },
-              ),
-
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.error,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                child: CupertinoButton.filled(
-                onPressed: _isLoading ? null : _handleChangePassword,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  borderRadius: BorderRadius.circular(12),
-                  child: _isLoading
-                      ? const SizedBox(height: 20, width: 20, child: CupertinoActivityIndicator(color: CupertinoColors.white))
-                        : Text(
-                          'Guardar Palavra-passe',
-                          style: textTheme.labelLarge?.copyWith(
-                            color: CupertinoColors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          ),
-                        ),
               ),
             ],
-          ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: _isLoading ? null : _handleChangePassword,
+                style: FilledButton.styleFrom(
+                  backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        'Guardar Palavra-passe',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
 
     return Scaffold(
@@ -395,59 +401,56 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       body: SafeArea(
         top: true,
         bottom: false,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: horizontalPadding,
-              vertical: verticalPadding,
-            ),
-            child: pageContent,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: horizontalPadding,
+            right: horizontalPadding,
+            top: topPadding,
           ),
+          child: pageContent,
         ),
       ),
     );
   }
 
-  Widget _buildPasswordField({
+  Widget _buildLoginStylePasswordField({
     required BuildContext context,
     required TextEditingController controller,
     required String labelText,
     required bool obscureText,
     required VoidCallback onToggleObscure,
   }) {
-    final cupertinoTheme = CupertinoTheme.of(context);
-    final isDark = cupertinoTheme.brightness == Brightness.dark;
-
-    return CupertinoTextField(
+    final theme = Theme.of(context);
+    return TextField(
       controller: controller,
-      placeholder: labelText,
-      placeholderStyle: TextStyle(
-        color: CupertinoDynamicColor.resolve(CupertinoColors.placeholderText, context),
-      ),
-      style: cupertinoTheme.textTheme.textStyle.copyWith(
-        color: CupertinoDynamicColor.resolve(CupertinoColors.label, context),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       obscureText: obscureText,
-      keyboardType: TextInputType.visiblePassword,
-      autocorrect: false,
-      enableSuggestions: false,
-      obscuringCharacter: '●',
-      decoration: BoxDecoration(
-        color: CupertinoDynamicColor.resolve(isDark ? CupertinoColors.darkBackgroundGray : CupertinoColors.systemGrey6, context),
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      suffix: CupertinoButton(
-        padding: EdgeInsets.zero,
-        minSize: 0,
-        child: Icon(
-          obscureText ? CupertinoIcons.eye_slash_fill : CupertinoIcons.eye_fill,
-          color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, context),
-          size: 22,
+      decoration: InputDecoration(
+        hintText: labelText,
+        filled: true,
+        fillColor: theme.inputDecorationTheme.fillColor,
+        border: theme.inputDecorationTheme.border,
+        enabledBorder: theme.inputDecorationTheme.enabledBorder,
+        focusedBorder: theme.inputDecorationTheme.focusedBorder,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        hintStyle: theme.inputDecorationTheme.hintStyle,
+        suffixIcon: Padding(
+          padding: const EdgeInsets.only(right: 10.0),
+          child: IconButton(
+            icon: Icon(
+              obscureText ? Icons.visibility_off : Icons.visibility,
+              color: theme.inputDecorationTheme.hintStyle?.color,
+              size: 21,
+            ),
+            onPressed: onToggleObscure,
+          ),
         ),
-        onPressed: onToggleObscure,
+        isDense: true,
       ),
-      suffixMode: OverlayVisibilityMode.editing,
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: theme.colorScheme.onSurface,
+        fontWeight: FontWeight.w500,
+      ),
+      textInputAction: TextInputAction.next,
     );
   }
 }

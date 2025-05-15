@@ -5,6 +5,10 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/ui_styles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../features/salesforce/presentation/providers/salesforce_providers.dart';
+import '../../../features/salesforce/domain/models/dashboard_stats.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../widgets/logo.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -19,58 +23,86 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = FirebaseAuth.instance.currentUser;
+    final salesforceId = user?.uid; // Using UID as salesforceId for now
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          'Dashboard',
-          style: TextStyle(color: theme.colorScheme.onSurface),
-        ),
         leading: IconButton(
-          icon: Icon(
-            CupertinoIcons.chevron_back,
-            color: theme.colorScheme.onSurface,
-          ),
+          icon: Icon(CupertinoIcons.chevron_back, color: theme.colorScheme.onSurface),
           onPressed: () => context.pop(),
+          tooltip: '',
         ),
+        title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
+        centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // Period Selector - More compact and higher up
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [_buildPeriodSelector(context)],
+      body: salesforceId == null
+          ? const Center(child: Text('No user ID found'))
+          : Consumer(
+              builder: (context, ref, child) {
+                final dashboardStatsAsync = ref.watch(
+                  dashboardStatsProvider(salesforceId),
+                );
+
+                return dashboardStatsAsync.when(
+                  data: (stats) => _buildDashboardContent(context, stats),
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Center(
+                    child: Text('Error: ${error.toString()}'),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildDashboardContent(BuildContext context, DashboardStats stats) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        const SizedBox(height: 32),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Dashboard',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
             ),
           ),
-          // Main Content
-          Expanded(
-            child: NoScrollbarBehavior.noScrollbars(
-              context,
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildEarningsCard(context),
-                    const SizedBox(height: 24),
-                    _buildEarningsGraph(context),
-                    const SizedBox(height: 24),
-                    _buildStatsGrid(context),
-                    const SizedBox(height: 24),
-                    _buildProcessesSection(context),
-                  ],
-                ),
+        ),
+        // Period Selector
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [_buildPeriodSelector(context)],
+          ),
+        ),
+        // Main Content
+        Expanded(
+          child: NoScrollbarBehavior.noScrollbars(
+            context,
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildEarningsCard(context, stats),
+                  const SizedBox(height: 24),
+                  _buildStatsGrid(context, stats),
+                  const SizedBox(height: 24),
+                  _buildProposalsList(context, stats),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -140,7 +172,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildEarningsCard(BuildContext context) {
+  Widget _buildEarningsCard(BuildContext context, DashboardStats stats) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
@@ -150,8 +182,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final cardBorderColor =
         isDark ? primaryColor.withAlpha(60) : primaryColor.withAlpha(50);
     final textColor = isDark ? onPrimaryColor : primaryColor;
-
-    final bool isCurrentCycle = _selectedPeriod == 'month';
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -176,32 +206,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
               const SizedBox(height: 12),
               Text(
-                isCurrentCycle ? '€ 5.280,00' : '€ 42.150,00',
+                '€ ${stats.totalCommission.toStringAsFixed(2)}',
                 style: theme.textTheme.displaySmall?.copyWith(
                   color: textColor,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
                 ),
               ),
-              if (isCurrentCycle) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      CupertinoIcons.arrow_up_right,
-                      size: 16,
-                      color: textColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '+22% em relação ao ciclo anterior',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: textColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ],
           ),
         ),
@@ -209,7 +220,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context) {
+  Widget _buildStatsGrid(BuildContext context, DashboardStats stats) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final foregroundColor = theme.colorScheme.onSurface;
@@ -238,8 +249,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         _buildStatCard(
           context,
           icon: CupertinoIcons.group_solid,
-          value: '32',
-          label: 'Clientes Ativos',
+          value: stats.totalOpportunities.toString(),
+          label: 'Oportunidades',
           iconColor: iconColorActive,
           iconBgColor: iconBgActive,
           cardBgColor: cardBgColor,
@@ -249,9 +260,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
         _buildStatCard(
           context,
-          icon: CupertinoIcons.doc_chart_fill,
-          value: '28',
-          label: 'Submissões',
+          icon: CupertinoIcons.doc_text,
+          value: stats.proposals.length.toString(),
+          label: 'Propostas',
           iconColor: iconColorSubmissions,
           iconBgColor: iconBgSubmissions,
           cardBgColor: cardBgColor,
@@ -259,6 +270,79 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           textColor: foregroundColor,
           labelColor: mutedForeground,
         ),
+      ],
+    );
+  }
+
+  Widget _buildProposalsList(BuildContext context, DashboardStats stats) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
+    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+    final foregroundColor = theme.colorScheme.onSurface;
+    final mutedForeground =
+        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Propostas',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: foregroundColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...stats.proposals.map((proposal) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: AppStyles.standardBlur,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: cardBgColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: cardBorderColor, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                proposal.opportunityName,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: foregroundColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Proposta #${proposal.proposalId}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '€ ${proposal.commission.toStringAsFixed(2)}',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )),
       ],
     );
   }
@@ -327,134 +411,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
       ),
     );
-  }
-
-  Widget _buildEarningsGraph(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
-    final cardBgColor = isDark ? AppTheme.darkSecondary : AppTheme.secondary;
-    final cardBorderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
-    final foregroundColor = theme.colorScheme.onSurface;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: AppStyles.standardBlur,
-        child: Container(
-          height: 200,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardBgColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: cardBorderColor, width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Evolução de Comissões',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: foregroundColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(show: false),
-                    titlesData: FlTitlesData(show: false),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots:
-                            _selectedPeriod == 'month'
-                                ? [
-                                  const FlSpot(0, 1500),
-                                  const FlSpot(1, 2300),
-                                  const FlSpot(2, 1800),
-                                  const FlSpot(3, 3200),
-                                  const FlSpot(4, 2800),
-                                  const FlSpot(5, 5280),
-                                ]
-                                : [
-                                  const FlSpot(0, 15000),
-                                  const FlSpot(1, 23000),
-                                  const FlSpot(2, 18000),
-                                  const FlSpot(3, 32000),
-                                  const FlSpot(4, 28000),
-                                  const FlSpot(5, 42150),
-                                ],
-                        isCurved: true,
-                        color: primaryColor,
-                        barWidth: 2,
-                        dotData: FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: primaryColor.withAlpha(isDark ? 30 : 25),
-                        ),
-                      ),
-                    ],
-                    lineTouchData: LineTouchData(
-                      touchTooltipData: LineTouchTooltipData(
-                        tooltipRoundedRadius: 8,
-                        tooltipPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        tooltipMargin: 8,
-                        getTooltipColor: (LineBarSpot spot) {
-                          return theme.colorScheme.primaryContainer.withOpacity(
-                            0.9,
-                          );
-                        },
-                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                          return touchedBarSpots.map((barSpot) {
-                            final textStyle = TextStyle(
-                              color:
-                                  isDark
-                                      ? AppTheme.darkForeground
-                                      : AppTheme.foreground,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            );
-                            return LineTooltipItem(
-                              '€${barSpot.y.toStringAsFixed(0)}',
-                              textStyle,
-                            );
-                          }).toList();
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Text(
-        title,
-        style: theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-          color: theme.colorScheme.onSurface,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProcessesSection(BuildContext context) {
-    // Placeholder for processes section
-    return _buildSectionHeader(context, 'Processos Pendentes');
-    // TODO: Add list of pending processes similar to submissions
   }
 }
 

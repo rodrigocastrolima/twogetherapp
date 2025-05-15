@@ -129,11 +129,13 @@ flutter:
     - assets/images/bg.jpg
     - assets/images/banner_bg.jpg
     - assets/images/banner.jpg
+    - assets/images/background.jpg
     - assets/images/backgrounds/homepage.png
     - assets/documents/proposta_exemplo.pdf
     - assets/documents/contrato_exemplo.pdf
     - assets/images/tutorial/
     - assets/images/upgraide.png
+    - assets/images/homepage.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

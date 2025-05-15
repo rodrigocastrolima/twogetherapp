@@ -1,11 +1,11 @@
 {
-    "name": "twogether",
-    "short_name": "twogether",
+    "name": "Twogether Retail",
+    "short_name": "Twogether",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Your partner platform for managing services, clients and commissions efficiently.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

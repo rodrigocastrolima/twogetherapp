@@ -38,11 +38,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     };
     
     // Initial load of notifications
-    Future.microtask(() {
-      if (mounted) {
-        refreshAdminNotifications(ref);
-      }
-    });
+      Future.microtask(() {
+        if (mounted) {
+          refreshAdminNotifications(ref);
+        }
+      });
   }
 
   @override
@@ -76,11 +76,11 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           behavior: const NoScrollbarBehavior(), // Custom ScrollBehavior to hide scrollbar
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                 _buildPageHeader(context), // Renamed and modified header
-                const SizedBox(height: 24),
+            const SizedBox(height: 24),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     if (constraints.maxWidth >= 768) { // Desktop / Wide screen layout
@@ -223,12 +223,12 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                       color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
                     ),
                   ),
-                ],
-              ),
-            ),
-          );
-        }
-        
+          ],
+        ),
+      ),
+    );
+  }
+
         return ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -384,7 +384,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0), // Reduced padding
-            child: Row(
+      child: Row(
               crossAxisAlignment: CrossAxisAlignment.center, // Center items vertically
               children: [
                 // Leading avatar with improved styling
@@ -406,8 +406,8 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
+        children: [
+          Text(
                         notification.title,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
@@ -420,14 +420,14 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                       const SizedBox(height: 4),
                       Text(
                         '$resellerName / $secondarySubtitleText',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 12, // Slightly smaller for mobile
                         ),
                         maxLines: 1, // Ensure single line
                         overflow: TextOverflow.ellipsis, // Add ellipsis
-                      ),
-                    ],
+          ),
+        ],
                   ),
                 ),
                 

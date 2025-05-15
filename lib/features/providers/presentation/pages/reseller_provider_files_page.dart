@@ -63,113 +63,110 @@ class ResellerProviderFilesPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0.0,
       ),
-      body: Column( // Wrap body in Column to add title
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0), // Add padding for the title
-            child: Text(
-              providerName, // Display the provider name
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
-      ),
-          ),
-          Expanded( // Make the ListView take remaining space
-            child: filesAsyncValue.when(
-        data: (files) {
-          if (files.isEmpty) {
-            return const Center(
-                    child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'), // Portuguese
-            );
-          }
-          return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // Added vertical padding too
-            itemCount: files.length,
-            separatorBuilder:
-                      (context, index) => const SizedBox(height: 12), // Use SizedBox for spacing
-            itemBuilder: (context, index) {
-              final file = files[index];
-              return _buildFileListItem(context, file, theme);
-            },
-          );
-        },
-        loading: () => const Center(child: CupertinoActivityIndicator()),
-        error:
-            (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                      child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center), // Portuguese
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 32.0, 16.0, 24.0),
+                child: Text(
+                  providerName, // Display the provider name
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.left,
                 ),
               ),
-            ),
-      ),
-        ],
+              Expanded(
+                child: filesAsyncValue.when(
+                  data: (files) {
+                    if (files.isEmpty) {
+                      return const Center(
+                        child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'),
+                      );
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8.0),
+                      itemCount: files.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 20),
+                      itemBuilder: (context, index) {
+                        final file = files[index];
+                        return _buildFileListCard(context, file, theme);
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CupertinoActivityIndicator()),
+                  error: (error, stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  // Build list item - no delete button
-  Widget _buildFileListItem(
-    BuildContext context,
-    ProviderFile file,
-    ThemeData theme,
-  ) {
+  Widget _buildFileListCard(BuildContext context, ProviderFile file, ThemeData theme) {
     final fileIcon = _getFileIcon(file.fileType);
     final isDark = theme.brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: () => _handleFileTap(context, file),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
-        decoration: BoxDecoration(
-          color: isDark ? theme.colorScheme.surfaceVariant.withOpacity(0.3) : theme.canvasColor, // Subtle background
-          borderRadius: BorderRadius.circular(12.0),
-          border: Border.all(
-            color: theme.dividerColor.withOpacity(isDark ? 0.2 : 0.1),
-            width: 1.0,
-          )
-        ),
-        child: Row(
-          children: [
-            Icon(fileIcon, color: theme.colorScheme.primary, size: 36), // Larger icon
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-        file.fileName,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-                    maxLines: 2, // Allow more lines for longer names
-        overflow: TextOverflow.ellipsis,
-      ),
-                  if (file.description.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-            file.description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14.0),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14.0),
+        onTap: () => _handleFileTap(context, file),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 18.0),
+          child: Row(
+            children: [
+              Icon(fileIcon, color: theme.colorScheme.primary, size: 36),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      file.fileName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ],
+                    if (file.description.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          file.description,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              CupertinoIcons.chevron_forward, // Changed from chevron_right
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-              size: 22,
+              const SizedBox(width: 12),
+              Icon(
+                CupertinoIcons.chevron_forward,
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                size: 22,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
       ),
     );
   }

@@ -33,6 +33,8 @@ import { getSalesforceOpportunityDetails } from './getSalesforceOpportunityDetai
 // import { getActivationCycles } from './getActivationCycles'; // No longer needed here
 // Import the NEW proposal creation function
 // import { createSalesforceProposal } from './createSalesforceProposal'; // No longer needed here
+// Import the NEW dashboard stats function
+import { getResellerDashboardStats } from './getResellerDashboardStats';
 
 // Export functions from separate files
 export * from './set-role-claim';
@@ -55,6 +57,7 @@ export {
     sfOppManagement,
     getTotalResellerCommission,
     getSalesforceOpportunityDetails,
+    getResellerDashboardStats,
     // Add other callable functions here as you create them
 };
 

@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart'; // Changed to Cupertino
 import 'package:flutter/material.dart'; // Still need for ScaffoldMessenger, PDFView, Image, etc.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 // import 'package:file_saver/file_saver.dart'; // Needed for download action
 
 // Correct the import path to point to /services/
@@ -137,28 +139,44 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
   }
 
   Future<void> _saveBytesToTempFile(Uint8List bytes, String fileName) async {
-    try {
+    print('*** _saveBytesToTempFile CALLED. kIsWeb: $kIsWeb ***'); // DEBUG PRINT
+    if (kIsWeb) {
+      // For web, create a blob and download the file
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+      return;
+    }
+
+    // For mobile platforms, save to temp directory
       final tempDir = await getTemporaryDirectory();
-      // Keep sanitization, but the filename now includes extension
-      final safeFileName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final file = File('${tempDir.path}/$safeFileName');
+    final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(bytes);
-      final tempPath = file.path; // Store path before setState
-      if (mounted) {
         setState(() {
-          _localTempFilePath = tempPath;
+      _localTempFilePath = file.path;
         });
-        print(
-          '*** SecureFileViewer SAVED TEMP FILE: _localTempFilePath is set to "$_localTempFilePath" ***',
-        );
-      }
-    } catch (e) {
-      logger.e('Error saving temp file', error: e);
-      if (mounted) {
-        setState(() {
-          _error = "Could not prepare file for viewing.";
-        });
-      }
+  }
+
+  Future<void> _handleFileDownload() async {
+    if (_fileBytes == null) return;
+
+    if (kIsWeb) {
+      // For web, create a blob and download the file
+      final blob = html.Blob([_fileBytes!]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute('download', widget.title)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      // For mobile platforms, use share_plus
+      await Share.shareXFiles(
+        [XFile.fromData(_fileBytes!, name: widget.title)],
+        text: 'Sharing ${widget.title}',
+      );
     }
   }
 
@@ -301,8 +319,19 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     // Removed fallback to fileTypeHint as extension should be primary
 
     // --- Display Content based on Determined Type ---
-    if (usePdfViewer && _localTempFilePath != null) {
-      // Use PDFView with the temporary file path
+    if (usePdfViewer && _fileBytes != null) {
+      if (kIsWeb) {
+        // For web, use browser's built-in PDF viewer (opens in new tab)
+        // Explicitly set the content type for the Blob
+        final blob = html.Blob([_fileBytes!], 'application/pdf'); 
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        html.window.open(url, '_blank');
+        if (Navigator.canPop(context)) { 
+          Navigator.of(context).pop();
+        }
+        return const SizedBox.shrink(); 
+      } else {
+        // For mobile, use PDFView
       return PDFView(
         filePath: _localTempFilePath,
         enableSwipe: true,
@@ -335,6 +364,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
           });
         },
       );
+      }
     } else if (useImageViewer && _fileBytes != null) {
       // Use Image.memory for images
       return Center(

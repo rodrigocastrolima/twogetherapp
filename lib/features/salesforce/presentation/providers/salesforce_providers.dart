@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/salesforce_repository.dart';
 import '../../domain/models/account.dart';
+import '../../domain/models/dashboard_stats.dart';
 
 // Provider for SalesforceRepository
 final salesforceRepositoryProvider = Provider<SalesforceRepository>((ref) {
@@ -89,3 +90,9 @@ final salesforceConnectionNotifierProvider =
       final repository = ref.watch(salesforceRepositoryProvider);
       return SalesforceConnectionNotifier(repository);
     });
+
+// Dashboard stats provider
+final dashboardStatsProvider = FutureProvider.family<DashboardStats, String>((ref, resellerSalesforceId) async {
+  final repository = ref.watch(salesforceRepositoryProvider);
+  return repository.getResellerDashboardStats(resellerSalesforceId);
+});

@@ -98,17 +98,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final authNotifier = AppRouter.authNotifier;
       final success = await authNotifier.requestPasswordReset(email);
       if (mounted) {
-        if (success) {
-          // SnackBar removed, _recoveryEmailSent will trigger the success message in the form
-          setState(() {
-            _recoveryEmailSent = true;
-          });
-        } else {
-          setState(() {
-            _errorMessage =
-                'Falha ao enviar email de redefinição. Verifique o endereço ou tente mais tarde.';
-          });
-        }
+        // SnackBar removed, _recoveryEmailSent will trigger the success message in the form
+        setState(() {
+          _recoveryEmailSent = true;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -175,7 +168,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             height: double.infinity,
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/banner.jpg'),
+                image: AssetImage('assets/images/background.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -205,20 +198,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       children: [
                         Container(
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    isDarkMode
-                                        ? Colors.black.withOpacity(0.10)
-                                        : Colors.white.withOpacity(0.15),
-                                blurRadius: 10,
-                                spreadRadius: 0,
-                              ),
-                            ],
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             child: BackdropFilter(
                               filter: ImageFilter.blur(
                                 sigmaX: 10.0,
@@ -226,15 +209,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                               child: Container(
                                 width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color:
-                                      isDarkMode
-                                          ? Colors.grey.shade800.withOpacity(
-                                            0.25,
-                                          )
-                                          : Colors.white.withOpacity(0.35),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                                decoration: AppStyles.glassCard(context),
                                 child: Padding(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: isSmallScreen ? 20 : 28,
@@ -271,21 +246,35 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                           padding: const EdgeInsets.only(
                                             bottom: 16.0,
                                           ),
-                                          child: Text(
-                                            _errorMessage!,
-                                            style: TextStyle(
-                                              color:
-                                                  isDarkMode
-                                                      ? Theme.of(context)
-                                                          .colorScheme
-                                                          .errorContainer
-                                                      : Theme.of(
-                                                        context,
-                                                      ).colorScheme.error,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 14,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.withOpacity(0.10), // subtle glassy red
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
-                                            textAlign: TextAlign.center,
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment: CrossAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.error_outline_rounded,
+                                                  color: Colors.red.shade700,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Flexible(
+                                                  child: Text(
+                                                    _errorMessage!,
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: Colors.red.shade700,
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       if (!_isForgotPasswordMode)
@@ -311,11 +300,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             padding: const EdgeInsets.only(top: 30.0),
                             child: TextButton(
                               onPressed: _switchToForgotPasswordMode,
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                textStyle: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w500,
+                              style: ButtonStyle(
+                                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                                  if (states.contains(MaterialState.hovered) || states.contains(MaterialState.pressed)) {
+                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withOpacity(0.8);
+                                  }
+                                  return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
+                                }),
+                                overlayColor: MaterialStateProperty.all(Colors.transparent),
+                                textStyle: MaterialStateProperty.all(
+                                  TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                               child: Text('Esqueceu sua senha?'),
@@ -328,11 +325,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             padding: const EdgeInsets.only(top: 30.0),
                             child: TextButton(
                               onPressed: _switchToLoginMode,
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                textStyle: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w500,
+                              style: ButtonStyle(
+                                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                                  if (states.contains(MaterialState.hovered) || states.contains(MaterialState.pressed)) {
+                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withOpacity(0.8);
+                                  }
+                                  return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
+                                }),
+                                overlayColor: MaterialStateProperty.all(Colors.transparent),
+                                textStyle: MaterialStateProperty.all(
+                                  TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                               child: Text('Voltar ao Login'),
@@ -351,7 +356,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             right: 0,
             left: 0,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              padding: const EdgeInsets.only(bottom: 18.0, top: 8.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -359,16 +364,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 children: [
                   Text(
                     'powered by',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white.withOpacity(0.8),
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.87),
+                      letterSpacing: 0.1,
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  const SizedBox(width: 8),
                   Image.asset(
                     'assets/images/upgraide.png',
-                    height: 20,
-                    color: Colors.white.withOpacity(0.8),
-                    colorBlendMode: BlendMode.modulate,
+                    height: 80, // Even larger for maximum visibility
+                    fit: BoxFit.contain,
                   ),
                 ],
               ),
@@ -382,8 +389,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildLoginForm(BuildContext context, bool isDarkMode) {
     final Color fieldFillColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.12)
-            : Colors.white.withOpacity(0.35);
+            ? Colors.white.withAlpha(10)
+            : Colors.white.withAlpha(20);
     final Color hintAndIconColor =
         isDarkMode
             ? Colors.white.withOpacity(0.65)
@@ -392,17 +399,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         isDarkMode
             ? Colors.white.withOpacity(0.9)
             : Colors.black.withOpacity(0.85);
-    final Color focusedBorderColor =
-        isDarkMode
-            ? Colors.grey.shade400.withOpacity(
-              0.7,
-            ) // Cleaner grey for dark mode
-            : Colors.grey.shade600.withOpacity(
-              0.7,
-            ); // Cleaner grey for light mode
-    final Color buttonBackgroundColor =
-        isDarkMode ? Colors.grey.shade800.withOpacity(0.8) : Colors.white;
-    final Color buttonTextColor = isDarkMode ? Colors.white : AppTheme.primary;
+    
+    final BorderSide inputEnabledBorderSide = BorderSide(
+        color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+        width: 0.5,
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -413,22 +414,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             filled: true,
             fillColor: fieldFillColor,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14), // Slightly more rounded
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.15),
-                width: 0,
-              ),
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12.0),
               borderSide: BorderSide(
-                color: focusedBorderColor,
+                color: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
                 width: 1.0,
-              ), // Thinner border
+              ), 
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Email',
@@ -461,22 +459,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             filled: true,
             fillColor: fieldFillColor,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.15),
-                width: 0.7,
-              ),
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12.0),
               borderSide: BorderSide(
-                color: focusedBorderColor,
+                color: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
                 width: 1.0,
-              ), // Thinner border
+              ),
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Senha',
@@ -511,8 +506,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: FilledButton(
             onPressed: _handleLogin,
             style: FilledButton.styleFrom(
-              backgroundColor: buttonBackgroundColor,
-              foregroundColor: buttonTextColor,
+              backgroundColor: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
+              foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -521,7 +516,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
             child: Text(
               'Entrar',
-              style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
         ),
@@ -532,8 +531,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildForgotPasswordForm(BuildContext context, bool isDarkMode) {
     final Color fieldFillColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.12)
-            : Colors.white.withOpacity(0.35);
+            ? Colors.white.withAlpha(10)
+            : Colors.white.withAlpha(20);
     final Color hintAndIconColor =
         isDarkMode
             ? Colors.white.withOpacity(0.65)
@@ -542,17 +541,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         isDarkMode
             ? Colors.white.withOpacity(0.9)
             : Colors.black.withOpacity(0.85);
-    final Color focusedBorderColor =
-        isDarkMode
-            ? Colors.grey.shade400.withOpacity(
-              0.7,
-            ) // Cleaner grey for dark mode
-            : Colors.grey.shade600.withOpacity(
-              0.7,
-            ); // Cleaner grey for light mode
-    final Color buttonBackgroundColor =
-        isDarkMode ? Colors.grey.shade800.withOpacity(0.8) : Colors.white;
-    final Color buttonTextColor = isDarkMode ? Colors.white : AppTheme.primary;
+
+    final BorderSide inputEnabledBorderSide = BorderSide(
+      color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+      width: 0.5,
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -563,22 +556,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             filled: true,
             fillColor: fieldFillColor,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.15),
-                width: 0.7,
-              ),
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: inputEnabledBorderSide,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12.0),
               borderSide: BorderSide(
-                color: focusedBorderColor,
+                color: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
                 width: 1.0,
-              ), // Thinner border
+              ),
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Email',
@@ -611,13 +601,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: FilledButton(
             onPressed: _isSendingRecovery ? null : _sendRecoveryEmail,
             style: FilledButton.styleFrom(
-              backgroundColor: buttonBackgroundColor,
-              foregroundColor: buttonTextColor,
+              backgroundColor: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
+              foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
               padding: EdgeInsets.symmetric(vertical: 12),
+              disabledBackgroundColor: isDarkMode 
+                ? AppTheme.darkPrimary.withOpacity(0.6)
+                : AppTheme.primary.withOpacity(0.6),
             ),
             child:
                 _isSendingRecovery
@@ -626,15 +619,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.8,
-                        color:
-                            buttonTextColor, // Use adapted button text color for consistency
+                        color: Colors.white,
                       ),
                     )
                     : Text(
                       'Recuperar Senha',
                       style: TextStyle(
                         fontSize: 16.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
                       ),
                     ),
           ),
@@ -644,30 +637,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildSuccessMessage(BuildContext context) {
-    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36.0), // Increased padding
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.check_circle_outline_rounded, // More rounded icon
-            color: Colors.greenAccent.shade700, // Slightly deeper green
-            size: 60,
-          ),
-          const SizedBox(height: 22),
-          Text(
-            'Email de recuperação enviado com sucesso!',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color:
-                  isDarkMode
-                      ? Colors.white.withOpacity(0.95)
-                      : Colors.black.withOpacity(0.9),
-              fontWeight: FontWeight.w500,
+      padding: const EdgeInsets.symmetric(vertical: 36.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.10), // subtle glassy green
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              color: Colors.green.shade700,
+              size: 22,
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Text(
+              'Email de recuperação enviado com sucesso!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.green.shade700,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

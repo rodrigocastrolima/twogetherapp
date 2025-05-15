@@ -22,145 +22,130 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
   @override
   Widget build(BuildContext context) {
     final providersAsyncValue = ref.watch(providersStreamProvider);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+          icon: Icon(CupertinoIcons.chevron_left, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => context.pop(),
         ),
-        title: LogoWidget(height: 60, darkMode: isDark),
+        title: LogoWidget(height: 60, darkMode: Theme.of(context).brightness == Brightness.dark),
         centerTitle: true, 
         elevation: 0, 
         backgroundColor: Colors.transparent, 
         scrolledUnderElevation: 0.0, 
       ),
-      body: providersAsyncValue.when(
-        data: (providers) {
-          if (providers.isEmpty) {
-            return const Center(child: Text('No resources available yet.'));
-          }
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Center carousel vertically
-            children: [
-              CarouselSlider.builder(
-                carouselController: _carouselController,
-            itemCount: providers.length,
-                itemBuilder: (context, index, realIndex) {
-              final provider = providers[index];
-                  return _buildProviderCarouselItem(context, provider, theme);
-                },
-                options: CarouselOptions(
-                  height: MediaQuery.of(context).size.height * 0.5, // Example height, adjust as needed
-                  viewportFraction: 0.8, // To show parts of other cards
-                  enlargeCenterPage: true,
-                  enableInfiniteScroll: providers.length > 1, // Disable if only one item
-                  onPageChanged: (index, reason) {
-                    setState(() {
-                      _currentCarouselIndex = index;
-                    });
-                  },
-                ),
-              ),
-              if (providers.length > 1) // Only show indicator if more than one item
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: providers.asMap().entries.map((entry) {
-                    return GestureDetector(
-                      onTap: () => _carouselController.animateToPage(entry.key),
-                      child: Container(
-                        width: 8.0,
-                        height: 8.0,
-                        margin: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black)
-                              .withOpacity(_currentCarouselIndex == entry.key ? 0.9 : 0.4),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: providersAsyncValue.when(
+              data: (providers) {
+                if (providers.isEmpty) {
+                  return const Center(child: Text('No resources available yet.'));
+                }
+                final double maxWidth = 800;
+                final theme = Theme.of(context);
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 32, left: 16, right: 16, bottom: 24),
+                          child: Text(
+                            'Dropbox',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            textAlign: TextAlign.left,
+                          ),
                         ),
-                      ),
-              );
-                  }).toList(),
-                ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CupertinoActivityIndicator()),
-        error: (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-            child: Text('Error loading resources: $error', textAlign: TextAlign.center),
-              ),
-            ),
-      ),
-    );
-  }
-
-  // New method to build carousel items (adapt from _buildProviderListItem)
-  Widget _buildProviderCarouselItem(
-    BuildContext context,
-    ProviderInfo provider,
-    ThemeData theme,
-  ) {
-    final isDark = theme.brightness == Brightness.dark;
-    // Card styling similar to the example image
-    return GestureDetector(
-      onTap: () {
-        context.push('/providers/${provider.id}', extra: provider);
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 20.0), // Margin around card
-        decoration: BoxDecoration(
-          color: isDark ? theme.colorScheme.surfaceVariant.withOpacity(0.5) : Colors.white,
-          borderRadius: BorderRadius.circular(16.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 8.0,
-              spreadRadius: 2.0,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect( // To ensure content respects border radius
-            borderRadius: BorderRadius.circular(16.0),
-            child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(
+                        Expanded(
+                          child: GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 24,
+                              crossAxisSpacing: 24,
+                              childAspectRatio: 1,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                            itemCount: providers.length,
+                            itemBuilder: (context, index) {
+                              final provider = providers[index];
+                              return _buildProviderSquare(context, provider, theme);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              loading: () => const Center(child: CupertinoActivityIndicator()),
+              error: (error, stack) => Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0), // Padding for the image
-        child: CachedNetworkImage(
-          imageUrl: provider.imageUrl,
-                    fit: BoxFit.contain, // Contain to see full logo
-                    placeholder: (context, url) => const CupertinoActivityIndicator(),
-                    errorWidget: (context, url, error) => 
-                        Icon(CupertinoIcons.photo, size: 50, color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5)),
-                  ),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('Error loading resources: $error', textAlign: TextAlign.center),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Text(
-                  provider.name,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-              ),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // _buildProviderListItem (original) can be removed or kept if used elsewhere
-  // Widget _buildProviderListItem(...) { ... }
+  Widget _buildProviderSquare(BuildContext context, ProviderInfo provider, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Material(
+      color: theme.colorScheme.surface,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          context.push('/providers/${provider.id}', extra: provider);
+        },
+        child: Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CachedNetworkImage(
+                imageUrl: provider.imageUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => const CupertinoActivityIndicator(),
+                errorWidget: (context, url, error) => Icon(
+                  CupertinoIcons.photo,
+                  size: 48,
+                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                provider.name,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.black87 : Colors.black87,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -272,31 +272,42 @@ class FileUploadWidget extends ConsumerWidget {
                 ),
               ),
               child:
-                  isImage && filePath != null
-                      ? Image.file(
-                        File(filePath),
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (context, error, stackTrace) => Center(
-                              child: Icon(
-                                CupertinoIcons.photo,
-                                color: colorScheme.onSurfaceVariant,
-                                size: 30,
+                  isImage && (filePath != null || (kIsWeb && file.bytes != null))
+                      ? (kIsWeb && file.bytes != null
+                          ? Image.memory(
+                              file.bytes!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  CupertinoIcons.photo,
+                                  color: colorScheme.onSurfaceVariant,
+                                  size: 30,
+                                ),
                               ),
-                            ),
-                      )
+                            )
+                          : Image.file(
+                              File(filePath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Icon(
+                                  CupertinoIcons.photo,
+                                  color: colorScheme.onSurfaceVariant,
+                                  size: 30,
+                                ),
+                              ),
+                            ))
                       : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min, // Prevent stretching
-                        children: [
-                          Icon(
-                            CupertinoIcons.doc_text_fill,
-                            color: colorScheme.onSurfaceVariant,
-                            size: 30,
-                          ),
-                          // Removed filename display from here for cleaner preview
-                        ],
-                      ),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min, // Prevent stretching
+                          children: [
+                            Icon(
+                              CupertinoIcons.doc_text_fill,
+                              color: colorScheme.onSurfaceVariant,
+                              size: 30,
+                            ),
+                            // Removed filename display from here for cleaner preview
+                          ],
+                        ),
             ),
           ),
 

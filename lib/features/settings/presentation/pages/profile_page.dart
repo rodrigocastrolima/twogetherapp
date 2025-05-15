@@ -181,21 +181,43 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
         centerTitle: true,
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _errorMessage != null
-              ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: AppTheme.destructive),
-                    textAlign: TextAlign.center,
+                    'Perfil',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              )
-              : _buildProfileContent(theme),
+                const SizedBox(height: 24),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null
+                    ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: AppTheme.destructive),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                    : _buildProfileContent(theme),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -391,62 +413,37 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     required VoidCallback onTap,
     required ThemeData theme,
   }) {
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
     final onSurfaceColor = theme.colorScheme.onSurface;
-    // Use a slightly less prominent background for actions
-    final bgColor =
-        isDark
-            ? AppTheme.darkSecondary.withAlpha(100)
-            : AppTheme.secondary.withAlpha(150);
-    final borderColor =
-        isDark
-            ? AppTheme.darkBorder.withAlpha(100)
-            : AppTheme.border.withAlpha(100);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: AppStyles.standardBlur, // Keep blur if desired
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 14,
-              ), // Adjusted padding
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: borderColor,
-                ), // Use theme border color
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, color: primaryColor, size: 22),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    // Removed Column, just show title
-                    child: Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: onSurfaceColor, // Use standard text color
-                      ),
+      child: Material(
+        color: theme.colorScheme.surface,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: theme.colorScheme.primary, size: 22),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: onSurfaceColor,
                     ),
                   ),
-                  // Keep chevron for visual cue
-                  Icon(
-                    Icons.chevron_right,
-                    color: onSurfaceColor.withAlpha(128),
-                    size: 20,
-                  ),
-                ],
-              ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: onSurfaceColor.withOpacity(0.5),
+                  size: 20,
+                ),
+              ],
             ),
           ),
         ),
@@ -499,9 +496,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
             color: theme.colorScheme.primary,
           ),
         ),
@@ -517,54 +513,49 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     required IconData icon,
     required ThemeData theme,
   }) {
+    final onBackground = theme.colorScheme.onBackground;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: theme.colorScheme.primary.withOpacity(0.7),
-                  size: 22,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.colorScheme.onBackground.withOpacity(
-                            0.6,
-                          ),
-                        ),
+      child: Material(
+        color: theme.colorScheme.surface,
+        elevation: 0,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: theme.colorScheme.primary.withOpacity(0.7),
+                size: 22,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: onBackground.withOpacity(0.6),
+                        fontWeight: FontWeight.normal,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.onBackground,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: onBackground,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

@@ -242,10 +242,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             top: 0,
             left: 0,
             right: 0,
-            height: MediaQuery.of(context).size.height * 0.4,
+            height: MediaQuery.of(context).size.height * 0.35,
             child: Image.asset(
-              'assets/images/backgrounds/homepage.png',
-              fit: BoxFit.cover,
+              'assets/images/homepage.jpg',
+              fit: BoxFit.fitWidth,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   color: Colors.grey,
@@ -268,11 +268,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     WidgetRef ref,
   ) {
     final theme = Theme.of(context);
-    // Match mobile nav bar: Apply 85% opacity
-    final Color sidebarBackgroundColorWithOpacity =
-        isDark
-            ? AppTheme.darkNavBarBackground.withAlpha((255 * 0.85).round())
-            : Colors.white.withAlpha((255 * 0.85).round());
+    final Color sidebarBackgroundColorWithOpacity = isDark
+        ? AppTheme.darkNavBarBackground
+        : Colors.white;
     final Color textColor = isDark ? Colors.white : Colors.black;
     final unreadCount = ref
         .watch(unreadMessagesCountProvider)
@@ -282,36 +280,43 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       top: 0,
       left: 0,
       bottom: 0,
-      width: AppStyles.sidebarWidth, // Defined in ui_styles.dart
+      width: AppStyles.sidebarWidth,
       child: ClipRect(
         child: BackdropFilter(
-          filter: AppStyles.standardBlur, // Use the same blur as mobile
+          filter: AppStyles.standardBlur,
           child: Container(
             decoration: BoxDecoration(
-              color:
-                  sidebarBackgroundColorWithOpacity, // Use color with opacity
+              color: sidebarBackgroundColorWithOpacity,
               border: Border(
                 right: BorderSide(
                   color: theme.dividerColor.withAlpha((255 * 0.1).round()),
+                  width: 0.5,
                 ),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(2, 0),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
+                const SizedBox(height: 32), // Increased top padding
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0), // Increased horizontal padding
                   child: Center(
-                    child: LogoWidget(height: 60, darkMode: isDark), // SVG Logo
+                    child: LogoWidget(height: 72, darkMode: isDark), // Increased logo size
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 40), // Increased spacing after logo
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(
                       vertical: 16,
-                      horizontal: 12,
+                      horizontal: 16, // Increased horizontal padding
                     ),
                     children: [
                       _buildSidebarItem(
@@ -322,7 +327,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         textColor: textColor,
                         theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16), // Increased spacing between items
                       _buildSidebarItem(
                         icon: CupertinoIcons.person_2,
                         label: 'Clientes',
@@ -331,7 +336,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         textColor: textColor,
                         theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.bubble_left,
                         label: 'Mensagens',
@@ -341,7 +346,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         textColor: textColor,
                         theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.settings,
                         label: 'Definições',
@@ -368,80 +373,93 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     required VoidCallback onTap,
     int badgeCount = 0,
     required Color textColor,
-    required ThemeData theme, // Pass theme for AppStyles
+    required ThemeData theme,
   }) {
-    final Color tulipTreeColor = Color(
-      0xFFffbe45,
-    ); // Keep this specific color for selection
+    final Color tulipTreeColor = AppTheme.tulipTree;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      decoration:
-          isSelected
-              ? AppStyles.activeItemHighlight(context)
-              : null, // Use AppStyles for highlight
+      decoration: isSelected
+          ? BoxDecoration()
+          : null,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: 14)
+                .copyWith(left: isSelected ? 0 : 16, right: 16),
             child: Row(
               children: [
+                if (isSelected)
+                  Container(
+                    width: 5,
+                    height: 36,
+                    margin: const EdgeInsets.only(right: 14),
+                    decoration: BoxDecoration(
+                      color: tulipTreeColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                if (!isSelected)
+                  const SizedBox(width: 19), // 5 (bar) + 14 (gap) for alignment
                 isSelected
                     ? ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          colors: [
-                            tulipTreeColor,
-                            tulipTreeColor.withRed(
-                              (tulipTreeColor.red + 15).clamp(0, 255),
-                            ),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds);
-                      },
-                      child: Icon(icon, size: 20),
-                    )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
-                const SizedBox(width: 12),
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (Rect bounds) {
+                          return LinearGradient(
+                            colors: [
+                              tulipTreeColor,
+                              tulipTreeColor.withRed(
+                                (tulipTreeColor.red + 15).clamp(0, 255),
+                              ),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds);
+                        },
+                        child: Icon(icon, size: 22),
+                      )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 22),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      color:
-                          isSelected
-                              ? tulipTreeColor
-                              : textColor.withOpacity(0.7),
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      shadows:
-                          isSelected
-                              ? [
-                                Shadow(
-                                  color: tulipTreeColor.withOpacity(0.3),
-                                  blurRadius: 2.0,
-                                ),
-                              ]
-                              : null,
+                      color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 15,
+                      shadows: isSelected
+                          ? [
+                              Shadow(
+                                color: tulipTreeColor.withOpacity(0.3),
+                                blurRadius: 2.0,
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
                 ),
                 if (badgeCount > 0) ...[
                   Container(
-                    width: AppStyles.badgeSize, // From ui_styles.dart
-                    height: AppStyles.badgeSize, // From ui_styles.dart
-                    decoration:
-                        AppStyles.notificationBadge, // From ui_styles.dart
+                    width: AppStyles.badgeSize,
+                    height: AppStyles.badgeSize,
+                    decoration: BoxDecoration(
+                      color: tulipTreeColor,
+                      borderRadius: BorderRadius.circular(AppStyles.badgeSize / 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: tulipTreeColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       badgeCount.toString(),
-                      style: AppStyles.badgeTextStyle(
-                        context,
-                      ), // From ui_styles.dart
+                      style: AppStyles.badgeTextStyle(context),
                     ),
                   ),
                 ],
@@ -542,7 +560,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   }) {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
-    final Color tulipTreeColor = Color(0xFFffbe45);
+    final Color tulipTreeColor = AppTheme.tulipTree;
     final double fontSize = label.length > 8 ? 10.0 : 12.0;
 
     return GestureDetector(

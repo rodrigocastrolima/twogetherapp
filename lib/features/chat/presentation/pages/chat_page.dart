@@ -16,45 +16,6 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
 
-// Extension for chat-specific theme colors
-extension ChatTheme on ThemeData {
-  // Message bubble colors
-  Color get messageBubbleSent =>
-      const Color(0xFF0B84FE); // Original iPhone-like blue for sent messages
-
-  // Removed gradient list, not needed anymore
-
-  Color get messageBubbleReceived =>
-      brightness == Brightness.dark
-          ? colorScheme.surfaceVariant.withOpacity(0.7)
-          : const Color(0xFFE9E9EB);
-
-  // Text colors for message bubbles
-  Color get messageBubbleTextSent => Colors.white;
-  Color get messageBubbleTextReceived =>
-      brightness == Brightness.dark
-          ? colorScheme.onSurfaceVariant
-          : colorScheme.onSurface;
-
-  // Support header background
-  Color get chatSupportHeaderBackground =>
-      brightness == Brightness.dark
-          ? colorScheme.surface.withOpacity(0.1)
-          : colorScheme.surface;
-
-  // Icon container colors
-  Color get chatIconBackground =>
-      brightness == Brightness.dark
-          ? colorScheme.surfaceVariant.withOpacity(0.2)
-          : colorScheme.surfaceVariant.withOpacity(0.1);
-
-  // Input field styling
-  Color get chatInputBackground =>
-      brightness == Brightness.dark
-          ? Colors.grey.withOpacity(0.2)
-          : Colors.grey.withOpacity(0.1);
-}
-
 // Add extension to ChatMessage for cleaner code
 extension ChatMessageExtension on ChatMessage {
   // Static variable to hold the current user ID
@@ -423,138 +384,160 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: SafeArea(
         bottom: true,
         top: false,
-        child: Column(
-          children: [
-            // Messages area
-            Expanded(
-              child: messagesStream.when(
-                data: (messages) {
-                  final realMessages = messages.where((m) => !m.isDefault).toList();
-                  if (realMessages.isEmpty && !widget.isAdminView) {
-                    return _buildEmptyStateUI(context);
-                  } else if (realMessages.isEmpty && widget.isAdminView) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(CupertinoIcons.chat_bubble_2, color: CupertinoColors.systemGrey.resolveFrom(context), size: 48),
-                          const SizedBox(height: 16),
-                          Text('Sem mensagens ainda', style: TextStyle(fontSize: 16, color: CupertinoColors.systemGrey.resolveFrom(context).withOpacity(0.8))),
-                        ],
-                      ),
-                    );
-                  }
-                  // Correctly use ScrollConfiguration with NoScrollbarBehavior
-                  return ScrollConfiguration(
-                    behavior: const NoScrollbarBehavior(),
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      reverse: true, 
-                      padding: const EdgeInsets.all(20),
-                      itemCount: realMessages.length,
-                      itemBuilder: (context, index) {
-                        final message = realMessages[index];
-                        return _buildMessageBubble(context, message, true);
-                      },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    'Mensagens',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-                  );
-                },
-                loading:
-                    () => Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Carregando mensagens...',
-                          style: TextStyle(
-                            color: theme.colorScheme.onBackground.withOpacity(
-                              0.7,
-                            ),
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (kDebugMode)
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              "Loading conversation: ${widget.conversationId}",
-                              style: TextStyle(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.5),
-                                fontSize: 12,
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Messages area
+                      Expanded(
+                        child: messagesStream.when(
+                          data: (messages) {
+                            final realMessages = messages.where((m) => !m.isDefault).toList();
+                            if (realMessages.isEmpty && !widget.isAdminView) {
+                              return _buildEmptyStateUI(context);
+                            } else if (realMessages.isEmpty && widget.isAdminView) {
+                              return Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(CupertinoIcons.chat_bubble_2, color: CupertinoColors.systemGrey.resolveFrom(context), size: 48),
+                                    const SizedBox(height: 16),
+                                    Text('Sem mensagens ainda', style: TextStyle(fontSize: 16, color: CupertinoColors.systemGrey.resolveFrom(context).withOpacity(0.8))),
+                                  ],
+                                ),
+                              );
+                            }
+                            // Correctly use ScrollConfiguration with NoScrollbarBehavior
+                            return ScrollConfiguration(
+                              behavior: const NoScrollbarBehavior(),
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                reverse: true, 
+                                padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+                                itemCount: realMessages.length,
+                                itemBuilder: (context, index) {
+                                  final message = realMessages[index];
+                                  return _buildMessageBubble(context, message, true);
+                                },
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                      ],
-                    ),
-                error:
-                    (error, stack) => Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: theme.colorScheme.error,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Erro ao carregar mensagens',
-                          style: TextStyle(
-                            color: theme.colorScheme.error,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Erro ao carregar mensagens: ${error.toString()}',
-                            style: TextStyle(
-                              color: theme.colorScheme.onBackground.withOpacity(
-                                0.6,
-                              ),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        if (kDebugMode)
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              "Conversation ID: ${widget.conversationId}",
-                              style: TextStyle(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.5),
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ElevatedButton(
-                          onPressed: () {
-                            // Force refresh by rebuilding
-                            setState(() {});
+                            );
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
+                          loading: () => Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Carregando mensagens...',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onBackground.withOpacity(
+                                    0.7,
+                                  ),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              if (kDebugMode)
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    "Loading conversation: ${widget.conversationId}",
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onBackground
+                                          .withOpacity(0.5),
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                            ],
                           ),
-                          child: Text('Tentar novamente'),
+                          error: (error, stack) => Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: theme.colorScheme.error,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Erro ao carregar mensagens',
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  'Erro ao carregar mensagens: ${error.toString()}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onBackground.withOpacity(
+                                      0.6,
+                                    ),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              if (kDebugMode)
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    "Conversation ID: ${widget.conversationId}",
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onBackground
+                                          .withOpacity(0.5),
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Force refresh by rebuilding
+                                  setState(() {});
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: theme.colorScheme.onPrimary,
+                                ),
+                                child: Text('Tentar novamente'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-              ),
+                      ),
+                      // Input area - always visible
+                      _buildMessageInput(),
+                    ],
+                  ),
+                ),
+              ],
             ),
-
-            // Input area - always visible
-            _buildMessageInput(),
-          ],
+          ),
         ),
       ),
     );
@@ -650,17 +633,15 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
     // Set bubble colors based on sender and theme
     // Use transparent background for images
-    final bubbleColor =
-        isImage
-            ? Colors.transparent
-            : isFromMe
+    final bubbleColor = isImage
+        ? Colors.transparent
+        : isFromMe
             ? theme.messageBubbleSent
             : theme.messageBubbleReceived;
 
-    final textColor =
-        isFromMe
-            ? theme.messageBubbleTextSent
-            : theme.messageBubbleTextReceived;
+    final textColor = isFromMe
+        ? theme.messageBubbleTextSent
+        : theme.messageBubbleTextReceived;
 
     // Set padding based on message type
     final contentPadding =
@@ -758,43 +739,55 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // Debug logging for image messages
       if (kDebugMode) {
         print(
-          'DEBUG: Image message detected. Raw content: ${message.content.substring(0, min(100, message.content.length))}...',
+          'DEBUG: Image message detected. Raw content: \\${message.content.substring(0, min(100, message.content.length))}...',
         );
       }
 
-      // We'll use the SafeNetworkImage widget which has specialized logic
-      // for handling Firebase Storage URLs and fallback mechanisms
+      // Modern chat image style
       return Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.6,
-          maxHeight: 200,
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: GestureDetector(
-          onTap: () {
-            // Show dialog with the image when tapped
-            showDialog(
-              context: context,
-              builder:
-                  (context) => Dialog(
-                    backgroundColor: Colors.transparent,
-                    insetPadding: const EdgeInsets.all(10),
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: SafeNetworkImage(
-                        imageUrl: message.content,
-                        fit: BoxFit.contain,
-                      ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 220,
+            maxHeight: 220,
+          ),
+          child: GestureDetector(
+            onTap: () {
+              // Show dialog with the image when tapped
+              showDialog(
+                context: context,
+                builder: (context) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.all(10),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: SafeNetworkImage(
+                      imageUrl: message.content,
+                      fit: BoxFit.contain,
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-            );
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SafeNetworkImage(
-              imageUrl: message.content,
-              fit: BoxFit.cover,
-              height: 200,
-              width: MediaQuery.of(context).size.width * 0.6,
+                ),
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SafeNetworkImage(
+                imageUrl: message.content,
+                fit: BoxFit.contain,
+                borderRadius: BorderRadius.circular(14),
+                height: 220,
+                width: 220,
+              ),
             ),
           ),
         ),
@@ -992,153 +985,99 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Widget _buildMessageInput() {
     final theme = Theme.of(context);
-    final iphoneBlue = const Color(
-      0xFF0B84FE,
-    ); // Original iPhone-like blue color
-    final iconGray = const Color(0xFF8E8E93); // iOS gray color for icons
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: Colors.transparent),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            // Camera button with gray styling
-            Container(
-              decoration: BoxDecoration(
-                color: iconGray, // Gray instead of blue
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  CupertinoIcons.camera_fill,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                onPressed:
-                    _isImageLoading
-                        ? null
-                        : () => _getImageFromSource(ImageSource.camera),
-              ),
-            ),
-
-            // Gallery button with gray styling
-            Container(
-              margin: const EdgeInsets.only(left: 8),
-              decoration: BoxDecoration(
-                color: iconGray, // Gray instead of blue
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  CupertinoIcons.photo,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                onPressed:
-                    _isImageLoading
-                        ? null
-                        : () => _getImageFromSource(ImageSource.gallery),
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Enhanced text input field - iPhone-like with light gray rounded rect
-            Expanded(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Camera button
+          Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
               child: Container(
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color:
-                      theme.brightness == Brightness.dark
-                          ? Colors.grey.shade800.withOpacity(0.5)
-                          : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(24),
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
                 ),
-                child: TextField(
-                  controller: _messageController,
-                  focusNode: _focusNode,
-                  textCapitalization: TextCapitalization.sentences,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  decoration: InputDecoration(
-                    hintText:
-                        widget.isAdminView
-                            ? 'Mensagem'
-                            : 'Envie uma mensagem para começar',
-                    hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
-                      fontSize: 16,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    border: InputBorder.none,
-                  ),
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _sendMessage(),
-                  cursorColor: iphoneBlue, // Original iPhone blue cursor
-                ),
+                child: Icon(Icons.camera_alt_outlined, size: 20, color: theme.colorScheme.onPrimary),
               ),
             ),
-
-            const SizedBox(width: 8),
-
-            // Send button with fixed size and only color animation to prevent twitching
-            _isImageLoading
-                ? Container(
-                  width: 44, // Fixed size to avoid layout shifts
-                  height: 44, // Fixed size to avoid layout shifts
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(iphoneBlue),
-                    ),
-                  ),
-                )
-                : Container(
-                  width: 44, // Fixed size to avoid layout shifts
-                  height: 44, // Fixed size to avoid layout shifts
-                  decoration: BoxDecoration(shape: BoxShape.circle),
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: TweenAnimationBuilder<Color?>(
-                      tween: ColorTween(
-                        begin: iconGray.withOpacity(0.7),
-                        end: _hasText ? iphoneBlue : iconGray.withOpacity(0.7),
-                      ),
-                      duration: const Duration(milliseconds: 150),
-                      builder:
-                          (context, color, _) => Container(
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(
-                                CupertinoIcons.arrow_up,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: _hasText ? _sendMessage : null,
-                            ),
-                          ),
-                    ),
-                  ),
+          ),
+          const SizedBox(width: 8),
+          // Gallery button
+          Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
                 ),
-          ],
-        ),
+                child: Icon(Icons.photo_outlined, size: 20, color: theme.colorScheme.onPrimary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Input + send button
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.18), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _focusNode,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface),
+                      decoration: InputDecoration(
+                        hintText: widget.isAdminView ? 'Mensagem' : 'Envie uma mensagem',
+                        hintStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        filled: false,
+                        fillColor: Colors.transparent,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                      cursorColor: theme.colorScheme.primary,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _hasText ? _sendMessage : null,
+                    icon: Icon(
+                      Icons.send_rounded,
+                      color: _hasText
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withOpacity(0.5),
+                      size: 22,
+                    ),
+                    splashRadius: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
