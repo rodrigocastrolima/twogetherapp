@@ -1,8 +1,9 @@
-import * as functions from "firebase-functions/v2"; // Use v2 imports
-// import * as admin from "firebase-admin"; // Unused import removed
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import * as logger from "firebase-functions/logger";
 import * as jsforce from "jsforce";
 import * as jwt from 'jsonwebtoken'; // <-- Add JWT import
 import axios from 'axios'; // <-- Add axios import
+//add var
 
 // Initialize Firebase Admin SDK if not already done centrally in index.ts
 // if (admin.apps.length === 0) {
@@ -10,14 +11,14 @@ import axios from 'axios'; // <-- Add axios import
 /**
  * Fetches the total all-time commission for a given reseller ID.
  */
-export const getTotalResellerCommission = functions.https.onCall(
-  { region: "europe-west1" }, // Move region into options object
-  async (request: functions.https.CallableRequest<{ resellerSalesforceId: string }>) => {
+export const getTotalResellerCommission = onCall(
+  { region: "us-central1" },
+  async (request) => {
     // Use CallableRequest and access data/auth from request object
     // 1. Authentication Check
     if (!request.auth) {
-      functions.logger.error("Authentication check failed: User is not authenticated.");
-      throw new functions.https.HttpsError(
+      logger.error("Authentication check failed: User is not authenticated.");
+      throw new HttpsError(
         "unauthenticated",
         "The function must be called while authenticated.",
       );
@@ -25,14 +26,14 @@ export const getTotalResellerCommission = functions.https.onCall(
 
     const resellerSalesforceId: string = request.data.resellerSalesforceId;
     if (!resellerSalesforceId || typeof resellerSalesforceId !== "string") {
-      functions.logger.error("Invalid argument: resellerSalesforceId is missing or invalid.", request.data);
-      throw new functions.https.HttpsError(
+      logger.error("Invalid argument: resellerSalesforceId is missing or invalid.", request.data);
+      throw new HttpsError(
         "invalid-argument",
         "The function must be called with a valid 'resellerSalesforceId' (string).",
       );
     }
 
-    functions.logger.info(`Fetching total commission for reseller: ${resellerSalesforceId}`);
+    logger.info(`Fetching total commission for reseller: ${resellerSalesforceId}`);
 
     // 2. Salesforce Connection (Using JWT Bearer Flow)
     const privateKey = process.env.SALESFORCE_PRIVATE_KEY?.replace(/\\n/g, '\n'); // <-- Use Private Key
@@ -42,8 +43,8 @@ export const getTotalResellerCommission = functions.https.onCall(
 
     // Validate that environment variables are set
     if (!privateKey || !consumerKey || !salesforceUsername) {
-        functions.logger.error("Salesforce JWT credentials are not configured in environment variables (SALESFORCE_USERNAME, SALESFORCE_CONSUMER_KEY, SALESFORCE_PRIVATE_KEY).");
-        throw new functions.https.HttpsError("internal", "Salesforce connection configuration is missing.");
+        logger.error("Salesforce JWT credentials are not configured in environment variables (SALESFORCE_USERNAME, SALESFORCE_CONSUMER_KEY, SALESFORCE_PRIVATE_KEY).");
+        throw new HttpsError("internal", "Salesforce connection configuration is missing.");
     }
 
     let conn: jsforce.Connection; // Declare conn here
@@ -53,7 +54,7 @@ export const getTotalResellerCommission = functions.https.onCall(
         const tokenEndpoint = "https://login.salesforce.com/services/oauth2/token"; // Standard endpoint
         const audience = "https://login.salesforce.com"; // Standard audience
 
-        functions.logger.debug('getTotalResellerCommission: Generating JWT for Salesforce...');
+        logger.debug('getTotalResellerCommission: Generating JWT for Salesforce...');
         const claim = {
             iss: consumerKey,
             sub: salesforceUsername,
@@ -62,7 +63,7 @@ export const getTotalResellerCommission = functions.https.onCall(
         };
         const token = jwt.sign(claim, privateKey, { algorithm: 'RS256' });
 
-        functions.logger.debug('getTotalResellerCommission: Requesting Salesforce access token...');
+        logger.debug('getTotalResellerCommission: Requesting Salesforce access token...');
         const tokenResponse = await axios.post(tokenEndpoint, new URLSearchParams({
             grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             assertion: token,
@@ -73,11 +74,11 @@ export const getTotalResellerCommission = functions.https.onCall(
         const { access_token, instance_url } = tokenResponse.data;
 
         if (!access_token || !instance_url) {
-            functions.logger.error('getTotalResellerCommission: Failed to retrieve access token or instance URL.', tokenResponse.data);
-            throw new functions.https.HttpsError('internal', 'Salesforce JWT authentication failed: Missing token/URL.');
+            logger.error('getTotalResellerCommission: Failed to retrieve access token or instance URL.', tokenResponse.data);
+            throw new HttpsError('internal', 'Salesforce JWT authentication failed: Missing token/URL.');
         }
 
-        functions.logger.info(`getTotalResellerCommission: Salesforce JWT authentication successful. Instance: ${instance_url}`);
+        logger.info(`getTotalResellerCommission: Salesforce JWT authentication successful. Instance: ${instance_url}`);
 
         // Create jsforce connection with obtained token and URL
         conn = new jsforce.Connection({
@@ -98,7 +99,7 @@ export const getTotalResellerCommission = functions.https.onCall(
 
         // Validate resellerSalesforceId format before using (basic example)
         if (!/^[a-zA-Z0-9]{15,18}$/.test(resellerSalesforceId)) {
-          throw new functions.https.HttpsError("invalid-argument", "Invalid reseller Salesforce ID format.");
+          throw new HttpsError("invalid-argument", "Invalid reseller Salesforce ID format.");
         }
         // Validate acceptedStatusValue if it comes from input
 
@@ -109,12 +110,12 @@ export const getTotalResellerCommission = functions.https.onCall(
             AND ${relationshipPathToStatus}.${statusFieldApiName} = '${acceptedStatusValue}'
         `; // Removed conn.escape as SF ID is validated by regex
 
-        functions.logger.info(`Executing SOQL: ${soql}`);
+        logger.info(`Executing SOQL: ${soql}`);
 
         // 4. Execute Query (Keep existing logic)
         const result = await conn.query<{ totalCommission: number | null }>(soql);
 
-        functions.logger.info("SOQL Result:", JSON.stringify(result));
+        logger.info("SOQL Result:", JSON.stringify(result));
 
         // 5. Parse Result (Keep existing logic)
         let totalCommission = 0.0;
@@ -128,34 +129,34 @@ export const getTotalResellerCommission = functions.https.onCall(
             if (typeof rawSum === 'number') {
                 totalCommission = rawSum;
             } else {
-                functions.logger.warn(`Received non-numeric sum from SOQL: ${rawSum}`);
+                logger.warn(`Received non-numeric sum from SOQL: ${rawSum}`);
             }
         }
 
-        functions.logger.info(`Calculated total commission: ${totalCommission}`);
+        logger.info(`Calculated total commission: ${totalCommission}`);
 
         // 6. Return Success (Keep existing logic)
         return { success: true, totalCommission: totalCommission };
 
     } catch (error: any) {
-        functions.logger.error("Error fetching total commission:", error);
+        logger.error("Error fetching total commission:", error);
         // Logout is not needed with JWT flow as tokens are short-lived
 
         // Throw an HttpsError for the client
-        if (error instanceof functions.https.HttpsError) throw error; // Rethrow if already HttpsError
+        if (error instanceof HttpsError) throw error; // Rethrow if already HttpsError
 
         // Handle Axios errors specifically if needed
         if (axios.isAxiosError(error)) {
             let detailedErrorMessage = `Salesforce API request failed: ${error.message}`;
              if (error.response?.data) {
-                 functions.logger.error("Salesforce API Error Response:", error.response.data);
+                 logger.error("Salesforce API Error Response:", error.response.data);
                  detailedErrorMessage += ` - ${error.response.data.error_description || error.response.data.error || JSON.stringify(error.response.data)}`;
              }
-             throw new functions.https.HttpsError("internal", detailedErrorMessage, error.response?.data);
+             throw new HttpsError("internal", detailedErrorMessage, error.response?.data);
         }
 
         // General internal error
-        throw new functions.https.HttpsError(
+        throw new HttpsError(
             "internal",
             `Failed to fetch total commission: ${error.message || error}`,
             error

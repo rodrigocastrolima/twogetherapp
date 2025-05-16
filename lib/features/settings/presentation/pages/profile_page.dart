@@ -199,20 +199,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _errorMessage != null
-                    ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(color: AppTheme.destructive),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                    : _buildProfileContent(theme),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _errorMessage != null
+              ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: AppTheme.destructive),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+              : _buildProfileContent(theme),
               ],
             ),
           ),
@@ -420,30 +420,30 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         color: theme.colorScheme.surface,
         elevation: 2,
         borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
+          child: InkWell(
+            onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            child: Row(
-              children: [
+              child: Row(
+                children: [
                 Icon(icon, color: theme.colorScheme.primary, size: 22),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: onSurfaceColor,
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
+                  Icon(
+                    Icons.chevron_right,
                   color: onSurfaceColor.withOpacity(0.5),
-                  size: 20,
-                ),
-              ],
+                    size: 20,
+                  ),
+                ],
             ),
           ),
         ),
@@ -520,42 +520,42 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         color: theme.colorScheme.surface,
         elevation: 0,
         borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: theme.colorScheme.primary.withOpacity(0.7),
-                size: 22,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: theme.colorScheme.primary.withOpacity(0.7),
+                  size: 22,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: onBackground.withOpacity(0.6),
                         fontWeight: FontWeight.normal,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value,
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w500,
                         color: onBackground,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
           ),
         ),
       ),

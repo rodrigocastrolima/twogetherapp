@@ -4,15 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'dart:math';
+// import 'package:fl_chart/fl_chart.dart'; // Removed
+// import 'dart:math'; // Removed
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/notification.dart';
 import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
-import '../../../core/theme/ui_styles.dart'; // Import AppStyles
+// import '../../../core/theme/ui_styles.dart'; // Removed
 
 class AdminHomePage extends ConsumerStatefulWidget {
   const AdminHomePage({super.key});
@@ -23,7 +23,8 @@ class AdminHomePage extends ConsumerStatefulWidget {
 
 class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   // State for the time filter
-  TimeFilter _selectedTimeFilter = TimeFilter.monthly; // Default to monthly
+  // TimeFilter _selectedTimeFilter = TimeFilter.monthly; // Removed
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -55,262 +56,107 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // final bool isDarkMode = theme.brightness == Brightness.dark;
-    // final Color pageBackgroundColor = isDarkMode ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface, // Use theme surface color
-      // appBar: AppBar( // AppBar removed
-      //   backgroundColor: pageBackgroundColor, 
-      //   elevation: 0,
-      //   scrolledUnderElevation: 0.0, // Ensure no color change on scroll
-      //   title: null,
-      //   automaticallyImplyLeading: false,
-      //   actions: [
-      //     _buildDropboxButton(context),
-      //     const SizedBox(width: 16),
-      //   ],
-      // ),
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
-        child: ScrollConfiguration(
-          behavior: const NoScrollbarBehavior(), // Custom ScrollBehavior to hide scrollbar
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                _buildPageHeader(context), // Renamed and modified header
-            const SizedBox(height: 24),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth >= 768) { // Desktop / Wide screen layout
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2, // Give more space to activity
-                            child: _buildRecentActivitySection(context),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            flex: 1,
-                            child: Column( // Column for Dropbox and future items
-                              crossAxisAlignment: CrossAxisAlignment.end, // Align Dropbox to the right
-                              children: [
-                                _buildDropboxButton(context),
-                                // Add other widgets for the right column here if needed
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    } else { // Mobile / Narrow screen layout
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildDropboxButton(context), // Dropbox button at the top for mobile
-                          const SizedBox(height: 16), 
-                          _buildRecentActivitySection(context), // Activity below Dropbox
-                        ],
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPageHeader(BuildContext context) { // Renamed from _buildSubmissionsHeader
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 4.0),
-      child: Text(
-        'Início', // Changed title
-        style: theme.textTheme.headlineMedium?.copyWith(
-          color: theme.colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentActivitySection(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16.0, left: 4.0, right: 4.0), // Consistent padding
-          child: Text(
-            'Atividade Recente',
-            style: theme.textTheme.titleLarge?.copyWith( // Adjusted style for subsection
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        _buildNotificationsList(context),
-      ],
-    );
-  }
-
-  Widget _buildDropboxButton(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool isDarkMode = theme.brightness == Brightness.dark;
-
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Adjusted padding for a page button
-      color: isDarkMode 
-          ? theme.colorScheme.surfaceContainerHighest // Use M3 equivalent
-          : theme.colorScheme.secondaryContainer, // Use M3 equivalent
-      borderRadius: BorderRadius.circular(12), // Standard Apple-like border radius
-      onPressed: () {
-        context.push('/admin/providers');
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            CupertinoIcons.cloud_download,
-            size: 18, // Smaller icon
-            color: isDarkMode 
-                ? Colors.white 
-                : const Color(0xFF000000),
-          ),
-          const SizedBox(width: 6), // Smaller spacing
-          Text(
-            'Dropbox',
-            style: theme.textTheme.labelMedium?.copyWith( // Smaller text style
-              fontWeight: FontWeight.w500,
-              color: isDarkMode 
-                  ? Colors.white 
-                  : const Color(0xFF000000),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationsList(BuildContext context) {
-    final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
-    final notificationActions = ref.read(notificationActionsProvider);
-    final theme = Theme.of(context);
-
-    return notificationsStream.when(
-      data: (notifications) {
-        if (notifications.isEmpty) {
-          return Center(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    CupertinoIcons.bell_slash,
-                    size: 48,
-                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
-                  ),
-                  const SizedBox(height: 16),
+                  // --- Ações Rápidas ---
                   Text(
-                    'Nenhuma Atividade Recente',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
+                    'Ações Rápidas',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
-          ],
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 24,
+                    runSpacing: 16,
+                        children: [
+                      _quickActionCard( // Renamed
+                        icon: CupertinoIcons.cloud_download,
+                        label: 'Dropbox',
+                        onTap: () => context.push('/admin/providers'),
+                      ),
+                      _quickActionCard( // Renamed
+                        icon: CupertinoIcons.add_circled_solid,
+                        label: 'Nova Oportunidade',
+                        onTap: () {
+                          // TODO: Implement Nova Oportunidade
+                        },
+                            ),
+                          ],
+                        ),
+                  const SizedBox(height: 40),
+                  // --- Notificações ---
+                            Text(
+                    'Notificações',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Builder( // Removed SizedBox(height: 500) around this Builder
+                    builder: (context) {
+                      return _buildNotificationsList(context);
+                    },
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
 
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(0),
-          itemCount: notifications.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final notification = notifications[index];
-            return _buildNotificationCard(
-              context,
-              notification,
-              onTap: () => _handleAdminNotificationTap(
-                context,
-                notification,
-                notificationActions,
-              ),
-            );
-          },
-        );
-      },
-      loading: () => Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: CupertinoActivityIndicator(),
-        ),
-      ),
-      error: (error, stackTrace) => Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.errorContainer.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              CupertinoIcons.exclamationmark_triangle,
-              size: 48,
-              color: theme.colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Falha ao carregar atividade',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error.toString(),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onErrorContainer.withOpacity(0.8),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            CupertinoButton(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(20),
-              child: Text(
-                'Tentar Novamente',
+  // --- Quick Action Card (copied from reseller_home_page.dart) ---
+  Widget _quickActionCard({ // Renamed
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: 170,
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 36, color: theme.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: theme.colorScheme.onPrimary,
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
+                  ),
+                ],
               ),
-              onPressed: () {
-                refreshAdminNotifications(ref);
-              },
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
+  // --- Notification Card (Material style, like reseller home) ---
   Widget _buildNotificationCard(
     BuildContext context,
     UserNotification notification, {
@@ -320,143 +166,118 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     final dateFormatter = DateFormat.yMd('pt_PT').add_jm();
     final formattedDate = dateFormatter.format(notification.createdAt);
     final resellerName = notification.metadata['resellerName'] ?? 'Revendedor Desconhecido';
-    
-    // Determine the second part of the subtitle based on notification type
     String secondarySubtitleText = '?';
     if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
       secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
     } else if (notification.type == NotificationType.newSubmission) {
       secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
     } else {
-      secondarySubtitleText = notification.metadata['clientName'] ?? '?'; 
+      secondarySubtitleText = notification.metadata['clientName'] ?? '?';
     }
-
     final isNew = !notification.isRead;
-
     IconData itemIcon = CupertinoIcons.doc_plaintext;
     Color iconColor;
-
-    // Icon and color logic
     switch (notification.type) {
       case NotificationType.newSubmission:
         itemIcon = CupertinoIcons.doc_on_doc_fill;
-        iconColor = const Color(0xFF3B82F6); // Blue
+        iconColor = const Color(0xFF3B82F6);
         break;
       case NotificationType.statusChange:
         itemIcon = CupertinoIcons.arrow_swap;
-        iconColor = const Color(0xFFF59E0B); // Amber
+        iconColor = const Color(0xFFF59E0B);
         break;
-      case NotificationType.rejection: 
+      case NotificationType.rejection:
         itemIcon = CupertinoIcons.xmark_circle_fill;
-        iconColor = const Color(0xFFEF4444); // Red
+        iconColor = const Color(0xFFEF4444);
         break;
       case NotificationType.proposalRejected:
         itemIcon = CupertinoIcons.hand_thumbsdown_fill;
-        iconColor = const Color(0xFFEF4444); // Red
+        iconColor = const Color(0xFFEF4444);
         break;
-      case NotificationType.proposalAccepted: 
-        itemIcon = CupertinoIcons.check_mark_circled_solid; 
-        iconColor = const Color(0xFF10B981); // Green
+      case NotificationType.proposalAccepted:
+        itemIcon = CupertinoIcons.check_mark_circled_solid;
+        iconColor = const Color(0xFF10B981);
         break;
       default:
         itemIcon = CupertinoIcons.bell_fill;
-        iconColor = const Color(0xFF6B7280); // Gray
+        iconColor = const Color(0xFF6B7280);
     }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.brightness == Brightness.dark 
-            ? const Color(0xFF1C1C1E) 
-            : const Color(0xFFF5F5F7),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withAlpha((255 * (theme.brightness == Brightness.dark ? 0.2 : 0.1)).round()), // Updated withAlpha
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+        child: Icon(itemIcon, size: 20, color: iconColor),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0), // Reduced padding
-      child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center, // Center items vertically
-              children: [
-                // Leading avatar with improved styling
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Icon(itemIcon, size: 20, color: iconColor),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                
-                // Title and subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-                        notification.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 14, // Slightly smaller for mobile
-                        ),
-                        maxLines: 1, // Ensure single line
-                        overflow: TextOverflow.ellipsis, // Add ellipsis
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$resellerName / $secondarySubtitleText',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 12, // Slightly smaller for mobile
-                        ),
-                        maxLines: 1, // Ensure single line
-                        overflow: TextOverflow.ellipsis, // Add ellipsis
-          ),
-        ],
-                  ),
-                ),
-                
-                // Trailing date and unread indicator
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      formattedDate,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11, // Slightly smaller for mobile
-                      ),
-                    ),
-                    if (isNew) const SizedBox(height: 4),
-                    if (isNew)
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: iconColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+        notification.title,
+        style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
+          color: theme.colorScheme.onSurface,
+                        fontSize: 14,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$resellerName / $secondarySubtitleText',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
                   ],
                 ),
-              ],
+              ),
+              Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            formattedDate,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 11,
             ),
+          ),
+          if (isNew) const SizedBox(height: 4),
+          if (isNew)
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                        color: iconColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
+      ),
+            ],
           ),
         ),
       ),
@@ -474,7 +295,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
       print("Notification ID: ${notification.id}");
       print("Notification Type: ${notification.type}");
     }
-    
+
     await actions.markAsRead(notification.id);
 
     // Navigate based on type
@@ -526,9 +347,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   ) async {
     try {
       final docSnapshot = await FirebaseFirestore.instance
-          .collection('serviceSubmissions')
-          .doc(submissionId)
-          .get();
+              .collection('serviceSubmissions')
+              .doc(submissionId)
+              .get();
 
       if (!context.mounted) return;
 
@@ -556,632 +377,80 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     }
   }
 
-  Widget _buildStatisticsSection(BuildContext context) {
+  Widget _buildNotificationsList(BuildContext context) {
+    final notificationsStream = ref.watch(refreshableAdminSubmissionsProvider);
+    final notificationActions = ref.read(notificationActionsProvider);
     final theme = Theme.of(context);
 
-    // Navigation action for the icon button
-    void navigateToDetails() {
-      context.push(
-        '/admin/stats-detail',
-        extra: {'timeFilter': _selectedTimeFilter},
-      );
-    }
-
-    // Build the single card section
-    return Column(
-      // Main column for the whole section
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // --- Header Row: Title, Filter (Moved outside card) ---
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Estatísticas',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              Row(
-                children: [
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<TimeFilter>(
-                      value: _selectedTimeFilter,
-                      icon: Icon(
-                        CupertinoIcons.chevron_down,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      elevation: 2,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      dropdownColor:
-                          theme
-                              .colorScheme
-                              .surfaceContainerHighest, // Updated deprecated
-                      borderRadius: BorderRadius.circular(8),
-                      items:
-                          TimeFilter.values.map((TimeFilter filter) {
-                            String text;
-                            switch (filter) {
-                              case TimeFilter.weekly:
-                                text = 'Semanal';
-                                break;
-                              case TimeFilter.monthly:
-                                text = 'Mensal';
-                                break;
-                              case TimeFilter.cycle:
-                                text = 'Ciclo';
-                                break;
-                            }
-                            return DropdownMenuItem<TimeFilter>(
-                              value: filter,
-                              child: Text(text),
-                            );
-                          }).toList(),
-                      onChanged: (TimeFilter? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedTimeFilter = newValue;
-                            // TODO: Trigger data refresh for charts
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // --- Card containing charts and expand icon ---
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Card(
-            elevation: 2,
-            shadowColor: theme.shadowColor.withAlpha(26), // Use withAlpha
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            color: theme.colorScheme.surface,
+    return notificationsStream.when(
+      data: (notifications) {
+        if (notifications.isEmpty) {
+          return Center(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Expand icon aligned to top right
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      minSize: 0,
-                      child: Icon(
-                        CupertinoIcons.arrow_up_left_arrow_down_right,
-                        size: 18,
-                        color: theme.colorScheme.primary,
-                      ),
-                      onPressed: navigateToDetails,
-                    ),
-                  ),
-                  const SizedBox(height: 8), // Space below icon
-                  // --- Chart Area: Conditional Layout ---
-                  if (kIsWeb) // Web layout: Side-by-side charts
-                    SizedBox(
-                      height: 300, // Define height for the web chart row
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Submissões',
-                                  style: theme.textTheme.titleSmall,
-                                ),
-                                const SizedBox(height: 8),
-                                Expanded(
-                                  child: _buildSubmissionsChart(
-                                    context,
-                                    _selectedTimeFilter,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Receita Estimada',
-                                  style: theme.textTheme.titleSmall,
-                                ),
-                                const SizedBox(height: 8),
-                                Expanded(
-                                  child: _buildRevenueChart(
-                                    context,
-                                    _selectedTimeFilter,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else // Mobile layout: Stacked charts
-                    Column(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Submissões',
-                              style: theme.textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 8),
-                            AspectRatio(
-                              aspectRatio: 1.8,
-                              child: _buildSubmissionsChart(
-                                context,
-                                _selectedTimeFilter,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Receita Estimada',
-                              style: theme.textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 8),
-                            AspectRatio(
-                              aspectRatio: 1.8,
-                              child: _buildRevenueChart(
-                                context,
-                                _selectedTimeFilter,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubmissionsChart(BuildContext context, TimeFilter filter) {
-    final theme = Theme.of(context);
-    int days = 30;
-    String bottomTitleInterval = 'D'; // D for Day number
-    if (filter == TimeFilter.weekly) {
-      days = 7;
-      bottomTitleInterval = 'DS'; // DS for Dia da Semana (Weekday initial)
-    }
-    if (filter == TimeFilter.cycle) {
-      days = 90;
-      bottomTitleInterval = 'S#'; // S# for Semana Número (Week Number)
-    }
-    final spots = _generatePlaceholderSpots(days, 50);
-    double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
-    double interval = (days / 5).ceilToDouble(); // Show ~5 labels
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: true,
-          horizontalInterval: 10,
-          verticalInterval: interval, // Align vertical lines with bottom titles
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: theme.dividerColor.withAlpha(26), // Use withAlpha
-              strokeWidth: 1,
-            );
-          },
-          getDrawingVerticalLine: (value) {
-            return FlLine(
-              color: theme.dividerColor.withAlpha(26), // Use withAlpha
-              strokeWidth: 1,
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: interval,
-              getTitlesWidget:
-                  (value, meta) => _bottomTitleWidgets(
-                    value,
-                    meta,
-                    days,
-                    bottomTitleInterval,
-                    theme,
-                  ),
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 10, // Adjust interval based on maxY
-              getTitlesWidget:
-                  (value, meta) => _leftTitleWidgets(value, meta, theme),
-              reservedSize: 42,
-            ),
-          ),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(
-            color: theme.dividerColor.withAlpha(51), // Use withAlpha
-            width: 1,
-          ),
-        ),
-        minX: 0,
-        maxX: maxX,
-        minY: 0,
-        maxY: 60,
-        lineTouchData: LineTouchData(
-          // Add touch data
-          touchTooltipData: LineTouchTooltipData(
-            tooltipRoundedRadius: 8,
-            tooltipPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            tooltipMargin: 8,
-            getTooltipColor: (LineBarSpot spot) {
-              return theme.colorScheme.primaryContainer.withOpacity(0.9);
-            },
-            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-              return touchedBarSpots.map((barSpot) {
-                final flSpot = barSpot;
-                return LineTooltipItem(
-                  flSpot.y.toStringAsFixed(0), // Show integer value
-                  TextStyle(
-                    color: theme.colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: theme.colorScheme.primary,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: theme.colorScheme.primary.withAlpha(51), // Use withAlpha
-            ),
-          ),
-        ],
-      ),
-      duration: const Duration(milliseconds: 250),
-    );
-  }
-
-  Widget _buildRevenueChart(BuildContext context, TimeFilter filter) {
-    final theme = Theme.of(context);
-    int days = 30;
-    String bottomTitleInterval = 'D';
-    if (filter == TimeFilter.weekly) {
-      days = 7;
-      bottomTitleInterval = 'DS';
-    }
-    if (filter == TimeFilter.cycle) {
-      days = 90;
-      bottomTitleInterval = 'S#';
-    }
-    final spots = _generatePlaceholderSpots(days, 5000, isDouble: true);
-    double maxX = (spots.isNotEmpty ? spots.length - 1 : 0).toDouble();
-    double interval = (days / 5).ceilToDouble();
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: true,
-          horizontalInterval: 1000,
-          verticalInterval: interval,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: theme.dividerColor.withAlpha(26), // Use withAlpha
-              strokeWidth: 1,
-            );
-          },
-          getDrawingVerticalLine: (value) {
-            return FlLine(
-              color: theme.dividerColor.withAlpha(26), // Use withAlpha
-              strokeWidth: 1,
-            );
-          },
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: interval,
-              getTitlesWidget:
-                  (value, meta) => _bottomTitleWidgets(
-                    value,
-                    meta,
-                    days,
-                    bottomTitleInterval,
-                    theme,
-                  ),
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: 1000, // Adjust based on maxY
-              getTitlesWidget:
-                  (value, meta) => _leftTitleWidgets(
-                    value,
-                    meta,
-                    theme,
-                    isCurrency: true,
-                  ), // Format as currency
-              reservedSize: 42,
-            ),
-          ),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(
-            color: theme.dividerColor.withAlpha(51), // Use withAlpha
-            width: 1,
-          ),
-        ),
-        minX: 0,
-        maxX: maxX,
-        minY: 0,
-        maxY: 6000,
-        lineTouchData: LineTouchData(
-          // Add touch data
-          touchTooltipData: LineTouchTooltipData(
-            tooltipRoundedRadius: 8,
-            tooltipPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            tooltipMargin: 8,
-            getTooltipColor: (LineBarSpot spot) {
-              return theme.colorScheme.secondaryContainer.withOpacity(0.9);
-            },
-            getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-              return touchedBarSpots.map((barSpot) {
-                final flSpot = barSpot;
-                // Format as currency for tooltip
-                final currencyFormatter = NumberFormat.simpleCurrency(
-                  decimalDigits: 0,
-                  locale: 'pt_PT', // Assuming Portuguese (Portugal)
-                );
-                String tooltipText = currencyFormatter.format(flSpot.y);
-                return LineTooltipItem(
-                  tooltipText,
-                  TextStyle(
-                    color: theme.colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              }).toList();
-            },
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: Colors.green,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: Colors.green.withAlpha(51), // Use withAlpha
-            ),
-          ),
-        ],
-      ),
-      duration: const Duration(milliseconds: 250),
-    );
-  }
-
-  List<FlSpot> _generatePlaceholderSpots(
-    int count,
-    double maxVal, {
-    bool isDouble = false,
-  }) {
-    if (count <= 0) return []; // Handle zero or negative count
-    final random = Random();
-    return List.generate(count, (index) {
-      double yValue =
-          isDouble
-              ? random.nextDouble() * maxVal
-              : random.nextInt(maxVal.toInt()).toDouble();
-      yValue = yValue * (1 + (index / (count * 2)));
-      // Ensure value is not negative and clamp upper bound
-      yValue = yValue.clamp(0, maxVal * 1.2);
-      return FlSpot(index.toDouble(), yValue);
-    });
-  }
-
-  // --- Helper Functions for Chart Titles ---
-
-  Widget _bottomTitleWidgets(
-    double value,
-    TitleMeta meta,
-    int totalDays,
-    String intervalType,
-    ThemeData theme,
-  ) {
-    final style = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    String text;
-    int dayIndex = value.toInt();
-
-    // Prevent labels outside the data range
-    if (dayIndex < 0 || dayIndex >= totalDays) {
-      return Container();
-    }
-
-    // Use 'pt_PT' for Portuguese date formatting
-    final locale = 'pt_PT';
-
-    switch (intervalType) {
-      case 'DS': // Weekly - Day Initials (Dia da Semana)
-        DateTime date = DateTime.now().subtract(
-          Duration(days: totalDays - 1 - dayIndex),
-        );
-        text = DateFormat.E(locale).format(date)[0].toUpperCase(); 
-        break;
-      case 'S#': // Cycle - Week Number (Semana Número)
-        int weekNumber = (dayIndex / 7).floor() + 1;
-        text = 'S$weekNumber';
-        break;
-      case 'D': // Monthly - Day Number
-      default:
-        text = (dayIndex + 1).toString(); // Day 1, Day 2...
-        break;
-    }
-
-    return SideTitleWidget(
-      meta: meta, // Reverted to meta
-      space: 8.0,
-      child: Text(text, style: style),
-    );
-  }
-
-  Widget _leftTitleWidgets(
-    double value,
-    TitleMeta meta,
-    ThemeData theme, {
-    bool isCurrency = false,
-  }) {
-    final style = theme.textTheme.labelSmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    String text;
-    if (value == meta.max || value == meta.min) {
-      return Container(); // Avoid labels at min/max Y if they overlap border
-    }
-    if (isCurrency) {
-      final currencyFormatter = NumberFormat.compactSimpleCurrency(
-        decimalDigits: 0,
-        locale: 'pt_PT', // Assuming Portuguese (Portugal)
-      );
-      text = currencyFormatter.format(value);
-    } else {
-      text = value.toInt().toString();
-    }
-
-    return SideTitleWidget(
-      meta: meta, // Reverted to meta
-      space: 8.0,
-      child: Text(text, style: style, textAlign: TextAlign.left),
-    );
-  }
-
-  // --- NEW: Provider Resources Section Widget ---
-  Widget _buildProviderResourcesSection(BuildContext context, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(vertical: 48.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            'Recursos do Fornecedor',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
+                  Icon(
+                    CupertinoIcons.bell_slash,
+                    size: 48,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
           ),
           const SizedBox(height: 16),
-          Card(
-            elevation: 2,
-            shadowColor: theme.shadowColor.withAlpha(26),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            color: theme.colorScheme.surface,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                context.push('/admin/providers'); // Navigate to provider list
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Icon(
-                      CupertinoIcons.folder_fill,
-                      color: theme.colorScheme.primary,
-                      size: 28,
+                  Text(
+                    'Nenhuma Atividade Recente',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Gerir Documentos do Fornecedor',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      CupertinoIcons.chevron_right,
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                        0.6,
-                      ),
-                      size: 20,
                     ),
                   ],
                 ),
               ),
+          );
+        }
+        final totalPages = (notifications.length / 6).ceil(); // Assuming you want to keep 6 items per page
+        final pageNotifications = notifications.skip(_currentPage * 6).take(6).toList(); // Assuming you want to keep 6 items per page
+        return Column(
+          children: [
+            ListView.separated(
+              shrinkWrap: true, 
+              physics: const NeverScrollableScrollPhysics(), 
+              padding: const EdgeInsets.all(0),
+              itemCount: pageNotifications.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final notification = pageNotifications[index];
+                return _buildNotificationCard(context, notification, onTap: () => _handleAdminNotificationTap(context, notification, notificationActions));
+              },
             ),
+            const SizedBox(height: 16),
+            if (totalPages > 1)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                    onPressed: _currentPage > 0
+                        ? () => setState(() => _currentPage--)
+                        : null,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text('${_currentPage + 1} / $totalPages', style: theme.textTheme.bodyMedium),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                    onPressed: _currentPage < totalPages - 1
+                        ? () => setState(() => _currentPage++)
+                        : null,
           ),
         ],
       ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
     );
   }
 

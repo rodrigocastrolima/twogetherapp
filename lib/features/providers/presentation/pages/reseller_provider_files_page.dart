@@ -65,12 +65,12 @@ class ResellerProviderFilesPage extends ConsumerWidget {
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 32.0, 16.0, 24.0),
+                padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
                 child: Text(
                   providerName, // Display the provider name
                   style: theme.textTheme.headlineSmall?.copyWith(
@@ -82,90 +82,85 @@ class ResellerProviderFilesPage extends ConsumerWidget {
               ),
               Expanded(
                 child: filesAsyncValue.when(
-                  data: (files) {
-                    if (files.isEmpty) {
-                      return const Center(
+        data: (files) {
+          if (files.isEmpty) {
+            return const Center(
                         child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'),
-                      );
-                    }
-                    return ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8.0),
-                      itemCount: files.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 20),
-                      itemBuilder: (context, index) {
-                        final file = files[index];
-                        return _buildFileListCard(context, file, theme);
-                      },
-                    );
-                  },
-                  loading: () => const Center(child: CupertinoActivityIndicator()),
+            );
+          }
+          return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            itemCount: files.length,
+            itemBuilder: (context, index) {
+              final file = files[index];
+                        return _buildFileListItem(context, file, theme);
+            },
+          );
+        },
+        loading: () => const Center(child: CupertinoActivityIndicator()),
                   error: (error, stack) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                       child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center),
                     ),
                   ),
                 ),
-              ),
+                ),
             ],
-          ),
-        ),
+              ),
+            ),
       ),
     );
   }
 
-  Widget _buildFileListCard(BuildContext context, ProviderFile file, ThemeData theme) {
+  Widget _buildFileListItem(BuildContext context, ProviderFile file, ThemeData theme) {
     final fileIcon = _getFileIcon(file.fileType);
-    final isDark = theme.brightness == Brightness.dark;
-    return Material(
-      color: Colors.white,
-      elevation: 3,
-      borderRadius: BorderRadius.circular(14.0),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14.0),
-        onTap: () => _handleFileTap(context, file),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 18.0),
-          child: Row(
-            children: [
-              Icon(fileIcon, color: theme.colorScheme.primary, size: 36),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      file.fileName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+
+    return InkWell(
+      onTap: () => _handleFileTap(context, file),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    file.fileName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
                     ),
-                    if (file.description.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          file.description,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (file.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0),
+                      child: Text(
+                        file.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Icon(
-                CupertinoIcons.chevron_forward,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-                size: 22,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              CupertinoIcons.chevron_forward,
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

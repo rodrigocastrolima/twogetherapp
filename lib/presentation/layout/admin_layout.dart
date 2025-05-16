@@ -284,9 +284,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     int currentIndex,
     int unreadCount,
   ) {
-    // Use standard theme surface color
-    final Color sidebarBackgroundColor = Theme.of(context).colorScheme.surface;
+    final theme = Theme.of(context);
+    final Color sidebarBackgroundColor = theme.colorScheme.surface;
     final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color tulipTreeColor = Color(0xFFffbe45);
 
     return Positioned(
       top: 0,
@@ -298,52 +299,59 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
           filter: AppStyles.standardBlur,
           child: Container(
             decoration: BoxDecoration(
-              color: sidebarBackgroundColor.withAlpha((255 * 0.8).round()),
+              color: sidebarBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(2, 0),
+                ),
+              ],
               border: Border(
                 right: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).dividerColor.withAlpha((255 * 0.1).round()),
+                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
+                  width: 0.5,
                 ),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
-                // Replace text with logo
+                const SizedBox(height: 32),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Center(
-                    // Always use the light logo, regardless of theme mode
-                    child: LogoWidget(height: 60, darkMode: false),
+                    child: LogoWidget(height: 72, darkMode: isDark),
                   ),
                 ),
-                const SizedBox(height: 32),
-                // Navigation items
+                const SizedBox(height: 40),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(
                       vertical: 16,
-                      horizontal: 12,
+                      horizontal: 16,
                     ),
                     children: [
                       _buildSidebarItem(
                         icon: CupertinoIcons.house,
-                        label: 'Dashboard',
+                        label: 'Início',
                         isSelected: currentIndex == 0,
                         onTap: () => _handleNavigation(0),
                         textColor: textColor,
+                        tulipTreeColor: tulipTreeColor,
+                        theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.graph_square,
                         label: 'Oportunidades',
                         isSelected: currentIndex == 3,
                         onTap: () => _handleNavigation(3),
                         textColor: textColor,
+                        tulipTreeColor: tulipTreeColor,
+                        theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.bubble_left,
                         label: 'Mensagens',
@@ -351,22 +359,28 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         onTap: () => _handleNavigation(1),
                         badgeCount: unreadCount,
                         textColor: textColor,
+                        tulipTreeColor: tulipTreeColor,
+                        theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.person_2,
                         label: 'Revendedores',
                         isSelected: currentIndex == 4,
                         onTap: () => _handleNavigation(4),
                         textColor: textColor,
+                        tulipTreeColor: tulipTreeColor,
+                        theme: theme,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildSidebarItem(
                         icon: CupertinoIcons.settings,
-                        label: 'Configurações',
+                        label: 'Definições',
                         isSelected: currentIndex == 2,
                         onTap: () => _handleNavigation(2),
                         textColor: textColor,
+                        tulipTreeColor: tulipTreeColor,
+                        theme: theme,
                       ),
                     ],
                   ),
@@ -386,60 +400,70 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     required VoidCallback onTap,
     int badgeCount = 0,
     required Color textColor,
+    required Color tulipTreeColor,
+    required ThemeData theme,
   }) {
-    final Color tulipTreeColor = Color(0xFFffbe45);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      decoration: isSelected ? AppStyles.activeItemHighlight(context) : null,
+      decoration: isSelected
+          ? BoxDecoration()
+          : null,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: 14)
+                .copyWith(left: isSelected ? 0 : 16, right: 16),
             child: Row(
               children: [
+                if (isSelected)
+                  Container(
+                    width: 5,
+                    height: 36,
+                    margin: const EdgeInsets.only(right: 14),
+                    decoration: BoxDecoration(
+                      color: tulipTreeColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                if (!isSelected)
+                  const SizedBox(width: 19), // 5 (bar) + 14 (gap) for alignment
                 isSelected
                     ? ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          colors: [
-                            tulipTreeColor,
-                            tulipTreeColor.withRed(
-                              (tulipTreeColor.red + 15).clamp(0, 255),
-                            ),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds);
-                      },
-                      child: Icon(icon, size: 20),
-                    )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 20),
-                const SizedBox(width: 12),
+                        blendMode: BlendMode.srcIn,
+                        shaderCallback: (Rect bounds) {
+                          return LinearGradient(
+                            colors: [
+                              tulipTreeColor,
+                              tulipTreeColor.withRed(
+                                (tulipTreeColor.red + 15).clamp(0, 255),
+                              ),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds);
+                        },
+                        child: Icon(icon, size: 22),
+                      )
+                    : Icon(icon, color: textColor.withOpacity(0.7), size: 22),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      color:
-                          isSelected
-                              ? tulipTreeColor
-                              : textColor.withOpacity(0.7),
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w400,
-                      shadows:
-                          isSelected
-                              ? [
-                                Shadow(
-                                  color: tulipTreeColor.withOpacity(0.3),
-                                  blurRadius: 2.0,
-                                ),
-                              ]
-                              : null,
+                      color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 15,
+                      shadows: isSelected
+                          ? [
+                              Shadow(
+                                color: tulipTreeColor.withOpacity(0.3),
+                                blurRadius: 2.0,
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
                 ),
@@ -447,7 +471,17 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                   Container(
                     width: AppStyles.badgeSize,
                     height: AppStyles.badgeSize,
-                    decoration: AppStyles.notificationBadge,
+                    decoration: BoxDecoration(
+                      color: tulipTreeColor,
+                      borderRadius: BorderRadius.circular(AppStyles.badgeSize / 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: tulipTreeColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
                     alignment: Alignment.center,
                     child: Text(
                       badgeCount.toString(),

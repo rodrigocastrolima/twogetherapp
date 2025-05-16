@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart'; // For kDebugMode
 import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
 import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
+import 'package:flutter/cupertino.dart'; // For CupertinoIcons
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
@@ -129,6 +131,27 @@ class _OpportunityDetailFormViewState
     ),
   };
   // --- END NEW --- //
+
+  // Picklist options
+  final List<String> _tipoOportunidadeOptions = const [
+    '--None--',
+    'Fidelizada',
+    'Cross',
+    'Angariada',
+  ];
+  final List<String> _faseOptions = const [
+    '--None--',
+    'Outro Agente',
+    '0 - Oportunidade Identificada',
+    '1 - Cliente Contactado',
+    '2 - Visita Marcada',
+    '3 - Oportunidade Qualificada',
+    '4 - Proposta Apresentada',
+    '5 - Negociação Final',
+    '6 - Conclusão Ganho',
+    '6 - Conclusão Perdido Futuro',
+    '6 - Conclusão Desistência Cliente',
+  ];
 
   @override
   void initState() {
@@ -584,6 +607,14 @@ class _OpportunityDetailFormViewState
 
       // --- RE-ENABLE Params creation --- //
       // 4. Gather Parameters
+      final String formattedCloseDate;
+      if (_selectedFechoDate != null) {
+        formattedCloseDate = DateFormat('yyyy-MM-dd').format(_selectedFechoDate!);
+      } else {
+        // Default to today if no date was picked, though the validator should prevent this
+        formattedCloseDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      }
+
       final params = CreateOppParams(
         submissionId: widget.submission.id!, // Assume ID is non-null here
         accessToken: accessToken, // Use the fetched token
@@ -597,8 +628,7 @@ class _OpportunityDetailFormViewState
             widget.submission.responsibleName, // Use fallback logic
         segment: _selectedSegmentoCliente!, // Assume selected
         solution: _selectedSolucao!, // Assume selected
-        closeDate:
-            _fechoController.text, // Pass the formatted string from date picker
+        closeDate: formattedCloseDate, // Pass the CORRECTLY formatted string
         opportunityType: _tipoOportunidadeValue!, // Assume determined
         phase: _faseValue, // Use fixed value
         fileUrls: widget.submission.documentUrls, // Pass the list of URLs/paths
@@ -828,426 +858,430 @@ class _OpportunityDetailFormViewState
 
   @override
   Widget build(BuildContext context) {
-    // Calculate status bar height
-    // final statusBarHeight = MediaQuery.of(context).padding.top; // No longer needed
-    final theme = Theme.of(context); // Get theme
-    final colorScheme = theme.colorScheme; // Get color scheme
-    final textTheme = theme.textTheme; // Get text theme
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final horizontalPadding = EdgeInsets.symmetric(horizontal: 32.0);
 
-    // Reintroduce Scaffold for proper context and structure
-    return Scaffold(
-      backgroundColor: colorScheme.surface, // Use theme surface color
-      appBar: AppBar(
-        title: Text(
-          'Detalhe da Oportunidade', // Opportunity Detail
+    InputDecoration _inputDecoration({
+      required String label,
+      String? hint,
+      bool readOnly = false,
+      Widget? suffixIcon,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+        hintText: hint,
+        hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+        filled: true,
+        fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        suffixIcon: suffixIcon,
+      );
+    }
+
+    Widget _sectionTitle(String text) => Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Text(
+        text,
+        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Detalhe da Oportunidade', // Opportunity Detail
-                style: textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
+    );
 
-              // --- Display Status --- // ADDED
-              Row(
+    Widget _readOnlyField(String label, TextEditingController controller) {
+      return TextFormField(
+        controller: controller,
+        readOnly: true,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: label, readOnly: true),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(CupertinoIcons.chevron_left, color: colorScheme.onSurface),
+          onPressed: () => context.pop(),
+        ),
+        title: LogoWidget(height: 60, darkMode: isDarkMode),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0.0,
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(vertical: 32).add(horizontalPadding),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Title
                   Text(
-                    'Estado:',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                    'Detalhe da Oportunidade',
+                    style: textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          widget.submission.status == 'rejected'
-                              ? colorScheme.errorContainer.withOpacity(0.8)
-                              : colorScheme.secondaryContainer.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      widget.submission.status
-                          .replaceAll('_', ' ')
-                          .split(' ')
-                          .map(
-                            (word) =>
-                                '${word[0].toUpperCase()}${word.substring(1)}',
-                          )
-                          .join(' '),
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color:
-                            widget.submission.status == 'rejected'
-                                ? colorScheme.onErrorContainer
-                                : colorScheme.onSecondaryContainer,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
+                  const SizedBox(height: 20),
+                  // Responsible/Company
+                  TextFormField(
+                    controller: _responsibleNameController,
+                    style: textTheme.bodySmall,
+                    decoration: _inputDecoration(label: 'Nome do Responsável'),
                   ),
-                ],
-              ),
-              const Divider(height: 32),
-              // -------------------- //
-
-              // --- NEW: Display Responsible and Company --- //
-              _buildReadOnlyField(
-                context,
-                'Nome do Responsável',
-                _responsibleNameController,
-              ),
-              const SizedBox(height: 16),
-              if (widget.submission.companyName != null &&
-                  widget.submission.companyName!.isNotEmpty)
-                _buildReadOnlyField(
-                  context,
-                  'Nome da Empresa',
-                  _companyNameController,
-                ),
-              if (widget.submission.companyName != null &&
-                  widget.submission.companyName!.isNotEmpty)
-                const SizedBox(height: 16),
-              // --- END NEW --- //
-
-              // --- Simplified Reference & Required Fields ---
-              _buildReadOnlyField(
-                context,
-                'Agente Retail',
-                _agenteRetailController,
-              ),
-              const Divider(height: 32),
-
-              // --- Salesforce Opportunity Fields ---
-              Text(
-                'Secção Oportunidade Salesforce', // Salesforce Opportunity Section
-                style: textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-
-              // Opportunity Name (Auto-calculated, but editable)
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Nome da Oportunidade', // Opportunity Name
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Nome da Oportunidade é obrigatório'; // Opportunity Name is required
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // NIF
-              Row(
-                // Wrap NIF field and indicator in a Row
-                crossAxisAlignment:
-                    CrossAxisAlignment.center, // Align items vertically
-                children: [
-                  Expanded(
-                    // Make TextFormField take available space
-                    child: TextFormField(
-                      controller: _nifController,
-                      decoration: InputDecoration(
-                        labelText: 'NIF', // NIF (already Portuguese)
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'NIF é obrigatório'; // NIF is required
-                        }
-                        return null;
-                      },
+                  const SizedBox(height: 12),
+                  if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
+                    TextFormField(
+                      controller: _companyNameController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(label: 'Nome da Empresa'),
                     ),
+                  if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
+                    const SizedBox(height: 12),
+                  _readOnlyField('Agente Retail', _agenteRetailController),
+                  const SizedBox(height: 20),
+                  // --- All Opportunity Fields (no section title) ---
+                  TextFormField(
+                    controller: _nameController,
+                    style: textTheme.bodySmall,
+                    decoration: _inputDecoration(label: 'Nome da Oportunidade'),
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? 'Nome da Oportunidade é obrigatório'
+                        : null,
                   ),
-                  const SizedBox(width: 12), // Adjusted spacing
-                  // NIF Status Indicator (Button removed)
-                  _buildNifStatusIndicator(),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Data de Criação (Auto-set based on view time)
-              TextFormField(
-                controller: _dataCriacaoController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Data de Criação', // Creation Date
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Data da última actualização de Fase (Auto-set based on view time)
-              TextFormField(
-                controller: _dataUltimaAtualizacaoController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Última Atualização', // Last Update
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Fase (Fixed value - Display as read-only)
-              TextFormField(
-                controller: _faseController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Fase', // Phase (already Portuguese)
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tipo de Oportunidade (Derived value - Display as read-only)
-              TextFormField(
-                controller: _tipoOportunidadeController,
-                readOnly: true,
-                decoration: InputDecoration(
-                  labelText: 'Tipo de Oportunidade', // Opportunity Type
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Segmento de Cliente (Picklist - Required)
-              DropdownButtonFormField<String>(
-                value: _selectedSegmentoCliente,
-                decoration: InputDecoration(
-                  labelText:
-                      'Segmento de Cliente', // Client Segment (already Portuguese)
-                ),
-                // --- MODIFIED: Use icon map for items --- //
-                items:
-                    _segmentoOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child:
-                            _segmentoIcons[value] ??
-                            Text(value), // Use map, fallback to text
-                      );
-                    }).toList(),
-                // --- MODIFIED: Use icon for selected display --- //
-                selectedItemBuilder: (BuildContext context) {
-                  return _segmentoOptions.map<Widget>((String item) {
-                    // Return the icon widget directly for the selected item display
-                    // Or a simplified version if needed (e.g., just the icon)
-                    final iconWidget = _segmentoIcons[item];
-                    if (iconWidget is Row) {
-                      // Show only the Icon when selected
-                      return iconWidget.children.firstWhere((w) => w is Icon);
-                    } else if (iconWidget is Text && item == '--None--') {
-                      return Text(
-                        'Selecione um segmento',
-                        style: TextStyle(color: Theme.of(context).hintColor),
-                      ); // Show hint style if none selected
-                    } else {
-                      return iconWidget ?? const SizedBox.shrink(); // Fallback
-                    }
-                  }).toList();
-                },
-                onChanged: (value) {
-                  setState(() {
-                    _selectedSegmentoCliente = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value == '--None--') {
-                    return 'Segmento de Cliente é obrigatório'; // Client Segment is required
-                  }
-                  return null;
-                },
-                hint: Text(
-                  'Selecione um segmento de cliente', // Select a client segment
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Solução (Picklist - Required)
-              DropdownButtonFormField<String>(
-                value: _selectedSolucao,
-                decoration: InputDecoration(
-                  labelText: 'Solução', // Solution (already Portuguese)
-                ),
-                items:
-                    _solucaoOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedSolucao = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value == '--None--') {
-                    return 'Solução é obrigatória'; // Solution is required
-                  }
-                  return null;
-                },
-                hint: Text(
-                  'Selecione uma solução', // Select a solution
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Data de Previsão de Fecho (Date - Required)
-              TextFormField(
-                controller: _fechoController,
-                decoration: InputDecoration(
-                  labelText: 'Data de Previsão de Fecho', // Close Date
-                  hintText: 'Selecione a data de fecho', // Select close date
-                  suffixIcon: const Icon(Icons.calendar_today),
-                ),
-                keyboardType: TextInputType.datetime,
-                readOnly: true, // Prevent manual text input, use picker
-                onTap: () async {
-                  // Implement Date Picker logic
-                  DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: _selectedFechoDate ?? DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
-                    builder: (context, child) {
-                      return Theme(
-                        data: theme.copyWith(
-                          colorScheme: theme.colorScheme.copyWith(
-                            primary:
-                                colorScheme.primary, // header background color
-                            onPrimary:
-                                colorScheme.onPrimary, // header text color
-                            onSurface: colorScheme.onSurface, // body text color
-                          ),
-                          textButtonTheme: TextButtonThemeData(
-                            style: TextButton.styleFrom(
-                              foregroundColor:
-                                  colorScheme.primary, // button text color
-                            ),
-                          ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _nifController,
+                          style: textTheme.bodySmall,
+                          decoration: _inputDecoration(label: 'NIF'),
+                          validator: (value) => (value == null || value.trim().isEmpty)
+                              ? 'NIF é obrigatório'
+                              : null,
                         ),
-                        child: child!,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildNifStatusIndicator(),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _dataCriacaoController,
+                    style: textTheme.bodySmall,
+                    decoration: _inputDecoration(label: 'Data de Criação'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _dataUltimaAtualizacaoController,
+                    style: textTheme.bodySmall,
+                    decoration: _inputDecoration(label: 'Última Atualização'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _faseOptions.contains(_faseController.text) ? _faseController.text : '--None--',
+                    decoration: _inputDecoration(label: 'Fase'),
+                    items: _faseOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value, style: textTheme.bodySmall),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _faseController.text = value ?? '';
+                      });
+                    },
+                    validator: (value) => (value == null || value == '--None--')
+                        ? 'Fase é obrigatória'
+                        : null,
+                    hint: Text('Selecione uma fase', style: textTheme.bodySmall),
+                    style: textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text) ? _tipoOportunidadeController.text : '--None--',
+                    decoration: _inputDecoration(label: 'Tipo de Oportunidade'),
+                    items: _tipoOportunidadeOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value, style: textTheme.bodySmall),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _tipoOportunidadeController.text = value ?? '';
+                      });
+                    },
+                    validator: (value) => (value == null || value == '--None--')
+                        ? 'Tipo de Oportunidade é obrigatório'
+                        : null,
+                    hint: Text('Selecione o tipo de oportunidade', style: textTheme.bodySmall),
+                    style: textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _segmentoOptions.contains(_selectedSegmentoCliente) ? _selectedSegmentoCliente : '--None--',
+                    decoration: _inputDecoration(label: 'Segmento de Cliente'),
+                    items: _segmentoOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: _segmentoIcons[value] ?? Text(value, style: textTheme.bodySmall),
+                      );
+                    }).toList(),
+                    selectedItemBuilder: (BuildContext context) {
+                      return _segmentoOptions.map<Widget>((String item) {
+                        final iconWidget = _segmentoIcons[item];
+                        if (iconWidget is Row) {
+                          return iconWidget.children.firstWhere((w) => w is Icon);
+                        } else if (iconWidget is Text && item == '--None--') {
+                          return Text(
+                            'Selecione um segmento',
+                            style: textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                          );
+                        } else {
+                          return iconWidget ?? const SizedBox.shrink();
+                        }
+                      }).toList();
+                    },
+                    onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
+                    validator: (value) => (value == null || value == '--None--')
+                        ? 'Segmento de Cliente é obrigatório'
+                        : null,
+                    hint: Text('Selecione um segmento de cliente', style: textTheme.bodySmall),
+                    style: textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _solucaoOptions.contains(_selectedSolucao) ? _selectedSolucao : '--None--',
+                    decoration: _inputDecoration(label: 'Solução'),
+                    items: _solucaoOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value, style: textTheme.bodySmall),
+                      );
+                    }).toList(),
+                    onChanged: (value) => setState(() => _selectedSolucao = value),
+                    validator: (value) => (value == null || value == '--None--')
+                        ? 'Solução é obrigatória'
+                        : null,
+                    hint: Text('Selecione uma solução', style: textTheme.bodySmall),
+                    style: textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _fechoController,
+                    style: textTheme.bodySmall,
+                    decoration: _inputDecoration(
+                      label: 'Data de Previsão de Fecho',
+                      hint: 'Selecione a data de fecho',
+                      suffixIcon: const Icon(Icons.calendar_today),
+                    ),
+                    keyboardType: TextInputType.datetime,
+                    readOnly: true,
+                    onTap: () async {
+                      DateTime? pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedFechoDate ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2101),
+                        builder: (context, child) {
+                          return Theme(
+                            data: theme.copyWith(
+                              colorScheme: theme.colorScheme.copyWith(
+                                primary: colorScheme.primary,
+                                onPrimary: colorScheme.onPrimary,
+                                onSurface: colorScheme.onSurface,
+                              ),
+                              textButtonTheme: TextButtonThemeData(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (pickedDate != null && pickedDate != _selectedFechoDate) {
+                        setState(() {
+                          _selectedFechoDate = pickedDate;
+                          _fechoController.text = DateFormat.yMd().format(pickedDate);
+                        });
+                      }
+                    },
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Data de Previsão de Fecho é obrigatória'
+                        : null,
+                  ),
+                  const SizedBox(height: 20),
+                  // --- Faturas Section ---
+                  _sectionTitle('Secção Faturas'),
+                  const SizedBox(height: 12),
+                  FutureBuilder<List<Map<String, String?>>>(
+                    future: _fetchMultipleDownloadUrls(), // Call the new function
+                    builder: (context, snapshot) {
+                      // Check connection state
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary, // Use theme color
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'A carregar...', // Loading...
+                              style: textTheme.bodySmall,
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Check for errors during the fetch process itself (e.g., network error)
+                      if (snapshot.hasError) {
+                        return Row(
+                          children: [
+                            Icon(Icons.error_outline, color: colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Erro: ${snapshot.error}', // Error: ...
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Check if data (list of results) exists and is not null/empty
+                      final results = snapshot.data;
+                      if (results == null || results.isEmpty) {
+                        return Text(
+                          'Nenhum ficheiro disponível', // No files available
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      }
+
+                      // --- Display Previews using Wrap --- //
+                      return Wrap(
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children:
+                            results.map((fileData) {
+                              return _buildDocumentPreview(context, fileData);
+                            }).toList(),
                       );
                     },
-                  );
-                  if (pickedDate != null && pickedDate != _selectedFechoDate) {
-                    // Update state/controller with pickedDate (formatted as YYYY-MM-DD)
-                    setState(() {
-                      _selectedFechoDate = pickedDate;
-                      _fechoController.text = DateFormat.yMd().format(
-                        pickedDate,
-                      );
-                      if (kDebugMode) {
-                        print('Selected Fecho Date: $_selectedFechoDate');
-                      }
-                    });
-                  }
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Data de Previsão de Fecho é obrigatória'; // Close Date is required
-                  }
-                  // Optional: Validate date format if needed, though picker ensures it
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // --- Invoice Section --- Updated to handle multiple files
-              const Divider(height: 32),
-              Text(
-                'Secção Faturas', // Invoice Section
-                style: textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<Map<String, String?>>>(
-                future: _fetchMultipleDownloadUrls(), // Call the new function
-                builder: (context, snapshot) {
-                  // Check connection state
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary, // Use theme color
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'A carregar...', // Loading...
-                          style: textTheme.bodyMedium,
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Check for errors during the fetch process itself (e.g., network error)
-                  if (snapshot.hasError) {
-                    return Row(
-                      children: [
-                        Icon(Icons.error_outline, color: colorScheme.error),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Erro: ${snapshot.error}', // Error: ...
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.error,
+                  ),
+                  const SizedBox(height: 20),
+                  // --- Actions or Rejection Info ---
+                  if (widget.submission.status == 'rejected')
+                    _buildRejectionInfoSection(context, theme)
+                  else
+                    Center(
+                      child: Wrap(
+                        spacing: 16.0,
+                        runSpacing: 8.0,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          SizedBox(
+                            height: 40,
+                            child: FilledButton(
+                              onPressed: _isSubmitting ? null : _approveSubmission,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                minimumSize: const Size(120, 40),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                textStyle: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              child: _isSubmitting
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    )
+                                  : const Text('Aprovar'),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Check if data (list of results) exists and is not null/empty
-                  final results = snapshot.data;
-                  if (results == null || results.isEmpty) {
-                    return Text(
-                      'Nenhum ficheiro disponível', // No files available
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                          SizedBox(
+                            height: 40,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.cancel_outlined, size: 18),
+                              label: const Text('Rejeitar'),
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () async {
+                                      final reason = await _showRejectionDialog();
+                                      if (kDebugMode) {
+                                        print('Rejection reason: $reason');
+                                      }
+                                      if (reason != null && reason.isNotEmpty) {
+                                        await _handleRejection(reason);
+                                      }
+                                    },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colorScheme.error,
+                                side: BorderSide(
+                                  color: colorScheme.error.withAlpha((255 * 0.7).round()),
+                                  width: 1.2,
+                                ),
+                                minimumSize: const Size(120, 40),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                textStyle: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    );
-                  }
-
-                  // --- Display Previews using Wrap --- //
-                  return Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    children:
-                        results.map((fileData) {
-                          return _buildDocumentPreview(context, fileData);
-                        }).toList(),
-                  );
-                },
+                    ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              const SizedBox(height: 32),
-
-              // --- Actions or Rejection Info --- // MODIFIED
-              // Conditionally display based on status
-              if (widget.submission.status == 'rejected')
-                _buildRejectionInfoSection(context, theme)
-              else // Assuming 'pending_review'
-                _buildActionButtons(context, theme),
-              // ---------------------------------- //
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
@@ -1887,26 +1921,6 @@ class _OpportunityDetailFormViewState
     }
   }
 
-  // --- NEW: Helper for simple read-only fields --- //
-  Widget _buildReadOnlyField(
-    BuildContext context,
-    String label,
-    TextEditingController controller,
-  ) {
-    return TextFormField(
-      controller: controller,
-      readOnly: true,
-      decoration: InputDecoration(
-        labelText: label,
-        border: InputBorder.none, // Remove border for read-only
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 8.0,
-        ), // Adjust padding
-      ),
-    );
-  }
-  // --- END NEW --- //
-
   // --- NEW: NIF Status Indicator Widget --- //
   Widget _buildNifStatusIndicator() {
     IconData iconData;
@@ -1945,6 +1959,90 @@ class _OpportunityDetailFormViewState
   }
 
   // --- END NEW --- //
+
+  // Add this method before _submitForm
+  String formatDateForSalesforce(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    final parts = dateStr.split('/');
+    if (parts.length != 3) return dateStr;
+    return '${parts[2]}-${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}';
+  }
+
+  Future<void> _submitForm() async {
+    try {
+      setState(() => _isSubmitting = true);
+
+      // Get Salesforce auth data
+      final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
+      final String? accessToken = await sfAuthNotifier.getValidAccessToken();
+      final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
+
+      if (accessToken == null || instanceUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sessão Salesforce inválida. Tente sair e entrar novamente ou atualizar.',
+              ),
+            ),
+          );
+        }
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // Format close date to ISO 8601 (YYYY-MM-DD)
+      String formattedCloseDate;
+      if (_selectedFechoDate != null) {
+        formattedCloseDate = DateFormat('yyyy-MM-dd').format(_selectedFechoDate!);
+      } else {
+        formattedCloseDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      }
+
+      final params = CreateOppParams(
+        submissionId: widget.submission.id!,
+        accessToken: accessToken,
+        instanceUrl: instanceUrl,
+        resellerSalesforceId: _resellerSalesforceId!,
+        opportunityName: _nameController.text,
+        nif: _nifController.text,
+        companyName: _companyNameController.text,
+        segment: _selectedSegmentoCliente ?? '--None--',
+        solution: _selectedSolucao ?? '--None--',
+        closeDate: formattedCloseDate,
+        opportunityType: _tipoOportunidadeController.text,
+        phase: _faseController.text,
+        fileUrls: widget.submission.documentUrls,
+      );
+
+      final result = await ref.read(createOpportunityProvider(params).future);
+      
+      if (result.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Oportunidade criada com sucesso!')),
+          );
+          context.pop();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao criar oportunidade: ${result.error}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar oportunidade: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
 }
 
 // --- NEW: Enum for NIF Check Status --- //

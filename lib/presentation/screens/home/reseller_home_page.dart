@@ -301,7 +301,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     final statusBarHeight = MediaQuery.of(context).padding.top;
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isWideScreen = screenWidth > 900;
+    // final bool isWideScreen = screenWidth > 900;
 
     // --- Build method uses Stack structure similar to old code ---
     return Scaffold(
@@ -373,15 +373,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                   // Action Icons
                                   Row(
                                     children: [
-                                      // SEARCH ICON REMOVED
-                                      // _buildCircleIconButton(
-                                      //   icon: CupertinoIcons.search,
-                                      //   onTap: () {
-                                      //     /* TODO */
-                                      //   },
-                                      //   isHighlighted: false,
-                                      // ),
-                                      // const SizedBox(width: 10), // REMOVED
                                       _CircleIconButton(
                                         // Changed to stateful version
                                         icon: CupertinoIcons.bell_fill,
@@ -438,39 +429,24 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1200),
-                      child: isWideScreen
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 340,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: MediaQuery.of(context).size.width < 600
+                              ? 16
+                              : MediaQuery.of(context).size.width < 900
+                                  ? 16
+                                  : 16,
+                        ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                                      _buildQuickActionsSection(),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 40),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildNotificationsSection(),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildQuickActionsSection(),
-                                const SizedBox(height: 30),
-                                _buildNotificationsSection(),
-                                const SizedBox(height: 40),
-                              ],
-                            ),
+                            _buildQuickActionsSection(),
+                      const SizedBox(height: 30),
+                            _buildNotificationsSection(),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -662,7 +638,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                 onTap: () => context.push('/services'),
               ),
               _QuickActionCard(
-                      icon: CupertinoIcons.folder_fill,
+                      icon: CupertinoIcons.cloud_download,
                 label: 'Dropbox',
                 onTap: () => context.push('/providers'),
               ),
@@ -680,8 +656,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
           children: [
             Text(
               'Notificações',
@@ -690,29 +664,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                 color: theme.colorScheme.onBackground,
               ),
             ),
-            const SizedBox(width: 8),
+        const SizedBox(height: 16),
             Consumer(
               builder: (context, ref, child) {
-                final unreadCountStream = ref.watch(unreadNotificationsCountProvider,);
-                return unreadCountStream.when(
-                  data: (count) {
-                    if (count <= 0) return const SizedBox.shrink();
-                    return Container(
-                      width: 24, height: 24,
-                      decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)]),
-                      child: Center(child: Text(count > 99 ? '99+' : count.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
-                    );
-                  },
-                  loading: () => const SizedBox(width: 24, height: 24),
-                  error: (_, __) => const SizedBox.shrink(),
-                );
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Consumer(
-          builder: (context, ref, child) {
             final notificationsStream = ref.watch(userNotificationsProvider);
             final notificationActions = ref.read(notificationActionsProvider);
 
@@ -739,107 +693,98 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   );
                 }
 
-                return AnimationLimiter(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: combinedNotifications.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final notification = combinedNotifications[index];
-                      return AnimationConfiguration.staggeredList(
-                        position: index,
-                        duration: const Duration(milliseconds: 375),
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-                                color: theme.colorScheme.surface,
-                                elevation: 2,
-                                borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: () => _handleNotificationTap(notification, notificationActions),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Notification icon
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                                            color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                                                color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                                          child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
-                ),
-                const SizedBox(width: 16),
-                // Notification content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                                                    _getNotificationDateString(notification),
+                    return Material(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      elevation: 2,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _handleNotificationTap(notification, notificationActions),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                                      color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            notification.title,
+                                            style: theme.textTheme.titleSmall?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _getNotificationDateString(notification),
                             style: TextStyle(
-                              fontSize: 12,
-                                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                            fontSize: 12,
+                                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      notification.metadata['clientName']?.toString() ?? notification.message,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (!notification.isRead)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(left: 8),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    shape: BoxShape.circle,
                             ),
                           ),
-                          if (!notification.isRead)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
                         ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notification.title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                                                notification.metadata['clientName']?.toString() ?? notification.message,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-                                    ),
-                                  ),
-                                ),
-            ),
-          ),
-        ),
-      ),
-                      );
-                    },
-                  ),
+                    );
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),

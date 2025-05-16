@@ -8,22 +8,25 @@ import 'package:firebase_storage/firebase_storage.dart'; // Import storage
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import firestore
 import 'dart:typed_data'; // Import for Uint8List (web)
 import 'dart:io'; // Import for File (mobile)
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode; // Added kDebugMode
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_file.dart';
 import '../../../../core/theme/theme.dart'; // For AppTheme colors if needed
 import '../../../../core/widgets/message_display.dart'; // For error display
 import '../../../../core/services/loading_service.dart'; // For loading overlay
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
+import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
+import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 
 // Convert to ConsumerStatefulWidget
 class AdminProviderFilesPage extends ConsumerStatefulWidget {
   final String providerId;
-  // final String providerName; // TODO: Pass provider name
+  final String providerName; // Added providerName
 
   const AdminProviderFilesPage({
     super.key,
     required this.providerId,
-    // required this.providerName,
+    required this.providerName, // Added providerName
   });
 
   @override
@@ -34,67 +37,121 @@ class AdminProviderFilesPage extends ConsumerStatefulWidget {
 // Create the State class
 class _AdminProviderFilesPageState
     extends ConsumerState<AdminProviderFilesPage> {
+  bool _isDeleteModeEnabled = false; // Added for delete mode
+  String? _pageError; // Added for page-level errors
+
   @override
   Widget build(BuildContext context) {
     final filesAsyncValue = ref.watch(
       providerFilesStreamProvider(widget.providerId),
     ); // Use widget.providerId
     final theme = Theme.of(context);
-    final String appBarTitle = 'Provider Files'; // Placeholder
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: false,
-        elevation: 1,
-        shadowColor: theme.shadowColor.withOpacity(0.1),
+        leading: IconButton(
+          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+          onPressed: () => context.pop(),
+        ),
+        title: LogoWidget(height: 60, darkMode: isDark),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0.0,
       ),
-      body: filesAsyncValue.when(
-        data: (files) {
-          if (files.isEmpty) {
-            return const Center(
-              child: Text('No files uploaded for this provider yet.'),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: files.length,
-            separatorBuilder:
-                (context, index) => Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: theme.dividerColor.withOpacity(0.5),
-                  indent: 16,
-                  endIndent: 16,
-                ),
-            itemBuilder: (context, index) {
-              final file = files[index];
-              return _buildFileListItem(context, file, theme, ref);
-            },
-          );
-        },
-        loading: () => const Center(child: CupertinoActivityIndicator()),
-        error:
-            (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error loading files: $error',
-                  textAlign: TextAlign.center,
+      body: Center( // Center content horizontally
+        child: ConstrainedBox( // Constrain content width
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.providerName, // Use providerName for title
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _isDeleteModeEnabled ? CupertinoIcons.xmark : CupertinoIcons.pencil,
+                        color: _isDeleteModeEnabled ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                        size: 28,
+                      ),
+                      tooltip: _isDeleteModeEnabled ? 'Cancelar Edição' : 'Editar Ficheiros',
+                      onPressed: () {
+                        setState(() {
+                          _isDeleteModeEnabled = !_isDeleteModeEnabled;
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
-            ),
+              if (_pageError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  child: ErrorMessageWidget(message: _pageError!),
+                ),
+              Expanded(
+                child: filesAsyncValue.when(
+                  data: (files) {
+                    if (files.isEmpty) {
+                      return const Center(
+                        child: Text('Nenhuns ficheiros para esta pasta.'),
+                      );
+                    }
+                    return ListView.builder( // Changed from ListView.separated
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      itemCount: files.length,
+                      // separatorBuilder removed
+                      itemBuilder: (context, index) {
+                        final file = files[index];
+                        return _buildFileListItem(context, file, theme, ref);
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: CupertinoActivityIndicator()),
+                  error: (error, stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Erro ao carregar ficheiros: $error',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton( // Changed to simple FAB
         onPressed: () {
           _showAddFileDialog(
             context,
             ref,
             widget.providerId,
-          ); // Use widget.providerId
+          );
         },
-        icon: const Icon(CupertinoIcons.add),
-        label: const Text('Add File'),
+        tooltip: 'Adicionar Ficheiro', // Changed tooltip
+        backgroundColor: theme.colorScheme.primary,
+        elevation: 2.0,
+        shape: const CircleBorder(),
+        child: Icon(
+          CupertinoIcons.add,
+          color: theme.colorScheme.onPrimary,
+        ),
       ),
     );
   }
@@ -109,44 +166,78 @@ class _AdminProviderFilesPageState
     final dateFormatter = DateFormat.yMd().add_jm();
     final fileIcon = _getFileIcon(file.fileType);
 
-    return ListTile(
-      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 28),
-      title: Text(
-        file.fileName,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            file.description,
-            style: theme.textTheme.bodySmall,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Uploaded: ${dateFormatter.format(file.uploadedAt.toDate())}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: Icon(CupertinoIcons.delete, color: theme.colorScheme.error),
-        onPressed: () {
-          _confirmAndDeleteFile(context, ref, file);
-        }, // Pass ref
-        tooltip: 'Delete File',
-      ),
+    return InkWell(
       onTap: () {
-        /* Optional tap action */
+        // TODO: Implement file tap action (e.g., download, view)
+        // For now, let's print to console or show a snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tapped on ${file.fileName}'))
+        );
       },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    file.fileName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (file.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0),
+                      child: Text(
+                        file.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Uploaded: ${dateFormatter.format(file.uploadedAt.toDate())}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (_isDeleteModeEnabled)
+              IconButton(
+                icon: Icon(CupertinoIcons.xmark_circle_fill, color: theme.colorScheme.error, size: 24),
+                onPressed: () {
+                  _confirmAndDeleteFile(context, ref, file);
+                },
+                tooltip: 'Apagar Ficheiro',
+                splashRadius: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              )
+            else
+              Icon(
+                CupertinoIcons.chevron_forward,
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                size: 20,
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -201,35 +292,78 @@ class _AdminProviderFilesPageState
     WidgetRef ref,
     ProviderFile file,
   ) async {
+    setState(() {
+      _pageError = null; // Clear previous page error
+    });
+
     final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Delete File?'),
-            content: Text(
-              'Are you sure you want to delete "${file.fileName}"? This cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.error,
+      builder: (dialogContext) { // Use dialogContext for Navigator.pop
+        final theme = Theme.of(dialogContext); // Use theme from dialogContext
+        final colorScheme = theme.colorScheme;
+        final textTheme = theme.textTheme;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.all(0),
+          title: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 60, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Apagar Ficheiro?',
+                    style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
                 ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: Icon(CupertinoIcons.xmark, color: colorScheme.onSurface.withAlpha(150)),
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  tooltip: 'Cancelar',
+                  splashRadius: 20,
+                ),
               ),
             ],
           ),
+          content: Text(
+            'Tem a certeza que quer apagar o ficheiro "${file.fileName}"? Esta ação não pode ser desfeita.',
+            style: textTheme.bodyMedium,
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          actionsAlignment: MainAxisAlignment.end,
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text('Apagar', style: textTheme.labelLarge?.copyWith(color: colorScheme.onError, fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      }
     );
 
     if (confirmed == true) {
-      final loadingService = ref.read(loadingServiceProvider);
-      loadingService.show(context, message: 'Deleting File...');
-      bool deletedSuccessfully = false; // Flag for success
-      String errorMessage = ''; // Store error message
+      if (!context.mounted) return; // Check mount status after await
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const AppLoadingIndicator(); // Use AppLoadingIndicator
+        },
+      );
 
       try {
         // 1. Delete from Firebase Storage
@@ -242,29 +376,32 @@ class _AdminProviderFilesPageState
             .collection('files')
             .doc(file.id)
             .delete();
+        
+        if (!context.mounted) return; 
+        Navigator.of(context).pop(); // Dismiss loading indicator
 
-        deletedSuccessfully = true; // Mark as success
+        showSuccessDialog(
+          context: context,
+          message: 'O ficheiro "${file.fileName}" foi apagado com sucesso.',
+          onDismissed: () {},
+        );
+
       } catch (e) {
-        errorMessage = 'Error deleting file: $e';
-      } finally {
-        // Hide loading overlay *before* showing snackbar
-        if (mounted) loadingService.hide();
-        // Show feedback using ScaffoldMessenger
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                deletedSuccessfully
-                    ? '\"${file.fileName}\" deleted successfully.'
-                    : errorMessage,
-              ),
-              backgroundColor:
-                  deletedSuccessfully
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.error,
-            ),
-          );
+        if (!context.mounted) return;
+        Navigator.of(context).pop(); // Dismiss loading indicator
+        if (kDebugMode) {
+          print('Error deleting file: $e');
         }
+        final errorMessage = 'Erro ao apagar o ficheiro: ${e.toString()}';
+        setState(() {
+          _pageError = errorMessage; // Show error at page level
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
       }
     }
   }

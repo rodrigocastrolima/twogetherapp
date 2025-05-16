@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/salesforce_repository.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/dashboard_stats.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 // Provider for SalesforceRepository
 final salesforceRepositoryProvider = Provider<SalesforceRepository>((ref) {
@@ -92,7 +93,19 @@ final salesforceConnectionNotifierProvider =
     });
 
 // Dashboard stats provider
-final dashboardStatsProvider = FutureProvider.family<DashboardStats, String>((ref, resellerSalesforceId) async {
+final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
+  // Get the current user from the auth provider
+  final currentUser = ref.watch(currentUserProvider);
+
+  // Get the Salesforce ID from additionalData
+  final String? resellerId = currentUser?.additionalData['salesforceId'] as String?;
+
+  // If no user or no Salesforce ID yet, throw an error
+  if (currentUser == null || resellerId == null || resellerId.isEmpty) {
+    throw Exception('User not logged in or missing Salesforce ID');
+  }
+
+  // Get the repository and fetch stats
   final repository = ref.watch(salesforceRepositoryProvider);
-  return repository.getResellerDashboardStats(resellerSalesforceId);
+  return repository.getResellerDashboardStats(resellerId);
 });

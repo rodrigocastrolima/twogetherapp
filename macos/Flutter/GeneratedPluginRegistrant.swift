@@ -17,6 +17,7 @@ import firebase_storage
 import flutter_local_notifications
 import flutter_secure_storage_darwin
 import flutter_web_auth_2
+import open_file_mac
 import path_provider_foundation
 import share_plus
 import shared_preferences_foundation
@@ -37,6 +38,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   FlutterSecureStorageDarwinPlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin"))
   FlutterWebAuth2Plugin.register(with: registry.registrar(forPlugin: "FlutterWebAuth2Plugin"))
+  OpenFilePlugin.register(with: registry.registrar(forPlugin: "OpenFilePlugin"))
   PathProviderPlugin.register(with: registry.registrar(forPlugin: "PathProviderPlugin"))
   SharePlusMacosPlugin.register(with: registry.registrar(forPlugin: "SharePlusMacosPlugin"))
   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))

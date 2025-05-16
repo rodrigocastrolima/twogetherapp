@@ -40,11 +40,11 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
         children: [
           Expanded(
             child: providersAsyncValue.when(
-              data: (providers) {
-                if (providers.isEmpty) {
+        data: (providers) {
+          if (providers.isEmpty) {
                   return const Center(child: Text('No resources available yet.'));
-                }
-                final double maxWidth = 800;
+          }
+                final double maxWidth = 1200;
                 final theme = Theme.of(context);
                 return Center(
                   child: ConstrainedBox(
@@ -53,7 +53,7 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.only(top: 32, left: 16, right: 16, bottom: 24),
+                          padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
                           child: Text(
                             'Dropbox',
                             style: theme.textTheme.headlineSmall?.copyWith(
@@ -71,23 +71,23 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                               crossAxisSpacing: 24,
                               childAspectRatio: 1,
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                            itemCount: providers.length,
-                            itemBuilder: (context, index) {
-                              final provider = providers[index];
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+            itemCount: providers.length,
+            itemBuilder: (context, index) {
+              final provider = providers[index];
                               return _buildProviderSquare(context, provider, theme);
                             },
                           ),
                         ),
-                      ],
+                ],
                     ),
                   ),
-                );
-              },
-              loading: () => const Center(child: CupertinoActivityIndicator()),
+          );
+        },
+        loading: () => const Center(child: CupertinoActivityIndicator()),
               error: (error, stack) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
                   child: Text('Error loading resources: $error', textAlign: TextAlign.center),
                 ),
               ),
@@ -110,12 +110,11 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
           context.push('/providers/${provider.id}', extra: provider);
         },
         child: Container(
-          width: 140,
-          height: 140,
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
           ),
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -125,11 +124,14 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                 height: 80,
                 fit: BoxFit.contain,
                 placeholder: (context, url) => const CupertinoActivityIndicator(),
-                errorWidget: (context, url, error) => Icon(
-                  CupertinoIcons.photo,
-                  size: 48,
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-                ),
+                errorWidget: (context, url, error) {
+                  print('CachedNetworkImage error for ${provider.name} ($url): $error');
+                  return Icon(
+                    CupertinoIcons.photo,
+                    size: 40,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
+                  );
+                },
               ),
               const SizedBox(height: 18),
               Text(
@@ -143,7 +145,7 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                 textAlign: TextAlign.center,
               ),
             ],
-          ),
+              ),
         ),
       ),
     );

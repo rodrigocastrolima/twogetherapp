@@ -594,8 +594,8 @@ class SalesforceRepository {
 
     try {
       final HttpsCallable callable = FirebaseFunctions.instanceFor(
-        region: 'europe-west1', // Ensure correct region
-      ).httpsCallable('getTotalResellerCommission'); // Assumes CF exists
+        region: 'us-central1', // Updated to match the function's region
+      ).httpsCallable('getTotalResellerCommission');
       final result = await callable.call<Map<String, dynamic>>({
         'resellerSalesforceId': resellerId,
       });

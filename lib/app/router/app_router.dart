@@ -35,12 +35,12 @@ import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
 import '../../presentation/widgets/app_loading_indicator.dart';
 
 import 'package:twogether/features/providers/presentation/pages/admin_provider_list_page.dart';
-import 'package:twogether/features/opportunity/presentation/pages/admin_opportunity_review_page.dart';
+import 'package:twogether/features/opportunity/presentation/pages/admin_opportunity_submission_page.dart';
 import 'package:twogether/features/providers/presentation/pages/create_provider_page.dart';
 import 'package:twogether/features/providers/presentation/pages/admin_provider_files_page.dart';
 import 'package:twogether/features/providers/presentation/pages/reseller_provider_list_page.dart';
 import 'package:twogether/features/providers/presentation/pages/reseller_provider_files_page.dart';
-import 'package:twogether/features/opportunity/presentation/pages/opportunity_verification_page.dart';
+import 'package:twogether/features/opportunity/presentation/pages/admin_opportunity_page.dart';
 import 'package:twogether/features/proposal/presentation/pages/proposal_creation_page.dart';
 import 'package:twogether/features/chat/presentation/pages/admin_chat_page.dart';
 import 'package:twogether/features/opportunity/data/models/salesforce_opportunity.dart'
@@ -841,25 +841,6 @@ class AppRouter {
             },
           ),
           GoRoute(
-            path: '/admin/opportunity-detail',
-            parentNavigatorKey: _adminShellNavigatorKey,
-            pageBuilder: (context, state) {
-              final submission = state.extra as ServiceSubmission?;
-              if (submission == null) {
-                // Handle error or redirect, maybe back to admin home?
-                // For now, just show an error placeholder
-                return const NoTransitionPage(
-                  child: Scaffold(
-                    body: Center(child: Text('Error: Submission not found')),
-                  ),
-                );
-              }
-              return NoTransitionPage(
-                child: OpportunityDetailFormView(submission: submission),
-              );
-            },
-          ),
-          GoRoute(
             path: '/admin/user-management',
             parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
@@ -881,69 +862,78 @@ class AppRouter {
                     const NoTransitionPage(child: AdminSettingsPage()),
           ),
           GoRoute(
-            path: '/admin/providers',
-            parentNavigatorKey: _adminShellNavigatorKey,
-            pageBuilder:
-                (context, state) =>
-                    NoTransitionPage(child: AdminProviderListPage()),
-            routes: [
-              GoRoute(
-                path: 'create',
-                pageBuilder: (context, state) {
-                  return NoTransitionPage(child: CreateProviderPage());
-                },
-              ),
-              GoRoute(
-                path: ':providerId',
-                pageBuilder: (context, state) {
-                  final providerId = state.pathParameters['providerId'];
-                  if (providerId == null) {
-                    // Handle missing providerId, maybe redirect or show error
-                    return const NoTransitionPage(
-                      child: Scaffold(
-                        body: Center(child: Text('Error: Missing Provider ID')),
-                      ),
-                    );
-                  }
-                  // Point to the actual AdminProviderFilesPage
-                  return NoTransitionPage(
-                    // Pass the extracted providerId
-                    child: AdminProviderFilesPage(providerId: providerId),
-                  );
-                },
-                routes: [
-                  // Routes specific to a provider's files could go here later,
-                  // e.g., /admin/providers/:providerId/files/:fileId/edit
-                ],
-              ),
-            ],
-          ),
-          // --- Use ABSOLUTE path for Messages --- //
-          GoRoute(
-            path: '/admin/messages', // Use absolute path
+            path: '/admin/messages',
             name: 'adminMessages',
-            parentNavigatorKey:
-                _adminShellNavigatorKey, // Ensure it uses the admin shell
-            pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: AdminChatPage()),
-          ),
-          // --- END CHANGE --- //
-          GoRoute(
-            path: 'dev-tools',
-            builder: (context, state) => const DevToolsPage(),
+            parentNavigatorKey: _adminShellNavigatorKey,
+            pageBuilder: (context, state) => const NoTransitionPage(child: AdminChatPage()),
           ),
         ],
       ),
 
       // --- Top-Level Secondary Routes (No Shell) ---
       GoRoute(
-        path: '/admin/dev-tools', // Path for the new page
+        path: '/admin/opportunity-detail',
         parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder:
-            (context, state) => const MaterialPage(
-              child: DevToolsPage(), // Navigate to the new DevToolsPage
+        pageBuilder: (context, state) {
+          final submission = state.extra as ServiceSubmission?;
+          if (submission == null) {
+            return const NoTransitionPage(
+              child: Scaffold(
+                body: Center(child: Text('Error: Submission data missing')),
+              ),
+            );
+          }
+          return _SlideTransition(
+            child: OpportunityDetailFormView(submission: submission),
+            reverse: false,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/providers',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _SlideTransition(
+          child: const AdminProviderListPage(),
+          reverse: false,
+        ),
+        routes: [
+          GoRoute(
+            path: 'create', // relative to /admin/providers
+            parentNavigatorKey: _rootNavigatorKey, // Still top-level navigation context
+            pageBuilder: (context, state) => _SlideTransition(
+              child: const CreateProviderPage(),
+              reverse: false,
             ),
+          ),
+          GoRoute(
+            path: ':id', // relative to /admin/providers
+            parentNavigatorKey: _rootNavigatorKey, // Still top-level navigation context
+            pageBuilder: (context, state) {
+              final providerId = state.pathParameters['id'];
+              final providerInfo = state.extra as ProviderInfo?; // Cast extra to ProviderInfo, nullable
+
+              if (providerId != null && providerInfo != null) { // Check both are non-null
+                return _SlideTransition(
+                  child: AdminProviderFilesPage(
+                    providerId: providerId,
+                    providerName: providerInfo.name, // Pass the name from ProviderInfo
+                  ),
+                  reverse: false,
+                );
+              } else if (providerId == null) {
+                 return _SlideTransition(
+                  child: const Scaffold(body: Center(child: Text('Error: Provider ID missing'))),
+                  reverse: false,
+                ); 
+              } else { // providerInfo must be null if providerId was not
+                return _SlideTransition(
+                  child: const Scaffold(body: Center(child: Text('Error: Provider data missing'))),
+                  reverse: false,
+                );
+              }
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/admin/users/:userId',
@@ -966,7 +956,8 @@ class AppRouter {
         path: '/profile-details',
         pageBuilder:
             (context, state) => _SlideTransition(
-              child: ProfilePage(),
+              child: const ProfilePage(),
+              reverse: false, // Assuming slide in from right
             ),
       ),
       GoRoute(
@@ -1019,8 +1010,9 @@ class AppRouter {
         path: '/dashboard',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          // Should point to DashboardPage directly
-          return const MaterialPage(child: DashboardPage());
+           return _SlideTransition(
+        child: const DashboardPage(),
+          );
         },
       ),
       GoRoute(
@@ -1162,11 +1154,12 @@ class AppRouter {
       ),
       GoRoute(
         path: '/auth-loading',
-        builder:
-            (context, state) => const Scaffold(
-              // Use Scaffold to provide a basic structure, but body is the indicator
-              body: AppLoadingIndicator(),
+        builder: (context, state) => const Scaffold(
+          body: Center(
+            child: AppLoadingIndicator(
             ),
+          ),
+        ),
       ),
       // ADD /providers route here as a top-level route
       GoRoute(

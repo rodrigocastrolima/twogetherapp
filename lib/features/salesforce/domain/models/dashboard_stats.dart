@@ -10,12 +10,20 @@ class DashboardStats {
   });
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
+    List<dynamic> proposalsJson = json['proposals'] as List<dynamic>? ?? [];
+    List<ProposalCommission> parsedProposals = proposalsJson
+        .map((p) => ProposalCommission.fromJson(p as Map<String, dynamic>))
+        .toList();
+
+    double calculatedTotalCommission = parsedProposals.fold(
+      0.0,
+      (sum, item) => sum + item.commission,
+    );
+
     return DashboardStats(
-      totalCommission: (json['totalCommission'] as num).toDouble(),
-      totalOpportunities: json['totalOpportunities'] as int,
-      proposals: (json['proposals'] as List<dynamic>)
-          .map((p) => ProposalCommission.fromJson(p as Map<String, dynamic>))
-          .toList(),
+      totalCommission: calculatedTotalCommission,
+      totalOpportunities: json['opportunityCount'] as int? ?? 0,
+      proposals: parsedProposals,
     );
   }
 }
@@ -33,9 +41,9 @@ class ProposalCommission {
 
   factory ProposalCommission.fromJson(Map<String, dynamic> json) {
     return ProposalCommission(
-      proposalId: json['proposalId'] as String,
-      opportunityName: json['opportunityName'] as String,
-      commission: (json['commission'] as num).toDouble(),
+      proposalId: json['id'] as String? ?? '',
+      opportunityName: json['opportunityName'] as String? ?? '',
+      commission: (json['totalCommission'] as num? ?? 0).toDouble(),
     );
   }
 } 

@@ -97,6 +97,8 @@ dependencies:
   # Added for mime type lookup
   mime: ^1.0.5
 
+  open_file: ^3.3.2 # Added for opening files
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -311,13 +311,13 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
-                  'Serviços',
+          'Serviços',
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
+          ),
+        ),
+      ),
               // Step indicator (show after step 0)
               if (currentStep > 0) ...[
                 const SizedBox(height: 24),
@@ -327,7 +327,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               Expanded(
                 child: _buildCurrentStep(),
               ),
-            ],
+        ],
           ),
         ),
       ),
@@ -359,7 +359,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ? colorScheme.primary
                 : colorScheme.outline.withOpacity(0.4);
             final Color textColor = isActiveOrCompleted
-                ? colorScheme.onPrimary
+                          ? colorScheme.onPrimary
                 : colorScheme.onSurfaceVariant.withOpacity(0.7);
             final FontWeight fontWeight = isActive ? FontWeight.bold : FontWeight.w500;
             final List<BoxShadow> boxShadow = isActive
@@ -368,7 +368,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                       color: colorScheme.primary.withOpacity(0.10),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
-                    ),
+              ),
                   ]
                 : [];
 
@@ -418,7 +418,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               child: Container(
                 height: 1.0,
                 color: isActiveOrCompletedLine
-                    ? colorScheme.primary
+                          ? colorScheme.primary
                     : theme.colorScheme.outline.withOpacity(0.25),
               ),
             );
@@ -531,16 +531,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             buildHeader(),
             ...[
               _ClientTypeCard(
-                title: 'Empresarial',
-                imagePath: 'assets/images/edp_logo_br.png',
-                onTap: () => _handleClientTypeSelection(ClientType.commercial),
-              ),
+              title: 'Empresarial',
+              imagePath: 'assets/images/edp_logo_br.png',
+              onTap: () => _handleClientTypeSelection(ClientType.commercial),
+            ),
               if (_selectedEnergyType != EnergyType.solar)
                 _ClientTypeCard(
-                  title: 'Residencial',
-                  imagePath: 'assets/images/repsol_logo_br.png',
-                  onTap: () => _handleClientTypeSelection(ClientType.residential),
-                ),
+                title: 'Residencial',
+                imagePath: 'assets/images/repsol_logo_br.png',
+                onTap: () => _handleClientTypeSelection(ClientType.residential),
+              ),
             ],
           ],
         ),
@@ -818,23 +818,32 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: theme.inputDecorationTheme.fillColor,
-            border: theme.inputDecorationTheme.border,
-            enabledBorder: theme.inputDecorationTheme.enabledBorder,
-            focusedBorder: theme.inputDecorationTheme.focusedBorder,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            hintStyle: theme.inputDecorationTheme.hintStyle,
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.dividerColor.withOpacity(0.4), width: 1),
+            color: Colors.transparent,
           ),
-          style: textTheme.bodyLarge?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            onChanged: onChanged,
+            style: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              isDense: true,
+            ),
           ),
         ),
       ],

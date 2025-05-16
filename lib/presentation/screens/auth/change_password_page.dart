@@ -54,78 +54,122 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       barrierDismissible: false,
       builder: (dialogContext) {
         final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final textTheme = theme.textTheme;
+
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Reautenticação Necessária'),
+              titlePadding: const EdgeInsets.all(0),
+              title: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                    child: Text(
+                      'Reautenticação Necessária',
+                      style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(CupertinoIcons.xmark, size: 22),
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      tooltip: 'Fechar',
+                      splashRadius: 20,
+                    ),
+                  ),
+                ],
+              ),
+              contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Por favor, insira a sua palavra-passe atual para continuar.'),
+                  Text(
+                    'Por favor, insira a sua palavra-passe atual para continuar.',
+                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _currentPasswordController,
-                    obscureText: obscureCurrentPasswordDialog,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: theme.inputDecorationTheme.fillColor,
-                      border: theme.inputDecorationTheme.border,
-                      enabledBorder: theme.inputDecorationTheme.enabledBorder,
-                      focusedBorder: theme.inputDecorationTheme.focusedBorder,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      hintText: 'Palavra-passe Atual',
-                      hintStyle: theme.inputDecorationTheme.hintStyle,
-                      suffixIcon: Padding(
-                        padding: const EdgeInsets.only(right: 10.0),
-                        child: IconButton(
-                          icon: Icon(
-                            obscureCurrentPasswordDialog ? Icons.visibility_off : Icons.visibility,
-                            color: theme.inputDecorationTheme.hintStyle?.color,
-                            size: 21,
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.dividerColor.withOpacity(0.4), width: 1),
+                      color: Colors.transparent,
+                    ),
+                    child: TextField(
+                      controller: _currentPasswordController,
+                      obscureText: obscureCurrentPasswordDialog,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Palavra-passe Atual',
+                        hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        filled: false,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        isDense: true,
+                        suffixIcon: Padding(
+                          padding: const EdgeInsets.only(right: 4.0),
+                          child: IconButton(
+                            icon: Icon(
+                              obscureCurrentPasswordDialog ? CupertinoIcons.eye_slash_fill : CupertinoIcons.eye_fill,
+                              color: theme.inputDecorationTheme.hintStyle?.color?.withOpacity(0.7) ?? colorScheme.onSurfaceVariant.withOpacity(0.7),
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
+                              });
+                            },
+                            splashRadius: 20,
                           ),
-                          onPressed: () {
-                            setDialogState(() {
-                              obscureCurrentPasswordDialog = !obscureCurrentPasswordDialog;
-                            });
-                          },
                         ),
                       ),
-                      isDense: true,
+                      textInputAction: TextInputAction.done,
                     ),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textInputAction: TextInputAction.done,
                   ),
                 ],
               ),
+              actionsAlignment: MainAxisAlignment.center,
+              actionsPadding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    if (_currentPasswordController.text.isEmpty) return;
-                    try {
-                      final credential = EmailAuthProvider.credential(
-                        email: user.email!,
-                        password: _currentPasswordController.text,
-                      );
-                      await user.reauthenticateWithCredential(credential);
-                      if (dialogContext.mounted) Navigator.pop(dialogContext, true);
-                    } on FirebaseAuthException catch (e) {
-                      if (dialogContext.mounted) Navigator.pop(dialogContext, false);
-                      if (mounted) setState(() { _errorMessage = 'Falha na reautenticação: ${e.code}'; _isLoading = false; });
-                    } catch (e) {
-                      if (dialogContext.mounted) Navigator.pop(dialogContext, false);
-                      if (mounted) setState(() { _errorMessage = 'Ocorreu um erro durante a reautenticação.'; _isLoading = false; });
-                    }
-                  },
-                  child: const Text('Confirmar', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      if (_currentPasswordController.text.isEmpty) return;
+                      try {
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user == null || user.email == null) throw Exception("User not found for re-auth");
+                        final credential = EmailAuthProvider.credential(
+                          email: user.email!,
+                          password: _currentPasswordController.text,
+                        );
+                        await user.reauthenticateWithCredential(credential);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                      } on FirebaseAuthException catch (e) {
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, false);
+                        if (mounted) setState(() { _errorMessage = 'Falha na reautenticação: ${e.message ?? e.code}'; _isLoading = false; });
+                      } catch (e) {
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, false);
+                        if (mounted) setState(() { _errorMessage = 'Ocorreu um erro durante a reautenticação.'; _isLoading = false; });
+                      }
+                    },
+                    child: const Text('Confirmar', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             );
@@ -288,9 +332,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     Widget pageContent = Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1200),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -300,57 +344,57 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.left,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                'Crie uma nova palavra-passe segura para a sua conta.',
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Crie uma nova palavra-passe segura para a sua conta.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
-                ),
+                  ),
                 textAlign: TextAlign.left,
+                ),
               ),
-            ),
             const SizedBox(height: 40),
             _buildLoginStylePasswordField(
-              context: context,
-              controller: _newPasswordController,
-              labelText: 'Nova Palavra-passe',
-              obscureText: _obscureNewPassword,
-              onToggleObscure: () {
-                setState(() {
-                  _obscureNewPassword = !_obscureNewPassword;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
+                context: context,
+                controller: _newPasswordController,
+                labelText: 'Nova Palavra-passe',
+                obscureText: _obscureNewPassword,
+                onToggleObscure: () {
+                  setState(() {
+                    _obscureNewPassword = !_obscureNewPassword;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
             _buildLoginStylePasswordField(
-              context: context,
-              controller: _confirmPasswordController,
-              labelText: 'Confirmar Nova Palavra-passe',
-              obscureText: _obscureConfirmPassword,
-              onToggleObscure: () {
-                setState(() {
-                  _obscureConfirmPassword = !_obscureConfirmPassword;
-                });
-              },
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  _errorMessage!,
+                context: context,
+                controller: _confirmPasswordController,
+                labelText: 'Confirmar Nova Palavra-passe',
+                obscureText: _obscureConfirmPassword,
+                onToggleObscure: () {
+                  setState(() {
+                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                  });
+                },
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Text(
+                    _errorMessage!,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
-            const SizedBox(height: 32),
+              ],
+              const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -367,18 +411,18 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                 ),
                 child: _isLoading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        'Guardar Palavra-passe',
+                        : Text(
+                          'Guardar Palavra-passe',
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w600,
                         ),
-                      ),
+                          ),
+                        ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
     );
 
     return Scaffold(
@@ -401,13 +445,13 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
       body: SafeArea(
         top: true,
         bottom: false,
-        child: SingleChildScrollView(
+          child: SingleChildScrollView(
           padding: EdgeInsets.only(
             left: horizontalPadding,
             right: horizontalPadding,
             top: topPadding,
-          ),
-          child: pageContent,
+            ),
+            child: pageContent,
         ),
       ),
     );
@@ -421,36 +465,53 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     required VoidCallback onToggleObscure,
   }) {
     final theme = Theme.of(context);
-    return TextField(
-      controller: controller,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        hintText: labelText,
-        filled: true,
-        fillColor: theme.inputDecorationTheme.fillColor,
-        border: theme.inputDecorationTheme.border,
-        enabledBorder: theme.inputDecorationTheme.enabledBorder,
-        focusedBorder: theme.inputDecorationTheme.focusedBorder,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        hintStyle: theme.inputDecorationTheme.hintStyle,
-        suffixIcon: Padding(
-          padding: const EdgeInsets.only(right: 10.0),
-          child: IconButton(
-            icon: Icon(
-              obscureText ? Icons.visibility_off : Icons.visibility,
-              color: theme.inputDecorationTheme.hintStyle?.color,
-              size: 21,
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.dividerColor.withOpacity(0.4), width: 1),
+            color: Colors.transparent,
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            style: textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurface,
             ),
-            onPressed: onToggleObscure,
+            decoration: InputDecoration(
+              hintText: labelText,
+              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              isDense: true,
+              suffixIcon: Padding(
+                padding: const EdgeInsets.only(right: 4.0),
+                child: IconButton(
+                  icon: Icon(
+                    obscureText ? CupertinoIcons.eye_slash_fill : CupertinoIcons.eye_fill,
+                    color: theme.inputDecorationTheme.hintStyle?.color?.withOpacity(0.7) ?? colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    size: 20,
+                  ),
+                  onPressed: onToggleObscure,
+                  splashRadius: 20,
+                ),
+              ),
+            ),
+            textInputAction: TextInputAction.next,
           ),
         ),
-        isDense: true,
-      ),
-      style: theme.textTheme.bodyLarge?.copyWith(
-        color: theme.colorScheme.onSurface,
-        fontWeight: FontWeight.w500,
-      ),
-      textInputAction: TextInputAction.next,
+      ],
     );
   }
 }
