@@ -249,10 +249,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                   key: pageKey,
                   child: Padding(
                     padding: EdgeInsets.only(
-                      left: 24,
-                      right: 24,
+                      left: !isSmallScreen && widget.showNavigation ? 0 : 0,
+                      right: 0,
                       top: 24,
-                      bottom: 24,
+                      bottom: 0,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

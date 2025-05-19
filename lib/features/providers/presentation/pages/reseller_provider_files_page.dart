@@ -10,6 +10,7 @@ import '../../../../core/theme/theme.dart';
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget for AppBar
+import '../../../../presentation/widgets/simple_list_item.dart';
 
 class ResellerProviderFilesPage extends ConsumerWidget {
   final String providerId;
@@ -116,53 +117,16 @@ class ResellerProviderFilesPage extends ConsumerWidget {
   Widget _buildFileListItem(BuildContext context, ProviderFile file, ThemeData theme) {
     final fileIcon = _getFileIcon(file.fileType);
 
-    return InkWell(
-      onTap: () => _handleFileTap(context, file),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    file.fileName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (file.description.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2.0),
-                      child: Text(
-                        file.description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Icon(
-              CupertinoIcons.chevron_forward,
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-              size: 20,
-            ),
-          ],
-        ),
+    return SimpleListItem(
+      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+      title: file.fileName,
+      subtitle: file.description.isNotEmpty ? file.description : null,
+      trailing: Icon(
+        CupertinoIcons.chevron_forward,
+        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+        size: 20,
       ),
+      onTap: () => _handleFileTap(context, file),
     );
   }
 

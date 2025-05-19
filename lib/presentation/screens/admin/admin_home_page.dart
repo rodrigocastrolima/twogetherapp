@@ -12,6 +12,7 @@ import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
+import '../../widgets/simple_list_item.dart';
 // import '../../../core/theme/ui_styles.dart'; // Removed
 
 class AdminHomePage extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -96,7 +97,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                         ),
                   const SizedBox(height: 40),
                   // --- Notificações ---
-                            Text(
+                  Text(
                     'Notificações',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w600,
@@ -388,40 +389,106 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
           return Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 48.0),
-      child: Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+                children: [
                   Icon(
                     CupertinoIcons.bell_slash,
                     size: 48,
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
-          ),
-          const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'Nenhuma Atividade Recente',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
                     ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
           );
         }
-        final totalPages = (notifications.length / 6).ceil(); // Assuming you want to keep 6 items per page
-        final pageNotifications = notifications.skip(_currentPage * 6).take(6).toList(); // Assuming you want to keep 6 items per page
+        final totalPages = (notifications.length / 6).ceil();
+        final pageNotifications = notifications.skip(_currentPage * 6).take(6).toList();
         return Column(
           children: [
-            ListView.separated(
-              shrinkWrap: true, 
-              physics: const NeverScrollableScrollPhysics(), 
-              padding: const EdgeInsets.all(0),
-              itemCount: pageNotifications.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final notification = pageNotifications[index];
-                return _buildNotificationCard(context, notification, onTap: () => _handleAdminNotificationTap(context, notification, notificationActions));
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(0),
+                itemCount: pageNotifications.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 0),
+                itemBuilder: (context, index) {
+                  final notification = pageNotifications[index];
+                  // --- Icon and color logic ---
+                  IconData itemIcon = CupertinoIcons.doc_plaintext;
+                  Color iconColor;
+                  switch (notification.type) {
+                    case NotificationType.newSubmission:
+                      itemIcon = CupertinoIcons.doc_on_doc_fill;
+                      iconColor = const Color(0xFF3B82F6);
+                      break;
+                    case NotificationType.statusChange:
+                      itemIcon = CupertinoIcons.arrow_swap;
+                      iconColor = const Color(0xFFF59E0B);
+                      break;
+                    case NotificationType.rejection:
+                      itemIcon = CupertinoIcons.xmark_circle_fill;
+                      iconColor = const Color(0xFFEF4444);
+                      break;
+                    case NotificationType.proposalRejected:
+                      itemIcon = CupertinoIcons.hand_thumbsdown_fill;
+                      iconColor = const Color(0xFFEF4444);
+                      break;
+                    case NotificationType.proposalAccepted:
+                      itemIcon = CupertinoIcons.check_mark_circled_solid;
+                      iconColor = const Color(0xFF10B981);
+                      break;
+                    default:
+                      itemIcon = CupertinoIcons.bell_fill;
+                      iconColor = const Color(0xFF6B7280);
+                  }
+                  final dateFormatter = DateFormat.yMd('pt_PT').add_jm();
+                  final formattedDate = dateFormatter.format(notification.createdAt);
+                  final resellerName = notification.metadata['resellerName'] ?? 'Revendedor Desconhecido';
+                  String secondarySubtitleText = '?';
+                  if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
+                    secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
+                  } else if (notification.type == NotificationType.newSubmission) {
+                    secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
+                  } else {
+                    secondarySubtitleText = notification.metadata['clientName'] ?? '?';
+                  }
+                  final isNew = !notification.isRead;
+                  return SimpleListItem(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: iconColor.withAlpha((255 * (theme.brightness == Brightness.dark ? 0.2 : 0.1)).round()),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Icon(itemIcon, size: 20, color: iconColor),
+                      ),
+                    ),
+                    title: notification.title,
+                    subtitle: '$resellerName / $secondarySubtitleText',
+                    trailing: Text(
+                      formattedDate,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                    isUnread: isNew,
+                    onTap: () => _handleAdminNotificationTap(context, notification, notificationActions),
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 16),
             if (totalPages > 1)
@@ -443,9 +510,9 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                     onPressed: _currentPage < totalPages - 1
                         ? () => setState(() => _currentPage++)
                         : null,
-          ),
-        ],
-      ),
+                  ),
+                ],
+              ),
           ],
         );
       },

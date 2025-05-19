@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'reseller_opportunity_details_page.dart';
 import '../../../core/theme/ui_styles.dart';
+import '../../widgets/simple_list_item.dart';
 
 // Enum for filter status
 enum OpportunityFilterStatus {
@@ -370,45 +371,75 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                       }
 
                       return AnimationLimiter(
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                          itemCount: displayOpportunities.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final opportunity = displayOpportunities[index];
-                            return AnimationConfiguration.staggeredList(
-                              position: index,
-                              duration: const Duration(milliseconds: 375),
-                              child: SlideAnimation(
-                                verticalOffset: 50.0,
-                                child: FadeInAnimation(
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    child: Material(
-                                      color: theme.colorScheme.surface,
-                                      elevation: 2,
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(14),
-                                        onTap: () {
-                                          // Play the press animation
-                                          _cardKey.currentState?.setState(() {}); // Dummy setState to trigger animation if needed
-                                        },
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: _buildOpportunityCard(
-                                            context,
-                                            opportunity,
-                                            key: ValueKey(opportunity.id),
-                                          ),
-                                        ),
-                                      ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
+                            itemCount: displayOpportunities.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 0),
+                            itemBuilder: (context, index) {
+                              final opportunity = displayOpportunities[index];
+                              // Get status visuals
+                              String? latestStatus;
+                              if (opportunity.propostasR?.records != null &&
+                                  opportunity.propostasR!.records.isNotEmpty) {
+                                latestStatus = opportunity.propostasR!.records.first.statusC;
+                              }
+                              IconData? statusIcon;
+                              Color statusIconColor = theme.colorScheme.onSurfaceVariant;
+                              switch (latestStatus) {
+                                case 'Aceite':
+                                  statusIcon = CupertinoIcons.checkmark_seal_fill;
+                                  statusIconColor = Colors.green;
+                                  break;
+                                case 'Enviada':
+                                case 'Em Aprovação':
+                                  statusIcon = CupertinoIcons.exclamationmark_circle_fill;
+                                  statusIconColor = Colors.blue;
+                                  break;
+                                case 'Não Aprovada':
+                                case 'Cancelada':
+                                  statusIcon = CupertinoIcons.xmark_seal_fill;
+                                  statusIconColor = Colors.red;
+                                  break;
+                                case 'Expirada':
+                                case 'Aprovada':
+                                  statusIcon = CupertinoIcons.clock_fill;
+                                  statusIconColor = Colors.orange;
+                                  break;
+                                default:
+                                  statusIcon = CupertinoIcons.doc_text;
+                                  statusIconColor = theme.colorScheme.onSurfaceVariant;
+                              }
+                              String displayDate = '';
+                              if (opportunity.createdDate != null) {
+                                try {
+                                  final dateTime = DateTime.parse(opportunity.createdDate!);
+                                  displayDate = DateFormat('dd/MM/yy', 'pt_PT').format(dateTime);
+                                } catch (e) {
+                                  displayDate = '';
+                                }
+                              }
+                              final cardName = opportunity.accountName ?? opportunity.name;
+                              return AnimationConfiguration.staggeredList(
+                                position: index,
+                                duration: const Duration(milliseconds: 375),
+                                child: SlideAnimation(
+                                  verticalOffset: 50.0,
+                                  child: FadeInAnimation(
+                                    child: SimpleListItem(
+                                      leading: Icon(statusIcon, color: statusIconColor, size: 28),
+                                      title: cardName,
+                                      subtitle: displayDate,
+                                      onTap: () {
+                                        context.push('/opportunity-details', extra: opportunity);
+                                      },
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       );
                     },

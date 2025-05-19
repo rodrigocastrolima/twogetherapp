@@ -49,6 +49,7 @@ import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart
     as proposal_models;
 import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
 import 'package:twogether/features/providers/domain/models/provider_info.dart';
+import 'package:twogether/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -793,31 +794,6 @@ class AppRouter {
             pageBuilder:
                 (context, state) =>
                     const NoTransitionPage(child: AdminHomePage()),
-            routes: [
-              // --- START: Move Salesforce Detail Route Here --- //
-              GoRoute(
-                path:
-                    'salesforce-opportunity-detail/:opportunityId', // Path is now relative to /admin
-                builder: (context, state) {
-                  final opportunityId = state.pathParameters['opportunityId'];
-                  if (opportunityId != null) {
-                    return AdminSalesforceOpportunityDetailPage(
-                      opportunityId: opportunityId,
-                    );
-                  } else {
-                    // Handle error: Redirect or show error page
-                    return const Scaffold(
-                      body: Center(
-                        child: Text('Error: Opportunity ID missing'),
-                      ),
-                    );
-                  }
-                },
-              ),
-              // --- END: Move Salesforce Detail Route Here --- //
-
-              // Nested routes under admin home if any
-            ],
           ),
           GoRoute(
             path: '/admin/opportunities',
@@ -1054,7 +1030,7 @@ class AppRouter {
             );
           }
 
-          return NoTransitionPage(
+          return _SlideTransition(
             child: ProposalCreationPage(
               salesforceOpportunityId: sfOppId,
               salesforceAccountId: sfAccId,
@@ -1064,6 +1040,7 @@ class AppRouter {
               nif: nif,
               opportunityName: oppName,
             ),
+            reverse: false,
           );
         },
       ),
@@ -1113,17 +1090,17 @@ class AppRouter {
         path: '/admin/proposal/:proposalId',
         name: 'adminProposalDetail', // Keep the name
         // Ensure this is only accessible by admin via redirect logic
-        builder: (context, state) {
-          // Ensure user is admin (although redirect should handle this)
+        pageBuilder: (context, state) {
           final container = ProviderScope.containerOf(context);
           final authNotifier = container.read(authNotifierProvider);
           if (!authNotifier.isAdmin) {
-            // Should have been redirected, but as a fallback:
-            return const Scaffold(body: Center(child: Text('Access Denied')));
+            return const MaterialPage(child: Scaffold(body: Center(child: Text('Access Denied'))));
           }
-
           final proposalId = state.pathParameters['proposalId']!;
-          return AdminSalesforceProposalDetailPage(proposalId: proposalId);
+          return _SlideTransition(
+            child: AdminSalesforceProposalDetailPage(proposalId: proposalId),
+            reverse: false,
+          );
         },
       ),
       GoRoute(
@@ -1192,6 +1169,39 @@ class AppRouter {
             },
           ),
         ],
+      ),
+      // Add as a top-level route (outside all ShellRoutes):
+      GoRoute(
+        path: '/admin/salesforce-opportunity-detail/:opportunityId',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final opportunityId = state.pathParameters['opportunityId'];
+          if (opportunityId != null) {
+            return _SlideTransition(
+              child: AdminSalesforceOpportunityDetailPage(
+                opportunityId: opportunityId,
+              ),
+              reverse: false,
+            );
+          } else {
+            return const NoTransitionPage(
+              child: Scaffold(
+                body: Center(child: Text('Error: Opportunity ID missing')),
+              ),
+            );
+          }
+        },
+      ),
+      GoRoute(
+        path: '/admin/cpe-proposta/:id',
+        name: 'adminCpePropostaDetail',
+        pageBuilder: (context, state) {
+          final cpePropostaId = state.pathParameters['id']!;
+          return _SlideTransition(
+            child: AdminCpePropostaDetailPage(cpePropostaId: cpePropostaId),
+            reverse: false,
+          );
+        },
       ),
     ],
     // Optional: Add error page handling

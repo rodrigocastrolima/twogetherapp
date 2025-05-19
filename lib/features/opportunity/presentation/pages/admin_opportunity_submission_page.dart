@@ -878,18 +878,19 @@ class _OpportunityDetailFormViewState
         filled: true,
         fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         suffixIcon: suffixIcon,
       );
     }
@@ -903,11 +904,14 @@ class _OpportunityDetailFormViewState
     );
 
     Widget _readOnlyField(String label, TextEditingController controller) {
-      return TextFormField(
-        controller: controller,
-        readOnly: true,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, readOnly: true),
+      return SizedBox(
+        height: 56,
+        child: TextFormField(
+          controller: controller,
+          readOnly: true,
+          style: textTheme.bodySmall,
+          decoration: _inputDecoration(label: label, readOnly: true),
+        ),
       );
     }
 
@@ -943,43 +947,55 @@ class _OpportunityDetailFormViewState
                   ),
                   const SizedBox(height: 20),
                   // Responsible/Company
-                  TextFormField(
-                    controller: _responsibleNameController,
-                    style: textTheme.bodySmall,
-                    decoration: _inputDecoration(label: 'Nome do Responsável'),
+                  SizedBox(
+                    height: 48,
+                    child: TextFormField(
+                      controller: _responsibleNameController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(label: 'Nome do Responsável'),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
-                    TextFormField(
-                      controller: _companyNameController,
-                      style: textTheme.bodySmall,
-                      decoration: _inputDecoration(label: 'Nome da Empresa'),
+                    SizedBox(
+                      height: 48,
+                      child: TextFormField(
+                        controller: _companyNameController,
+                        style: textTheme.bodySmall,
+                        decoration: _inputDecoration(label: 'Nome da Empresa'),
+                      ),
                     ),
                   if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
                     const SizedBox(height: 12),
                   _readOnlyField('Agente Retail', _agenteRetailController),
                   const SizedBox(height: 20),
                   // --- All Opportunity Fields (no section title) ---
-                  TextFormField(
-                    controller: _nameController,
-                    style: textTheme.bodySmall,
-                    decoration: _inputDecoration(label: 'Nome da Oportunidade'),
-                    validator: (value) => (value == null || value.trim().isEmpty)
-                        ? 'Nome da Oportunidade é obrigatório'
-                        : null,
+                  SizedBox(
+                    height: 48,
+                    child: TextFormField(
+                      controller: _nameController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(label: 'Nome da Oportunidade'),
+                      validator: (value) => (value == null || value.trim().isEmpty)
+                          ? 'Nome da Oportunidade é obrigatório'
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: TextFormField(
-                          controller: _nifController,
-                          style: textTheme.bodySmall,
-                          decoration: _inputDecoration(label: 'NIF'),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'NIF é obrigatório'
-                              : null,
+                        child: SizedBox(
+                          height: 48,
+                          child: TextFormField(
+                            controller: _nifController,
+                            style: textTheme.bodySmall,
+                            decoration: _inputDecoration(label: 'NIF'),
+                            validator: (value) => (value == null || value.trim().isEmpty)
+                                ? 'NIF é obrigatório'
+                                : null,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -987,153 +1003,187 @@ class _OpportunityDetailFormViewState
                     ],
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _dataCriacaoController,
-                    style: textTheme.bodySmall,
-                    decoration: _inputDecoration(label: 'Data de Criação'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _dataUltimaAtualizacaoController,
-                    style: textTheme.bodySmall,
-                    decoration: _inputDecoration(label: 'Última Atualização'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _faseOptions.contains(_faseController.text) ? _faseController.text : '--None--',
-                    decoration: _inputDecoration(label: 'Fase'),
-                    items: _faseOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: textTheme.bodySmall),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _faseController.text = value ?? '';
-                      });
-                    },
-                    validator: (value) => (value == null || value == '--None--')
-                        ? 'Fase é obrigatória'
-                        : null,
-                    hint: Text('Selecione uma fase', style: textTheme.bodySmall),
-                    style: textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text) ? _tipoOportunidadeController.text : '--None--',
-                    decoration: _inputDecoration(label: 'Tipo de Oportunidade'),
-                    items: _tipoOportunidadeOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: textTheme.bodySmall),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _tipoOportunidadeController.text = value ?? '';
-                      });
-                    },
-                    validator: (value) => (value == null || value == '--None--')
-                        ? 'Tipo de Oportunidade é obrigatório'
-                        : null,
-                    hint: Text('Selecione o tipo de oportunidade', style: textTheme.bodySmall),
-                    style: textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _segmentoOptions.contains(_selectedSegmentoCliente) ? _selectedSegmentoCliente : '--None--',
-                    decoration: _inputDecoration(label: 'Segmento de Cliente'),
-                    items: _segmentoOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: _segmentoIcons[value] ?? Text(value, style: textTheme.bodySmall),
-                      );
-                    }).toList(),
-                    selectedItemBuilder: (BuildContext context) {
-                      return _segmentoOptions.map<Widget>((String item) {
-                        final iconWidget = _segmentoIcons[item];
-                        if (iconWidget is Row) {
-                          return iconWidget.children.firstWhere((w) => w is Icon);
-                        } else if (iconWidget is Text && item == '--None--') {
-                          return Text(
-                            'Selecione um segmento',
-                            style: textTheme.bodySmall?.copyWith(color: theme.hintColor),
-                          );
-                        } else {
-                          return iconWidget ?? const SizedBox.shrink();
-                        }
-                      }).toList();
-                    },
-                    onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
-                    validator: (value) => (value == null || value == '--None--')
-                        ? 'Segmento de Cliente é obrigatório'
-                        : null,
-                    hint: Text('Selecione um segmento de cliente', style: textTheme.bodySmall),
-                    style: textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _solucaoOptions.contains(_selectedSolucao) ? _selectedSolucao : '--None--',
-                    decoration: _inputDecoration(label: 'Solução'),
-                    items: _solucaoOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value, style: textTheme.bodySmall),
-                      );
-                    }).toList(),
-                    onChanged: (value) => setState(() => _selectedSolucao = value),
-                    validator: (value) => (value == null || value == '--None--')
-                        ? 'Solução é obrigatória'
-                        : null,
-                    hint: Text('Selecione uma solução', style: textTheme.bodySmall),
-                    style: textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _fechoController,
-                    style: textTheme.bodySmall,
-                    decoration: _inputDecoration(
-                      label: 'Data de Previsão de Fecho',
-                      hint: 'Selecione a data de fecho',
-                      suffixIcon: const Icon(Icons.calendar_today),
+                  SizedBox(
+                    height: 48,
+                    child: TextFormField(
+                      controller: _dataCriacaoController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(label: 'Data de Criação'),
                     ),
-                    keyboardType: TextInputType.datetime,
-                    readOnly: true,
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedFechoDate ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                        builder: (context, child) {
-                          return Theme(
-                            data: theme.copyWith(
-                              colorScheme: theme.colorScheme.copyWith(
-                                primary: colorScheme.primary,
-                                onPrimary: colorScheme.onPrimary,
-                                onSurface: colorScheme.onSurface,
-                              ),
-                              textButtonTheme: TextButtonThemeData(
-                                style: TextButton.styleFrom(
-                                  foregroundColor: colorScheme.primary,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: TextFormField(
+                      controller: _dataUltimaAtualizacaoController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(label: 'Última Atualização'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: DropdownButtonFormField<String>(
+                      value: _faseOptions.contains(_faseController.text) ? _faseController.text : '--None--',
+                      decoration: _inputDecoration(label: 'Fase'),
+                      items: _faseOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: textTheme.bodySmall),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _faseController.text = value ?? '';
+                        });
+                      },
+                      validator: (value) => (value == null || value == '--None--')
+                          ? 'Fase é obrigatória'
+                          : null,
+                      hint: Text('Selecione uma fase', style: textTheme.bodySmall),
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: DropdownButtonFormField<String>(
+                      value: _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text) ? _tipoOportunidadeController.text : '--None--',
+                      decoration: _inputDecoration(label: 'Tipo de Oportunidade'),
+                      items: _tipoOportunidadeOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: textTheme.bodySmall),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _tipoOportunidadeController.text = value ?? '';
+                        });
+                      },
+                      validator: (value) => (value == null || value == '--None--')
+                          ? 'Tipo de Oportunidade é obrigatório'
+                          : null,
+                      hint: Text('Selecione o tipo de oportunidade', style: textTheme.bodySmall),
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: DropdownButtonFormField<String>(
+                      value: _segmentoOptions.contains(_selectedSegmentoCliente) ? _selectedSegmentoCliente : '--None--',
+                      decoration: _inputDecoration(label: 'Segmento de Cliente'),
+                      items: _segmentoOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: _segmentoIcons[value] ?? Text(value, style: textTheme.bodySmall),
+                        );
+                      }).toList(),
+                      selectedItemBuilder: (BuildContext context) {
+                        return _segmentoOptions.map<Widget>((String item) {
+                          final iconWidget = _segmentoIcons[item];
+                          if (iconWidget is Row) {
+                            return iconWidget.children.firstWhere((w) => w is Icon);
+                          } else if (iconWidget is Text && item == '--None--') {
+                            return Text(
+                              'Selecione um segmento',
+                              style: textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                            );
+                          } else {
+                            return iconWidget ?? const SizedBox.shrink();
+                          }
+                        }).toList();
+                      },
+                      onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
+                      validator: (value) => (value == null || value == '--None--')
+                          ? 'Segmento de Cliente é obrigatório'
+                          : null,
+                      hint: Text('Selecione um segmento de cliente', style: textTheme.bodySmall),
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: DropdownButtonFormField<String>(
+                      value: _solucaoOptions.contains(_selectedSolucao) ? _selectedSolucao : '--None--',
+                      decoration: _inputDecoration(label: 'Solução'),
+                      items: _solucaoOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: textTheme.bodySmall),
+                        );
+                      }).toList(),
+                      onChanged: (value) => setState(() => _selectedSolucao = value),
+                      validator: (value) => (value == null || value == '--None--')
+                          ? 'Solução é obrigatória'
+                          : null,
+                      hint: Text('Selecione uma solução', style: textTheme.bodySmall),
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 48,
+                    child: TextFormField(
+                      controller: _fechoController,
+                      style: textTheme.bodySmall,
+                      decoration: _inputDecoration(
+                        label: 'Data de Previsão de Fecho',
+                        hint: 'Selecione a data de fecho',
+                        suffixIcon: const Icon(Icons.calendar_today),
+                      ),
+                      keyboardType: TextInputType.datetime,
+                      readOnly: true,
+                      onTap: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedFechoDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                          initialEntryMode: DatePickerEntryMode.calendarOnly, // calendar only, no manual input
+                          builder: (context, child) {
+                            final theme = Theme.of(context);
+                            return Theme(
+                              data: theme.copyWith(
+                                dialogBackgroundColor: theme.colorScheme.surface,
+                                colorScheme: theme.colorScheme.copyWith(
+                                  primary: theme.colorScheme.primary,
+                                  onPrimary: theme.colorScheme.onPrimary,
+                                  surface: theme.colorScheme.surface,
+                                  onSurface: theme.colorScheme.onSurface,
+                                ),
+                                textButtonTheme: TextButtonThemeData(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: theme.colorScheme.primary,
+                                    textStyle: theme.textTheme.labelLarge,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                                dialogTheme: DialogTheme(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                 ),
                               ),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (pickedDate != null && pickedDate != _selectedFechoDate) {
-                        setState(() {
-                          _selectedFechoDate = pickedDate;
-                          _fechoController.text = DateFormat.yMd().format(pickedDate);
-                        });
-                      }
-                    },
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Data de Previsão de Fecho é obrigatória'
-                        : null,
+                              child: child!,
+                            );
+                          },
+                        );
+                        if (pickedDate != null && pickedDate != _selectedFechoDate) {
+                          setState(() {
+                            _selectedFechoDate = pickedDate;
+                            _fechoController.text = DateFormat.yMd().format(pickedDate);
+                          });
+                        }
+                      },
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'Data de Previsão de Fecho é obrigatória'
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   // --- Faturas Section ---
@@ -1216,11 +1266,30 @@ class _OpportunityDetailFormViewState
                         children: [
                           SizedBox(
                             height: 40,
-                            child: FilledButton(
+                            child: OutlinedButton.icon(
+                              icon: Icon(Icons.check_circle_outline, color: colorScheme.tertiary),
+                              label: _isSubmitting
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: colorScheme.tertiary,
+                                      ),
+                                    )
+                                  : Text('Aprovar', style: textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                      color: colorScheme.tertiary,
+                                    )),
                               onPressed: _isSubmitting ? null : _approveSubmission,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: colorScheme.tertiary,
+                                side: BorderSide(
+                                  color: colorScheme.tertiary,
+                                  width: 1.5,
+                                ),
                                 minimumSize: const Size(120, 40),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(6),
@@ -1230,16 +1299,6 @@ class _OpportunityDetailFormViewState
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                              child: _isSubmitting
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    )
-                                  : const Text('Aprovar'),
                             ),
                           ),
                           SizedBox(

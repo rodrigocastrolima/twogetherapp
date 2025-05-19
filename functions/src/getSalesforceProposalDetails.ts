@@ -74,7 +74,7 @@ export const getSalesforceProposalDetails = onCall(
         Energia__c, Solar__c, Valor_de_Investimento_Solar__c,
         Data_de_Cria_o_da_Proposta__c, Data_de_In_cio_do_Contrato__c, Data_de_Validade__c, Data_de_fim_do_Contrato__c,
         Bundle__c, Contrato_inserido__c,
-        (SELECT Id, CPE_Proposta__r.Id, CPE_Proposta__r.Name FROM CPE_Propostas__r),
+        (SELECT Id, Name, CPE_Proposta__r.Id, CPE_Proposta__r.Name FROM CPE_Propostas__r),
         (SELECT ContentDocument.Id, ContentDocument.Title, ContentDocument.FileExtension, ContentDocument.FileType, ContentDocument.LatestPublishedVersionId FROM ContentDocumentLinks ORDER BY ContentDocument.CreatedDate DESC)
       FROM Proposta__c
       WHERE Id = '${data.proposalId}'

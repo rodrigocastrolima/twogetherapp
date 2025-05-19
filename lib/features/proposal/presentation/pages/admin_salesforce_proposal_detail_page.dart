@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // For date/number formatting
 import 'package:go_router/go_router.dart'; // If needed later for navigation
 import 'package:file_picker/file_picker.dart'; // <-- RESTORED IMPORT
+import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 
 import '../providers/proposal_providers.dart'; // Provider for proposal details
 import '../../data/models/detailed_salesforce_proposal.dart';
@@ -13,6 +14,10 @@ import '../../../../core/services/salesforce_auth_service.dart'; // For getting 
 import '../widgets/add_cpe_to_proposal_dialog.dart'; // <-- ADDED IMPORT for dialog
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
+import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
+import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
+import '../../../../presentation/widgets/simple_list_item.dart'; // Import SimpleListItem
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceProposalDetailPage extends ConsumerStatefulWidget {
@@ -41,7 +46,6 @@ class _AdminSalesforceProposalDetailPageState
       []; // Existing files marked for deletion
 
   // --- Define Editable Fields (Using Model Property Names) ---
-  // Based on previous plan, excluding lookups and picklists for now
   final List<String> _editableFields = [
     'name',
     'nifC',
@@ -49,31 +53,36 @@ class _AdminSalesforceProposalDetailPageState
     'responsavelNegocioExclusivoC',
     'consumoPeriodoContratoKwhC',
     'valorInvestimentoSolarC',
-    // Boolean fields handled by Switches/Checkboxes directly in UI build
-    // Date fields handled by Date Pickers directly in UI build
+    'dataValidadeC',
+    'dataInicioContratoC',
+    'dataFimContratoC',
+    // Dropdowns
+    'soluOC',
+    'statusC',
+    // Checkboxes
+    'energiaC',
+    'solarC',
+    'contratoInseridoC',
   ];
 
   // --- Map Model Fields to Salesforce API Names ---
   final Map<String, String> _fieldApiNameMapping = {
     'name': 'Name',
     'nifC': 'NIF__c',
-    'responsavelNegocioRetailC': 'Responsavel_de_Negocio_Retail__c',
-    'responsavelNegocioExclusivoC': 'Responsavel_de_Negocio_Exclusivo__c',
+    'responsavelNegocioRetailC': 'Respons_vel_de_Neg_cio_Retail__c',
+    'responsavelNegocioExclusivoC': 'Respons_vel_de_Neg_cio_Exclusivo__c',
     'consumoPeriodoContratoKwhC': 'Consumo_para_o_per_odo_do_contrato_KWh__c',
-    'energiaC': 'Energia__c',
-    'solarC': 'Solar__c',
     'valorInvestimentoSolarC': 'Valor_de_Investimento_Solar__c',
     'dataValidadeC': 'Data_de_Validade__c',
-    'dataInicioContratoC': 'Data_de_In_o_do_Contrato__c',
+    'dataInicioContratoC': 'Data_de_Início_do_Contrato__c',
     'dataFimContratoC': 'Data_de_fim_do_Contrato__c',
-    'contratoInseridoC': 'Contrato_inserido__c',
     'soluOC': 'Solu_o__c',
     'statusC': 'Status__c',
-    'backOffice': 'Back_Office__c', // Added
-    'faseC': 'Fase__c', // ASSUMED API Name for Fase
-    'faseLDF': 'Fase_LDF__c', // ASSUMED API Name for Fase LDF
-    // Add mappings for other editable fields as needed
-    // Example: 'stageName': 'StageName' (Standard field)
+    'energiaC': 'Energia__c',
+    'solarC': 'Solar__c',
+    'contratoInseridoC': 'Contrato_inserido__c',
+    'bundleC': 'Bundle__c',
+    // Add more if needed
   };
 
   // --- NEW: State variables for dropdowns ---
@@ -110,11 +119,8 @@ class _AdminSalesforceProposalDetailPageState
   @override
   void initState() {
     super.initState();
-    // Initial setup of controllers for text fields
     for (final field in _editableFields) {
-      // Only create controllers for fields that use them (e.g., text, number)
       if ([
-        // Add fields that use TextEditingController here
         'name',
         'nifC',
         'responsavelNegocioRetailC',
@@ -129,8 +135,18 @@ class _AdminSalesforceProposalDetailPageState
 
   @override
   void dispose() {
+    // Remove listeners before disposing controllers
+    _controllers['valorInvestimentoSolarC']?.removeListener(_valorListener);
     _controllers.forEach((_, controller) => controller.dispose());
     super.dispose();
+  }
+
+  // Listener for valorInvestimentoSolarC
+  void _valorListener() {
+    if (!_isEditing) return;
+    final text = _controllers['valorInvestimentoSolarC']?.text ?? '';
+    final value = _parseDouble(text);
+    _updateEditedProposalField('valorInvestimentoSolarC', value);
   }
 
   // --- Formatting Helpers (remain the same) ---
@@ -166,28 +182,28 @@ class _AdminSalesforceProposalDetailPageState
 
   // --- State Initialization and Update Helpers (Adapted from Opportunity Page) ---
   void _initializeEditState(DetailedSalesforceProposal proposal) {
-    _originalProposal = proposal; // Store the original for cancellation
-    _editedProposal = proposal.copyWith(); // Create editable copy
-
-    // Initialize dropdown state variables from the editable copy
+    _originalProposal = proposal;
+    _editedProposal = proposal.copyWith();
     _selectedSolution = _editedProposal?.soluOC;
     _selectedStatus = _editedProposal?.statusC;
-
-    // Initialize any text controllers if added later
     _controllers.forEach((field, controller) {
       final value = _editedProposal?.toJson()[field];
       controller.text = value?.toString() ?? '';
-      // Add listeners if needed
     });
+    // Add listener for valorInvestimentoSolarC
+    _controllers['valorInvestimentoSolarC']?.removeListener(_valorListener);
+    _controllers['valorInvestimentoSolarC']?.addListener(_valorListener);
   }
 
-  // Update the _editedProposal state immutably
   void _updateEditedProposalField(String field, dynamic value) {
     if (!_isEditing || _editedProposal == null) return;
-
     setState(() {
-      // Use copyWith based on field key
       switch (field) {
+        case 'valorInvestimentoSolarC':
+          _editedProposal = _editedProposal!.copyWith(
+            valorInvestimentoSolarC: _parseDouble(value),
+          );
+          break;
         case 'name':
           _editedProposal = _editedProposal!.copyWith(name: value as String);
           break;
@@ -207,11 +223,6 @@ class _AdminSalesforceProposalDetailPageState
         case 'consumoPeriodoContratoKwhC':
           _editedProposal = _editedProposal!.copyWith(
             consumoPeriodoContratoKwhC: _parseDouble(value),
-          );
-          break;
-        case 'valorInvestimentoSolarC':
-          _editedProposal = _editedProposal!.copyWith(
-            valorInvestimentoSolarC: _parseDouble(value),
           );
           break;
         // --- Handle non-controller fields directly from UI interactions ---
@@ -322,139 +333,208 @@ class _AdminSalesforceProposalDetailPageState
     });
   }
 
-  // --- Implement Save Logic ---
+  // --- SHARED INPUT DECORATION (from admin_opportunity_submission_page.dart) ---
+  InputDecoration _inputDecoration({
+    required String label,
+    String? hint,
+    bool readOnly = false,
+    Widget? suffixIcon,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+      hintText: hint,
+      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+      filled: true,
+      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      suffixIcon: suffixIcon,
+    );
+  }
+
+  // --- REFACTOR: Editable text field builder ---
+  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint, bool readOnly = false, Widget? suffixIcon}) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 56,
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines ?? 1,
+        minLines: 1,
+        readOnly: readOnly,
+        style: readOnly ? theme.textTheme.bodySmall?.copyWith(color: theme.disabledColor) : theme.textTheme.bodySmall,
+        decoration: _inputDecoration(label: label, hint: hint, readOnly: readOnly, suffixIcon: suffixIcon),
+      ),
+    );
+  }
+
+  // --- REFACTOR: Editable dropdown field builder ---
+  Widget _buildEditableDropdownField(String label, String? value, List<String> options, ValueChanged<String?> onChanged) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 56,
+      child: DropdownButtonFormField<String>(
+        value: options.contains(value) ? value : options.first,
+        decoration: _inputDecoration(label: label),
+        items: options.map((String v) {
+          return DropdownMenuItem<String>(
+            value: v,
+            child: Text(v, style: theme.textTheme.bodySmall),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        style: theme.textTheme.bodySmall,
+        isExpanded: true,
+      ),
+    );
+  }
+
+  // --- REFACTOR: Editable date picker field builder ---
+  Widget _buildEditableDateField(String label, String? value, ValueChanged<DateTime?> onDatePicked) {
+    final theme = Theme.of(context);
+    DateTime? parsedDate;
+    if (value != null) {
+      try {
+        parsedDate = DateTime.parse(value);
+      } catch (_) {}
+    }
+    final controller = TextEditingController(text: parsedDate != null ? DateFormat('dd/MM/yyyy').format(parsedDate) : '');
+    return SizedBox(
+      height: 56,
+      child: TextFormField(
+        controller: controller,
+        style: theme.textTheme.bodySmall,
+        decoration: _inputDecoration(
+          label: label,
+          hint: 'Selecionar data',
+          suffixIcon: const Icon(Icons.calendar_today),
+        ),
+        readOnly: true,
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: parsedDate ?? DateTime.now(),
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2101),
+            initialEntryMode: DatePickerEntryMode.calendarOnly,
+            builder: (context, child) {
+              final theme = Theme.of(context);
+              return Theme(
+                data: theme.copyWith(
+                  colorScheme: theme.colorScheme.copyWith(
+                    primary: theme.colorScheme.primary,
+                    surface: theme.colorScheme.surface,
+                  ),
+                  dialogBackgroundColor: theme.colorScheme.surface,
+                  textButtonTheme: TextButtonThemeData(
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                child: child!,
+              );
+            },
+          );
+          onDatePicked(picked);
+        },
+      ),
+    );
+  }
+
+  // Update the save method to use success dialog
   Future<void> _saveEdit() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    // Basic Validation (Example: Name cannot be empty)
+    try {
+      // Basic Validation
     final nameController = _controllers['name'];
     if (nameController != null && nameController.text.trim().isEmpty) {
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proposal Name cannot be empty.')),
+          const SnackBar(content: Text('O nome da proposta não pode estar vazio.')),
       );
       setState(() => _isSaving = false);
       return;
     }
 
-    // Get the *current* data from the provider to compare against _editedProposal
-    final DetailedSalesforceProposal? originalProposalFromProvider =
-        _getCurrentProviderData();
+      // Get current data and auth state
+      final currentData = _getCurrentProviderData();
+      final authNotifier = ref.read(salesforceAuthProvider.notifier);
+      final authState = ref.read(salesforceAuthProvider);
 
-    // Ensure we have data to compare and edited data to save
-    if (originalProposalFromProvider == null || _editedProposal == null) {
+      if (currentData == null || _editedProposal == null) {
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Data not available to save.')),
+          const SnackBar(content: Text('Erro: Dados não disponíveis para guardar.')),
       );
       setState(() => _isSaving = false);
       return;
     }
-
-    // Get auth state and notifier
-    final authNotifier = ref.read(salesforceAuthProvider.notifier);
-    final authState = ref.read(salesforceAuthProvider);
 
     if (authState != SalesforceAuthState.authenticated) {
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: Not authenticated with Salesforce.'),
-        ),
+          const SnackBar(content: Text('Erro: Não autenticado com o Salesforce.')),
       );
       setState(() => _isSaving = false);
       return;
     }
 
-    // Get tokens via notifier
+      // Get tokens
     final String? accessToken = await authNotifier.getValidAccessToken();
     final String? instanceUrl = authNotifier.currentInstanceUrl;
 
     if (accessToken == null || instanceUrl == null) {
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: Could not retrieve Salesforce credentials.'),
-        ),
+          const SnackBar(content: Text('Erro: Não foi possível obter as credenciais do Salesforce.')),
       );
       setState(() => _isSaving = false);
       return;
     }
 
-    // Prepare data for update
-    final Map<String, dynamic> fieldsToUpdate = {};
-    final originalJson =
-        originalProposalFromProvider.toJson(); // Use data from provider
-    final editedJson =
-        _editedProposal!.toJson(); // Requires toJson implementation
+      // Process changes
+      final proposalService = ref.read(salesforceProposalServiceProvider);
+      final filesToDelete = List<ProposalFile>.from(_filesToDelete);
+      final filesToAdd = List<PlatformFile>.from(_filesToAdd);
 
-    // Use copies of the file lists for processing
-    final List<ProposalFile> filesToDelete = List.from(_filesToDelete);
-    final List<PlatformFile> filesToAdd = List.from(_filesToAdd);
-
-    // Clear state lists immediately
+      // Clear state lists
     _filesToDelete.clear();
     _filesToAdd.clear();
 
-    // Compare editable fields (Text, Numeric, Currency, Bool, Date)
-    // NOTE: Requires _fieldApiNameMapping to be complete and toJson/copyWith in model
-    _fieldApiNameMapping.forEach((modelFieldKey, apiName) {
-      final originalValue = originalJson[modelFieldKey];
-      final editedValue = editedJson[modelFieldKey];
-
-      // Simple comparison (consider deep equality for lists/maps if needed elsewhere)
-      // Handle nulls carefully - treat empty string from controller as null for comparison/update?
-      final effectiveEditedValue =
-          (editedValue is String && editedValue.isEmpty) ? null : editedValue;
-      final effectiveOriginalValue =
-          (originalValue is String && originalValue.isEmpty)
-              ? null
-              : originalValue;
-
-      if (effectiveOriginalValue != effectiveEditedValue) {
-        // Handle specific formatting if necessary (e.g., Date to YYYY-MM-DD)
-        // For now, pass the value as obtained from the edited model\'s toJson
-        fieldsToUpdate[apiName] = effectiveEditedValue;
-      }
-    });
-
-    // Check if anything changed
-    final bool fieldsChanged = fieldsToUpdate.isNotEmpty;
-    final bool filesChanged = filesToAdd.isNotEmpty || filesToDelete.isNotEmpty;
-
-    if (!fieldsChanged && !filesChanged) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No changes detected.')));
-      setState(() {
-        _isEditing = false; // Exit edit mode even if no changes
-        _isSaving = false;
-        _editedProposal = null; // Clear edited data
-      });
-      return;
-    }
-
-    // Call the repository methods (which call Cloud Functions)
-    try {
-      final proposalService = ref.read(salesforceProposalServiceProvider);
-
-      // --- Process File Deletions --- //
+      // Process file deletions
       if (filesToDelete.isNotEmpty) {
-        print("Deleting ${filesToDelete.length} files...");
         await Future.wait(
           filesToDelete.map((file) async {
             try {
               await proposalService.deleteFile(
                 accessToken: accessToken,
                 instanceUrl: instanceUrl,
-                contentDocumentId:
-                    file.id, // Use ProposalFile ID (which is ContentDocumentId)
+                contentDocumentId: file.id,
               );
-              print("Deleted file: ${file.title}");
             } catch (e) {
-              print("Error deleting file ${file.title}: $e");
-              // Decide how to handle partial failures - maybe re-add to list?
-              // Show specific error?
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Failed to delete file: ${file.title}'),
+                  content: Text('Falha ao eliminar ficheiro: ${file.title}'),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -463,41 +543,32 @@ class _AdminSalesforceProposalDetailPageState
         );
       }
 
-      // --- Process File Uploads --- //
+      // Process file uploads
       if (filesToAdd.isNotEmpty) {
-        print("Uploading ${filesToAdd.length} files...");
         await Future.wait(
           filesToAdd.map((file) async {
-            if (file.bytes == null) {
-              print("Skipping upload for ${file.name}, bytes are missing.");
-              return;
-            }
+            if (file.bytes == null) return;
             try {
               final contentDocId = await proposalService.uploadFile(
                 accessToken: accessToken,
                 instanceUrl: instanceUrl,
-                parentId: widget.proposalId, // Link to this proposal
+                parentId: widget.proposalId,
                 fileName: file.name!,
                 fileBytes: file.bytes!,
               );
-              if (contentDocId != null) {
-                print("Uploaded file: ${file.name} (ID: $contentDocId)");
-              } else {
-                print(
-                  "Upload failed for file: ${file.name} (Service returned null)",
-                );
+              if (contentDocId == null && mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Failed to upload file: ${file.name}'),
+                    content: Text('Falha ao carregar ficheiro: ${file.name}'),
                     backgroundColor: Colors.orange,
                   ),
                 );
               }
             } catch (e) {
-              print("Error uploading file ${file.name}: $e");
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Error uploading file: ${file.name}'),
+                  content: Text('Erro ao carregar ficheiro: ${file.name}'),
                   backgroundColor: Colors.orange,
                 ),
               );
@@ -506,115 +577,82 @@ class _AdminSalesforceProposalDetailPageState
         );
       }
 
-      // --- Update Proposal Fields (if changed) --- //
-      if (fieldsChanged) {
-        print("Updating proposal fields...");
+      // Update proposal fields if changed
+      final fieldsToUpdate = _getFieldsToUpdate(currentData);
+      if (fieldsToUpdate.isNotEmpty) {
         await proposalService.updateProposal(
           accessToken: accessToken,
           instanceUrl: instanceUrl,
           proposalId: widget.proposalId,
           fieldsToUpdate: fieldsToUpdate,
         );
-        print("Proposal fields update requested.");
-      } else {
-        print("No proposal fields to update.");
       }
 
-      // Handle Success (assuming partial failures were handled above)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved successfully!')),
-      );
-
-      // Refresh the data and exit edit mode
-      ref.refresh(proposalDetailsProvider(widget.proposalId));
+      // Handle success with dialog
+      if (!mounted) return;
+      await showSuccessDialog(
+        context: context,
+        message: 'Alterações guardadas com sucesso!',
+        onDismissed: () {
+          _refreshData();
       setState(() {
         _isEditing = false;
-        _editedProposal = null; // Clear the edited copy
-        // The UI will now use the refreshed provider data in the next build
+            _editedProposal = null;
       });
+        },
+      );
     } catch (e) {
-      // Handle Overall Error (e.g., failure in updateProposal call)
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save changes: $e'),
+          content: Text('Falha ao guardar alterações: $e'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     } finally {
-      // Always reset saving state
       if (mounted) {
         setState(() => _isSaving = false);
       }
     }
   }
-  // --- End Action Handlers ---
+
+  // Helper method to get fields to update
+  Map<String, dynamic> _getFieldsToUpdate(DetailedSalesforceProposal original) {
+    final Map<String, dynamic> fieldsToUpdate = {};
+    final originalJson = original.toJson();
+    final editedJson = _editedProposal!.toJson();
+
+    _fieldApiNameMapping.forEach((modelFieldKey, apiName) {
+      final originalValue = originalJson[modelFieldKey];
+      final editedValue = editedJson[modelFieldKey];
+
+      final effectiveEditedValue = (editedValue is String && editedValue.isEmpty) ? null : editedValue;
+      final effectiveOriginalValue = (originalValue is String && originalValue.isEmpty) ? null : originalValue;
+
+      if (effectiveOriginalValue != effectiveEditedValue) {
+        fieldsToUpdate[apiName] = effectiveEditedValue;
+      }
+    });
+
+    return fieldsToUpdate;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final detailsAsync = ref.watch(proposalDetailsProvider(widget.proposalId));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: detailsAsync.when(
-          data: (proposal) => Text(proposal.name ?? 'Proposal Details'),
-          loading: () => const Text('Loading...'),
-          error: (_, __) => const Text('Proposal Details'),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          if (_isEditing)
-            // Save and Cancel buttons
-            Row(
-              children: [
-                IconButton(
-                  icon:
-                      _isSaving
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Icon(Icons.cancel),
-                  tooltip: 'Cancel',
-                  onPressed: _isSaving ? null : _cancelEdit,
-                ),
-                IconButton(
-                  icon:
-                      _isSaving
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Icon(Icons.save),
-                  tooltip: 'Save',
-                  onPressed: _isSaving ? null : _saveEdit,
-                ),
-              ],
-            )
-          else
-            // Edit button
-            IconButton(
-              icon: const Icon(Icons.edit),
-              tooltip: 'Edit',
-              onPressed: _startEdit,
-            ),
-        ],
-      ),
-      body: detailsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (error, stack) => Center(
+    return detailsAsync.when(
+      loading: () => const AppLoadingIndicator(),
+      error: (error, stack) => Scaffold(
+        body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Error loading proposal details:\n$error',
                   style: TextStyle(color: theme.colorScheme.error),
                   textAlign: TextAlign.center,
+            ),
                 ),
               ),
             ),
@@ -635,126 +673,214 @@ class _AdminSalesforceProposalDetailPageState
               (_isEditing ? _editedProposal : proposalFromProvider) ??
               proposalFromProvider; // Fallback to provider data
 
-          // --- Build UI using displayProposal and _isEditing flag ---
-          return ListView(
-            padding: const EdgeInsets.all(16.0),
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            scrolledUnderElevation: 0.0,
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- Section 1: Informação da Entidade ---
-              _buildDetailSection(context, 'Informação da Entidade', [
-                _buildDetailItem(
-                  'Entidade',
-                  displayProposal.entidadeName ?? displayProposal.entidadeId,
-                ),
-                _buildDetailItem('NIF', displayProposal.nifC, fieldKey: 'nifC'),
-                _buildDetailItem(
-                  'Oportunidade',
-                  displayProposal.oportunidadeName ??
-                      displayProposal.oportunidadeId,
-                ),
-                _buildDetailItem(
-                  'Agente Retail',
-                  displayProposal.agenteRetailName ??
-                      displayProposal.agenteRetailId,
-                ),
-                _buildDetailItem(
-                  'Responsável de Negócio – Retail',
-                  displayProposal.responsavelNegocioRetailC,
-                  fieldKey: 'responsavelNegocioRetailC',
-                ),
-                _buildDetailItem(
-                  'Responsável de Negócio – Exclusivo',
-                  displayProposal.responsavelNegocioExclusivoC,
-                  fieldKey: 'responsavelNegocioExclusivoC',
-                ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Detalhes da Proposta',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.left,
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                size: 28,
+                              ),
+                              tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                              onPressed: _isEditing ? _cancelEdit : _startEdit,
+                            ),
+                            if (_isEditing)
+                              const SizedBox(width: 8),
+                            if (_isEditing)
+                              SizedBox(
+                                width: 44,
+                                height: 44,
+                                child: IconButton(
+                                  icon: _isSaving
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.save_outlined,
+                                          color: theme.colorScheme.primary,
+                                          size: 28,
+                                        ),
+                                  onPressed: _isSaving ? null : _saveEdit,
+                                  tooltip: 'Guardar',
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    shape: const CircleBorder(),
+                                    padding: const EdgeInsets.all(0),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16.0),
+                      children: [
+                        // --- Section 1: Informação da Entidade (Double Column in Edit Mode) ---
+                        _buildDetailSectionTwoColumn(context, 'Informação da Entidade', [
+                          [
+                            _isEditing
+                              ? _buildEditableTextField('Entidade', TextEditingController(text: displayProposal.entidadeName ?? displayProposal.entidadeId), readOnly: true)
+                              : _buildDetailItem('Entidade', displayProposal.entidadeName ?? displayProposal.entidadeId),
+                            _isEditing
+                              ? _buildEditableTextField('NIF', _controllers['nifC']!)
+                              : _buildDetailItem('NIF', displayProposal.nifC, fieldKey: 'nifC'),
+                            _isEditing
+                              ? _buildEditableTextField('Oportunidade', TextEditingController(text: displayProposal.oportunidadeName ?? displayProposal.oportunidadeId), readOnly: true)
+                              : _buildDetailItem('Oportunidade', displayProposal.oportunidadeName ?? displayProposal.oportunidadeId),
+                          ],
+                          [
+                            _isEditing
+                              ? _buildEditableTextField('Agente Retail', TextEditingController(text: displayProposal.agenteRetailName ?? displayProposal.agenteRetailId), readOnly: true)
+                              : _buildDetailItem('Agente Retail', displayProposal.agenteRetailName ?? displayProposal.agenteRetailId),
+                            _isEditing
+                              ? _buildEditableTextField('Responsável de Negócio – Retail', _controllers['responsavelNegocioRetailC']!)
+                              : _buildDetailItem('Responsável de Negócio – Retail', displayProposal.responsavelNegocioRetailC, fieldKey: 'responsavelNegocioRetailC'),
+                            _isEditing
+                              ? _buildEditableTextField('Responsável de Negócio – Exclusivo', _controllers['responsavelNegocioExclusivoC']!)
+                              : _buildDetailItem('Responsável de Negócio – Exclusivo', displayProposal.responsavelNegocioExclusivoC, fieldKey: 'responsavelNegocioExclusivoC'),
+                          ],
               ]),
               const SizedBox(height: 16),
-
-              // --- Section 2: Informação da Proposta ---
-              _buildDetailSection(context, 'Informação da Proposta', [
-                _buildDetailItem(
-                  'Proposta',
-                  displayProposal.name,
-                  fieldKey: 'name',
-                ),
-                _buildDropdownField(
-                  'Status',
-                  displayProposal.statusC,
-                  'statusC',
-                  _statusOptions,
-                  _selectedStatus,
-                ),
-                _buildDropdownField(
-                  'Solução',
-                  displayProposal.soluOC,
-                  'soluOC',
-                  _solucaoOptions,
-                  _selectedSolution,
-                ),
-                _buildDetailItem(
-                  'Consumo para o período do contrato (KWh)',
-                  displayProposal.consumoPeriodoContratoKwhC,
-                  fieldKey: 'consumoPeriodoContratoKwhC',
-                  isNumeric: true,
-                ),
-                _buildBooleanField(
-                  'Energia',
-                  displayProposal.energiaC,
-                  'energiaC',
-                ),
-                _buildBooleanField('Solar', displayProposal.solarC, 'solarC'),
-                _buildDetailItem(
-                  'Valor de Investimento Solar',
-                  displayProposal.valorInvestimentoSolarC,
-                  fieldKey: 'valorInvestimentoSolarC',
-                  isCurrency: true,
-                ),
-                _buildDetailItem(
-                  'Data de Criação da Proposta',
-                  _formatDate(displayProposal.dataCriacaoPropostaC),
-                ),
-                _buildDateField(
-                  'Data de Início do Contrato',
-                  displayProposal.dataInicioContratoC,
-                  'dataInicioContratoC',
-                ),
-                _buildDateField(
-                  'Data de Validade',
-                  displayProposal.dataValidadeC,
-                  'dataValidadeC',
-                ),
-                _buildDateField(
-                  'Data de Fim do Contrato',
-                  displayProposal.dataFimContratoC,
-                  'dataFimContratoC',
-                ),
-                _buildDetailItem('Bundle', displayProposal.bundleC),
-                _buildBooleanField(
-                  'Contrato inserido',
-                  displayProposal.contratoInseridoC,
-                  'contratoInseridoC',
-                ),
+                        // --- Section 2: Informação da Proposta (Double Column in Edit Mode) ---
+                        _buildDetailSectionTwoColumn(context, 'Informação da Proposta', [
+                          [
+                            _isEditing
+                              ? _buildEditableTextField('Proposta', _controllers['name']!)
+                              : _buildDetailItem('Proposta', displayProposal.name, fieldKey: 'name'),
+                            _isEditing
+                              ? _buildEditableDropdownField('Status', _selectedStatus, _statusOptions, (newValue) { setState(() { _selectedStatus = newValue; _updateEditedProposalDropdownField('statusC', newValue); }); })
+                              : _buildDropdownField('Status', displayProposal.statusC, 'statusC', _statusOptions, _selectedStatus),
+                            _isEditing
+                              ? _buildEditableDropdownField('Solução', _selectedSolution, _solucaoOptions, (newValue) { setState(() { _selectedSolution = newValue; _updateEditedProposalDropdownField('soluOC', newValue); }); })
+                              : _buildDropdownField('Solução', displayProposal.soluOC, 'soluOC', _solucaoOptions, _selectedSolution),
+                            _isEditing
+                              ? _buildEditableTextField('Consumo para o período do contrato (KWh)', _controllers['consumoPeriodoContratoKwhC']!)
+                              : _buildDetailItem('Consumo para o período do contrato (KWh)', displayProposal.consumoPeriodoContratoKwhC, fieldKey: 'consumoPeriodoContratoKwhC', isNumeric: true),
+                            // Group Energia and Solar checkboxes together
+                            if (_isEditing)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0, bottom: 0.0),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      value: _editedProposal?.energiaC ?? false,
+                                      onChanged: (val) => _updateEditedProposalField('energiaC', val),
+                                    ),
+                                    const Text('Energia'),
+                                    const SizedBox(width: 16),
+                                    Checkbox(
+                                      value: _editedProposal?.solarC ?? false,
+                                      onChanged: (val) => _updateEditedProposalField('solarC', val),
+                                    ),
+                                    const Text('Solar'),
+                                  ],
+                                ),
+                              ),
+                            // Contrato inserido on its own row
+                            if (_isEditing)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 0.0, bottom: 8.0),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      value: _editedProposal?.contratoInseridoC ?? false,
+                                      onChanged: (val) => _updateEditedProposalField('contratoInseridoC', val),
+                                    ),
+                                    const Text('Contrato inserido'),
+                                  ],
+                                ),
+                              ),
+                            if (!_isEditing)
+                              _buildDetailItem('Energia', displayProposal.energiaC == true ? 'Sim' : 'Não'),
+                            if (!_isEditing)
+                              _buildDetailItem('Solar', displayProposal.solarC == true ? 'Sim' : 'Não'),
+                            if (!_isEditing)
+                              _buildDetailItem('Contrato inserido', displayProposal.contratoInseridoC == true ? 'Sim' : 'Não'),
+                          ],
+                          [
+                            _isEditing
+                              ? _buildEditableTextField('Valor de Investimento Solar', _controllers['valorInvestimentoSolarC']!)
+                              : _buildDetailItem('Valor de Investimento Solar', displayProposal.valorInvestimentoSolarC, fieldKey: 'valorInvestimentoSolarC', isCurrency: true),
+                            _isEditing
+                              ? _buildEditableDateField('Data de Validade', displayProposal.dataValidadeC, (picked) => _updateEditedProposalField('dataValidadeC', picked?.toIso8601String()))
+                              : _buildDetailItem('Data de Validade', _formatDate(displayProposal.dataValidadeC)),
+                            _isEditing
+                              ? _buildEditableDateField('Data de Início do Contrato', displayProposal.dataInicioContratoC, (picked) => _updateEditedProposalField('dataInicioContratoC', picked?.toIso8601String()))
+                              : _buildDetailItem('Data de Início do Contrato', _formatDate(displayProposal.dataInicioContratoC)),
+                            _isEditing
+                              ? _buildEditableDateField('Data de Fim do Contrato', displayProposal.dataFimContratoC, (picked) => _updateEditedProposalField('dataFimContratoC', picked?.toIso8601String()))
+                              : _buildDetailItem('Data de Fim do Contrato', _formatDate(displayProposal.dataFimContratoC)),
+                            _isEditing
+                              ? _buildEditableTextField('Bundle', TextEditingController(text: displayProposal.bundleC ?? ''), readOnly: true)
+                              : _buildDetailItem('Bundle', displayProposal.bundleC),
+                            _isEditing
+                              ? _buildEditableTextField('Data de Criação da Proposta', TextEditingController(text: _formatDate(displayProposal.dataCriacaoPropostaC)), readOnly: true)
+                              : _buildDetailItem('Data de Criação da Proposta', _formatDate(displayProposal.dataCriacaoPropostaC)),
+                          ],
               ]),
               const SizedBox(height: 24),
-
-              // --- Section 3: Related CPEs ---
-              _buildCpeProposalsSection(context, displayProposal.cpeLinks),
-              const SizedBox(height: 24),
-
-              // --- Section 4: Related Files ---
+                        // --- Section 3: Files (before CPEs) ---
               _buildFilesSection(context, displayProposal.files),
+                        const SizedBox(height: 24),
+                        // --- Section 4: Related CPEs ---
+                        _buildCpeProposalsSection(context, displayProposal.cpeLinks),
+                      ],
+                    ),
+                  ),
             ],
-          );
-        },
+              ),
+            ),
       ),
+        );
+      },
     );
   }
 
   // --- UI Helper Widgets (Modified for Edit Mode) ---
 
-  Widget _buildDetailSection(
+  Widget _buildDetailSectionTwoColumn(
     BuildContext context,
     String title,
-    List<Widget> items,
+    List<List<Widget>> columns,
   ) {
     final theme = Theme.of(context);
     return Card(
@@ -775,14 +901,384 @@ class _AdminSalesforceProposalDetailPageState
               ),
             ),
             const SizedBox(height: 12),
-            ...items,
+            Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+                Expanded(child: Column(children: columns[0])),
+                const SizedBox(width: 24),
+                Expanded(child: Column(children: columns[1])),
+              ],
+              ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  // --- Files Section Builder (Refactored to match Opportunity Page) ---
+  Widget _buildFilesSection(BuildContext context, List<ProposalFile> files) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final List<dynamic> displayedItems = [
+      ...files.where((f) => !_filesToDelete.contains(f)),
+      ..._filesToAdd,
+    ];
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Ficheiros',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (_isEditing)
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Adicionar Ficheiro',
+                    onPressed: _pickFiles,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (displayedItems.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  child: Text(
+                    'Sem ficheiros associados a esta proposta.',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
+                children: displayedItems.map((item) {
+                  return _buildFilePreview(context, item);
+                }).toList(),
+              ),
           ],
         ),
       ),
     );
   }
 
-  // Updated to handle edit state for text/numeric fields
+  Widget _buildFilePreview(BuildContext context, dynamic item) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+                  String title;
+                  String subtitle = '';
+                  VoidCallback? onTapAction;
+                  bool isMarkedForDeletion = false;
+    String? fileType;
+    String? fileExtension;
+    Widget iconWidget;
+
+                  if (item is ProposalFile) {
+                    final file = item;
+      fileType = file.fileType.toLowerCase();
+                    title = file.title;
+                    subtitle = file.fileType.toUpperCase();
+                    isMarkedForDeletion = _filesToDelete.contains(file);
+      final isImage = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'heic'].contains(fileType);
+      final isPdf = fileType == 'pdf';
+      if (isImage) {
+        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
+      } else if (isPdf) {
+        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
+      } else {
+        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
+      }
+                    onTapAction = () {
+                      if (isMarkedForDeletion) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+            builder: (_) => SecureFileViewer(
+                                contentVersionId: file.contentVersionId,
+                                title: file.title,
+                                fileType: file.fileType,
+                              ),
+                          fullscreenDialog: true,
+                        ),
+                      );
+                    };
+                  } else if (item is PlatformFile) {
+                    final file = item;
+      fileExtension = (file.extension ?? '').toLowerCase();
+                    title = file.name;
+                    subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
+      if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
+        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
+      } else if (fileExtension == "pdf") {
+        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
+      } else {
+        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
+      }
+                    onTapAction = null;
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+
+    return Container(
+      width: 70,
+      height: 70,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(
+          color: Colors.black.withAlpha((255 * 0.1).round()),
+          width: 0.5,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Center(
+            child: InkWell(
+              onTap: onTapAction,
+              borderRadius: BorderRadius.circular(8.0),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    iconWidget,
+                    const SizedBox(height: 4),
+                    Text(
+                        title,
+                      style: textTheme.bodySmall?.copyWith(fontSize: 8),
+                      maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                      ),
+              ),
+            ),
+          ),
+          if (_isEditing && !isMarkedForDeletion && item is ProposalFile)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: colorScheme.error,
+                  tooltip: 'Remover ficheiro',
+                                onPressed: () {
+                                  setState(() {
+                                        _filesToDelete.add(item);
+                                  });
+                                },
+                ),
+                    ),
+            ),
+          if (_isEditing && item is PlatformFile)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 2,
+              ),
+          ],
+        ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: colorScheme.error,
+                  tooltip: 'Remover ficheiro',
+                  onPressed: () {
+                    setState(() {
+                      _filesToAdd.remove(item);
+                    });
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- File Picker Logic (Adapted from Opportunity Page) ---
+  Future<void> _pickFiles() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.any,
+      );
+
+      if (!mounted) return;
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _filesToAdd.addAll(result.files.where((file) => file.bytes != null));
+        });
+        if (result.files.any((file) => file.bytes == null)) {
+          if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Some files could not be read.')),
+          );
+        }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File picking cancelled.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking files: $e')),
+        );
+      }
+    }
+  }
+
+  // --- CPE Proposals Section Builder (Static List View) ---
+  Widget _buildCpeProposalsSection(
+    BuildContext context,
+    List<CpeProposalLink> cpeLinks,
+  ) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'CPEs Relacionados',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_link),
+              tooltip: 'Adicionar CPE',
+              color: theme.colorScheme.primary,
+              onPressed: () => _showAddCpeDialog(
+                    context,
+                    cpeLinks.isNotEmpty ? cpeLinks[0] : null,
+            ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (cpeLinks.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              child: Text(
+                'Sem CPEs associados a esta proposta.',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+          )
+        else
+          Column(
+            children: cpeLinks.map((cpeLink) {
+              // Show the CPE-Proposta name/number if available, otherwise fallback to cpeName or short ID
+              final displayName = cpeLink.name ?? cpeLink.cpeName ?? 'CPE-Proposta ${cpeLink.id.substring(cpeLink.id.length - 6)}';
+              return SimpleListItem(
+                leading: Icon(Icons.link, size: 20, color: theme.colorScheme.secondary),
+                title: displayName,
+                onTap: () => context.push('/admin/cpe-proposta/${cpeLink.id}'),
+              );
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  // --- ADDED: Function to show the dialog --- //
+  Future<void> _showAddCpeDialog(
+    BuildContext context,
+    CpeProposalLink? firstLink,
+  ) async {
+    final currentData = _getCurrentProviderData();
+    if (currentData == null ||
+        currentData.entidadeId == null ||
+        currentData.agenteRetailId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Proposal data incomplete. Cannot add CPE link.'),
+        ),
+      );
+      return;
+    }
+
+    final bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AddCpeToProposalDialog(
+          proposalId: widget.proposalId,
+          accountId: currentData.entidadeId!,
+          resellerSalesforceId: currentData.agenteRetailId!,
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (result == true) {
+      _refreshData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CPE link added successfully. Refreshing...'),
+        ),
+      );
+    }
+  }
+
+  // --- END: Function to show the dialog --- //
+
+  // Fix unused result warnings
+  void _refreshData() {
+    ref.refresh(proposalDetailsProvider(widget.proposalId));
+  }
+
+  // Add missing methods
   Widget _buildDetailItem(
     String label,
     dynamic value, {
@@ -790,11 +1286,6 @@ class _AdminSalesforceProposalDetailPageState
     bool isNumeric = false,
     bool isCurrency = false,
   }) {
-    final controller = fieldKey != null ? _controllers[fieldKey] : null;
-    final bool isFieldActuallyEditable =
-        fieldKey != null && _editableFields.contains(fieldKey);
-    final bool isEditableModeAndField = _isEditing && isFieldActuallyEditable;
-
     String displayValue = 'N/A';
     if (value is String) {
       displayValue = value;
@@ -820,128 +1311,16 @@ class _AdminSalesforceProposalDetailPageState
           ),
           const SizedBox(width: 10),
           Expanded(
-            child:
-                isEditableModeAndField && controller != null
-                    ? TextFormField(
-                      controller: controller,
-                      keyboardType:
-                          (isNumeric || isCurrency)
-                              ? TextInputType.numberWithOptions(decimal: true)
-                              : TextInputType.text,
-                      maxLines: 1,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(8.0),
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        _updateEditedProposalField(fieldKey!, value);
-                      },
-                      validator: (val) {
-                        if (fieldKey == 'name' &&
-                            (val == null || val.isEmpty)) {
-                          return 'Proposal Name cannot be empty';
-                        }
-                        return null;
-                      },
-                    )
-                    : Text(
-                      displayValue,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget for Boolean fields (Checkbox/Switch)
-  Widget _buildBooleanField(String label, bool? value, String fieldKey) {
-    final bool isEditableField = _isEditing;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 2.0,
-      ), // Less padding for switches
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SizedBox(
-            width: 150, // Match label width
             child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          isEditableField
-              ? Switch(
-                value:
-                    _editedProposal?.toJson()[fieldKey] ??
-                    false, // Get current edited value
-                onChanged: (newValue) {
-                  _updateEditedProposalField(fieldKey, newValue);
-                },
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              )
-              : Text(
-                _formatBool(value),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-        ],
-      ),
-    );
-  }
-
-  // Widget for Date fields
-  Widget _buildDateField(String label, String? value, String fieldKey) {
-    final bool isEditableField = _isEditing;
-    DateTime? currentDate = DateTime.tryParse(value ?? '');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _formatDate(value),
+              displayValue,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
-          if (isEditableField)
-            IconButton(
-              icon: const Icon(Icons.calendar_today, size: 18),
-              tooltip: 'Select Date',
-              onPressed: () async {
-                final DateTime? pickedDate = await showDatePicker(
-                  context: context,
-                  initialDate: currentDate ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2101),
-                );
-                if (pickedDate != null) {
-                  // Format date back to 'YYYY-MM-DD' for consistency with Salesforce
-                  String formattedDate = DateFormat(
-                    'yyyy-MM-dd',
-                  ).format(pickedDate);
-                  _updateEditedProposalField(fieldKey, formattedDate);
-                }
-              },
-            ),
         ],
       ),
     );
   }
 
-  // Widget for Dropdown fields
   Widget _buildDropdownField(
     String label,
     String? value,
@@ -949,8 +1328,6 @@ class _AdminSalesforceProposalDetailPageState
     List<String> options,
     String? selectedValue,
   ) {
-    final bool isEditableField = _isEditing;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
@@ -965,387 +1342,13 @@ class _AdminSalesforceProposalDetailPageState
           ),
           const SizedBox(width: 10),
           Expanded(
-            child:
-                isEditableField
-                    ? DropdownButtonFormField<String>(
-                      value: selectedValue ?? options.first,
-                      isDense: true,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(8.0),
-                        border: OutlineInputBorder(),
-                      ),
-                      items:
-                          options.map((String option) {
-                            return DropdownMenuItem<String>(
-                              value: option,
-                              child: Text(option),
-                            );
-                          }).toList(),
-                      onChanged: (String? newValue) {
-                        _updateEditedProposalDropdownField(fieldKey, newValue);
-                      },
-                    )
-                    : Text(
-                      value ?? 'N/A',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+            child: Text(
+              value ?? 'N/A',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
+          ),
         ],
       ),
     );
   }
-
-  // --- Files Section Builder (Modified for Edit Mode) ---
-  Widget _buildFilesSection(BuildContext context, List<ProposalFile> files) {
-    final theme = Theme.of(context);
-
-    IconData getFileIcon(String? fileTypeOrExtension) {
-      final type = (fileTypeOrExtension ?? '').toLowerCase();
-      if (type == 'pdf') return Icons.picture_as_pdf_outlined;
-      if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].contains(type))
-        return Icons.image_outlined;
-      if (['doc', 'docx'].contains(type)) return Icons.description_outlined;
-      if (['xls', 'xlsx'].contains(type)) return Icons.table_chart_outlined;
-      if (['ppt', 'pptx'].contains(type)) return Icons.slideshow_outlined;
-      if (type == 'zip') return Icons.folder_zip_outlined;
-      return Icons.insert_drive_file_outlined;
-    }
-
-    final List<dynamic> displayedItems = [
-      ...files.where((f) => !_filesToDelete.contains(f)),
-      ..._filesToAdd,
-    ];
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: theme.dividerColor.withAlpha(25)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Files', // TODO: l10n
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (_isEditing)
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    tooltip: 'Add File', // TODO: l10n
-                    onPressed: _pickFiles,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (displayedItems.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20.0),
-                  child: Text(
-                    'No files linked to this proposal.', // TODO: l10n
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: displayedItems.length,
-                itemBuilder: (context, index) {
-                  final item = displayedItems[index];
-                  IconData icon;
-                  String title;
-                  String subtitle = '';
-                  VoidCallback? onTapAction;
-                  bool isMarkedForDeletion = false;
-
-                  if (item is ProposalFile) {
-                    final file = item;
-                    icon = getFileIcon(file.fileExtension ?? file.fileType);
-                    title = file.title;
-                    subtitle = file.fileType.toUpperCase();
-                    isMarkedForDeletion = _filesToDelete.contains(file);
-                    onTapAction = () {
-                      if (isMarkedForDeletion) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (_) => SecureFileViewer(
-                                contentVersionId: file.contentVersionId,
-                                title: file.title,
-                                fileType: file.fileType,
-                              ),
-                          fullscreenDialog: true,
-                        ),
-                      );
-                    };
-                  } else if (item is PlatformFile) {
-                    final file = item;
-                    icon = getFileIcon(file.extension ?? '');
-                    title = file.name;
-                    subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
-                    onTapAction = null;
-                  } else {
-                    return const SizedBox.shrink();
-                  }
-
-                  return Opacity(
-                    opacity: isMarkedForDeletion ? 0.5 : 1.0,
-                    child: ListTile(
-                      dense: true,
-                      leading: Icon(
-                        icon,
-                        size: 24,
-                        color:
-                            isMarkedForDeletion
-                                ? Colors.grey
-                                : theme.colorScheme.secondary,
-                      ),
-                      title: Text(
-                        title,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            isMarkedForDeletion
-                                ? const TextStyle(
-                                  decoration: TextDecoration.lineThrough,
-                                )
-                                : null,
-                      ),
-                      subtitle: Text(subtitle),
-                      onTap: _isEditing ? null : onTapAction,
-                      trailing:
-                          _isEditing
-                              ? IconButton(
-                                icon:
-                                    item is ProposalFile
-                                        ? Icon(
-                                          isMarkedForDeletion
-                                              ? Icons.undo
-                                              : Icons.delete_outline,
-                                          color:
-                                              isMarkedForDeletion
-                                                  ? Colors.orange
-                                                  : Colors.red,
-                                        )
-                                        : const Icon(
-                                          Icons.cancel_outlined,
-                                          color: Colors.red,
-                                        ),
-                                tooltip:
-                                    item is ProposalFile
-                                        ? (isMarkedForDeletion
-                                            ? 'Undo Delete'
-                                            : 'Mark for Deletion')
-                                        : 'Remove File',
-                                onPressed: () {
-                                  setState(() {
-                                    if (item is ProposalFile) {
-                                      if (isMarkedForDeletion) {
-                                        _filesToDelete.remove(item);
-                                      } else {
-                                        _filesToDelete.add(item);
-                                      }
-                                    } else if (item is PlatformFile) {
-                                      _filesToAdd.remove(item);
-                                    }
-                                  });
-                                },
-                              )
-                              : null,
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- File Picker Logic (Adapted from Opportunity Page) ---
-  Future<void> _pickFiles() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        withData: true,
-        type: FileType.any,
-      );
-
-      // Check mounted *after* the await
-      if (!mounted) return;
-
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _filesToAdd.addAll(result.files.where((file) => file.bytes != null));
-        });
-        if (result.files.any((file) => file.bytes == null)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Some files could not be read.')),
-          );
-        }
-      } else {
-        // Already checked mounted, safe to use context here
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File picking cancelled.')),
-        );
-      }
-    } catch (e) {
-      print("Error picking files: $e");
-      // Check mounted again before showing snackbar in catch block
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error picking files: $e')));
-      }
-    }
-  }
-
-  // --- CPE Proposals Section Builder (Remains Read-Only) ---
-  Widget _buildCpeProposalsSection(
-    BuildContext context,
-    List<CpeProposalLink> cpeLinks,
-  ) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // --- MODIFIED: Row for Title and Add Button --- //
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Related CPE Links', // TODO: l10n
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            // --- ADDED: Add CPE Link Button --- //
-            IconButton(
-              icon: const Icon(Icons.add_link),
-              tooltip: 'Add CPE Link', // TODO: l10n
-              color: theme.colorScheme.primary,
-              onPressed:
-                  () => _showAddCpeDialog(
-                    context,
-                    cpeLinks.isNotEmpty ? cpeLinks[0] : null,
-                  ), // Pass first link for potential defaults?
-              // Disable if required data is missing?
-              // onPressed: (proposalId != null && accountId != null && resellerId != null)
-              //              ? () => _showAddCpeDialog(context)
-              //              : null,
-            ),
-            // --- END: Add CPE Link Button --- //
-          ],
-        ),
-        // --- END MODIFIED Row --- //
-        const SizedBox(height: 12),
-        if (cpeLinks.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0),
-              child: Text(
-                'No CPEs linked to this proposal.', // TODO: l10n
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ),
-          )
-        else
-          Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: theme.dividerColor.withAlpha(25)),
-            ),
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: cpeLinks.length,
-              padding: EdgeInsets.zero,
-              itemBuilder: (context, index) {
-                final cpeLink = cpeLinks[index];
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    Icons.link, // Simple link icon for now
-                    size: 20,
-                    color: theme.colorScheme.secondary,
-                  ),
-                  title: Text(
-                    cpeLink.cpeName ?? 'CPE Name Unavailable',
-                  ), // Display CPE Name
-                  subtitle: Text(
-                    'ID: ${cpeLink.id}',
-                  ), // Display CPE_Proposta__c ID
-                  onTap: null, // No action for now
-                  // Example if navigating later:
-                  // onTap: () {
-                  //   ScaffoldMessenger.of(context).showSnackBar(
-                  //     SnackBar(content: Text('CPE detail view TBD (ID: ${cpeLink.cpeRecordId})')),
-                  //   );
-                  // },
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
-  // --- ADDED: Function to show the dialog --- //
-  Future<void> _showAddCpeDialog(
-    BuildContext context,
-    CpeProposalLink? firstLink,
-  ) async {
-    final currentData = _getCurrentProviderData();
-    if (currentData == null ||
-        currentData.entidadeId == null ||
-        currentData.agenteRetailId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proposal data incomplete. Cannot add CPE link.'),
-        ),
-      );
-      return;
-    }
-
-    final bool? result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false, // User must explicitly cancel or submit
-      builder: (BuildContext dialogContext) {
-        return AddCpeToProposalDialog(
-          proposalId: widget.proposalId,
-          accountId: currentData.entidadeId!, // We checked for null
-          resellerSalesforceId:
-              currentData.agenteRetailId!, // We checked for null
-          // Pass NIF from first CPE link as a potential default? Or maybe from Account?
-          // defaultNif: firstLink?.nif ?? currentData.nifC,
-        );
-      },
-    );
-
-    // If the dialog returned true (meaning success), refresh the proposal details
-    if (result == true) {
-      ref.refresh(proposalDetailsProvider(widget.proposalId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('CPE link added successfully. Refreshing...'),
-        ), // TODO: l10n
-      );
-    }
-  }
-
-  // --- END: Function to show the dialog --- //
 }

@@ -16,6 +16,10 @@ import 'package:twogether/core/services/salesforce_auth_service.dart'; // For no
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // Import Ciclo model
 import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart'; // Import provider
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import proposal provider
+import 'package:flutter/cupertino.dart'; // For CupertinoIcons
+import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
+import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
+import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 // import 'package:twogether/l10n/l10n.dart'; // TODO: Re-enable l10n
 // import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // TODO: Re-enable l10n
 
@@ -153,18 +157,13 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   // Helper widget for read-only fields to reduce repetition
   Widget _buildReadOnlyField(String label, String value) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+    return SizedBox(
+      height: 56,
       child: TextFormField(
         initialValue: value,
         readOnly: true,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          // Uses InputDecorator theme from AppTheme
-        ),
+        style: theme.textTheme.bodySmall,
+        decoration: _inputDecoration(label: label, readOnly: true),
       ),
     );
   }
@@ -308,45 +307,12 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
       if (kDebugMode) {
         print('Form is invalid.');
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please correct the errors in the form.'), // TODO: l10n
-        ),
-      );
       return;
     }
 
     setState(() {
       _isSubmitting = true;
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Submitting Proposal...')), // TODO: l10n
-    );
-
-    // --- Get Salesforce Credentials ---
-    final sfAuthNotifier = ref.read(salesforceAuthNotifierProvider.notifier);
-    final accessToken = sfAuthNotifier.currentAccessToken;
-    final instanceUrl = sfAuthNotifier.currentInstanceUrl;
-    final authState = ref.read(salesforceAuthNotifierProvider);
-
-    if (authState != SalesforceAuthState.authenticated ||
-        accessToken == null ||
-        instanceUrl == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Salesforce authentication error. Please log out and back in.',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() {
-        _isSubmitting = false;
-      });
-      return;
-    }
-    // --- End Get Credentials ---
 
     try {
       final String opportunityId = widget.salesforceOpportunityId;
@@ -388,6 +354,11 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
           'fileUrls': fileUrls,
         });
       } // End of file upload loop
+
+      // --- Get Salesforce Credentials ---
+      final sfAuthNotifier = ref.read(salesforceAuthNotifierProvider.notifier);
+      final accessToken = sfAuthNotifier.currentAccessToken;
+      final instanceUrl = sfAuthNotifier.currentInstanceUrl;
 
       // --- Collect Proposal Data --- //
       final proposalPayload = {
@@ -439,33 +410,22 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
       // --- Process Result ---
       if (result.data['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Proposal created successfully! ID: ${result.data['proposalId']}',
-            ),
-          ), // TODO: l10n
-        );
-
         // --- START: Invalidate Provider for Refresh ---
-        // Invalidate the provider that holds the data for the opportunity detail page
-        // This assumes the user returns to the opportunity detail page.
         ref.invalidate(
           opportunityDetailsProvider(widget.salesforceOpportunityId),
         );
         // --- END: Invalidate Provider for Refresh ---
 
-        // Navigate back using GoRouter
+        // Show success dialog
+        await showSuccessDialog(
+          context: context,
+          message: 'Proposta submetida com sucesso!',
+          onDismissed: () {
         if (GoRouter.of(context).canPop()) {
-          // <-- Use GoRouter
-          GoRouter.of(context).pop(); // <-- Pops the current page
-        } else {
-          // Handle case where it can't pop (e.g., deep link) - maybe go home?
-          // context.go('/home'); // Example using GoRouter
-          if (kDebugMode) {
-            print("Cannot pop, maybe navigated directly?");
-          }
-        }
+              GoRouter.of(context).pop();
+            }
+          },
+        );
       } else {
         // Handle failure (check for session expiry specifically)
         bool sessionExpired = result.data['sessionExpired'] == true;
@@ -532,9 +492,94 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
       activationCyclesProvider,
     ); // Watch provider
 
+    // Responsive: Use two columns on wide screens, one column on small screens
+    final isWide = MediaQuery.of(context).size.width > 700;
+
+    Widget buildField(Widget child) => Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: DefaultTextStyle.merge(
+        style: textTheme.bodySmall,
+        child: child,
+      ),
+    );
+
+    final leftColumn = <Widget>[
+      buildField(TextFormField(
+        controller: cpeData.cpeController,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: 'CPE'),
+        validator: (value) => (value?.trim().isEmpty ?? true) ? 'CPE é obrigatório' : null,
+      )),
+      buildField(_buildReadOnlyField('Entidade', widget.accountName)),
+      buildField(TextFormField(
+        controller: cpeData.consumoController,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: 'Consumo ou Potência Máxima'),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]*$')),
+        ],
+        validator: (value) => (value?.trim().isEmpty ?? true) ? 'Consumo/Potência é obrigatório' : null,
+      )),
+      buildField(activationCyclesAsync.when(
+        data: (cycles) => DropdownButtonFormField<String>(
+          value: cpeData.selectedCicloId,
+          hint: const Text('Selecione o Ciclo de Ativação'),
+          isExpanded: true,
+          decoration: _inputDecoration(label: 'Ciclo de Ativação'),
+          items: cycles.map((SalesforceCiclo ciclo) {
+            return DropdownMenuItem<String>(
+              value: ciclo.id,
+              child: Text(ciclo.name, style: textTheme.bodySmall),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              cpeData.selectedCicloId = newValue;
+            });
+          },
+          validator: (value) => (value == null || value.isEmpty) ? 'Ciclo de ativação é obrigatório' : null,
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => TextFormField(
+          readOnly: true,
+          style: textTheme.bodySmall,
+          decoration: _inputDecoration(label: 'Ciclo de Ativação', hint: 'Erro ao carregar ciclos'),
+        ),
+      )),
+    ];
+
+    final rightColumn = <Widget>[
+      buildField(TextFormField(
+        controller: cpeData.nifController,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: 'NIF'),
+        validator: (value) => (value?.trim().isEmpty ?? true) ? 'NIF é obrigatório para CPE #${index + 1}' : null,
+      )),
+      buildField(TextFormField(
+        controller: cpeData.fidelizacaoController,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: 'Período de Fidelização (Anos)', hint: 'ex: 1, 2, 0'),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        validator: (value) => (value?.trim().isEmpty ?? true) ? 'Período de fidelização é obrigatório' : null,
+      )),
+      buildField(TextFormField(
+        controller: cpeData.comissaoController,
+        style: textTheme.bodySmall,
+        decoration: _inputDecoration(label: 'Comissão Retail', prefixText: '€ '),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}')),
+        ],
+        validator: (value) => (value?.trim().isEmpty ?? true) ? 'Comissão Retail é obrigatória' : null,
+      )),
+    ];
+
     return Card(
-      // Use CardTheme from AppTheme
-      margin: const EdgeInsets.only(bottom: 20.0), // Increased spacing
+      margin: const EdgeInsets.only(bottom: 20.0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -544,201 +589,160 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'CPE #${index + 1}', // TODO: l10n
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'CPE #${index + 1}',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 if (_cpeItems.length > 1)
                   IconButton(
-                    icon: Icon(
-                      Icons.remove_circle_outline,
-                      color: colorScheme.error,
-                    ),
-                    tooltip: 'Remove CPE #${index + 1}', // TODO: l10n
+                    icon: Icon(Icons.remove_circle_outline, color: colorScheme.error),
+                    tooltip: 'Remover CPE #${index + 1}',
                     onPressed: () => _removeCpeBlock(index),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
               ],
             ),
-            const Divider(height: 24),
-
-            // --- CPE Fields --- //
-            TextFormField(
-              controller: cpeData.cpeController,
-              decoration: const InputDecoration(labelText: 'CPE'), // TODO: l10n
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'CPE is required'
-                          : null, // TODO: l10n
-            ),
-            const SizedBox(height: 16),
-            _buildReadOnlyField('Entity', widget.accountName), // TODO: l10n
-            TextFormField(
-              controller: cpeData.nifController,
-              decoration: const InputDecoration(labelText: 'NIF'), // TODO: l10n
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'NIF is required for CPE #${index + 1}'
-                          : null, // TODO: l10n
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: cpeData.consumoController,
-              decoration: const InputDecoration(
-                labelText: 'Consumption or Peak Power',
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'^[0-9]*[\.,]?[0-9]*$'),
-                ),
-              ],
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'Consumption/Power is required'
-                          : null, // TODO: l10n
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: cpeData.fidelizacaoController,
-              decoration: const InputDecoration(
-                labelText: 'Loyalty Period (Years)', // Changed Label TODO: l10n
-                hintText: 'e.g., 1, 2, 0', // Changed Hint TODO: l10n
-              ),
-              keyboardType: TextInputType.number, // Changed to number
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-              ], // Allow only digits
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'Loyalty period (years) is required' // Changed message TODO: l10n
-                          : null,
-            ),
-            const SizedBox(height: 16),
-            // --- Activation Cycle Dropdown ---
-            activationCyclesAsync.when(
-              data:
-                  (cycles) => DropdownButtonFormField<String>(
-                    value: cpeData.selectedCicloId,
-                    hint: const Text('Select Activation Cycle'), // TODO: l10n
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Activation Cycle', // TODO: l10n
-                      border: OutlineInputBorder(), // Consistent styling
-                    ),
-                    items:
-                        cycles.map((SalesforceCiclo ciclo) {
-                          return DropdownMenuItem<String>(
-                            value: ciclo.id,
-                            child: Text(ciclo.name),
-                          );
-                        }).toList(),
-                    onChanged: (String? newValue) {
-                      // Update the state for THIS specific CPE block
-                      setState(() {
-                        cpeData.selectedCicloId = newValue;
-                      });
-                    },
-                    validator:
-                        (value) =>
-                            (value == null || value.isEmpty)
-                                ? 'Activation cycle is required'
-                                : null, // TODO: l10n
-                  ),
-              loading:
-                  () => const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-              error:
-                  (err, stack) => TextFormField(
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText: 'Activation Cycle', // TODO: l10n
-                      hintText: 'Error loading cycles', // TODO: l10n
-                      errorText: err.toString(),
-                      border: const OutlineInputBorder(),
-                      // Style error state maybe?
-                      // errorStyle: TextStyle(color: colorScheme.error),
-                    ),
-                  ),
-            ),
-            // --- End Activation Cycle ---
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: cpeData.comissaoController,
-              decoration: const InputDecoration(
-                labelText: 'Retail Commission',
-                prefixText: '€ ',
-              ), // TODO: l10n
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}$'),
-                ),
-              ],
-              validator:
-                  (value) =>
-                      (value?.trim().isEmpty ?? true)
-                          ? 'Retail commission is required'
-                          : null, // TODO: l10n
-            ),
-            const SizedBox(height: 24),
-
-            // --- File Upload Section for CPE --- //
-            Text('Attached Files', style: textTheme.titleSmall), // TODO: l10n
             const SizedBox(height: 8),
-            // Display selected files
+            isWide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Column(children: leftColumn)),
+                      const SizedBox(width: 16),
+                      Expanded(child: Column(children: rightColumn)),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      ...leftColumn,
+                      ...rightColumn,
+                    ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Ficheiros Anexados', style: textTheme.titleSmall),
+                IconButton(
+                  icon: const Icon(Icons.add, size: 20),
+                  tooltip: 'Adicionar Ficheiros',
+                  onPressed: () => _pickFilesForCpe(index),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (cpeData.attachedFiles.isNotEmpty)
               Wrap(
                 spacing: 8.0,
-                runSpacing: 4.0,
-                children: List.generate(cpeData.attachedFiles.length, (
-                  fileIndex,
-                ) {
+                runSpacing: 8.0,
+                children: List.generate(cpeData.attachedFiles.length, (fileIndex) {
                   final file = cpeData.attachedFiles[fileIndex];
-                  return Chip(
-                    avatar: CircleAvatar(
-                      child: Icon(Icons.insert_drive_file_outlined, size: 16),
-                    ), // Generic file icon
-                    label: Text(file.name, style: textTheme.bodySmall),
-                    onDeleted: () => _removeFileFromCpe(index, fileIndex),
-                    deleteIconColor: colorScheme.onSurfaceVariant,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                  final fileExtension = (file.extension ?? '').toLowerCase();
+                  Widget iconWidget;
+                  if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
+                    iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
+                  } else if (fileExtension == "pdf") {
+                    iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
+                  } else {
+                    iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
+                  }
+                  return Container(
+                    width: 70,
+                    height: 70,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceVariant.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(8.0),
+                      border: Border.all(
+                        color: colorScheme.outline.withOpacity(0.1),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              iconWidget,
+                              const SizedBox(height: 4),
+                              Text(
+                                file.name,
+                                style: textTheme.bodySmall?.copyWith(fontSize: 8),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                  ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            color: colorScheme.error,
+                            tooltip: 'Remover ficheiro',
+                            onPressed: () => _removeFileFromCpe(index, fileIndex),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }),
               ),
-
-            if (cpeData.attachedFiles.isNotEmpty) const SizedBox(height: 8),
-            // Add files button
-            OutlinedButton.icon(
-              icon: const Icon(Icons.attach_file, size: 18),
-              label: const Text('Add Files'), // TODO: l10n
-              onPressed: () => _pickFilesForCpe(index),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                textStyle: textTheme.labelMedium,
-              ),
-            ),
-            // --- End File Upload --- //
           ],
         ),
       ),
     );
   }
-  // --- End CPE Block Builder --- //
+
+  InputDecoration _inputDecoration({
+    required String label,
+    String? hint,
+    bool readOnly = false,
+    Widget? suffixIcon,
+    String? prefixText,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+      hintText: hint,
+      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+      filled: true,
+      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      suffixIcon: suffixIcon,
+      prefixText: prefixText,
+    );
+  }
+
+  Widget _sectionTitle(String text) => Padding(
+    padding: const EdgeInsets.only(top: 20, bottom: 8),
+    child: Text(
+      text,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
+    );
 
   @override
   Widget build(BuildContext context) {
@@ -751,90 +755,89 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     const double sectionSpacing = 24.0;
     const double fieldSpacing = 16.0;
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       appBar: AppBar(
-        // title: Text(l10n.createProposalTitle), // Use l10n
-        title: const Text('Create New Proposal'), // TODO: l10n
-      ),
-      body: SingleChildScrollView(
+            leading: IconButton(
+              icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            scrolledUnderElevation: 0.0,
+          ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(
-          horizontal: 16.0,
-          vertical: 20.0,
-        ), // Adjusted padding
+                  horizontal: 32.0,
+                  vertical: 32.0,
+                ),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- Entity Information Section --- //
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  'Entity Information',
-                  style: textTheme.headlineSmall,
-                ), // TODO: l10n
-              ),
-              _buildReadOnlyField('Entity', widget.accountName), // TODO: l10n
-              TextFormField(
+                      Text(
+                        'Criar Proposta',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _sectionTitle('Informação da Entidade'),
+                      _buildReadOnlyField('Entidade', widget.accountName),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 56,
+                        child: TextFormField(
                 controller: _nifController,
-                decoration: const InputDecoration(
-                  labelText: 'NIF',
-                ), // TODO: l10n
+                          style: theme.textTheme.bodySmall,
+                          decoration: _inputDecoration(label: 'NIF'),
                 keyboardType: TextInputType.text,
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'NIF is required'
-                            : null, // TODO: l10n
+                          validator: (value) => (value?.trim().isEmpty ?? true) ? 'NIF é obrigatório' : null,
+                        ),
               ),
-              const SizedBox(height: fieldSpacing),
-              _buildReadOnlyField(
-                'Opportunity',
-                widget.opportunityName,
-              ), // TODO: l10n
-              _buildReadOnlyField(
-                'Retail Agent',
-                widget.resellerName,
-              ), // TODO: l10n
-              TextFormField(
+                      const SizedBox(height: 8),
+                      _buildReadOnlyField('Oportunidade', widget.opportunityName),
+                      const SizedBox(height: 8),
+                      _buildReadOnlyField('Agente Retail', widget.resellerName),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 56,
+                        child: TextFormField(
                 controller: _responsavelNegocioController,
-                decoration: const InputDecoration(
-                  labelText: 'Retail Business Manager', // TODO: l10n
-                  hintText: 'Enter manager name', // TODO: l10n
-                ),
-                validator: (value) => null, // Optional field
+                          style: theme.textTheme.bodySmall,
+                          decoration: _inputDecoration(label: 'Gestor de Negócio Retail', hint: 'Introduza o nome do gestor'),
+                          validator: (value) => null,
+                        ),
               ),
-              const SizedBox(height: sectionSpacing),
-              const Divider(),
-              const SizedBox(height: sectionSpacing),
-
-              // --- Proposal Information Section --- //
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  'Proposal Information',
-                  style: textTheme.headlineSmall,
-                ), // TODO: l10n
-              ),
-              TextFormField(
+                      const SizedBox(height: 24),
+                      _sectionTitle('Informação da Proposta'),
+                      SizedBox(
+                        height: 56,
+                        child: TextFormField(
                 controller: _proposalNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Proposal Name',
-                ), // TODO: l10n
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'Proposal name is required'
-                            : null, // TODO: l10n
+                          style: theme.textTheme.bodySmall,
+                          decoration: _inputDecoration(label: 'Nome da Proposta'),
+                          validator: (value) => (value?.trim().isEmpty ?? true) ? 'Nome da Proposta é obrigatório' : null,
+                        ),
               ),
-              const SizedBox(height: fieldSpacing),
-              DropdownButtonFormField<String>(
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 56,
+                        child: DropdownButtonFormField<String>(
                 value: _selectedSolution,
-                items:
-                    _solucaoOptions.map((String value) {
+                          style: theme.textTheme.bodySmall,
+                          items: _solucaoOptions.map((String value) {
                       return DropdownMenuItem<String>(
                         value: value,
-                        child: Text(value),
+                              child: Text(value, style: theme.textTheme.bodySmall),
                       );
                     }).toList(),
                 onChanged: (String? newValue) {
@@ -842,40 +845,36 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                     _selectedSolution = newValue;
                   });
                 },
-                decoration: const InputDecoration(
-                  labelText: 'Solution', // TODO: l10n
-                ),
+                          decoration: _inputDecoration(label: 'Solução'),
                 validator: (value) {
                   if (value == null || value == '--None--') {
-                    return 'Solution is required'; // TODO: l10n
+                              return 'Solução é obrigatória';
                   }
                   return null;
                 },
-                hint: const Text('Select a solution'), // TODO: l10n
+                          hint: Text('Selecione uma solução', style: theme.textTheme.bodySmall),
               ),
-              const SizedBox(height: fieldSpacing),
+                      ),
+                      const SizedBox(height: 8),
               Row(
-                // Group checkboxes
                 children: [
                   Expanded(
                     child: CheckboxListTile(
-                      title: const Text('Energia'), // TODO: l10n
+                              title: const Text('Energia'),
                       value: _energiaChecked,
-                      onChanged:
-                          (v) => setState(() => _energiaChecked = v ?? false),
+                              onChanged: (v) => setState(() => _energiaChecked = v ?? false),
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
-                  const SizedBox(width: fieldSpacing),
+                          const SizedBox(width: 16),
                   Expanded(
                     child: CheckboxListTile(
-                      title: const Text('Solar'), // TODO: l10n
+                              title: const Text('Solar'),
                       value: _solarChecked,
-                      onChanged:
-                          (v) => setState(() => _solarChecked = v ?? false),
+                              onChanged: (v) => setState(() => _solarChecked = v ?? false),
                       controlAffinity: ListTileControlAffinity.leading,
                       contentPadding: EdgeInsets.zero,
                       dense: true,
@@ -884,129 +883,106 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: fieldSpacing),
+                      const SizedBox(height: 8),
               Row(
-                // Group date fields
                 children: [
                   Expanded(
+                            child: SizedBox(
+                              height: 56,
                     child: TextFormField(
                       controller: _creationDateController,
                       readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Creation Date', // TODO: l10n
-                        // Uses theme
+                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                                decoration: _inputDecoration(label: 'Data de Criação', readOnly: true),
                       ),
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: fieldSpacing),
+                          const SizedBox(width: 16),
                   Expanded(
+                            child: SizedBox(
+                              height: 56,
                     child: TextFormField(
                       controller: _validityDateController,
                       readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Validity Date', // TODO: l10n
-                        hintText: 'Select date', // TODO: l10n
-                        suffixIcon: Icon(Icons.calendar_today),
+                                style: theme.textTheme.bodySmall,
+                                decoration: _inputDecoration(
+                                  label: 'Data de Validade',
+                                  hint: 'Selecione a data',
+                                  suffixIcon: const Icon(Icons.calendar_today),
+                                  readOnly: true,
                       ),
                       onTap: () => _selectValidityDate(context),
-                      validator:
-                          (value) =>
-                              (value?.isEmpty ?? true)
-                                  ? 'Validity date is required'
-                                  : null, // TODO: l10n
+                                validator: (value) => (value?.isEmpty ?? true) ? 'Data de Validade é obrigatória' : null,
+                              ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: fieldSpacing),
-              TextFormField(
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 56,
+                        child: TextFormField(
                 controller: _bundleController,
-                decoration: const InputDecoration(
-                  labelText: 'Bundle (Optional)',
-                ), // TODO: l10n
+                          style: theme.textTheme.bodySmall,
+                          decoration: _inputDecoration(label: 'Bundle (Opcional)'),
               ),
-              const SizedBox(height: fieldSpacing),
-              // Conditionally show Solar Investment
+                      ),
               if (_solarChecked)
                 Padding(
-                  padding: const EdgeInsets.only(
-                    top: fieldSpacing, // Use consistent spacing
-                  ),
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: SizedBox(
+                            height: 56,
                   child: TextFormField(
                     controller: _solarInvestmentController,
-                    decoration: const InputDecoration(
-                      labelText: 'Solar Investment Value', // TODO: l10n
+                              style: theme.textTheme.bodySmall,
+                              decoration: _inputDecoration(
+                                label: 'Valor de Investimento Solar',
                       prefixText: '€ ',
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        // Allow numbers, optional dot/comma, up to 2 decimals
-                        RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}$'),
-                      ),
+                                FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}')), // up to 2 decimals
                     ],
-                    validator:
-                        (value) =>
-                            (_solarChecked && (value?.trim().isEmpty ?? true))
-                                ? 'Investment value is required for Solar' // TODO: l10n
-                                : null,
+                              validator: (value) => (_solarChecked && (value?.trim().isEmpty ?? true)) ? 'Valor de investimento é obrigatório para Solar' : null,
                   ),
                 ),
-              const SizedBox(height: sectionSpacing),
-              const Divider(),
-              const SizedBox(height: sectionSpacing),
-
-              // --- Dynamic CPE Section --- //
+                        ),
+                      const SizedBox(height: 24),
               Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  'CPE Details',
-                  style: textTheme.headlineSmall,
-                ), // TODO: l10n
+                        padding: const EdgeInsets.only(top: 20, bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Detalhes CPE', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                            IconButton(
+                              icon: const Icon(Icons.add, size: 24),
+                              tooltip: 'Adicionar CPE',
+                              onPressed: _addCpeBlock,
+                            ),
+                          ],
+                        ),
               ),
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _cpeItems.length,
-                itemBuilder:
-                    (context, index) =>
-                        _buildCpeInputBlock(index, _cpeItems[index]),
+                        itemBuilder: (context, index) => _buildCpeInputBlock(index, _cpeItems[index]),
               ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Add CPE'), // TODO: l10n
-                  onPressed: _addCpeBlock,
-                  // Style inherited from TextButtonTheme
-                ),
-              ),
-              const SizedBox(height: sectionSpacing),
-              const Divider(),
-              const SizedBox(height: sectionSpacing),
-
-              // --- Submit Button --- //
+                      const SizedBox(height: 24),
               Center(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 15,
-                    ), // Example padding
-                    textStyle: textTheme.labelLarge,
+                            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
+                            textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
                   ),
-                  onPressed:
-                      _isSubmitting
-                          ? null
-                          : _uploadFilesAndSubmit, // Disable while submitting
-                  child:
-                      _isSubmitting
+                          onPressed: _isSubmitting ? null : _uploadFilesAndSubmit,
+                          child: _isSubmitting
                           ? const SizedBox(
                             width: 24,
                             height: 24,
@@ -1015,13 +991,21 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                               color: Colors.white,
                             ),
                           )
-                          : const Text('Submit Proposal'), // TODO: l10n
+                              : const Text('Submeter Proposta'),
                 ),
               ),
             ],
           ),
         ),
       ),
+            ),
+          ),
+        ),
+        if (_isSubmitting)
+          const Positioned.fill(
+            child: AppLoadingIndicator(),
+          ),
+      ],
     );
   }
 }

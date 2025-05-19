@@ -1222,3 +1222,4 @@ export { checkNifExistsInSalesforce } from "./checkNifExistsInSalesforce";
 export { downloadFileForReseller } from "./downloadFileForReseller";
 export { rejectProposalForReseller } from './rejectProposalForReseller';
 export { acceptProposalAndUploadDocs } from './acceptProposalAndUploadDocs';
+export * from './getSalesforceCPEDetails';

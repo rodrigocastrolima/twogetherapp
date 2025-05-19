@@ -111,8 +111,8 @@ class SalesforceOpportunity {
   final String? accountName; // From Nome_Entidade__c
   final String? resellerName; // Not currently fetched/used in list?
   final String? nifC; // NIF__c
-  final String? faseC; // Fase__c
-  final String? createdDate; // CreatedDate
+  final String? fase; // Add for backend 'fase'
+  final String? createdDate; // Add for backend 'createdDate'
   final String? segmentoDeClienteC; // Segmento_de_Cliente__c
   final RelatedProposals?
   propostasR; // Propostas__r - Added for nested proposals
@@ -123,8 +123,8 @@ class SalesforceOpportunity {
     this.accountName,
     this.resellerName, // Keep for potential future use
     this.nifC, // Renamed for Dart convention
-    this.faseC, // Renamed for Dart convention
-    this.createdDate, // Renamed for Dart convention
+    this.fase,
+    this.createdDate,
     this.segmentoDeClienteC, // <<< NEW PARAM
     this.propostasR, // Added
   });
@@ -172,16 +172,13 @@ class SalesforceOpportunity {
     return SalesforceOpportunity(
       id: idValue,
       name: nameValue,
-      accountName:
-          json['Nome_Entidade__c'] as String?, // Map from correct SF field
-      // resellerName is not included in the getResellerOpportunities query currently
-      resellerName: null, // Explicitly null as it's not fetched
+      accountName: json['Entidade__r']?['Name'] as String?,
+      resellerName: json['resellerName'] as String?, // Map from top-level field
       nifC: json['NIF__c'] as String?,
-      faseC: json['Fase__c'] as String?,
-      createdDate: json['CreatedDate'] as String?,
-      segmentoDeClienteC:
-          json['Segmento_de_Cliente__c'] as String?, // <<< NEW MAPPING
-      propostasR: relatedProposals, // Assign parsed proposals
+      fase: json['fase'] as String?,
+      createdDate: json['createdDate'] as String?,
+      segmentoDeClienteC: json['Segmento_de_Cliente__c'] as String?,
+      propostasR: relatedProposals,
     );
   }
 
@@ -196,7 +193,7 @@ class SalesforceOpportunity {
           accountName == other.accountName &&
           resellerName == other.resellerName &&
           nifC == other.nifC &&
-          faseC == other.faseC &&
+          fase == other.fase &&
           createdDate == other.createdDate &&
           segmentoDeClienteC ==
               other.segmentoDeClienteC && // <<< NEW COMPARISON
@@ -209,7 +206,7 @@ class SalesforceOpportunity {
       accountName.hashCode ^
       resellerName.hashCode ^
       nifC.hashCode ^
-      faseC.hashCode ^
+      fase.hashCode ^
       createdDate.hashCode ^
       segmentoDeClienteC.hashCode ^ // <<< NEW HASHCODE PART
       propostasR.hashCode; // Added
@@ -217,6 +214,6 @@ class SalesforceOpportunity {
   // Optional: Add toString for easier debugging
   @override
   String toString() {
-    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, nifC: $nifC, faseC: $faseC, createdDate: $createdDate, segmentoDeClienteC: $segmentoDeClienteC, propostasR: $propostasR}'; // Updated
+    return 'SalesforceOpportunity{id: $id, name: $name, accountName: $accountName, nifC: $nifC, fase: $fase, createdDate: $createdDate, segmentoDeClienteC: $segmentoDeClienteC, propostasR: $propostasR}'; // Updated
   }
 }

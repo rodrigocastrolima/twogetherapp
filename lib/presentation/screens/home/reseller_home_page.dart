@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedP
 import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; // Import package
+import '../../widgets/simple_list_item.dart';
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -656,17 +657,17 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Notificações',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onBackground,
-              ),
-            ),
+      children: [
+        Text(
+          'Notificações',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onBackground,
+          ),
+        ),
         const SizedBox(height: 16),
-            Consumer(
-              builder: (context, ref, child) {
+        Consumer(
+          builder: (context, ref, child) {
             final notificationsStream = ref.watch(userNotificationsProvider);
             final notificationActions = ref.read(notificationActionsProvider);
 
@@ -688,101 +689,45 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
-                      child: Column(children: [Icon(CupertinoIcons.bell_slash, size: 48, color: theme.colorScheme.onSurface.withOpacity(0.4)), const SizedBox(height: 16), Text('Sem notificações', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)))]),
+                      child: Column(
+                        children: [
+                          Icon(CupertinoIcons.bell_slash, size: 48, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                          const SizedBox(height: 16),
+                          Text('Sem notificações', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)))
+                        ],
+                      ),
                     ),
                   );
                 }
 
-                return ListView.separated(
+                return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: combinedNotifications.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final notification = combinedNotifications[index];
-                    return Material(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(14),
-                      elevation: 2,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _handleNotificationTap(notification, notificationActions),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                                      color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            notification.title,
-                                            style: theme.textTheme.titleSmall?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _getNotificationDateString(notification),
-                            style: TextStyle(
-                                            fontSize: 12,
-                                            color: theme.colorScheme.onSurface.withOpacity(0.7),
-                          ),
+                    return SimpleListItem(
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ],
-                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      notification.metadata['clientName']?.toString() ?? notification.message,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!notification.isRead)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.only(left: 8),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                          ),
+                        child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
+                      ),
+                      title: notification.title,
+                      subtitle: notification.metadata['clientName']?.toString() ?? notification.message,
+                      trailing: Text(
+                        _getNotificationDateString(notification),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
+                      isUnread: !notification.isRead,
+                      onTap: () => _handleNotificationTap(notification, notificationActions),
+                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                     );
                   },
                 );

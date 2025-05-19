@@ -1056,7 +1056,7 @@ class _OpportunityVerificationPageState
                   Expanded(
                     flex: 3,
                     child: Text(
-                      opportunity.faseC ?? 'N/A', // Use faseC
+                      opportunity.fase ?? 'N/A', // Use fase
                       style: theme.textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1203,7 +1203,7 @@ class _OpportunityVerificationPageState
                         _buildMobileInfoRow(
                           context,
                           'Fase',
-                          opportunity.faseC ?? '-',
+                          opportunity.fase ?? '-',
                           theme,
                         ),
                       ],

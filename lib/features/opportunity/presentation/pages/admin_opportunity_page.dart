@@ -32,6 +32,7 @@ import '../../data/services/opportunity_service.dart';
 import '../providers/opportunity_providers.dart';
 import '../widgets/opportunity_filter_sheet.dart';
 import 'admin_opportunity_submission_page.dart';
+import '../../../../presentation/widgets/simple_list_item.dart';
 
 // Constants for status - ensure these are used if they represent backend values
 const String statusPendente = 'Pendente';
@@ -154,10 +155,13 @@ class _OpportunityVerificationPageState
   Set<String>? _selectedResellers;
   Set<ServiceCategory>? _selectedServiceTypes;
   Set<EnergyType>? _selectedEnergyTypes;
+  Set<String>? _selectedFases; // Add for fase filter
   final TextEditingController _searchController = TextEditingController();
 
   // --- Tab Controller ---
   late TabController _tabController;
+
+  bool _isFilterOpen = false;
 
   @override
   void initState() {
@@ -191,10 +195,14 @@ class _OpportunityVerificationPageState
     Set<String>? resellers,
     Set<ServiceCategory>? serviceTypes,
     Set<EnergyType>? energyTypes,
+    {Set<String>? fases}
   ) {
     setState(() {
       if (!const SetEquality().equals(_selectedResellers, resellers)) {
         _selectedResellers = resellers;
+      }
+      if (!const SetEquality().equals(_selectedFases, fases)) {
+        _selectedFases = fases;
       }
       if (!const SetEquality().equals(_selectedServiceTypes, serviceTypes)) {
         _selectedServiceTypes = serviceTypes;
@@ -233,6 +241,148 @@ class _OpportunityVerificationPageState
         );
       },
     );
+  }
+
+  // Place this at the class level, not inside any method
+  void _showSalesforceFilterSheet() {
+    final theme = Theme.of(context);
+    final salesforceOpportunitiesAsync = ref.read(salesforceOpportunitiesProvider);
+    final opportunities = salesforceOpportunitiesAsync.asData?.value ?? [];
+    final uniqueResellers = opportunities.map((o) => o.resellerName).whereType<String>().toSet().toList()..sort();
+    final uniqueFases = opportunities.map((o) => o.fase).whereType<String>().toSet().toList()..sort();
+    setState(() => _isFilterOpen = true);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: theme.colorScheme.surface,
+      barrierColor: Colors.black.withOpacity(0.1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext modalContext) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    child: Text('Filtrar Oportunidades', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text('REVENDEDOR', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  ),
+                  SizedBox(
+                    height: 220,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: uniqueResellers.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.15)),
+                      itemBuilder: (context, i) {
+                        final reseller = uniqueResellers[i];
+                        return CheckboxListTile(
+                          value: _selectedResellers?.contains(reseller) ?? false,
+                          onChanged: (checked) {
+                            setModalState(() {
+                              final set = _selectedResellers ?? <String>{};
+                              if (checked == true) {
+                                set.add(reseller);
+                              } else {
+                                set.remove(reseller);
+                              }
+                              _selectedResellers = Set<String>.from(set);
+                            });
+                          },
+                          title: Text(reseller, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface)),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                          activeColor: theme.colorScheme.primary,
+                          checkColor: theme.colorScheme.onPrimary,
+                          tileColor: Colors.transparent,
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Text('FASE', style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  ),
+                  SizedBox(
+                    height: 220,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: uniqueFases.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.15)),
+                      itemBuilder: (context, i) {
+                        final fase = uniqueFases[i];
+                        return CheckboxListTile(
+                          value: _selectedFases?.contains(fase) ?? false,
+                          onChanged: (checked) {
+                            setModalState(() {
+                              final set = _selectedFases ?? <String>{};
+                              if (checked == true) {
+                                set.add(fase);
+                              } else {
+                                set.remove(fase);
+                              }
+                              _selectedFases = Set<String>.from(set);
+                            });
+                          },
+                          title: Text(fase, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface)),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                          activeColor: theme.colorScheme.primary,
+                          checkColor: theme.colorScheme.onPrimary,
+                          tileColor: Colors.transparent,
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setModalState(() {
+                              _selectedResellers = <String>{};
+                              _selectedFases = <String>{};
+                            });
+                          },
+                          child: const Text('Limpar'),
+                        ),
+                        const Spacer(),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            setState(() => _isFilterOpen = false);
+                          },
+                          child: const Text('Aplicar'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    ).whenComplete(() {
+      if (mounted) setState(() => _isFilterOpen = false);
+    });
   }
 
   @override
@@ -355,118 +505,96 @@ class _OpportunityVerificationPageState
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Title/Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-                  child: Text(
-                    'Oportunidades',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
+            child: Container(
+              color: _isFilterOpen ? colorScheme.surfaceVariant.withOpacity(0.85) : colorScheme.surface,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Title/Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                    child: Text(
+                      'Oportunidades',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
-                ),
-                // Tab Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _buildCustomTabBar(context, theme),
-                ),
-                // Header (Search and Filters) - Appears above tabs
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
-                  ),
-                  child: _buildHeader(
-                    context,
-                    theme,
-                    uniqueResellers,
-                  ),
-                ),
-                // Tab Content Area
-                Expanded(
-                  child: Padding(
+                  // Tab Bar
+                  Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TabBarView(
-                      controller: _tabController,
+                    child: _buildCustomTabBar(context, theme),
+                  ),
+                  // Header (Search and Filters) - Appears above tabs
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 12.0,
+                    ),
+                    child: Row(
                       children: [
-                        // --- Tab 1: New Submissions (pending_review) ---
-                        _buildNovasSubmissionsTab(context, theme),
-                        // --- Tab 2: Rejected Submissions ---
-                        _buildRejeitadasSubmissionsTab(context, theme),
-                        // --- Tab 3: Active Opportunities (Salesforce) ---
-                        _buildAtivasOpportunitiesTab(context, theme),
+                        // Search bar always present
+                        Expanded(
+                          child: SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: _searchController,
+                              style: theme.textTheme.bodyMedium,
+                              decoration: AppStyles.searchInputDecoration(context, 'Pesquisar Oportunidades...'),
+                              onChanged: (value) {
+                                setState(() => _searchQuery = value);
+                              },
+                            ),
+                          ),
+                        ),
+                        if (_tabController.index == 2) ...[
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            height: 40,
+                            child: OutlinedButton.icon(
+                              icon: Icon(Icons.filter_list, size: 18, color: theme.colorScheme.onSurface),
+                              label: Text('Filtros', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface)),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: theme.colorScheme.surface,
+                                side: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                minimumSize: const Size(0, 40),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                alignment: Alignment.centerLeft,
+                              ),
+                              onPressed: _showSalesforceFilterSheet,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ),
-              ],
+                  // Tab Content Area
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // --- Tab 1: New Submissions (pending_review) ---
+                          _buildNovasSubmissionsTab(context, theme),
+                          // --- Tab 2: Rejected Submissions ---
+                          _buildRejeitadasSubmissionsTab(context, theme),
+                          // --- Tab 3: Active Opportunities (Salesforce) ---
+                          _buildAtivasOpportunitiesTab(context, theme),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  // --- Header Builder (Remains mostly the same, pass uniqueResellers) ---
-  Widget _buildHeader(
-    BuildContext context,
-    ThemeData theme,
-    List<String> uniqueResellers, // Pass uniqueResellers here
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Search Field
-        Expanded(
-          flex: 3,
-          child: SizedBox(
-            height: 40,
-            child: TextField(
-              controller: _searchController,
-              style: theme.textTheme.bodyMedium,
-              decoration: AppStyles.searchInputDecoration(context, 'Pesquisar Submissões...'),
-              onChanged: (value) {
-                setState(() => _searchQuery = value);
-              },
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        // Filter Button
-        SizedBox(
-          height: 42,
-          child: Badge(
-            isLabelVisible: _areFiltersActive(),
-            backgroundColor: theme.colorScheme.primary,
-            child: FilledButton.icon(
-              icon: Icon(Icons.filter_list, size: 18),
-              label: Text('Filtros'),
-              style: FilledButton.styleFrom(
-                backgroundColor: _areFiltersActive()
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surface,
-                foregroundColor: _areFiltersActive()
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              onPressed:
-                  uniqueResellers.isEmpty
-                      ? null
-                      : () {
-                        _showFilterSheet(context, uniqueResellers);
-                      },
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -638,32 +766,28 @@ class _OpportunityVerificationPageState
 
   // --- Builder for "Ativas" Tab (Salesforce Opportunities) ---
   Widget _buildAtivasOpportunitiesTab(BuildContext context, ThemeData theme) {
-    // Watch the Salesforce opportunities provider
     final salesforceOpportunitiesAsync = ref.watch(salesforceOpportunitiesProvider);
-
     return salesforceOpportunitiesAsync.when(
       data: (opportunities) {
         // Apply search and filter logic
         final filteredOpportunities = opportunities.where((opportunity) {
-          final resellerMatch =
-              _selectedResellers == null ||
+          // Search match
+          final searchMatch = _searchQuery.isEmpty ||
+              (opportunity.accountName ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              (opportunity.name).toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              (opportunity.nifC ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
+
+          // Reseller match
+          final resellerMatch = _selectedResellers == null ||
               _selectedResellers!.isEmpty ||
-              (_selectedResellers?.contains(opportunity.resellerName ?? '') ??
-                  false);
-          // Note: Salesforce opportunities don't have service category or energy type
-          // We'll skip those filters for now
-          final searchMatch =
-              _searchQuery.isEmpty ||
-              (opportunity.accountName ?? '').toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              ) ||
-              (opportunity.name).toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              ) ||
-              (opportunity.nifC ?? '').toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              );
-          return resellerMatch && searchMatch;
+              (_selectedResellers?.contains(opportunity.resellerName ?? '') ?? false);
+
+          // Fase match
+          final faseMatch = _selectedFases == null ||
+              _selectedFases!.isEmpty ||
+              (_selectedFases?.contains(opportunity.fase ?? '') ?? false);
+
+          return searchMatch && resellerMatch && faseMatch;
         }).toList();
 
         // Determine if using web or mobile layout based on constraints
@@ -672,28 +796,18 @@ class _OpportunityVerificationPageState
             final bool isWebView = constraints.maxWidth > 800;
             return filteredOpportunities.isEmpty
                 ? _buildEmptyState(
-                  context,
-                  theme,
-                  isSubmissionsTab: false,
-                )
+                    context,
+                    theme,
+                    isSubmissionsTab: false,
+                  )
                 : (isWebView
-                    ? _buildSalesforceWebList(
-                      context,
-                      filteredOpportunities,
-                      theme,
-                    )
-                    : _buildSalesforceMobileList(
-                      context,
-                      filteredOpportunities,
-                      theme,
-                    ));
+                    ? _buildSalesforceWebList(context, filteredOpportunities, theme)
+                    : _buildSalesforceMobileList(context, filteredOpportunities, theme));
           },
         );
       },
       loading: () => _buildLoadingState(context, theme),
-      error:
-          (error, stack) =>
-              _buildErrorState(context, error, theme),
+      error: (error, stack) => _buildErrorState(context, error, theme),
     );
   }
 
@@ -706,75 +820,24 @@ class _OpportunityVerificationPageState
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: submissions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final submission = submissions[index];
-        return Material(
-          color: theme.colorScheme.surface,
-          elevation: 2,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => _navigateToDetail(context, submission),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      submission.companyName ?? submission.responsibleName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      submission.resellerName,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
+        // Icon logic (reuse from previous implementation)
+        IconData itemIcon = CupertinoIcons.doc_plaintext;
+        Color iconColor = theme.colorScheme.primary;
+        // You can add more status-based icon/color logic here if needed
+        return SimpleListItem(
+          leading: Icon(itemIcon, color: iconColor, size: 32),
+          title: submission.companyName ?? submission.responsibleName,
+          subtitle: submission.resellerName,
+          trailing: Text(
                       _formatDate(submission.submissionDate),
-                      style: theme.textTheme.bodyMedium?.copyWith(
+            style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Ações',
-                    splashRadius: 20,
-                    onPressed: submission.id == null
-                        ? null
-                        : () {
-                            _showDeleteConfirmationDialog(
-                              context,
-                              submission.id!,
-                              submission.companyName ?? submission.responsibleName,
-                              theme,
-                              isSubmission: true,
-                            );
-                          },
-                  ),
-                ],
-              ),
             ),
           ),
+          onTap: () => _navigateToDetail(context, submission),
         );
       },
     );
@@ -789,141 +852,26 @@ class _OpportunityVerificationPageState
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: submissions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final submission = submissions[index];
-        return Material(
-          color: theme.colorScheme.surface,
-          elevation: 2,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => _navigateToDetail(context, submission),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      submission.companyName ?? submission.responsibleName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      submission.resellerName,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
+        IconData itemIcon = CupertinoIcons.doc_plaintext;
+        Color iconColor = theme.colorScheme.primary;
+        // You can add more status-based icon/color logic here if needed
+        return SimpleListItem(
+          leading: Icon(itemIcon, color: iconColor, size: 32),
+          title: submission.companyName ?? submission.responsibleName,
+          subtitle: submission.resellerName,
+          trailing: Text(
                       _formatDate(submission.submissionDate),
-                      style: theme.textTheme.bodyMedium?.copyWith(
+            style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Ações',
-                    splashRadius: 20,
-                    onPressed: submission.id == null
-                        ? null
-                        : () {
-                            _showDeleteConfirmationDialog(
-                              context,
-                              submission.id!,
-                              submission.companyName ?? submission.responsibleName,
-                              theme,
-                              isSubmission: true,
-                            );
-                          },
-                  ),
-                ],
-              ),
             ),
           ),
+          onTap: () => _navigateToDetail(context, submission),
         );
       },
     );
-  }
-
-  // --- Builder for Tab 2: Salesforce Opportunities ---
-  Widget _buildSalesforceList(BuildContext context, ThemeData theme) {
-    // Watch the existing Salesforce opportunities provider
-    final salesforceOpportunitiesAsync = ref.watch(
-      salesforceOpportunitiesProvider,
-    );
-
-    // Use the AsyncValue to handle loading, error, and data states
-    return salesforceOpportunitiesAsync.when(
-      data: (opportunities) {
-        // TODO: Implement filtering logic similar to _buildNewSubmissionsTab
-        final filteredOpportunities =
-            opportunities.where((opp) {
-              // Apply search and filter logic
-              final searchMatch =
-                  _searchQuery.isEmpty ||
-                  (opp.accountName ?? '').toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ) ||
-                  (opp.name).toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ); // name is non-nullable
-              // Add other relevant fields for searching if needed
-              // TODO: Add reseller/service type/etc. filtering if applicable to Salesforce data model
-              // Consider if filters set for Tab 1 should apply here or if SF tab needs its own filters.
-              // For now, only applying search query.
-              return searchMatch; // && otherFilterMatches;
-            }).toList();
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isWebView = constraints.maxWidth > 800;
-            return filteredOpportunities.isEmpty
-                ? _buildEmptyState(
-                  context,
-                  theme,
-                  isSubmissionsTab: false,
-                )
-                : (isWebView
-                    ? _buildSalesforceWebList(
-                      context,
-                      filteredOpportunities,
-                      theme,
-                    ) // Use the existing web list builder
-                    : _buildSalesforceMobileList(
-                      context,
-                      filteredOpportunities,
-                      theme,
-                    )); // Use the existing mobile list builder
-          },
-        );
-      },
-      // Pass isSalesforceError flag to potentially customize error message
-      loading: () => _buildLoadingState(context, theme),
-      error:
-          (error, stack) =>
-              _buildErrorState(context, error, theme, isSalesforceError: true),
-    );
-
-    // Temporary placeholder until provider and data model are ready - REMOVED
-    // return _buildEmptyState(context, theme, isSubmissionsTab: false);
   }
 
   // --- Web List Builder (Salesforce Opportunities) --- NEW
@@ -932,198 +880,28 @@ class _OpportunityVerificationPageState
     List<SalesforceOpportunity> opportunities,
     ThemeData theme,
   ) {
-    // Adapt the structure from _buildSubmissionsWebList
     return ListView.separated(
       padding: EdgeInsets.zero,
-      itemCount: opportunities.length + 1, // +1 for header
-      separatorBuilder:
-          (_, __) => Divider(
-            height: 1,
-            thickness: 0.5,
-            color: theme.dividerColor.withOpacity(0.1),
-          ),
+      itemCount: opportunities.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
-        // Header Row
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
+        final opportunity = opportunities[index];
+        return SimpleListItem(
+          title: opportunity.name,
+          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'}  |  Fase: ${opportunity.fase ?? '-'}',
+          trailing: Text(
+            opportunity.createdDate != null
+                ? _formatSalesforceDate(opportunity.createdDate!)
+                : 'N/A',
+                    style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    'Nome da Oportunidade',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Conta',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Fase',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Data Criação',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Revendedor',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 48), // Space for action button
-              ],
-            ),
-          );
-        }
-
-        // Data Rows
-        final opportunity = opportunities[index - 1];
-        return Material(
-          color:
-              index % 2 != 0
-                  ? Colors.transparent
-                  : theme.colorScheme.onSurface.withOpacity(0.03),
-          child: InkWell(
+          ),
             onTap: () {
-              // --- MODIFIED: Use correct absolute path --- //
               context.push(
                 '/admin/salesforce-opportunity-detail/${opportunity.id}',
               );
-              // --- END MODIFICATION --- //
-
-              /* OLD TODO: Navigate to Salesforce Opportunity Detail Page (Future)
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Detail page for SF Opp ${opportunity.id} not implemented yet.',
-                  ),
-                ),
-              );
-              */
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 16.0,
-                right: 4.0,
-                top: 14.0,
-                bottom: 14.0,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: Text(
-                      opportunity.name,
-                      style: theme.textTheme.bodyMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      opportunity.accountName ?? '-',
-                      style: theme.textTheme.bodyMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      opportunity.faseC ?? 'N/A', // Use faseC
-                      style: theme.textTheme.bodyMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      opportunity.createdDate != null
-                          ? _formatSalesforceDate(opportunity.createdDate!)
-                          : 'N/A', // Use createdDate
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      opportunity.resellerName ?? 'N/A', // Use resellerName
-                      style: theme.textTheme.bodyMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SizedBox(
-                    width: 48,
-                    child: PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      tooltip: 'Ações',
-                      onSelected: (String result) {
-                        if (result == 'delete') {
-                          _showDeleteConfirmationDialog(
-                            context,
-                            opportunity.id, // Salesforce ID
-                            opportunity.name,
-                            theme,
-                            isSubmission:
-                                false, // Indicate it's NOT a submission
-                          );
-                        }
-                      },
-                      itemBuilder:
-                          (BuildContext context) => <PopupMenuEntry<String>>[
-                            // Only Delete for now
-                            PopupMenuItem<String>(
-                              value: 'delete',
-                              child: ListTile(
-                                leading: Icon(
-                                  Icons.delete_outline,
-                                  color: theme.colorScheme.error,
-                                ),
-                                title: Text(
-                                  'Eliminar Oportunidade',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          },
         );
       },
     );
@@ -1135,136 +913,30 @@ class _OpportunityVerificationPageState
     List<SalesforceOpportunity> opportunities,
     ThemeData theme,
   ) {
-    // Adapt structure from _buildSubmissionsMobileList
-    return ListView.builder(
-      itemCount: opportunities.length,
+    return ListView.separated(
       padding: EdgeInsets.zero,
+      itemCount: opportunities.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final opportunity = opportunities[index];
-        return Card(
-          elevation: 1.0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: theme.dividerColor.withOpacity(0.1),
-              width: 0.5,
+        return SimpleListItem(
+          title: opportunity.name,
+          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'}  |  Fase: ${opportunity.fase ?? '-'}',
+          trailing: Text(
+            opportunity.createdDate != null
+                ? _formatSalesforceDate(opportunity.createdDate!)
+                : 'N/A',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          color: theme.colorScheme.surface,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
             onTap: () {
-              // --- MODIFIED: Use correct absolute path --- //
               context.push(
                 '/admin/salesforce-opportunity-detail/${opportunity.id}',
               );
-              // --- END MODIFICATION --- //
-
-              /* OLD TODO: Navigate to Salesforce Opportunity Detail Page (Future)
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Detail page for SF Opp ${opportunity.id} not implemented yet.',
-                  ),
-                ),
-              );
-              */
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 16.0,
-                right: 8.0,
-                top: 16.0,
-                bottom: 16.0,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          opportunity.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        _buildMobileInfoRow(
-                          context,
-                          'Conta',
-                          opportunity.accountName ?? '-',
-                          theme,
-                        ),
-                        const SizedBox(height: 4),
-                        _buildMobileInfoRow(
-                          context,
-                          'Fase',
-                          opportunity.faseC ?? '-',
-                          theme,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 0),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    color: theme.colorScheme.onSurfaceVariant,
-                    tooltip: 'Ações',
-                    splashRadius: 20,
-                    onPressed: () {
-                      _showDeleteConfirmationDialog(
-                        context,
-                        opportunity.id,
-                        opportunity.name,
-                        theme,
-                        isSubmission: false,
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
+          },
         );
       },
-    );
-  }
-
-  // Helper for mobile info rows (reusable)
-  Widget _buildMobileInfoRow(
-    BuildContext context,
-    String label,
-    String value,
-    ThemeData theme,
-  ) {
-    // ... Implementation remains the same ...
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 70,
-          child: Text(
-            '$label:',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 
@@ -1347,7 +1019,7 @@ class _OpportunityVerificationPageState
             ),
           ),
           const SizedBox(height: 8),
-          if (isSubmissionsTab && _areFiltersActive())
+          if (isSubmissionsTab)
             Text(
               'Tente ajustar a pesquisa ou os filtros.',
               style: theme.textTheme.bodyMedium?.copyWith(

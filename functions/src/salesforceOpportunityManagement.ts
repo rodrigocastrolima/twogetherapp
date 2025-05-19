@@ -34,6 +34,8 @@ interface SalesforceOpportunitySummary {
   name: string;
   accountName: string | null; // Account.Name can be null
   resellerName: string | null; // Agente_Retail__r.Name can be null
+  fase: string | null; // Add fase
+  createdDate: string | null; // Add createdDate
 }
 
 interface DeleteOppResult {
@@ -101,7 +103,7 @@ export const getSalesforceOpportunities = onCall(
       logger.info("Salesforce connection initialized.");
 
       const soqlQuery = `
-        SELECT Id, Name, Entidade__r.Name, Agente_Retail__r.Name 
+        SELECT Id, Name, Entidade__r.Name, Agente_Retail__r.Name, Fase__c, CreatedDate 
         FROM Oportunidade__c
         WHERE RecordType.DeveloperName = 'Retail'
         ORDER BY CreatedDate DESC
@@ -119,6 +121,8 @@ export const getSalesforceOpportunities = onCall(
           name: record.Name,
           accountName: record.Entidade__r ? record.Entidade__r.Name : null, // Reverted to fetch Account Name via Entidade__r
           resellerName: record.Agente_Retail__r ? record.Agente_Retail__r.Name : null, // Reverted to fetch Reseller Name via Agente_Retail__r
+          fase: record.Fase__c ?? null, // Add fase
+          createdDate: record.CreatedDate ?? null, // Add createdDate
         };
       });
 

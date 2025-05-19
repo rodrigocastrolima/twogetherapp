@@ -27,6 +27,7 @@ import 'features/notifications/presentation/widgets/notification_overlay_manager
 import 'core/theme/ui_styles.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Import intl
 import 'dart:ui' as ui;
+// TODO: To enable Portuguese localization, add flutter_localizations to pubspec.yaml and import it here.
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -254,7 +255,18 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> with WidgetsBinding
           ),
           themeMode: themeMode,
           routerConfig: router,
-          locale: const Locale('pt'),
+          // TODO: To enable Portuguese localization, add flutter_localizations to pubspec.yaml and uncomment the following lines:
+          // locale: const Locale('pt'),
+          // supportedLocales: const [
+          //   Locale('en', 'US'),
+          //   Locale('pt', 'PT'),
+          //   Locale('pt', 'BR'),
+          // ],
+          // localizationsDelegates: [
+          //   GlobalMaterialLocalizations.delegate,
+          //   GlobalWidgetsLocalizations.delegate,
+          //   GlobalCupertinoLocalizations.delegate,
+          // ],
         ),
       ),
     );

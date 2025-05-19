@@ -193,201 +193,137 @@ class _AddCpeToProposalDialogState
     final theme = Theme.of(context);
     final activationCyclesAsync = ref.watch(activationCyclesProvider);
 
-    return AlertDialog(
-      title: const Text('Add CPE Link'), // TODO: l10n
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Important for Dialog content
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- CPE Fields ---
-              TextFormField(
-                controller: _cpeController,
-                decoration: const InputDecoration(
-                  labelText: 'CPE',
-                ), // TODO: l10n
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'CPE is required'
-                            : null, // TODO: l10n
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nifController,
-                decoration: const InputDecoration(
-                  labelText: 'NIF',
-                ), // TODO: l10n
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'NIF is required'
-                            : null, // TODO: l10n
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _consumoController,
-                decoration: const InputDecoration(
-                  labelText: 'Consumption or Peak Power',
-                ), // TODO: l10n
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'^[0-9]*[\.,]?[0-9]*$'),
-                  ),
-                ],
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'Consumption/Power is required'
-                            : null, // TODO: l10n
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _fidelizacaoController,
-                decoration: const InputDecoration(
-                  labelText: 'Loyalty Period (Years)', // TODO: l10n
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'Loyalty period is required'
-                            : null, // TODO: l10n
-              ),
-              const SizedBox(height: 16),
-              // --- Activation Cycle Dropdown ---
-              activationCyclesAsync.when(
-                data:
-                    (cycles) => DropdownButtonFormField<String>(
-                      value: _selectedCicloId,
-                      hint: const Text('Select Activation Cycle'), // TODO: l10n
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Activation Cycle', // TODO: l10n
-                        border: OutlineInputBorder(),
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Adicionar CPE à Proposta',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 24),
+                  _buildInputField('CPE', _cpeController, 'Insira o código CPE'),
+                  const SizedBox(height: 16),
+                  _buildInputField('NIF', _nifController, 'Insira o NIF'),
+                  const SizedBox(height: 16),
+                  _buildInputField('Consumo ou Potência Pico', _consumoController, 'kWh ou kVA'),
+                  const SizedBox(height: 16),
+                  _buildInputField('Período de Fidelização (anos)', _fidelizacaoController, 'Ex: 2'),
+                  const SizedBox(height: 16),
+                  _buildDropdownField('Ciclo de Ativação', activationCyclesAsync, _selectedCicloId, (val) => setState(() => _selectedCicloId = val)),
+                  const SizedBox(height: 16),
+                  _buildInputField('Comissão Retail', _comissaoController, '€'),
+                  const SizedBox(height: 24),
+                  Text('Anexar Ficheiros (Opcional)', style: theme.textTheme.bodyMedium),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add, size: 24),
+                        tooltip: 'Adicionar ficheiros',
+                        onPressed: _pickFiles,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shape: const CircleBorder(),
+                          padding: const EdgeInsets.all(0),
+                        ),
                       ),
-                      items:
-                          cycles.map((SalesforceCiclo ciclo) {
-                            return DropdownMenuItem<String>(
-                              value: ciclo.id,
-                              child: Text(ciclo.name),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _attachedFiles.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final file = entry.value;
+                            return Chip(
+                              label: Text(file.name, style: theme.textTheme.bodySmall),
+                              onDeleted: () => _removeFile(idx),
                             );
                           }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedCicloId = newValue;
-                        });
-                      },
-                      validator:
-                          (value) =>
-                              (value == null || value.isEmpty)
-                                  ? 'Activation cycle is required'
-                                  : null, // TODO: l10n
-                    ),
-                loading:
-                    () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                error:
-                    (err, stack) => TextFormField(
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        labelText: 'Activation Cycle', // TODO: l10n
-                        hintText: 'Error loading cycles', // TODO: l10n
-                        errorText: err.toString(),
-                        border: const OutlineInputBorder(),
+                        ),
                       ),
-                    ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _comissaoController,
-                decoration: const InputDecoration(
-                  labelText: 'Retail Commission', // TODO: l10n
-                  prefixText: '€ ',
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}$'),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
+                        child: const Text('Cancelar'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(100, 44),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Submeter'),
+                      ),
+                    ],
                   ),
                 ],
-                validator:
-                    (value) =>
-                        (value?.trim().isEmpty ?? true)
-                            ? 'Retail commission is required'
-                            : null, // TODO: l10n
               ),
-              const SizedBox(height: 24),
-
-              // --- File Upload Section ---
-              Text(
-                'Attach Files (Optional)',
-                style: theme.textTheme.titleSmall,
-              ), // TODO: l10n
-              const SizedBox(height: 8),
-              // Display selected files
-              if (_attachedFiles.isNotEmpty)
-                Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: List.generate(_attachedFiles.length, (fileIndex) {
-                    final file = _attachedFiles[fileIndex];
-                    return Chip(
-                      avatar: const CircleAvatar(
-                        child: Icon(Icons.insert_drive_file_outlined, size: 16),
-                      ),
-                      label: Text(file.name, style: theme.textTheme.bodySmall),
-                      onDeleted: () => _removeFile(fileIndex),
-                      deleteIconColor: theme.colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                    );
-                  }),
-                ),
-              if (_attachedFiles.isNotEmpty) const SizedBox(height: 8),
-              // Add files button
-              OutlinedButton.icon(
-                icon: const Icon(Icons.attach_file, size: 18),
-                label: const Text('Add Files'), // TODO: l10n
-                onPressed: _pickFiles,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  textStyle: theme.textTheme.labelMedium,
-                ),
-              ),
-              // --- End File Upload ---
-            ],
+            ),
           ),
         ),
       ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(), // Close without success
-          child: const Text('Cancel'), // TODO: l10n
+    );
+  }
+
+  Widget _buildInputField(String label, TextEditingController controller, String hint) {
+    final theme = Theme.of(context);
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: theme.colorScheme.surfaceVariant,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      style: theme.textTheme.bodySmall,
+      validator: (val) => (val == null || val.trim().isEmpty) ? 'Campo obrigatório' : null,
+    );
+  }
+
+  Widget _buildDropdownField(String label, AsyncValue<List<SalesforceCiclo>> asyncOptions, String? selected, ValueChanged<String?> onChanged) {
+    final theme = Theme.of(context);
+    return asyncOptions.when(
+      data: (options) => DropdownButtonFormField<String>(
+        value: selected,
+        items: options.map((ciclo) => DropdownMenuItem(
+          value: ciclo.id,
+          child: Text(ciclo.name, style: theme.textTheme.bodySmall),
+        )).toList(),
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: theme.colorScheme.surfaceVariant,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
-        ElevatedButton(
-          onPressed: _isSubmitting ? null : _submitForm,
-          child:
-              _isSubmitting
-                  ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Text('Submit'), // TODO: l10n
-        ),
-      ],
+        style: theme.textTheme.bodySmall,
+      ),
+      loading: () => const LinearProgressIndicator(),
+      error: (e, _) => Text('Erro ao carregar ciclos'),
     );
   }
 }
