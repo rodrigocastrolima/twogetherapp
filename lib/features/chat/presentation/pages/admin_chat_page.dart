@@ -13,6 +13,7 @@ import 'chat_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
+import 'package:go_router/go_router.dart';
 
 // Provider to fetch all resellers
 final resellersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -72,6 +73,16 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       //   // _showOnlyActive = _currentPage < 0.5;
       // });
     });
+
+    // Check if userId is passed via state.extra and open the conversation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = GoRouterState.of(context);
+      final extra = state.extra as Map<String, dynamic>?;
+      final userId = extra?['userId'] as String?;
+      if (userId != null) {
+        _openConversationForUser(userId);
+      }
+    });
   }
 
   @override
@@ -87,6 +98,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   }
 
   void _onSearchChanged() {
+    if (!mounted) return;
     setState(() {
       _searchQuery = _searchController.text.trim().toLowerCase();
     });
@@ -145,201 +157,190 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
             ),
             // --- List ---
             Expanded(
-            child: resellersStream.when(
-              data: (resellers) {
-                if (resellers.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          CupertinoIcons.person_3_fill,
-                          size: 48,
+                    child: resellersStream.when(
+                      data: (resellers) {
+                        if (resellers.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.person_3_fill,
+                                  size: 48,
                             color: theme.colorScheme.primary.withAlpha((255 * 0.5).round()),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Nenhum usuário revendedor encontrado',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return conversationsStream.when(
-                  data: (conversations) {
-                    // Get all conversations or filter active ones based on state
-                    final List<ChatConversation> activeConversations =
-                        conversations
-                            .where((c) => c.active ?? false)
-                            .toList();
-
-                    final List<ChatConversation> inactiveConversations =
-                        conversations
-                            .where((c) => !(c.active ?? false))
-                            .toList();
-
-                    // Apply search filter if there's a query
-                    final List<ChatConversation>
-                    searchFilteredActiveConversations =
-                        _searchQuery.isEmpty
-                            ? activeConversations
-                            : activeConversations.where((c) {
-                              // Find the reseller for this conversation
-                              final reseller = resellers.firstWhere(
-                                (r) => r['id'] == c.resellerId,
-                                orElse: () => {'name': '', 'email': ''},
-                              );
-
-                              // Search in name, email, and last message
-                              return (reseller['name'] ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery) ||
-                                  (reseller['email'] ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery) ||
-                                  (c.lastMessageContent ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery);
-                            }).toList();
-
-                    final List<ChatConversation>
-                    searchFilteredInactiveConversations =
-                        _searchQuery.isEmpty
-                            ? inactiveConversations
-                            : inactiveConversations.where((c) {
-                              // Find the reseller for this conversation
-                              final reseller = resellers.firstWhere(
-                                (r) => r['id'] == c.resellerId,
-                                orElse: () => {'name': '', 'email': ''},
-                              );
-
-                              // Search in name, email, and last message
-                              return (reseller['name'] ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery) ||
-                                  (reseller['email'] ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery) ||
-                                  (c.lastMessageContent ?? '')
-                                      .toLowerCase()
-                                      .contains(_searchQuery);
-                            }).toList();
-
-                    // Create maps of conversations by reseller ID for both filtered lists
-                    final activeConversationsByResellerId = {
-                      for (var conversation
-                          in searchFilteredActiveConversations)
-                        conversation.resellerId: conversation,
-                    };
-
-                    final inactiveConversationsByResellerId = {
-                      for (var conversation
-                          in searchFilteredInactiveConversations)
-                        conversation.resellerId: conversation,
-                    };
-
-                    // ** Replace _buildChatUI call with ListView builder **
-
-                    final allFilteredResellers =
-                        resellers.where((reseller) {
-                          return activeConversationsByResellerId
-                                  .containsKey(reseller['id']) ||
-                              inactiveConversationsByResellerId
-                                  .containsKey(reseller['id']);
-                        }).toList();
-
-                    // Combine maps for easier lookup in ListView
-                    final combinedConversationsById = {
-                      ...activeConversationsByResellerId,
-                      ...inactiveConversationsByResellerId,
-                    };
-
-                    // --- Sorting Logic ---
-                    final sortedResellers =
-                        List<Map<String, dynamic>>.from(
-                          allFilteredResellers,
-                        );
-                    sortedResellers.sort((a, b) {
-                      final conversationA =
-                          combinedConversationsById[a['id']];
-                      final conversationB =
-                          combinedConversationsById[b['id']];
-
-                      final timeA = conversationA?.lastMessageTime;
-                      final timeB = conversationB?.lastMessageTime;
-
-                      // Handle null times - conversations with null time are considered oldest
-                      if (timeA == null && timeB == null) {
-                        // If both are null, sort alphabetically by name for stability
-                        return (a['name'] as String? ?? '').compareTo(
-                          b['name'] as String? ?? '',
-                        );
-                      } else if (timeA == null) {
-                        return 1; // timeA is older (null), so B comes first
-                      } else if (timeB == null) {
-                        return -1; // timeB is older (null), so A comes first
-                      }
-
-                      // If both times are valid, sort descending (most recent first)
-                      return timeB.compareTo(timeA);
-                    });
-                    // --- End Sorting Logic ---
-
-                    if (sortedResellers.isEmpty) {
-                      // Handle empty state after filtering
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              CupertinoIcons.search,
-                              size: 48,
-                              color: theme.colorScheme.primary
-                                  .withAlpha((255 * 0.5).round()),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              "No conversations found",
-                              style: theme.textTheme.bodyLarge
-                                  ?.copyWith(
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Nenhum usuário revendedor encontrado',
+                                  style: theme.textTheme.bodyLarge?.copyWith(
                                     color: theme.colorScheme.onSurface,
                                     fontWeight: FontWeight.w600,
                                   ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _searchQuery.isNotEmpty
-                                  ? "Try adjusting your search."
-                                  : "Start a new conversation!",
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withAlpha((255 * 0.6).round()),
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                            // Optional: Add button to clear search or start new chat
-                            if (_searchQuery.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 16.0,
                                 ),
-                                child: CupertinoButton(
-                                  child: Text("Clear Search"),
-                                  onPressed:
-                                      () => _searchController.clear(),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    }
+                              ],
+                            ),
+                          );
+                        }
+                        return conversationsStream.when(
+                          data: (conversations) {
+                            // Get all conversations or filter active ones based on state
+                            final List<ChatConversation> activeConversations =
+                                conversations
+                                    .where((c) => c.active ?? false)
+                                    .toList();
 
-                    // Build the list using sortedResellers
+                            final List<ChatConversation> inactiveConversations =
+                                conversations
+                                    .where((c) => !(c.active ?? false))
+                                    .toList();
+
+                            // Apply search filter if there's a query
+                            final List<ChatConversation>
+                            searchFilteredActiveConversations =
+                                _searchQuery.isEmpty
+                                    ? activeConversations
+                                    : activeConversations.where((c) {
+                                      // Find the reseller for this conversation
+                                      final reseller = resellers.firstWhere(
+                                        (r) => r['id'] == c.resellerId,
+                                        orElse: () => {'name': '', 'email': ''},
+                                      );
+
+                                      // Search in name, email, and last message
+                                      return (reseller['name'] ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery) ||
+                                          (reseller['email'] ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery) ||
+                                          (c.lastMessageContent ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery);
+                                    }).toList();
+
+                            final List<ChatConversation>
+                            searchFilteredInactiveConversations =
+                                _searchQuery.isEmpty
+                                    ? inactiveConversations
+                                    : inactiveConversations.where((c) {
+                                      // Find the reseller for this conversation
+                                      final reseller = resellers.firstWhere(
+                                        (r) => r['id'] == c.resellerId,
+                                        orElse: () => {'name': '', 'email': ''},
+                                      );
+
+                                      // Search in name, email, and last message
+                                      return (reseller['name'] ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery) ||
+                                          (reseller['email'] ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery) ||
+                                          (c.lastMessageContent ?? '')
+                                              .toLowerCase()
+                                              .contains(_searchQuery);
+                                    }).toList();
+
+                            // Create maps of conversations by reseller ID for both filtered lists
+                            final activeConversationsByResellerId = {
+                              for (var conversation
+                                  in searchFilteredActiveConversations)
+                                conversation.resellerId: conversation,
+                            };
+
+                            final inactiveConversationsByResellerId = {
+                              for (var conversation
+                                  in searchFilteredInactiveConversations)
+                                conversation.resellerId: conversation,
+                            };
+
+                            // ** Replace _buildChatUI call with ListView builder **
+
+                            final allFilteredResellers =
+                                resellers.where((reseller) {
+                                  return activeConversationsByResellerId
+                                          .containsKey(reseller['id']) ||
+                                      inactiveConversationsByResellerId
+                                          .containsKey(reseller['id']);
+                                }).toList();
+
+                            // Combine maps for easier lookup in ListView
+                            final combinedConversationsById = {
+                              ...activeConversationsByResellerId,
+                              ...inactiveConversationsByResellerId,
+                            };
+
+                            // --- Sorting Logic ---
+                            final sortedResellers = List<Map<String, dynamic>>.from(resellers);
+                            sortedResellers.sort((a, b) {
+                              final conversationA = combinedConversationsById[a['id']];
+                              final conversationB = combinedConversationsById[b['id']];
+                              final timeA = conversationA?.lastMessageTime;
+                              final timeB = conversationB?.lastMessageTime;
+                              if (timeA == null && timeB == null) {
+                                return (a['name'] as String? ?? '').compareTo(
+                                  b['name'] as String? ?? '',
+                                );
+                              } else if (timeA == null) {
+                                return 1;
+                              } else if (timeB == null) {
+                                return -1;
+                              }
+                              return timeB.compareTo(timeA);
+                            });
+                            // --- End Sorting Logic ---
+
+                            if (sortedResellers.isEmpty) {
+                              // Handle empty state after filtering
+                              return Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.search,
+                                      size: 48,
+                                      color: theme.colorScheme.primary
+                                          .withAlpha((255 * 0.5).round()),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      "No conversations found",
+                                      style: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                            color: theme.colorScheme.onSurface,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _searchQuery.isNotEmpty
+                                          ? "Try adjusting your search."
+                                          : "Start a new conversation!",
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withAlpha((255 * 0.6).round()),
+                                          ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    // Optional: Add button to clear search or start new chat
+                                    if (_searchQuery.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 16.0,
+                                        ),
+                                        child: CupertinoButton(
+                                          child: Text("Clear Search"),
+                                          onPressed:
+                                              () => _searchController.clear(),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            // Build the list using sortedResellers
                       return ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                         itemCount: sortedResellers.length,
@@ -373,7 +374,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               leading: Container(
                                 width: 40,
                                 height: 40,
-                                decoration: BoxDecoration(
+                                    decoration: BoxDecoration(
                                   color: hasUnread
                                       ? yellow.withOpacity(0.15)
                                       : theme.colorScheme.secondaryContainer,
@@ -412,8 +413,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   ? theme.textTheme.bodyLarge?.copyWith(
                                       color: yellow,
                                       fontWeight: FontWeight.w700,
-                                    )
-                                  : null,
+                                                )
+                                                : null,
                             ),
                           );
                         },
@@ -421,27 +422,27 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                   },
                     loading: () => const Center(child: CupertinoActivityIndicator()),
                     error: (error, stack) => Center(
-                        child: Text(
-                          'Error loading conversations: $error',
-                          style: TextStyle(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                      ),
-                );
-              },
+                                child: Text(
+                                  'Error loading conversations: $error',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                        );
+                      },
                 loading: () => const Center(child: CupertinoActivityIndicator()),
                 error: (error, stack) => Center(
-                    child: Text(
-                      'Error loading resellers: $error',
-                      style: TextStyle(color: theme.colorScheme.error),
+                            child: Text(
+                              'Error loading resellers: $error',
+                              style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
-    ],
-  ),
-),
               // RIGHT PANEL: Chat
                   Expanded(
                 child: isWide
@@ -457,48 +458,48 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   child: Container(
                                     color: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
-                                    child: Row(
+              child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        Container(
+                children: [
+                  Container(
                                           width: 44,
                                           height: 44,
-                                          decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                                             color: theme.colorScheme.secondaryContainer,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Icon(
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
                                               CupertinoIcons.person,
                                               size: 26,
-                                              color: theme.colorScheme.primary,
+                                  color: theme.colorScheme.primary,
                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: 16),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                                               _selectedReseller?['name'] ?? '',
                                               style: theme.textTheme.headlineSmall?.copyWith(
                                                 fontWeight: FontWeight.bold,
-                                                color: theme.colorScheme.onSurface,
-                                              ),
-                                            ),
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
                                             const SizedBox(height: 2),
-                                            Text(
+                        Text(
                                               _selectedReseller?['email'] ?? '',
                                               style: theme.textTheme.bodySmall?.copyWith(
                                                 color: theme.colorScheme.onSurfaceVariant,
                                                 fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                          ),
+                        ),
+                      ],
+                  ),
+                ],
+              ),
+            ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -513,8 +514,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                                  child: Container(
-                                    decoration: BoxDecoration(
+                    child: Container(
+                      decoration: BoxDecoration(
                                       color: const Color(0xFFF7F7F8),
                                       borderRadius: BorderRadius.circular(18),
                                     ),
@@ -526,18 +527,18 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                         isAdminView: true,
                                         showAppBar: false,
                                       ),
-                                    ),
-                                  ),
-                                ),
+                              ),
+                            ),
+                          ),
                               ),
                             ],
                           ))
                     : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-      ),
+          ),
+          ),
     );
   }
 
@@ -546,14 +547,56 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     if (_selectedConversation != null && _selectedConversation!.id != conversation?.id) {
       await _chatRepo.setUserActiveInConversation(_selectedConversation!.id, false);
     }
-    setState(() {
-      _selectedReseller = reseller;
-      _selectedConversation = conversation;
-      _previousActiveConversationId = conversation?.id;
-    });
-    if (conversation != null) {
-      await _chatRepo.setUserActiveInConversation(conversation.id, true);
-      await _chatRepo.markConversationAsRead(conversation.id, true);
+    if (conversation == null) {
+      // Create a new conversation for this reseller
+      final conversationData = {
+        'resellerId': reseller['id'],
+        'resellerName': reseller['name'],
+        'lastMessageContent': null,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageIsFromAdmin': null,
+        'active': false,
+        'unreadByAdmin': false,
+        'unreadByReseller': false,
+        'unreadCount': 0,
+        'unreadCounts': {},
+        'createdAt': FieldValue.serverTimestamp(),
+        'participants': ['admin', reseller['id']],
+        'activeUsers': ['admin', reseller['id']],
+      };
+      final docRef = await FirebaseFirestore.instance
+          .collection('conversations')
+          .add(conversationData);
+      final doc = await docRef.get();
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data != null) {
+        final newConversation = ChatConversation(
+          id: doc.id,
+          resellerId: reseller['id'],
+          resellerName: reseller['name'],
+          lastMessageContent: data['lastMessageContent'],
+          lastMessageTime: data['lastMessageTime'] != null ? (data['lastMessageTime'] as Timestamp).toDate() : null,
+          active: data['active'] ?? false,
+          unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
+        );
+        setState(() {
+          _selectedReseller = reseller;
+          _selectedConversation = newConversation;
+          _previousActiveConversationId = newConversation.id;
+        });
+        await _chatRepo.setUserActiveInConversation(newConversation.id, true);
+        await _chatRepo.markConversationAsRead(newConversation.id, true);
+      }
+    } else {
+      setState(() {
+        _selectedReseller = reseller;
+        _selectedConversation = conversation;
+        _previousActiveConversationId = conversation?.id;
+      });
+      if (conversation != null) {
+        await _chatRepo.setUserActiveInConversation(conversation.id, true);
+        await _chatRepo.markConversationAsRead(conversation.id, true);
+      }
     }
   }
 
@@ -561,17 +604,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
     BuildContext context,
     Map<String, dynamic> reseller,
   ) async {
-    if (kDebugMode) {
-      print(
-        'Opening or creating chat for reseller: ${reseller['name']} (${reseller['id']})',
-      );
-    }
-
     try {
       // Find existing conversation for this reseller
       String conversationId = '';
-      bool isNewConversation = false;
-
       // Query for conversations with this reseller
       final QuerySnapshot snapshot =
           await FirebaseFirestore.instance
@@ -583,26 +618,15 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
       if (snapshot.docs.isNotEmpty) {
         // Use existing conversation
         conversationId = snapshot.docs.first.id;
-
-        if (kDebugMode) {
-          print('Found existing conversation: $conversationId');
-        }
-        // No longer update activeUsers here for split-view
       } else {
-        // Create a new conversation - keep it inactive until a message is sent
-        isNewConversation = true;
-
-        if (kDebugMode) {
-          print('Creating new conversation for reseller: ${reseller['name']}');
-        }
-
+        // Create a new conversation
         final conversationData = {
           'resellerId': reseller['id'],
           'resellerName': reseller['name'],
-          'lastMessageContent': null, // No message content initially
+          'lastMessageContent': null,
           'lastMessageTime': FieldValue.serverTimestamp(),
           'lastMessageIsFromAdmin': null,
-          'active': false, // Start as inactive
+          'active': false,
           'unreadByAdmin': false,
           'unreadByReseller': false,
           'unreadCount': 0,
@@ -611,90 +635,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
           'participants': ['admin', reseller['id']],
           'activeUsers': ['admin', reseller['id']],
         };
-
         final docRef = await FirebaseFirestore.instance
             .collection('conversations')
             .add(conversationData);
-
         conversationId = docRef.id;
-
-        if (kDebugMode) {
-          print('Created new conversation with ID: $conversationId');
-        }
       }
 
-      // Only send a welcome message for truly new conversations (not for reactivated ones)
-      if (isNewConversation) {
-        // Get admin's name
-        String adminName = "Support";
-        try {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null) {
-            final userDoc =
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(user.uid)
-                    .get();
-            if (userDoc.exists) {
-              adminName = userDoc.data()?['displayName'] ?? "Support";
-            }
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error getting admin name: $e');
-          }
-          // Continue with default name
-        }
-
-        // Add the welcome message
-        try {
-          await FirebaseFirestore.instance
-              .collection('conversations')
-              .doc(conversationId)
-              .collection('messages')
-              .add({
-                'content': 'Hello! How can I help you today?',
-                'timestamp': FieldValue.serverTimestamp(),
-                'isAdmin': true,
-                'isRead': false,
-                'senderId': 'admin',
-                'senderName': adminName,
-                'type': 'text',
-                'isDefault': false, // Not a default welcome message
-              });
-
-          // Now mark conversation as active since we added a real message
-          await FirebaseFirestore.instance
-              .collection('conversations')
-              .doc(conversationId)
-              .update({
-                'active': true,
-                'lastMessageContent': 'Hello! How can I help you today?',
-                'lastMessageTime': FieldValue.serverTimestamp(),
-                'lastMessageIsFromAdmin': true,
-                'unreadByReseller': true,
-                'unreadCounts': {reseller['id']: 1},
-                'unreadCount': 1,
-              });
-
-          if (kDebugMode) {
-            print('Added welcome message to conversation: $conversationId');
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error adding welcome message: $e');
-          }
-          // Continue even if welcome message fails
-        }
-      }
-
-      // Navigate to the chat page if context is still mounted
-      if (context.mounted) {
-        if (kDebugMode) {
-          print('Navigating to chat page for conversation: $conversationId');
-        }
-
-        // Navigate to the chat page
+      // Only open chat if conversationId is not empty
+      if (conversationId.isNotEmpty && context.mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -707,17 +655,71 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                 ),
           ),
         );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao criar conversa.'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao abrir chat: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _openConversationForUser(String userId) async {
+    try {
+      // First get the reseller data
+      final resellerDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (!resellerDoc.exists) return;
+      
+      final resellerData = resellerDoc.data()!;
+      final reseller = {
+        'id': userId,
+        'name': resellerData['displayName'] ?? resellerData['email'] ?? 'Unknown User',
+        'email': resellerData['email'] ?? '',
+      };
+
+      // Then get the conversation
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('conversations')
+          .where('resellerId', isEqualTo: userId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        final doc = snapshot.docs.first;
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null) {
+          setState(() {
+            _selectedReseller = reseller; // Set the reseller
+            _selectedConversation = ChatConversation(
+              id: doc.id,
+              resellerId: userId,
+              resellerName: data['resellerName'] ?? '',
+              lastMessageContent: data['lastMessageContent'],
+              lastMessageTime: data['lastMessageTime'] != null ? (data['lastMessageTime'] as Timestamp).toDate() : null,
+              active: data['active'] ?? false,
+              unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
+            );
+          });
+          
+          // Also set the conversation as active and mark as read
+          await _chatRepo.setUserActiveInConversation(doc.id, true);
+          await _chatRepo.markConversationAsRead(doc.id, true);
+        }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error in _openOrCreateChat: $e');
-      }
-
-      // Show error message if context is still valid
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        print('Error opening conversation for user: $e');
       }
     }
   }

@@ -611,48 +611,58 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           ),
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        itemCount: _users.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 0),
-                        itemBuilder: (context, index) {
-                          final user = _users[index];
-                          return SimpleListItem(
-                            leading: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: theme.colorScheme.secondaryContainer,
-                              child: Text(
-                                (user.displayName?.isNotEmpty == true
-                                        ? user.displayName![0]
-                                        : user.email[0])
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSecondaryContainer,
-                                  fontWeight: FontWeight.bold,
+                    : (() {
+                        final filteredUsers = searchQuery.isEmpty
+                            ? _users
+                            : _users.where((user) {
+                                final name = user.displayName?.toLowerCase() ?? '';
+                                final email = user.email.toLowerCase();
+                                final query = searchQuery.toLowerCase();
+                                return name.contains(query) || email.contains(query);
+                              }).toList();
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          itemCount: filteredUsers.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 0),
+                          itemBuilder: (context, index) {
+                            final user = filteredUsers[index];
+                            return SimpleListItem(
+                              leading: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: theme.colorScheme.secondaryContainer,
+                                child: Text(
+                                  (user.displayName?.isNotEmpty == true
+                                          ? user.displayName![0]
+                                          : user.email[0])
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSecondaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            title: user.displayName ?? user.email,
-                            subtitle: user.email,
-                            onTap: () => _navigateToUserDetailPage(user),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.message_outlined, color: theme.colorScheme.primary),
-                                  tooltip: 'Mensagens',
-                                  onPressed: () => _openOrCreateChat(context, user),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                                  tooltip: 'Eliminar',
-                                  onPressed: () => _showDeleteConfirmation(context, user),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                              title: user.displayName ?? user.email,
+                              subtitle: user.email,
+                              onTap: () => _navigateToUserDetailPage(user),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.message_outlined, color: theme.colorScheme.primary),
+                                    tooltip: 'Mensagens',
+                                    onPressed: () => _openOrCreateChat(context, user),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                    tooltip: 'Eliminar',
+                                    onPressed: () => _showDeleteConfirmation(context, user),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      })(),
           ),
         ],
       ),
@@ -1021,12 +1031,7 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
             .add(conversationData);
         conversationId = docRef.id;
       }
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AdminChatPage(),
-        ),
-      );
+      context.go('/admin/messages', extra: {'userId': user.uid});
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

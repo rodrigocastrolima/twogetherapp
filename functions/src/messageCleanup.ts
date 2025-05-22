@@ -2,7 +2,7 @@ import * as functions from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 
 // Configuration
-const MESSAGE_EXPIRATION_HOURS = 24; // Messages older than this will be deleted (was 6 hours)
+const MESSAGE_EXPIRATION_HOURS = 168; // Messages older than this will be deleted (was 6 hours)
 const BATCH_SIZE = 400; // Firebase batches are limited to 500 operations
 
 /**

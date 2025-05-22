@@ -412,7 +412,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                            color: const Color(0xFFF7F7F8),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           margin: const EdgeInsets.symmetric(horizontal: 24),
