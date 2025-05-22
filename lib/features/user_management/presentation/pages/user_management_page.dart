@@ -11,6 +11,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../providers/user_creation_provider.dart';
+import '../../../../features/chat/presentation/pages/admin_chat_page.dart';
+import '../../../../core/theme/ui_styles.dart';
+import '../../../../presentation/widgets/simple_list_item.dart';
 
 class UserManagementPage extends ConsumerStatefulWidget {
   const UserManagementPage({super.key});
@@ -389,219 +392,6 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     );
   }
 
-  Widget _buildUserTable() {
-    final filteredUsers =
-        searchQuery.isEmpty
-            ? _users
-            : _users.where((user) {
-              final name = user.displayName?.toLowerCase() ?? '';
-              final email = user.email.toLowerCase();
-              final query = searchQuery.toLowerCase();
-              return name.contains(query) || email.contains(query);
-            }).toList();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
-        final theme = Theme.of(context);
-
-        if (isSmallScreen) {
-          return filteredUsers.isEmpty
-              ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.search_off,
-                      size: 64,
-                      color: theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.5).round(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Nenhum utilizador encontrado',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withAlpha(
-                          (255 * 0.7).round(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              : ListView.builder(
-                itemCount: filteredUsers.length,
-                padding: const EdgeInsets.only(bottom: 16),
-                itemBuilder: (context, index) {
-                  final user = filteredUsers[index];
-                  final bool isEnabled =
-                      user.additionalData['isEnabled'] ?? true;
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    color: theme.colorScheme.surface.withAlpha(
-                      (255 * 0.2).round(),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: theme.colorScheme.onSurface.withAlpha(
-                          (255 * 0.1).round(),
-                        ),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: InkWell(
-                      onTap: () => _navigateToUserDetailPage(user),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor:
-                                      user.role == UserRole.admin
-                                          ? theme.colorScheme.secondary
-                                              .withAlpha((255 * 0.1).round())
-                                          : theme.colorScheme.primary.withAlpha(
-                                            (255 * 0.1).round(),
-                                          ),
-                                  child: Text(
-                                    (user.displayName?.isNotEmpty == true
-                                            ? user.displayName![0]
-                                            : user.email[0])
-                                        .toUpperCase(),
-                                    style: TextStyle(
-                                      color:
-                                          user.role == UserRole.admin
-                                              ? theme.colorScheme.secondary
-                                              : theme.colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    user.displayName ?? user.email,
-                                    style: theme.textTheme.titleMedium,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.more_vert),
-                                  onPressed:
-                                      () => _showUserActionMenu(context, user),
-                                  tooltip: 'Mais',
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Role: ${user.role.name.capitalize()}'),
-                                Text(
-                                  isEnabled ? 'Ativo' : 'Inativo',
-                                  style: TextStyle(
-                                    color:
-                                        isEnabled ? Colors.green : Colors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Último Login: ${_formatDate(user.additionalData['lastLoginAt'] ?? 'N/A')}',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-        } else {
-          return SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: DataTable(
-                showCheckboxColumn: false,
-                columnSpacing: 20,
-                headingRowColor: MaterialStateProperty.resolveWith<Color?>((
-                  Set<MaterialState> states,
-                ) {
-                  return theme.colorScheme.surfaceVariant.withAlpha(
-                    (255 * 0.5).round(),
-                  );
-                }),
-                border: TableBorder.all(
-                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 1,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                columns: [
-                  const DataColumn(label: Text('Nome')),
-                  const DataColumn(label: Text('Email')),
-                  const DataColumn(label: Text('Role')),
-                  const DataColumn(label: Text('Último Login')),
-                  const DataColumn(label: Text('Salesforce ID')),
-                  const DataColumn(label: Text('Estado')),
-                  const DataColumn(label: Text('Ações')),
-                ],
-                rows:
-                    filteredUsers.map((user) {
-                      final bool isEnabled =
-                          user.additionalData['isEnabled'] ?? true;
-                      return DataRow(
-                        onSelectChanged: (selected) {
-                          if (selected ?? false) {
-                            _navigateToUserDetailPage(user);
-                          }
-                        },
-                        cells: [
-                          DataCell(Text(user.displayName ?? '-')),
-                          DataCell(Text(user.email)),
-                          DataCell(Text(user.role.name.capitalize())),
-                          DataCell(
-                            Text(
-                              _formatDate(
-                                user.additionalData['lastLoginAt'] ?? 'N/A',
-                              ),
-                            ),
-                          ),
-                          DataCell(Text(user.salesforceId ?? 'N/A')),
-                          DataCell(
-                            Text(
-                              isEnabled ? 'Ativo' : 'Inativo',
-                              style: TextStyle(
-                                color: isEnabled ? Colors.green : Colors.red,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            IconButton(
-                              icon: const Icon(Icons.more_vert),
-                              onPressed:
-                                  () => _showUserActionMenu(context, user),
-                              tooltip: 'Mais',
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-              ),
-            ),
-          );
-        }
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -776,86 +566,42 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gestão de Utilizadores',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+            child: Text(
+              'Revendedores',
+              style: theme.textTheme.headlineLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 24),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Pesquisar...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 12,
-                      ),
-                      suffixIcon:
-                          searchQuery.isNotEmpty
-                              ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  searchController.clear();
-                                  setState(() {
-                                    searchQuery = '';
-                                  });
-                                },
-                                splashRadius: 18,
-                                tooltip: 'Limpar',
-                              )
-                              : null,
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        searchQuery = value.trim();
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: Text('Atualizar'),
-                      onPressed: _isLoading ? null : _loadUsers,
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.add, size: 16),
-                      label: Text('Novo Revendedor'),
-                      onPressed: _isLoading ? null : _showCreateUserDialog,
-                    ),
-                  ],
-                ),
-              ],
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: searchController,
+                decoration: AppStyles.searchInputDecoration(context, 'Pesquisar...'),
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery = value.trim();
+                  });
+                },
+              ),
             ),
-            const SizedBox(height: 24),
-
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _errorMessage != null
-                      ? Center(
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Text(
@@ -865,10 +611,50 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                           ),
                         ),
                       )
-                      : _buildUserTable(),
-            ),
-          ],
-        ),
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        itemCount: _users.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 0),
+                        itemBuilder: (context, index) {
+                          final user = _users[index];
+                          return SimpleListItem(
+                            leading: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: theme.colorScheme.secondaryContainer,
+                              child: Text(
+                                (user.displayName?.isNotEmpty == true
+                                        ? user.displayName![0]
+                                        : user.email[0])
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: user.displayName ?? user.email,
+                            subtitle: user.email,
+                            onTap: () => _navigateToUserDetailPage(user),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.message_outlined, color: theme.colorScheme.primary),
+                                  tooltip: 'Mensagens',
+                                  onPressed: () => _openOrCreateChat(context, user),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                                  tooltip: 'Eliminar',
+                                  onPressed: () => _showDeleteConfirmation(context, user),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
       ),
     );
   }
@@ -1200,6 +986,54 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       print('Navigating to user detail page for user ID: ${user.uid}');
     }
     context.push('/admin/users/${user.uid}', extra: user);
+  }
+
+  void _openOrCreateChat(BuildContext context, AppUser user) async {
+    try {
+      String conversationId = '';
+      bool isNewConversation = false;
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('conversations')
+          .where('resellerId', isEqualTo: user.uid)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        conversationId = snapshot.docs.first.id;
+      } else {
+        isNewConversation = true;
+        final conversationData = {
+          'resellerId': user.uid,
+          'resellerName': user.displayName ?? user.email,
+          'lastMessageContent': null,
+          'lastMessageTime': FieldValue.serverTimestamp(),
+          'lastMessageIsFromAdmin': null,
+          'active': false,
+          'unreadByAdmin': false,
+          'unreadByReseller': false,
+          'unreadCount': 0,
+          'unreadCounts': {},
+          'createdAt': FieldValue.serverTimestamp(),
+          'participants': ['admin', user.uid],
+          'activeUsers': ['admin', user.uid],
+        };
+        final docRef = await FirebaseFirestore.instance
+            .collection('conversations')
+            .add(conversationData);
+        conversationId = docRef.id;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AdminChatPage(),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao abrir chat: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 

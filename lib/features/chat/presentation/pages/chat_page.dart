@@ -390,149 +390,176 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'Mensagens',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    textAlign: TextAlign.left,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-        child: Column(
-          children: [
-            // Messages area
-            Expanded(
-              child: messagesStream.when(
-                data: (messages) {
-                            final realMessages = messages.where((m) => !m.isDefault).toList();
-                  if (realMessages.isEmpty && !widget.isAdminView) {
-                    return _buildEmptyStateUI(context);
-                  } else if (realMessages.isEmpty && widget.isAdminView) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                                    Icon(CupertinoIcons.chat_bubble_2, color: CupertinoColors.systemGrey.resolveFrom(context), size: 48),
-                          const SizedBox(height: 16),
-                                    Text('Sem mensagens ainda', style: TextStyle(fontSize: 16, color: CupertinoColors.systemGrey.resolveFrom(context).withOpacity(0.8))),
-                        ],
+                if (!(widget.isAdminView && !widget.showAppBar)) ...[
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      'Mensagens',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                    );
-                  }
-                            // Correctly use ScrollConfiguration with NoScrollbarBehavior
-                            return ScrollConfiguration(
-                              behavior: const NoScrollbarBehavior(),
-                              child: ListView.builder(
-                      controller: _scrollController,
-                                reverse: true, 
-                                padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-                      itemCount: realMessages.length,
-                      itemBuilder: (context, index) {
-                        final message = realMessages[index];
-                        return _buildMessageBubble(context, message, true);
-                      },
+                      textAlign: TextAlign.left,
                     ),
-                  );
-                },
-                          loading: () => Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.primary,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Messages area
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Carregando mensagens...',
-                          style: TextStyle(
-                            color: theme.colorScheme.onBackground.withOpacity(
-                              0.7,
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          child: messagesStream.when(
+                            data: (messages) {
+                              final realMessages = messages.where((m) => !m.isDefault).toList();
+                              if (realMessages.isEmpty && !widget.isAdminView) {
+                                return _buildEmptyStateUI(context);
+                              } else if (realMessages.isEmpty && widget.isAdminView) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          CupertinoIcons.chat_bubble_2_fill,
+                                          color: theme.colorScheme.primary,
+                                          size: 32,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Sem mensagens ainda',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              // Correctly use ScrollConfiguration with NoScrollbarBehavior
+                              return ScrollConfiguration(
+                                behavior: const NoScrollbarBehavior(),
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  reverse: true, 
+                                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+                                  itemCount: realMessages.length,
+                                  itemBuilder: (context, index) {
+                                    final message = realMessages[index];
+                                    return _buildMessageBubble(context, message, true);
+                                  },
+                                ),
+                              );
+                            },
+                            loading: () => Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Carregando mensagens...',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onBackground.withOpacity(
+                                      0.7,
+                                    ),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                if (kDebugMode)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      "Loading conversation: ${widget.conversationId}",
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onBackground
+                                            .withOpacity(0.5),
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                              ],
                             ),
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (kDebugMode)
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              "Loading conversation: ${widget.conversationId}",
-                              style: TextStyle(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.5),
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
+                            error: (error, stack) => Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: theme.colorScheme.error,
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Erro ao carregar mensagens',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    'Erro ao carregar mensagens: ${error.toString()}',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onBackground.withOpacity(
+                                        0.6,
+                                      ),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                if (kDebugMode)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Text(
+                                      "Conversation ID: ${widget.conversationId}",
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onBackground
+                                            .withOpacity(0.5),
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    // Force refresh by rebuilding
+                                    setState(() {});
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: theme.colorScheme.onPrimary,
+                                  ),
+                                  child: Text('Tentar novamente'),
+                                ),
+                              ],
                             ),
                           ),
-                      ],
-                    ),
-                          error: (error, stack) => Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          color: theme.colorScheme.error,
-                          size: 48,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Erro ao carregar mensagens',
-                          style: TextStyle(
-                            color: theme.colorScheme.error,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Erro ao carregar mensagens: ${error.toString()}',
-                            style: TextStyle(
-                              color: theme.colorScheme.onBackground.withOpacity(
-                                0.6,
-                              ),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        if (kDebugMode)
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                              "Conversation ID: ${widget.conversationId}",
-                              style: TextStyle(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.5),
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ElevatedButton(
-                          onPressed: () {
-                            // Force refresh by rebuilding
-                            setState(() {});
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
-                          ),
-                          child: Text('Tentar novamente'),
-                        ),
-                      ],
-                    ),
-              ),
-            ),
-            // Input area - always visible
-            _buildMessageInput(),
-          ],
+                      ),
+                      // Input area - always visible
+                      _buildMessageInput(),
+                    ],
                   ),
                 ),
               ],
@@ -660,18 +687,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             CircleAvatar(
               radius: 16,
               backgroundColor:
-                  isFromAdmin
-                      ? theme.colorScheme.primary.withOpacity(0.2)
-                      : theme.colorScheme.secondary.withOpacity(0.2),
+                isFromAdmin
+                  ? theme.colorScheme.primary.withOpacity(0.2)
+                  : theme.colorScheme.secondaryContainer,
               child: Text(
                 senderName.isNotEmpty
                     ? senderName[0].toUpperCase()
                     : '?', // Fallback
                 style: TextStyle(
                   color:
-                      isFromAdmin
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.secondary,
+                    isFromAdmin
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSecondaryContainer,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),

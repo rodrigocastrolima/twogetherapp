@@ -12,6 +12,7 @@ class SimpleListItem extends StatefulWidget {
   final VoidCallback? onTap;
   final bool isUnread;
   final EdgeInsetsGeometry? padding;
+  final TextStyle? titleStyle;
 
   const SimpleListItem({
     Key? key,
@@ -22,6 +23,7 @@ class SimpleListItem extends StatefulWidget {
     this.onTap,
     this.isUnread = false,
     this.padding,
+    this.titleStyle,
   }) : super(key: key);
 
   @override
@@ -95,7 +97,7 @@ class _SimpleListItemState extends State<SimpleListItem> {
                               Expanded(
                                 child: Text(
                                   widget.title,
-                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                  style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
                                     fontWeight: FontWeight.w500,
                                     color: textColor,
                                     fontFamily: theme.textTheme.bodyLarge?.fontFamily,
