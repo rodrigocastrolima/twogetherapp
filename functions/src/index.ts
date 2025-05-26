@@ -1223,3 +1223,4 @@ export { downloadFileForReseller } from "./downloadFileForReseller";
 export { rejectProposalForReseller } from './rejectProposalForReseller';
 export { acceptProposalAndUploadDocs } from './acceptProposalAndUploadDocs';
 export * from './getSalesforceCPEDetails';
+export * from './userManagement';

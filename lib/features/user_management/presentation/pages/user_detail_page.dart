@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/theme/theme.dart';
 import '../../../../features/auth/domain/models/app_user.dart';
@@ -13,6 +14,11 @@ import '../../../../features/auth/domain/repositories/auth_repository.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../../features/salesforce/presentation/providers/salesforce_providers.dart';
+import '../../../../presentation/widgets/logo.dart';
+import '../../../../presentation/widgets/app_loading_indicator.dart';
+import '../../../../core/models/notification.dart';
+import '../../../notifications/data/repositories/notification_repository.dart';
+import '../../../../presentation/widgets/simple_list_item.dart';
 // Removed import of non-existent file
 // import '../../../../features/admin/presentation/widgets/submission_details_dialog.dart';
 // Removed l10n import
@@ -32,35 +38,51 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isEditing = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _errorMessage;
 
   // Controllers for editable fields
   late TextEditingController _displayNameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
-  late TextEditingController _departmentController;
+  late TextEditingController _phoneSecondaryController;
+  late TextEditingController _emailSecondaryController;
+  late TextEditingController _birthDateController;
+  late TextEditingController _collaboratorNifController;
+  late TextEditingController _ccNumberController;
+  late TextEditingController _ssNumberController;
+  late TextEditingController _addressController;
+  late TextEditingController _postalCodeController;
+  late TextEditingController _cityController;
+  late TextEditingController _districtController;
+  late TextEditingController _tipologiaController;
+  late TextEditingController _atividadeComercialController;
+  late TextEditingController _commercialCodeController;
+  late TextEditingController _companyNifController;
+  late TextEditingController _ibanController;
+  late TextEditingController _resellerNameController;
 
-  // Additional data
+  // Date picker state variables
+  DateTime? _joinedDate;
+  DateTime? _birthDate;
+
+  // Additional data (used for non-editable fields or those not having dedicated controllers)
   Map<String, dynamic> _additionalData = {};
   bool _isEnabled = true;
+
+  // Initialize with widget.user to prevent late initialization error
+  late AppUser _localUserCopy = widget.user;
+
+  // Add at the top of _UserDetailPageState:
+  late Future<List<SalesforceOpportunity>> _opportunitiesFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _displayNameController = TextEditingController(
-      text: widget.user.displayName ?? '',
-    );
-    _emailController = TextEditingController(text: widget.user.email);
-    _phoneController = TextEditingController(
-      text: widget.user.additionalData['phoneNumber'] ?? '',
-    );
-    _departmentController = TextEditingController(
-      text: widget.user.additionalData['department'] ?? '',
-    );
-    _additionalData = Map<String, dynamic>.from(widget.user.additionalData);
-    _isEnabled = widget.user.additionalData['isEnabled'] ?? true;
+    _initializeControllersAndDates();
+    _initializeUserData();
+    _initOpportunitiesFuture();
   }
 
   @override
@@ -69,8 +91,81 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     _displayNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _departmentController.dispose();
+    _phoneSecondaryController.dispose();
+    _emailSecondaryController.dispose();
+    _birthDateController.dispose();
+    _collaboratorNifController.dispose();
+    _ccNumberController.dispose();
+    _ssNumberController.dispose();
+    _addressController.dispose();
+    _postalCodeController.dispose();
+    _cityController.dispose();
+    _districtController.dispose();
+    _tipologiaController.dispose();
+    _atividadeComercialController.dispose();
+    _commercialCodeController.dispose();
+    _companyNifController.dispose();
+    _ibanController.dispose();
+    _resellerNameController.dispose();
     super.dispose();
+  }
+
+  // New method to initialize user data
+  Future<void> _initializeUserData() async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final userDoc = await firestore.collection('users').doc(widget.user.uid).get();
+      
+      if (userDoc.exists) {
+        if (mounted) {
+          final data = userDoc.data()!;
+          // Defensive patch: ensure all required fields exist (set to null if missing)
+          data['uid'] ??= userDoc.id;
+          data['email'] ??= null;
+          data['role'] ??= null;
+          data['displayName'] ??= null;
+          data['photoURL'] ??= null;
+          data['salesforceId'] ??= null;
+          data['isFirstLogin'] ??= null;
+          data['isEmailVerified'] ??= null;
+          // Ensure additionalData is always a Map<String, dynamic> with String keys
+          if (data['additionalData'] == null) {
+            data['additionalData'] = {};
+          } else if (data['additionalData'] is! Map<String, dynamic>) {
+            try {
+              data['additionalData'] = Map<String, dynamic>.from(
+                (data['additionalData'] as Map).map((k, v) => MapEntry(k.toString(), v)),
+              );
+            } catch (_) {
+              try {
+                data['additionalData'] = Map.castFrom<dynamic, dynamic, String, dynamic>(data['additionalData'] as Map);
+              } catch (_) {
+                data['additionalData'] = {};
+              }
+            }
+          }
+          setState(() {
+            _localUserCopy = AppUser.fromJson(data);
+            _initializeControllersAndDates();
+            _isLoading = false;
+            _initOpportunitiesFuture();
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error initializing user data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   // Save user profile changes
@@ -83,28 +178,91 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     try {
       final firestore = FirebaseFirestore.instance;
 
-      // Update user data in Firestore
-      await firestore.collection('users').doc(widget.user.uid).update({
-        'displayName': _displayNameController.text.trim(),
-        'phoneNumber': _phoneController.text.trim(),
-        'department': _departmentController.text.trim(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Prepare data for update
+      final Map<String, dynamic> fieldsToUpdate = {};
 
-      // Email requires Firebase Auth update - typically done through Cloud Functions
-      if (_emailController.text.trim() != widget.user.email) {
-        // In a real app, you'd call a Cloud Function to update the email
-        // For now, just update the Firestore record
-        await firestore.collection('users').doc(widget.user.uid).update({
-          'email': _emailController.text.trim(),
-        });
+      // Compare and add fields to update map (compare with _localUserCopy)
+      if (_displayNameController.text.trim() != (_localUserCopy.displayName ?? '')) {
+        fieldsToUpdate['displayName'] = _displayNameController.text.trim();
+      }
+      if (_phoneController.text.trim() != (_localUserCopy.additionalData['phoneNumber'] ?? '')) {
+        fieldsToUpdate['phoneNumber'] = _phoneController.text.trim();
+      }
+      if (_phoneSecondaryController.text.trim() != (_localUserCopy.additionalData['phoneSecondary'] ?? '')) {
+        fieldsToUpdate['phoneSecondary'] = _phoneSecondaryController.text.trim();
+      }
+      if (_emailSecondaryController.text.trim() != (_localUserCopy.additionalData['emailSecondary'] ?? '')) {
+        fieldsToUpdate['emailSecondary'] = _emailSecondaryController.text.trim();
       }
 
-      // Refresh additional data
-      final updatedDoc =
-          await firestore.collection('users').doc(widget.user.uid).get();
+      // Handle birth_date (convert DateTime to ISO 8601 string)
+      final currentBirthDateString = _localUserCopy.additionalData['birthDate'] != null
+          ? DateTime.parse(_localUserCopy.additionalData['birthDate']).toIso8601String()
+          : null;
+      final newBirthDateString = _birthDate?.toIso8601String();
+      if (newBirthDateString != currentBirthDateString) {
+        fieldsToUpdate['birthDate'] = newBirthDateString;
+      }
+
+      if (_collaboratorNifController.text.trim() != (_localUserCopy.additionalData['collaboratorNif'] ?? '')) {
+        fieldsToUpdate['collaboratorNif'] = _collaboratorNifController.text.trim();
+      }
+      if (_ccNumberController.text.trim() != (_localUserCopy.additionalData['ccNumber'] ?? '')) {
+        fieldsToUpdate['ccNumber'] = _ccNumberController.text.trim();
+      }
+      if (_ssNumberController.text.trim() != (_localUserCopy.additionalData['ssNumber'] ?? '')) {
+        fieldsToUpdate['ssNumber'] = _ssNumberController.text.trim();
+      }
+      if (_addressController.text.trim() != (_localUserCopy.additionalData['address'] ?? '')) {
+        fieldsToUpdate['address'] = _addressController.text.trim();
+      }
+      if (_postalCodeController.text.trim() != (_localUserCopy.additionalData['postalCode'] ?? '')) {
+        fieldsToUpdate['postalCode'] = _postalCodeController.text.trim();
+      }
+      if (_cityController.text.trim() != (_localUserCopy.additionalData['city'] ?? '')) {
+        fieldsToUpdate['city'] = _cityController.text.trim();
+      }
+      if (_districtController.text.trim() != (_localUserCopy.additionalData['district'] ?? '')) {
+        fieldsToUpdate['district'] = _districtController.text.trim();
+      }
+      if (_tipologiaController.text.trim() != (_localUserCopy.additionalData['tipologia'] ?? '')) {
+        fieldsToUpdate['tipologia'] = _tipologiaController.text.trim();
+      }
+      if (_atividadeComercialController.text.trim() != (_localUserCopy.additionalData['atividadeComercial'] ?? '')) {
+        fieldsToUpdate['atividadeComercial'] = _atividadeComercialController.text.trim();
+      }
+      if (_commercialCodeController.text.trim() != (_localUserCopy.additionalData['commercialCode'] ?? '')) {
+        fieldsToUpdate['commercialCode'] = _commercialCodeController.text.trim();
+      }
+      if (_companyNifController.text.trim() != (_localUserCopy.additionalData['companyNif'] ?? '')) {
+        fieldsToUpdate['companyNif'] = _companyNifController.text.trim();
+      }
+      if (_ibanController.text.trim() != (_localUserCopy.additionalData['iban'] ?? '')) {
+        fieldsToUpdate['iban'] = _ibanController.text.trim();
+      }
+      if (_resellerNameController.text.trim() != (_localUserCopy.additionalData['resellerName'] ?? '')) {
+        fieldsToUpdate['resellerName'] = _resellerNameController.text.trim();
+      }
+
+      // Handle joined_date (convert DateTime to ISO 8601 string)
+      final currentJoinedDateString = _localUserCopy.additionalData['joinedDate'] != null
+          ? DateTime.parse(_localUserCopy.additionalData['joinedDate']).toIso8601String()
+          : null;
+      final newJoinedDateString = _joinedDate?.toIso8601String();
+      if (newJoinedDateString != currentJoinedDateString) {
+        fieldsToUpdate['joinedDate'] = newJoinedDateString;
+      }
+
+      // Only update if there are changes
+      if (fieldsToUpdate.isNotEmpty) {
+        fieldsToUpdate['updatedAt'] = FieldValue.serverTimestamp();
+
+        await firestore.collection('users').doc(widget.user.uid).update(fieldsToUpdate);
+
+        // Refresh user data after saving
+        await _initializeUserData();
+
       setState(() {
-        _additionalData = updatedDoc.data() ?? {};
         _isEditing = false;
         _isLoading = false;
       });
@@ -113,14 +271,20 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Perfil atualizado com sucesso'),
-          ), // Hardcoded Portuguese
-        );
+            ),
+          );
+        }
+      } else {
+        // No changes to save
+        setState(() {
+          _isEditing = false;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'Erro ao atualizar perfil: ${e.toString()}'; // Hardcoded Portuguese
+        _errorMessage = 'Erro ao atualizar perfil: ${e.toString()}';
       });
     }
   }
@@ -138,6 +302,9 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       final authRepo = ref.read(authRepositoryProvider);
       await authRepo.setUserEnabled(widget.user.uid, newStatus);
 
+      // Refresh user data after toggling status
+      await _initializeUserData();
+
       setState(() {
         _isEnabled = newStatus;
         _isLoading = false;
@@ -147,7 +314,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Utilizador ${newStatus ? "ativado" : "desativado"} com sucesso', // Hardcoded Portuguese
+              'Utilizador ${newStatus ? "ativado" : "desativado"} com sucesso',
             ),
           ),
         );
@@ -155,8 +322,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage =
-            'Erro ao atualizar estado do utilizador: ${e.toString()}'; // Hardcoded Portuguese
+        _errorMessage = 'Erro ao atualizar estado do utilizador: ${e.toString()}';
       });
     }
   }
@@ -192,520 +358,546 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     }
   }
 
+   // Helper to initialize or update controllers and date pickers based on _localUserCopy
+  void _initializeControllersAndDates() {
+    _displayNameController = TextEditingController(
+      text: _localUserCopy.displayName ?? '',
+    );
+    _emailController = TextEditingController(text: _localUserCopy.email);
+    _phoneController = TextEditingController(
+      text: _localUserCopy.additionalData['phoneNumber']?.toString().trim().isNotEmpty == true
+          ? _localUserCopy.additionalData['phoneNumber']
+          : (_localUserCopy.additionalData['mobilePhone']?.toString().trim().isNotEmpty == true
+              ? _localUserCopy.additionalData['mobilePhone']
+              : ''),
+    );
+    _phoneSecondaryController = TextEditingController(
+      text: _localUserCopy.additionalData['phoneSecondary'] ?? '',
+    );
+    _emailSecondaryController = TextEditingController(
+      text: _localUserCopy.additionalData['emailSecondary'] ?? '',
+    );
+     _birthDateController = TextEditingController(
+      text: _localUserCopy.additionalData['birthDate'] != null
+          ? DateFormat('dd/MM/yyyy').format(DateTime.parse(_localUserCopy.additionalData['birthDate']))
+          : '',
+    );
+    _collaboratorNifController = TextEditingController(
+      text: _localUserCopy.additionalData['collaboratorNif'] ?? '',
+    );
+    _ccNumberController = TextEditingController(
+      text: _localUserCopy.additionalData['ccNumber'] ?? '',
+    );
+    _ssNumberController = TextEditingController(
+      text: _localUserCopy.additionalData['ssNumber'] ?? '',
+    );
+    _addressController = TextEditingController(
+      text: _localUserCopy.additionalData['address'] ?? '',
+    );
+    _postalCodeController = TextEditingController(
+      text: _localUserCopy.additionalData['postalCode'] ?? '',
+    );
+    _cityController = TextEditingController(
+      text: _localUserCopy.additionalData['city'] ?? '',
+    );
+    _districtController = TextEditingController(
+      text: _localUserCopy.additionalData['district'] ?? '',
+    );
+    _tipologiaController = TextEditingController(
+      text: _localUserCopy.additionalData['tipologia'] ?? '',
+    );
+    _atividadeComercialController = TextEditingController(
+      text: _localUserCopy.additionalData['atividadeComercial'] ?? '',
+    );
+    _commercialCodeController = TextEditingController(
+      text: _localUserCopy.additionalData['commercialCode'] ?? '',
+    );
+    _companyNifController = TextEditingController(
+      text: _localUserCopy.additionalData['companyNif'] ?? '',
+    );
+    _ibanController = TextEditingController(
+      text: _localUserCopy.additionalData['iban'] ?? '',
+    );
+    _resellerNameController = TextEditingController(
+      text: _localUserCopy.additionalData['resellerName']?.toString().trim().isNotEmpty == true
+          ? _localUserCopy.additionalData['resellerName']
+          : (_localUserCopy.additionalData['revendedorRetail']?.toString().trim().isNotEmpty == true
+              ? _localUserCopy.additionalData['revendedorRetail']
+              : ''),
+    );
+
+    if (_localUserCopy.additionalData['joinedDate'] != null) {
+      _joinedDate = DateTime.parse(_localUserCopy.additionalData['joinedDate']);
+    } else {
+      _joinedDate = null;
+    }
+    if (_localUserCopy.additionalData['birthDate'] != null) {
+      _birthDate = DateTime.parse(_localUserCopy.additionalData['birthDate']);
+    } else {
+      _birthDate = null;
+    }
+     _additionalData = Map<String, dynamic>.from(_localUserCopy.additionalData); // Ensure _additionalData is updated (mostly for old code paths)
+    // We manage _isEnabled separately for the toggle status button
+    // _isEnabled = _localUserCopy.additionalData['isEnabled'] ?? true;
+  }
+
+   // --- ADDED: Cancel Edit --- //
+  void _cancelEdit() {
+    setState(() {
+      _isEditing = false;
+      // Restore original data by re-initializing controllers/dates from the current _localUserCopy
+      _initializeControllersAndDates();
+    });
+  }
+
+   // --- NEW: Toggle Edit --- //
+  void _toggleEdit() {
+    setState(() {
+      _isEditing = !_isEditing;
+      if (!_isEditing) {
+         // If cancelling, restore original data from the current _localUserCopy
+         _initializeControllersAndDates();
+      }
+    });
+  }
+
+  void _initOpportunitiesFuture() {
+    final salesforceId = _getSalesforceId();
+    if (salesforceId != null && salesforceId.isNotEmpty && salesforceId != 'Não vinculado') {
+      final salesforceRepo = ref.read(salesforceRepositoryProvider);
+      _opportunitiesFuture = salesforceRepo.getResellerOpportunities(salesforceId);
+    } else {
+      _opportunitiesFuture = Future.value([]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!; // Remove l10n variable
     final Size screenSize = MediaQuery.of(context).size;
     final bool isSmallScreen = screenSize.width < 700;
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Gestão de Utilizadores'), // Hardcoded Portuguese
-        actions: [
-          if (!_isEditing)
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () {
-                setState(() {
-                  _isEditing = true;
-                });
-              },
-              tooltip: 'Editar', // Hardcoded Portuguese
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _isLoading ? null : _saveUserProfile,
-              tooltip: 'Guardar', // Hardcoded Portuguese
+      appBar: _isLoading
+          ? null // No AppBar when loading
+          : AppBar(
+              leading: IconButton(
+                icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
+                onPressed: () => context.pop(),
+              ),
+              title: LogoWidget(height: 60, darkMode: isDarkMode),
+              centerTitle: true,
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              scrolledUnderElevation: 0.0,
             ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Informação Pessoal'), // Hardcoded Portuguese
-            Tab(text: 'Oportunidades'), // Hardcoded Portuguese
-          ],
-        ),
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
+      body: _isLoading
+          ? const AppLoadingIndicator() // Use AppLoadingIndicator instead of CircularProgressIndicator
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+        child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+                    // Page Title (centered, no actions)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 0),
+                child: Row(
+                  children: [
+                          // Title (left-aligned)
+                          Text(
+                            'Detalhes do Utilizador',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            textAlign: TextAlign.left,
+                          ),
+                          const Spacer(),
+                          // Action buttons (middle/right) - only show when not editing
+                          if (!_isEditing) ...[
+                            IconButton(
+                              icon: Icon(Icons.lock_reset, color: theme.colorScheme.primary),
+                              tooltip: 'Enviar email de redefinição de senha',
+                              onPressed: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Alterar Senha'),
+                                    content: const Text('Tem a certeza que deseja enviar um email de redefinição de senha para este utilizador?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(true),
+                                        child: const Text('Confirmar'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true) {
+                                  await _resetPassword();
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: Icon(CupertinoIcons.paperplane, color: theme.colorScheme.primary),
+                              tooltip: 'Enviar notificação',
+                              onPressed: () async {
+                                await showDialog(
+                                  context: context,
+                                  builder: (context) => _NotificationDialog(userId: _localUserCopy.uid),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 24),
+                          ],
+                          // Edit/cancel/save buttons (right)
+                          if (_isEditing) ...[
+                            IconButton(
+                              icon: Icon(Icons.close, color: theme.colorScheme.error, size: 28),
+                              tooltip: 'Cancelar Edição',
+                              onPressed: _cancelEdit,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          if (_tabController.index == 0) // Only show edit button on Informação Pessoal tab
+                            IconButton(
+                              icon: _isLoading
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                      ),
+                                    )
+                                  : Icon(
+                                      _isEditing ? Icons.save_outlined : CupertinoIcons.pencil,
+                                      color: theme.colorScheme.primary,
+                                      size: 28,
+                                    ),
+                              onPressed: _isLoading ? null : (_isEditing ? _saveUserProfile : _toggleEdit),
+                              tooltip: _isEditing ? 'Guardar' : 'Editar',
+                              style: IconButton.styleFrom(
+                                backgroundColor: _isEditing ? Colors.white : Colors.transparent,
+                                shape: _isEditing ? const CircleBorder() : null,
+                                padding: _isEditing ? const EdgeInsets.all(0) : null,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildUserHeader(context, theme),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(2, (i) {
+                            final selected = _tabController.index == i;
+                            final color = theme.colorScheme.primary;
+                            final label = i == 0 ? 'Informação Pessoal' : 'Oportunidades';
+                            final icon = i == 0 ? Icons.person_outline : Icons.work_outline;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () => setState(() => _tabController.index = i),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: selected ? color.withOpacity(0.06) : Colors.transparent,
+                                    border: Border.all(
+                                      color: selected ? color : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(icon, color: color, size: 18),
+                          const SizedBox(width: 8),
+                                      Text(
+                                        label,
+                                        style: theme.textTheme.labelMedium?.copyWith(
+                                          color: color,
+                                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+              ),
+            ),
+            const SizedBox(height: 16),
+                    Expanded(
+                      child: TabBarView(
                 controller: _tabController,
-                children: [
-                  // Profile Tab
-                  _buildProfileTab(
-                    context,
-                    isSmallScreen,
-                  ), // Removed l10n param
-                  // Opportunities Tab
+                  children: [
+                          _buildProfileTab(context, isSmallScreen),
                   _buildOpportunitiesTab(context),
                 ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+    );
+  }
+
+  // --- New Method for User Header ---
+  Widget _buildUserHeader(BuildContext context, ThemeData theme) {
+    // Use _localUserCopy for displaying name and email
+    final currentUser = FirebaseAuth.instance.currentUser; // Get current user for email
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    // Replicate style from ProfilePage's _buildProfileContent -> Centered Avatar section
+    return Center(
+                child: Column(
+                  children: [
+          // Centered avatar
+                    CircleAvatar(
+            radius: 50,
+            backgroundColor: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1), // Use theme color with opacity
+                      child: Text(
+              _getInitials(), // Use existing _getInitials method
+              style: TextStyle(
+                fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary, // Use theme color
+                        ),
+                      ),
+                    ),
+          const SizedBox(height: 12), // Spacing between avatar and name/email
+          // Name and email centered below avatar
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0, // Adjust padding for consistency
+            ),
+                  child: Column(
+                    children: [
+                Text(
+                          _localUserCopy.displayName?.isNotEmpty == true
+                              ? _localUserCopy.displayName!
+                              : 'Utilizador Desconhecido', // Hardcoded Portuguese
+                  style: theme.textTheme.headlineSmall?.copyWith( // Use headlineSmall as in ProfilePage
+                            fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface, // Use theme color
+                          ),
+                          textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4), // Spacing between name and email
+                Text(
+                  _localUserCopy.email, // Use _localUserCopy for email
+                  style: theme.textTheme.bodyMedium?.copyWith( // Use bodyMedium as in ProfilePage (approximated) with opacity
+                    fontSize: 14, // Explicitly set font size for consistency
+                    color: theme.colorScheme.onSurface.withOpacity(0.7), // Use theme color with opacity
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+        ],
+      ),
     );
   }
 
   Widget _buildProfileTab(
     BuildContext context,
     bool isSmallScreen,
-    // AppLocalizations l10n, // Removed l10n param
   ) {
     final theme = Theme.of(context);
     return Padding(
-      padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0), // Adjust padding
       child: SingleChildScrollView(
-        child: Column(
+                  child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_errorMessage != null) ...[
-              Container(
+                    children: [
+            if (_errorMessage != null) ...[ // Keep error message display
+              const SizedBox(height: 16), // Add spacing before error message
+                          Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withAlpha(
-                    (255 * 0.1).round(),
-                  ), // Replace withOpacity
+                            decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1), // Use withOpacity as per lint rules
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
+                    const Icon(Icons.error_outline, color: Colors.red), // Use standard error color
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // User header with avatar and name
-            Card(
-              margin: EdgeInsets.zero,
-              color: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor:
-                          widget.user.role == UserRole.admin
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(context).colorScheme.primary,
-                      radius: 48,
-                      child: Text(
-                        _displayNameController.text.isNotEmpty
-                            ? _displayNameController.text[0].toUpperCase()
-                            : _emailController.text.isNotEmpty
-                            ? _emailController.text[0].toUpperCase()
-                            : 'U', // Default initial
-                        style: Theme.of(
-                          context,
-                        ).textTheme.headlineMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _isEditing
-                        ? TextField(
-                          controller: _displayNameController,
-                          decoration: InputDecoration(
-                            labelText:
-                                'Nome de Exibição', // Hardcoded Portuguese
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        )
-                        : Text(
-                          _displayNameController.text.isNotEmpty
-                              ? _displayNameController.text
-                              : 'Utilizador Desconhecido', // Hardcoded Portuguese
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (widget.user.role == UserRole.admin
-                                    ? Theme.of(context).colorScheme.secondary
-                                    : Theme.of(context).colorScheme.primary)
-                                .withAlpha(
-                                  (255 * 0.2).round(),
-                                ), // Replace withOpacity
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            widget.user.role == UserRole.admin
-                                ? 'Admin'
-                                : 'Revendedor', // Hardcoded Portuguese
-                            style: Theme.of(
-                              context,
-                            ).textTheme.labelLarge?.copyWith(
-                              color:
-                                  widget.user.role == UserRole.admin
-                                      ? Theme.of(context).colorScheme.secondary
-                                      : Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (!_isEnabled) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.error.withAlpha(
-                                (255 * 0.2).round(),
-                              ), // Replace withOpacity
-                              borderRadius: BorderRadius.circular(16),
-                            ),
                             child: Text(
-                              'Inativo', // Hardcoded Portuguese
-                              style: Theme.of(
-                                context,
-                              ).textTheme.labelLarge?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // User information
-            Text(
-              'Informação Pessoal', // Hardcoded Portuguese
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onBackground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              margin: EdgeInsets.zero,
-              color: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _isEditing
-                        ? _buildEditableInfoItem(
-                          context,
-                          icon: Icons.email_outlined,
-                          label: 'Email',
-                          controller: _emailController,
-                        )
-                        : _buildInfoItem(
-                          context,
-                          icon: Icons.email_outlined,
-                          label: 'Email',
-                          value: _emailController.text,
-                        ),
-                    const Divider(),
-                    _isEditing
-                        ? _buildEditableInfoItem(
-                          context,
-                          icon: Icons.phone_outlined,
-                          label: 'Telefone', // Hardcoded Portuguese
-                          controller: _phoneController,
-                        )
-                        : _buildInfoItem(
-                          context,
-                          icon: Icons.phone_outlined,
-                          label: 'Telefone', // Hardcoded Portuguese
-                          value:
-                              _phoneController.text.isNotEmpty
-                                  ? _phoneController.text
-                                  : 'N/D', // Hardcoded Portuguese
-                        ),
-                    const Divider(),
-                    _isEditing
-                        ? _buildEditableInfoItem(
-                          context,
-                          icon: Icons.business_outlined,
-                          label: 'Departamento', // Hardcoded Portuguese
-                          controller: _departmentController,
-                        )
-                        : _buildInfoItem(
-                          context,
-                          icon: Icons.business_outlined,
-                          label: 'Departamento', // Hardcoded Portuguese
-                          value:
-                              _departmentController.text.isNotEmpty
-                                  ? _departmentController.text
-                                  : 'N/D', // Hardcoded Portuguese
-                        ),
-                    const Divider(),
-                    _buildInfoItem(
-                      context,
-                      icon: Icons.calendar_today,
-                      label: 'Data Criação', // Hardcoded Portuguese
-                      value: _formatDate(_additionalData['createdAt']),
-                    ),
-                    const Divider(),
-                    _buildInfoItem(
-                      context,
-                      icon: Icons.login,
-                      label: 'Último Login', // Hardcoded Portuguese
-                      value: _formatDate(_additionalData['lastLoginAt']),
-                    ),
-                    const Divider(),
-                    _buildInfoItem(
-                      context,
-                      icon: Icons.sync,
-                      label: 'ID Salesforce', // Hardcoded Portuguese
-                      value:
-                          _additionalData['salesforceId'] ??
-                          'Não vinculado', // Hardcoded Portuguese
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Business information for resellers
-            if (widget.user.role == UserRole.reseller) ...[
-              Text(
-                'Informação Comercial', // Hardcoded Portuguese
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onBackground,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                margin: EdgeInsets.zero,
-                color: Theme.of(context).colorScheme.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.business,
-                        label: 'Nome da Empresa', // Hardcoded Portuguese
-                        value: _additionalData['companyName'] ?? 'N/D',
+                        _errorMessage!,
+                        style: TextStyle(color: Colors.red), // Use standard error color
                       ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.location_on_outlined,
-                        label: 'Morada da Empresa', // Hardcoded Portuguese
-                        value: _additionalData['companyAddress'] ?? 'N/D',
-                      ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.numbers,
-                        label: 'NIF', // Hardcoded Portuguese
-                        value: _additionalData['taxId'] ?? 'N/D',
-                      ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.assignment_ind_outlined,
-                        label: 'Registo Comercial', // Hardcoded Portuguese
-                        value: _additionalData['companyRegistration'] ?? 'N/D',
                       ),
                     ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Performance metrics for resellers
-              Text(
-                'Métricas de Desempenho', // Hardcoded Portuguese
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onBackground,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                margin: EdgeInsets.zero,
-                color: Theme.of(context).colorScheme.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.groups_outlined,
-                        label: 'Total de Clientes', // Hardcoded Portuguese
-                        value:
-                            _additionalData['totalClients']?.toString() ?? '0',
-                      ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.check_circle_outline,
-                        label:
-                            'Submissões Bem-sucedidas', // Hardcoded Portuguese
-                        value:
-                            _additionalData['successfulSubmissions']
-                                ?.toString() ??
-                            '0',
-                      ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.pending_actions_outlined,
-                        label: 'Submissões Pendentes', // Hardcoded Portuguese
-                        value:
-                            _additionalData['pendingSubmissions']?.toString() ??
-                            '0',
-                      ),
-                      const Divider(),
-                      _buildInfoItem(
-                        context,
-                        icon: Icons.paid_outlined,
-                        label: 'Receita Total', // Hardcoded Portuguese
-                        value: _formatCurrency(_additionalData['totalRevenue']),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              const SizedBox(height: 16), // Add spacing after error message
             ],
 
-            const SizedBox(height: 24),
-
-            // Actions
-            Text(
-              'Ações', // Hardcoded Portuguese
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onBackground,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              margin: EdgeInsets.zero,
-              color: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Icon(
-                      Icons.password,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: Text(
-                      'Alterar Senha',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ), // Hardcoded Portuguese
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _resetPassword,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: Icon(
-                      _isEnabled ? Icons.block : Icons.check_circle,
-                      color:
-                          _isEnabled
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.secondary,
-                    ),
-                    title: Text(
-                      _isEnabled ? 'Desativar' : 'Ativar',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ), // Hardcoded Portuguese
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _toggleUserStatus,
-                  ),
-                  // Add reseller-specific actions
-                  if (widget.user.role == UserRole.reseller) ...[
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: Icon(
-                        Icons.message_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: Text(
-                        'Ver Mensagens',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ), // Hardcoded Portuguese
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        // TODO: Navigate to reseller messages
-                        if (kDebugMode) {
-                          print(
-                            'View messages for reseller: ${widget.user.uid}',
-                          );
-                        }
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: Icon(
-                        Icons.people_outline,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: Text(
-                        'Ver Clientes',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ), // Hardcoded Portuguese
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () {
-                        // TODO: Navigate to reseller clients
-                        if (kDebugMode) {
-                          print(
-                            'View clients for reseller: ${widget.user.uid}',
-                          );
-                        }
-                      },
-                    ),
-                  ],
+            // --- Informação Pessoal Section ---
+            _buildUserDetailSectionTwoColumn(
+              context,
+              'Informação Pessoal', // Hardcoded Portuguese
+              [
+                // LEFT COLUMN
+                [
+                    _isEditing
+                      ? _buildEditableTextField(
+                          'Nome do Colaborador', _displayNameController)
+                      : _buildDetailItem(
+                          'Nome do Colaborador', _localUserCopy.displayName ?? ''),
+                    _isEditing
+                      ? _buildEditableTextField('Email Principal', _emailController)
+                      : _buildDetailItem('Email Principal', _localUserCopy.email),
+                    _isEditing
+                      ? _buildEditableTextField(
+                          'Telefone Principal', _phoneController)
+                      : _buildDetailItem('Telefone Principal', _getTelefonePrincipal()),
+                  _isEditing
+                      ? _buildEditableTextField(
+                          'Email Secundário', _emailSecondaryController)
+                      : _buildDetailItem(
+                          'Email Secundário', _localUserCopy.additionalData['emailSecondary'] ?? ''),
+                  _isEditing
+                      ? _buildEditableTextField(
+                          'Telefone Secundário', _phoneSecondaryController)
+                      : _buildDetailItem(
+                          'Telefone Secundário', _localUserCopy.additionalData['phoneSecondary'] ?? ''),
                 ],
-              ),
+                // RIGHT COLUMN
+                [
+                   _isEditing
+                      ? _buildEditableDateField(
+                          'Data de Nascimento', _birthDate, (pickedDate) {
+                           setState(() {
+                              _birthDate = pickedDate;
+                             });
+                         })
+                      : _buildDetailItem(
+                          'Data de Nascimento',
+                          _birthDate != null ? DateFormat('dd/MM/yyyy').format(_birthDate!) : 'N/D'),
+                   _isEditing
+                      ? _buildEditableTextField(
+                          'Nome do Revendedor', _resellerNameController)
+                      : _buildDetailItem(
+                          'Nome do Revendedor', _getNomeRevendedor()),
+                    _isEditing
+                      ? _buildEditableDateField(
+                          'Data de Registo', _joinedDate, (pickedDate) {
+                           setState(() {
+                              _joinedDate = pickedDate;
+                             });
+                         })
+                      : _buildDetailItem(
+                          'Data de Registo',
+                          _joinedDate != null ? DateFormat('dd/MM/yyyy').format(_joinedDate!) : 'N/D'),
+                  // Salesforce ID (Read Only) - Use _localUserCopy
+                  _buildDetailItem(
+                    'ID Salesforce',
+                    _getSalesforceId(),
+                  ),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 24), // Spacing between sections
+
+            // --- Identificadores & Legal Section ---
+             _buildUserDetailSectionTwoColumn(
+                        context,
+              'Informação Legal', // Hardcoded Portuguese
+              [
+                // LEFT COLUMN
+                [
+                  _isEditing
+                      ? _buildEditableTextField(
+                          'NIF (Pessoal)', _collaboratorNifController)
+                      : _buildDetailItem(
+                          'NIF (Pessoal)', _localUserCopy.additionalData['collaboratorNif'] ?? ''),
+                   _isEditing
+                      ? _buildEditableTextField('CC', _ccNumberController)
+                      : _buildDetailItem('CC', _localUserCopy.additionalData['ccNumber'] ?? ''),
+                   _isEditing
+                      ? _buildEditableTextField('SS', _ssNumberController)
+                      : _buildDetailItem('SS', _localUserCopy.additionalData['ssNumber'] ?? ''),
+                ],
+                // RIGHT COLUMN
+                [
+                   _isEditing
+                      ? _buildEditableTextField(
+                          'NIF (Empresa)', _companyNifController)
+                      : _buildDetailItem(
+                          'NIF (Empresa)', _localUserCopy.additionalData['companyNif'] ?? ''),
+                    _isEditing
+                      ? _buildEditableTextField(
+                          'Código Comercial', _commercialCodeController)
+                      : _buildDetailItem(
+                          'Código Comercial', _localUserCopy.additionalData['commercialCode'] ?? ''),
+                     _isEditing
+                      ? _buildEditableTextField('IBAN', _ibanController)
+                      : _buildDetailItem('IBAN', _localUserCopy.additionalData['iban'] ?? ''),
+                ],
+              ],
+            ),
+
+             const SizedBox(height: 24), // Spacing between sections
+
+            // --- Localização Section ---
+            _buildUserDetailSectionTwoColumn(
+                        context,
+              'Localização', // Hardcoded Portuguese
+              [
+                // LEFT COLUMN
+                [
+                   _isEditing
+                      ? _buildEditableTextField('Morada', _addressController)
+                      : _buildDetailItem('Morada', _localUserCopy.additionalData['address'] ?? ''),
+                   _isEditing
+                      ? _buildEditableTextField(
+                          'Código Postal', _postalCodeController)
+                      : _buildDetailItem(
+                          'Código Postal', _localUserCopy.additionalData['postalCode'] ?? ''),
+                   _isEditing
+                      ? _buildEditableTextField('Localidade', _cityController)
+                      : _buildDetailItem('Localidade', _localUserCopy.additionalData['city'] ?? ''),
+                ],
+                // RIGHT COLUMN
+                [
+                   _isEditing
+                      ? _buildEditableTextField('Distrito', _districtController)
+                      : _buildDetailItem('Distrito', _localUserCopy.additionalData['district'] ?? ''),
+                   _isEditing
+                      ? _buildEditableTextField('Tipologia', _tipologiaController)
+                      : _buildDetailItem('Tipologia', _localUserCopy.additionalData['tipologia'] ?? ''),
+                    _isEditing
+                      ? _buildEditableTextField(
+                          'Atividade Comercial', _atividadeComercialController)
+                      : _buildDetailItem(
+                          'Atividade Comercial', _localUserCopy.additionalData['atividadeComercial'] ?? ''),
+                ],
+              ],
             ),
           ],
         ),
@@ -714,40 +906,45 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   }
 
   Widget _buildOpportunitiesTab(BuildContext context) {
-    final String? salesforceId = _additionalData['salesforceId'] as String?;
+    final String? salesforceId = _getSalesforceId();
     final theme = Theme.of(context);
 
-    if (salesforceId == null || salesforceId.isEmpty) {
+    if (salesforceId == null || salesforceId.isEmpty || salesforceId == 'Não vinculado') {
       return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               CupertinoIcons.nosign,
               size: 64,
-              color: theme.colorScheme.primary.withAlpha(
-                (255 * 0.5).round(),
-              ), // Replace withOpacity
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
-              'Salesforce Não Vinculado', // Hardcoded Portuguese
-              style: theme.textTheme.titleLarge,
+                'Salesforce Não Vinculado',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Este utilizador não tem um ID Salesforce vinculado.', // Hardcoded Portuguese
-              style: theme.textTheme.bodyMedium,
+                'Este utilizador não tem um ID Salesforce vinculado.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               textAlign: TextAlign.center,
             ),
           ],
+          ),
         ),
       );
     }
 
-    final salesforceRepo = ref.read(salesforceRepositoryProvider);
     return FutureBuilder<List<SalesforceOpportunity>>(
-      future: salesforceRepo.getResellerOpportunities(salesforceId),
+      future: _opportunitiesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -755,7 +952,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         if (snapshot.hasError) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -766,17 +963,27 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Erro ao Carregar Oportunidades', // Hardcoded Portuguese
-                    style: theme.textTheme.titleLarge,
+                    'Erro ao Carregar Oportunidades',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Não foi possível obter as oportunidades do Salesforce. Por favor, tente novamente mais tarde.\nErro: ${snapshot.error}',
+                    'Não foi possível obter as oportunidades do Salesforce. Por favor, tente novamente mais tarde.\nErro: ˜snapshot.error}',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.error,
                     ),
                     textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Recarregar'),
+                    onPressed: () {
+                      setState(_initOpportunitiesFuture);
+                    },
                   ),
                 ],
               ),
@@ -786,230 +993,236 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         final opportunities = snapshot.data ?? [];
         if (opportunities.isEmpty) {
           return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   CupertinoIcons.briefcase,
                   size: 64,
-                  color: theme.colorScheme.primary.withAlpha(
-                    (255 * 0.5).round(),
-                  ), // Replace withOpacity
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Nenhuma Oportunidade Encontrada', // Hardcoded Portuguese
-                  style: theme.textTheme.titleLarge,
+                    'Nenhuma Oportunidade Encontrada',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Nenhuma oportunidade Salesforce encontrada para este revendedor.', // Hardcoded Portuguese
-                  style: theme.textTheme.bodyMedium,
+                    'Nenhuma oportunidade Salesforce encontrada para este revendedor.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   textAlign: TextAlign.center,
                 ),
-              ],
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Recarregar'),
+                    onPressed: () {
+                      setState(_initOpportunitiesFuture);
+                    },
+                  ),
+                ],
+              ),
             ),
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
           itemCount: opportunities.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 0),
           itemBuilder: (context, index) {
             final opportunity = opportunities[index];
-            return _buildOpportunityCard(context, opportunity);
+            return SimpleListItem(
+              title: opportunity.name,
+              onTap: () {
+                context.push('/admin/salesforce-opportunity-detail/${opportunity.id}');
+              },
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildOpportunityCard(
-    BuildContext context,
-    SalesforceOpportunity opportunity,
+  // --- Helper to build a read-only information item ---
+  Widget _buildDetailItem(
+    String label,
+    String value,
   ) {
     final theme = Theme.of(context);
-    final statusColor = _getPhaseColor(opportunity.fase);
-    final creationDate = _formatSalesforceDate(opportunity.createdDate);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          final salesforceOpportunityId = opportunity.id;
-          context.go(
-            '/admin/salesforce-opportunity-detail/$salesforceOpportunityId',
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withAlpha(
-                        (255 * 0.1).round(),
-                      ), // Replace withOpacity
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        CupertinoIcons.briefcase_fill,
-                        size: 20,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          opportunity.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          opportunity.accountName ?? 'Sem Nome de Conta',
-                          style: theme.textTheme.bodyMedium,
-                          overflow: TextOverflow.ellipsis,
-                        ), // Hardcoded Portuguese
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withAlpha(
-                        (255 * 0.1).round(),
-                      ), // Replace withOpacity
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      (opportunity.fase ?? 'DESCONHECIDO')
-                          .replaceAll('_', ' ')
-                          .toUpperCase(), // Hardcoded Portuguese
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Criado: $creationDate',
-                    style: theme.textTheme.bodySmall,
-                  ), // Hardcoded Portuguese
-                  Text(
-                    'ID: ${opportunity.id.substring(0, 6)}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: theme.colorScheme.primary.withAlpha((255 * 0.7).round()),
-          ), // Replace withOpacity
-          const SizedBox(width: 16),
-          Column(
+      padding: const EdgeInsets.symmetric(vertical: 8.0), // Adjust vertical padding
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withAlpha(
-                    (255 * 0.6).round(),
-                  ), // Replace withOpacity
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7), // Use theme color with opacity
+              fontWeight: FontWeight.normal,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge?.copyWith(
+          const SizedBox(height: 4), // Keep spacing
+                        Text(
+            value.isNotEmpty ? value : 'N/D', // Display N/D if value is empty
+            style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w500, // Use w500 fontWeight
                 ),
               ),
             ],
           ),
-        ],
+    );
+  }
+
+  // --- NEW: Helper to build an editable text field (matching opportunity detail page style) ---
+  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint}) {
+    final theme = Theme.of(context);
+    return SizedBox(
+       // height: 56, // Removed fixed height to allow multiline text field to expand
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines ?? 1,
+        minLines: 1,
+        style: theme.textTheme.bodySmall, // Use bodySmall for text style
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500), // Use bodySmall for label style
+          hintText: hint,
+          hintStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7)),
+          filled: true,
+          fillColor: theme.colorScheme.surfaceVariant, // Themed background
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), // Rounded corners
+            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)), // Themed border
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), // Rounded corners
+            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2), // Themed focused border
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Adjusted padding
+        ),
       ),
     );
   }
 
-  Widget _buildEditableInfoItem(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required TextEditingController controller,
-  }) {
+  // --- NEW: Helper to build an editable date picker field (matching opportunity detail page style) ---
+  Widget _buildEditableDateField(String label, DateTime? currentValue, ValueChanged<DateTime?> onDatePicked) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: theme.colorScheme.primary.withAlpha((255 * 0.7).round()),
-          ), // Replace withOpacity
-          const SizedBox(width: 16),
-          Expanded(
-            child: TextField(
+    final controller = TextEditingController(text: currentValue != null ? DateFormat('dd/MM/yyyy').format(currentValue) : '');
+    return SizedBox(
+       height: 56, // Keep fixed height for date picker
+      child: TextFormField(
               controller: controller,
+        style: theme.textTheme.bodySmall, // Use bodySmall for text style
               decoration: InputDecoration(
                 labelText: label,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+          labelStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500), // Use bodySmall for label style
+          hintText: 'Selecionar data', // Hardcoded Portuguese
+          hintStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7)),
+          filled: true,
+          fillColor: theme.colorScheme.surfaceVariant, // Themed background
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), // Rounded corners
+            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)), // Themed border
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), // Rounded corners
+            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2), // Themed focused border
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Adjusted padding
+          suffixIcon: const Icon(Icons.calendar_today), // Calendar icon
+        ),
+        readOnly: true, // Make text field read-only, tap handles date picking
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: currentValue ?? DateTime.now(),
+            firstDate: DateTime(1900),
+            lastDate: DateTime.now(), // Assuming no future dates for birth/joined date
+            initialEntryMode: DatePickerEntryMode.calendarOnly,
+            builder: (context, child) {
+              final theme = Theme.of(context);
+              return Theme(
+                data: theme.copyWith(
+                  colorScheme: theme.colorScheme.copyWith(
+                    primary: theme.colorScheme.primary, // Themed primary
+                    surface: theme.colorScheme.surface, // Themed surface
+                  ),
+                  dialogBackgroundColor: theme.colorScheme.surface, // Themed background
+                  textButtonTheme: TextButtonThemeData(
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.primary, // Themed text color
+                    ),
+                  ),
                 ),
+                child: child!,
+              );
+            },
+          );
+          onDatePicked(picked);
+        },
+      ),
+    );
+  }
+
+  // --- NEW: Helper to build a two-column detail section card ---
+  Widget _buildUserDetailSectionTwoColumn(BuildContext context, String title, List<List<Widget>> columns) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 1, // Add subtle elevation
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8), // Rounded corners
+        side: BorderSide(color: theme.dividerColor.withAlpha(25)), // Subtle border
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0), // Consistent padding
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600, // Bold title
+                color: theme.colorScheme.onSurface, // Themed color
               ),
+            ),
+            const SizedBox(height: 12), // Spacing below title
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start, // Align columns to the top
+        children: [
+          Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: columns[0].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
+                  ),
+                ),
+                const SizedBox(width: 32), // Spacing between columns
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                     children: columns[1].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
             ),
           ),
         ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
+  // --- Helper methods for date formatting and phase color (Keep as is) ---
   String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/D'; // Hardcoded Portuguese
+    if (timestamp == null) return 'N/D';
     DateTime date;
     if (timestamp is DateTime) {
       date = timestamp;
@@ -1018,18 +1231,18 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     } else if (timestamp is Map && timestamp['_seconds'] != null) {
       // Handle potential map representation (less common)
       date = DateTime.fromMillisecondsSinceEpoch(
-        (timestamp['_seconds'] * 1000) +
-            (timestamp['_nanoseconds'] ?? 0) ~/ 1000000,
+        (timestamp['_seconds'] * 1000) + (timestamp['_nanoseconds'] ?? 0) ~/ 1000000,
       );
     } else {
-      return 'Data Inválida'; // Hardcoded Portuguese
+      return 'Data Inválida';
     }
-    // Using Portuguese locale format explicitly
+    // Use Portuguese locale format explicitly
+    // Match format from the image: 02 abr, 2025 - 16:01
     return DateFormat('dd MMM, yyyy - HH:mm', 'pt_PT').format(date);
   }
 
   String _formatSalesforceDate(String? dateString) {
-    if (dateString == null) return 'N/D'; // Hardcoded Portuguese
+    if (dateString == null) return 'N/D';
     try {
       final dateTime = DateTime.parse(dateString);
       return DateFormat('dd/MM/yyyy').format(dateTime);
@@ -1039,7 +1252,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   }
 
   Color _getPhaseColor(String? phase) {
-    // ... (Color logic remains the same)
     switch (phase?.toLowerCase()) {
       case 'closed_won':
         return Colors.green;
@@ -1075,5 +1287,211 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     // Use Portuguese Euro format
     final formatter = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
     return formatter.format(numericAmount);
+  }
+
+  // --- Helper method to get initials (Keep as is) ---
+  String _getInitials() {
+    // Use _localUserCopy for initials display
+    final name = _localUserCopy.displayName ?? ''; // Use local user copy, default to empty string if null
+    final email = _localUserCopy.email; // Use local user copy (email is required in model)
+
+    if (name.isEmpty) {
+      return email.isNotEmpty ? email[0].toUpperCase() : '?';
+    }
+
+    final parts = name.split(' ');
+    if (parts.length > 1) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : '?'; // Should not be empty here due to check above
+  }
+
+  // --- Helper for robust Salesforce/phone/revendedor fields ---
+  String _getTelefonePrincipal() {
+    final phone = _localUserCopy.additionalData['phoneNumber'];
+    final mobile = _localUserCopy.additionalData['mobilePhone'];
+    if (phone != null && phone.toString().trim().isNotEmpty) return phone;
+    if (mobile != null && mobile.toString().trim().isNotEmpty) return mobile;
+    return 'N/D';
+  }
+  String _getNomeRevendedor() {
+    final reseller = _localUserCopy.additionalData['resellerName'];
+    final retail = _localUserCopy.additionalData['revendedorRetail'];
+    if (reseller != null && reseller.toString().trim().isNotEmpty) return reseller;
+    if (retail != null && retail.toString().trim().isNotEmpty) return retail;
+    return 'N/D';
+  }
+  String _getSalesforceId() {
+    final topLevel = _localUserCopy.salesforceId;
+    final additional = _localUserCopy.additionalData['salesforceId'];
+    if (topLevel != null && topLevel.toString().trim().isNotEmpty) return topLevel;
+    if (additional != null && additional.toString().trim().isNotEmpty) return additional;
+    return 'Não vinculado';
+  }
+}
+
+class _NotificationDialog extends ConsumerStatefulWidget {
+  final String userId;
+  const _NotificationDialog({required this.userId});
+
+  @override
+  ConsumerState<_NotificationDialog> createState() => _NotificationDialogState();
+}
+
+class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _messageController = TextEditingController();
+  bool _isSending = false;
+  String? _error;
+  String? _success;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      backgroundColor: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 60, 0), // Leave space for close button
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              Icon(Icons.notification_important, color: colorScheme.primary, size: 24),
+                              const SizedBox(width: 8),
+                              Text('Enviar Notificação', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: IconButton(
+                          icon: const Icon(CupertinoIcons.xmark, size: 22),
+                          onPressed: () => Navigator.of(context).pop(),
+                          tooltip: 'Fechar',
+                          splashRadius: 20,
+                          padding: const EdgeInsets.all(8),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(_error!, style: TextStyle(color: colorScheme.error)),
+                    ),
+                  if (_success != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(_success!, style: TextStyle(color: colorScheme.secondary)),
+                    ),
+                  TextFormField(
+                    controller: _titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Título',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: colorScheme.surfaceVariant,
+                    ),
+                    validator: (v) => v == null || v.trim().isEmpty ? 'Insira um título' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      labelText: 'Mensagem',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: colorScheme.surfaceVariant,
+                    ),
+                    minLines: 3,
+                    maxLines: 6,
+                    validator: (v) => v == null || v.trim().isEmpty ? 'Insira uma mensagem' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: _isSending
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.send),
+                        label: const Text('Enviar'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _isSending
+                            ? null
+                            : () async {
+                                if (!_formKey.currentState!.validate()) return;
+                                setState(() {
+                                  _isSending = true;
+                                  _error = null;
+                                  _success = null;
+                                });
+                                try {
+                                  final repo = ref.read(notificationRepositoryProvider);
+                                  await repo.createNotification(
+                                    userId: widget.userId,
+                                    title: _titleController.text.trim(),
+                                    message: _messageController.text.trim(),
+                                    type: NotificationType.system,
+                                  );
+                                  setState(() {
+                                    _success = 'Notificação enviada!';
+                                  });
+                                  await Future.delayed(const Duration(seconds: 1));
+                                  if (mounted) Navigator.of(context).pop();
+                                } catch (e) {
+                                  setState(() {
+                                    _error = 'Erro ao enviar notificação: $e';
+                                  });
+                                } finally {
+                                  setState(() {
+                                    _isSending = false;
+                                  });
+                                }
+                              },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

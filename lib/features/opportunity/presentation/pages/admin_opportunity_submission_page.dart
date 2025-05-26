@@ -20,13 +20,14 @@ import 'package:go_router/go_router.dart'; // For navigation
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
-  final ServiceSubmission submission;
+  final ServiceSubmission? submission;
 
-  const OpportunityDetailFormView({required this.submission, super.key});
+  const OpportunityDetailFormView({this.submission, super.key});
+
+  bool get isManualMode => submission == null;
 
   @override
-  ConsumerState<OpportunityDetailFormView> createState() =>
-      _OpportunityDetailFormViewState();
+  ConsumerState<OpportunityDetailFormView> createState() => _OpportunityDetailFormViewState();
 }
 
 class _OpportunityDetailFormViewState
@@ -55,7 +56,6 @@ class _OpportunityDetailFormViewState
 
   // State variables for derived/fetched data
   String? _resellerDisplayName;
-  bool _isLoadingReseller = true; // Restoring field
   String? _tipoOportunidadeValue;
   final String _faseValue = "0 - Oportunidade Identificada"; // Fixed value
   String? _resellerSalesforceId; // Added to store the fetched Salesforce ID
@@ -63,8 +63,12 @@ class _OpportunityDetailFormViewState
   // --- NEW: State for NIF Check --- //
   NifCheckStatus _nifCheckStatus = NifCheckStatus.initial;
   String? _nifCheckMessage;
-  bool _isCheckingNif = false; // Restoring field
   // --- END NEW --- //
+
+  // Manual mode: user picker state
+  Map<String, dynamic>? _selectedUser; // Holds the selected user's data
+  List<Map<String, dynamic>> _userOptions = [];
+  bool _isLoadingUsers = false;
 
   // State for submission button loading
   bool _isSubmitting = false;
@@ -155,60 +159,43 @@ class _OpportunityDetailFormViewState
 
   @override
   void initState() {
-    // Assuming context is available via WidgetsBinding.instance.addPostFrameCallback or similar
-    // if needed before build, otherwise move l10n initialization inside build.
-    // final l10n = AppLocalizations.of(context)!;
     super.initState();
-
+    final isManualMode = widget.isManualMode;
     // Initialize controllers
-    final potentialOpportunityName =
-        '${widget.submission.companyName ?? widget.submission.responsibleName}_${DateFormat('yyyyMMdd_HHmmss').format(widget.submission.submissionDate)}';
-    _nameController = TextEditingController(text: potentialOpportunityName);
-    _nifController = TextEditingController(text: widget.submission.nif);
-    _fechoController = TextEditingController(); // Initialize empty
-
-    // --- Initialize Read-Only Controllers ---
-    _agenteRetailController = TextEditingController(
-      text: 'A carregar...',
-    ); // Loading...
+    _nameController = TextEditingController(
+      text: isManualMode ? '' : (widget.submission?.companyName ?? widget.submission?.responsibleName ?? ''),
+    );
+    _nifController = TextEditingController(text: isManualMode ? '' : widget.submission?.nif ?? '');
+    _fechoController = TextEditingController(); // Always empty initially
+    _agenteRetailController = TextEditingController(text: isManualMode ? '' : 'A carregar...');
     _dataCriacaoController = TextEditingController(
-      text: DateFormat.yMd().format(
-        DateTime.now(),
-      ), // Use default locale initially
+      text: isManualMode
+          ? ''
+          : (widget.submission != null ? DateFormat.yMd().format(DateTime.now()) : ''),
     );
     _dataUltimaAtualizacaoController = TextEditingController(
-      text: DateFormat.yMd().format(
-        DateTime.now(),
-      ), // Use default locale initially
+      text: isManualMode
+          ? ''
+          : (widget.submission != null ? DateFormat.yMd().format(DateTime.now()) : ''),
     );
     _faseController = TextEditingController(text: _faseValue);
-    _tipoOportunidadeController =
-        TextEditingController(); // Set after determining
-
-    // --- NEW: Initialize Responsible/Company Name Controllers --- //
-    _responsibleNameController = TextEditingController(
-      text: widget.submission.responsibleName,
-    );
-    _companyNameController = TextEditingController(
-      text: widget.submission.companyName ?? 'N/A',
-    ); // Handle null
-    // --- END NEW --- //
-
+    _tipoOportunidadeController = TextEditingController();
+    _responsibleNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.responsibleName ?? '');
+    _companyNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.companyName ?? '');
     // Initialize derived picklist values
-    _determineTipoOportunidade();
-    _tipoOportunidadeController.text =
-        _tipoOportunidadeValue ?? 'Não Determinado'; // Not Determined
-
-    // Start fetching reseller display name
-    _fetchResellerName();
-
-    // --- ADDED: Trigger NIF check automatically after build ---
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _nifController.text.isNotEmpty) {
-        _checkNif();
-      }
-    });
-    // --- END ADDED ---
+    if (!isManualMode) {
+      _determineTipoOportunidade();
+      _tipoOportunidadeController.text = _tipoOportunidadeValue ?? 'Não Determinado';
+      _fetchResellerName();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _nifController.text.isNotEmpty) {
+          _checkNif();
+        }
+      });
+    }
+    if (isManualMode) {
+      _fetchUserOptions();
+    }
   }
 
   @override
@@ -232,7 +219,7 @@ class _OpportunityDetailFormViewState
 
   void _determineTipoOportunidade() {
     // Check energyType case-insensitively for 'solar'
-    final energyTypeName = widget.submission.energyType?.name?.toLowerCase();
+    final energyTypeName = widget.submission?.energyType?.name?.toLowerCase();
     if (energyTypeName == 'solar') {
       _tipoOportunidadeValue = 'Angariada Solar';
     } else {
@@ -251,7 +238,7 @@ class _OpportunityDetailFormViewState
       final resellerDoc =
           await FirebaseFirestore.instance
               .collection('users')
-              .doc(widget.submission.resellerId)
+              .doc(widget.submission?.resellerId)
               .get();
       if (mounted && resellerDoc.exists) {
         final displayName = resellerDoc.data()?['displayName'] as String?;
@@ -260,57 +247,41 @@ class _OpportunityDetailFormViewState
         setState(() {
           _resellerDisplayName = displayName;
           _resellerSalesforceId = salesforceId; // Fetch Salesforce ID
-          _isLoadingReseller = false;
 
           // Add check if Salesforce ID is missing after fetch
           if (_resellerSalesforceId == null || _resellerSalesforceId!.isEmpty) {
-            // Use kDebugMode check for print
             if (kDebugMode) {
               print("Warning: Reseller found but missing Salesforce ID.");
             }
-            // Optionally update display name to show an error state
             _agenteRetailController.text =
-                "${_resellerDisplayName ?? "Revendedor"} (SF ID em falta!)"; // Reseller, Missing SF ID!
-            // Optionally disable submit button or show persistent warning here
+                "${_resellerDisplayName ?? "Revendedor"} (SF ID em falta!)";
           } else {
             _agenteRetailController.text =
-                _resellerDisplayName ?? 'N/A'; // Update controller
+                _resellerDisplayName ?? 'N/A';
           }
 
-          // Use kDebugMode check for print
           if (kDebugMode) {
             print("Fetched reseller display name: $_resellerDisplayName");
-            print(
-              "Fetched reseller Salesforce ID: $_resellerSalesforceId",
-            ); // Log fetched ID
+            print("Fetched reseller Salesforce ID: $_resellerSalesforceId");
           }
         });
       } else if (mounted) {
-        // Use kDebugMode check for print
         if (kDebugMode) {
-          print(
-            "Reseller document not found for ID: ${widget.submission.resellerId}",
-          );
+          print("Reseller document not found for ID: ${widget.submission?.resellerId}");
         }
         setState(() {
-          _resellerDisplayName = "Erro: Não Encontrado"; // Error: Not Found
-          _agenteRetailController.text =
-              "Erro: Não Encontrado"; // Error: Not Found
-          _isLoadingReseller = false;
+          _resellerDisplayName = "Erro: Não Encontrado";
+          _agenteRetailController.text = "Erro: Não Encontrado";
         });
       }
     } catch (e) {
-      // Use kDebugMode check for print
       if (kDebugMode) {
         print("Error fetching reseller name: $e");
       }
       if (mounted) {
         setState(() {
-          _resellerDisplayName =
-              "Erro: Falha ao Carregar"; // Error: Fetch Failed
-          _agenteRetailController.text =
-              "Error: Falha ao Carregar"; // Error: Fetch Failed
-          _isLoadingReseller = false;
+          _resellerDisplayName = "Erro: Falha ao Carregar";
+          _agenteRetailController.text = "Error: Falha ao Carregar";
         });
       }
     }
@@ -348,7 +319,7 @@ class _OpportunityDetailFormViewState
   // --- ADDED: Fetch Invoice Download URL --- // Modified to fetch multiple URLs
   Future<List<Map<String, String?>>> _fetchMultipleDownloadUrls() async {
     List<String>? urlsOrPaths =
-        widget.submission.documentUrls; // Prefer this field
+        widget.submission?.documentUrls; // Prefer this field
     bool usingLegacyField = false;
 
     // Fallback to legacy field if primary is empty/null
@@ -364,7 +335,7 @@ class _OpportunityDetailFormViewState
       // If it's STILL null/empty here, then there are truly no URLs.
 
       // Final check: try the single invoicePhoto as a last resort
-      final legacyInvoicePhoto = widget.submission.invoicePhoto;
+      final legacyInvoicePhoto = widget.submission?.invoicePhoto;
       if (legacyInvoicePhoto?.storagePath != null &&
           legacyInvoicePhoto!.storagePath.isNotEmpty) {
         if (kDebugMode) {
@@ -433,16 +404,8 @@ class _OpportunityDetailFormViewState
 
             return {
               'url': downloadUrl,
-              'path':
-                  usingLegacyField
-                      ? urlOrPath
-                      : null, // Store original path only if it was a path
               'error': null,
               'fileName': fileName,
-              'contentType':
-                  usingLegacyField
-                      ? widget.submission.invoicePhoto?.contentType
-                      : null,
             };
           } catch (e) {
             if (kDebugMode) {
@@ -468,13 +431,8 @@ class _OpportunityDetailFormViewState
 
             return {
               'url': null,
-              'path': urlOrPath,
               'error': e.toString(),
               'fileName': fileName,
-              'contentType':
-                  usingLegacyField
-                      ? widget.submission.invoicePhoto?.contentType
-                      : null,
             };
           }
         }).toList();
@@ -616,22 +574,21 @@ class _OpportunityDetailFormViewState
       }
 
       final params = CreateOppParams(
-        submissionId: widget.submission.id!, // Assume ID is non-null here
-        accessToken: accessToken, // Use the fetched token
-        instanceUrl: instanceUrl, // Use the fetched URL
+        submissionId: widget.submission?.id ?? '',
+        accessToken: accessToken,
+        instanceUrl: instanceUrl,
         resellerSalesforceId:
-            _resellerSalesforceId!, // Use fetched Reseller SF ID
+            _resellerSalesforceId ?? '', // Use fetched Reseller SF ID
         opportunityName: _nameController.text,
         nif: _nifController.text,
         companyName:
-            widget.submission.companyName ??
-            widget.submission.responsibleName, // Use fallback logic
-        segment: _selectedSegmentoCliente!, // Assume selected
-        solution: _selectedSolucao!, // Assume selected
+            widget.submission?.companyName ?? widget.submission?.responsibleName ?? '', // Use fallback logic
+        segment: _selectedSegmentoCliente ?? '--None--', // Assume selected
+        solution: _selectedSolucao ?? '--None--', // Assume selected
         closeDate: formattedCloseDate, // Pass the CORRECTLY formatted string
-        opportunityType: _tipoOportunidadeValue!, // Assume determined
+        opportunityType: _tipoOportunidadeValue ?? '', // Assume determined
         phase: _faseValue, // Use fixed value
-        fileUrls: widget.submission.documentUrls, // Pass the list of URLs/paths
+        fileUrls: widget.submission?.documentUrls, // Pass the list of URLs/paths
       );
       // print("--- SKIPPED Param Creation for UI testing ---");
       // --- END RE-ENABLE --- //
@@ -692,7 +649,7 @@ class _OpportunityDetailFormViewState
         // --- RE-ENABLE Firestore update --- //
         await FirebaseFirestore.instance
             .collection('serviceSubmissions')
-            .doc(widget.submission.id)
+            .doc(widget.submission?.id)
             .update({
               'status': 'approved',
               'salesforceOpportunityId': result.opportunityId,
@@ -720,7 +677,7 @@ class _OpportunityDetailFormViewState
 
         final opportunityName = _nameController.text;
         final accountName =
-            widget.submission.companyName ?? widget.submission.responsibleName;
+            widget.submission?.companyName ?? widget.submission?.responsibleName ?? '';
         final nif = _nifController.text;
         final resellerSfId = _resellerSalesforceId;
         final resellerName = _resellerDisplayName;
@@ -856,6 +813,67 @@ class _OpportunityDetailFormViewState
     );
   }
 
+  // Move inputDecoration, sectionTitle, and readOnlyField above build and ensure they are instance methods, not inside build.
+  // Update all usages in build and _buildUserPicker to use inputDecoration(...)
+  InputDecoration inputDecoration({
+    required String label,
+    String? hint,
+    bool readOnly = false,
+    Widget? suffixIcon,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
+      hintText: hint,
+      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+      filled: true,
+      fillColor: readOnly ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()) : colorScheme.surfaceContainerHighest,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.primary, width: 2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      suffixIcon: suffixIcon,
+    );
+  }
+
+  Widget sectionTitle(String text) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Text(
+        text,
+        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+      ),
+    );
+  }
+
+  Widget readOnlyField(String label, TextEditingController controller) {
+    final textTheme = Theme.of(context).textTheme;
+    return SizedBox(
+      height: 56,
+      child: TextFormField(
+        controller: controller,
+        readOnly: true,
+        style: textTheme.bodySmall,
+        decoration: inputDecoration(label: label, readOnly: true),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -863,57 +881,6 @@ class _OpportunityDetailFormViewState
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final horizontalPadding = EdgeInsets.symmetric(horizontal: 32.0);
-
-    InputDecoration _inputDecoration({
-      required String label,
-      String? hint,
-      bool readOnly = false,
-      Widget? suffixIcon,
-    }) {
-      return InputDecoration(
-        labelText: label,
-        labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-        hintText: hint,
-        hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
-        filled: true,
-        fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
-        ),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        suffixIcon: suffixIcon,
-      );
-    }
-
-    Widget _sectionTitle(String text) => Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Text(
-        text,
-        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-
-    Widget _readOnlyField(String label, TextEditingController controller) {
-      return SizedBox(
-        height: 56,
-        child: TextFormField(
-          controller: controller,
-          readOnly: true,
-          style: textTheme.bodySmall,
-          decoration: _inputDecoration(label: label, readOnly: true),
-        ),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -952,22 +919,28 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _responsibleNameController,
                       style: textTheme.bodySmall,
-                      decoration: _inputDecoration(label: 'Nome do Responsável'),
+                      decoration: inputDecoration(label: 'Nome do Responsável'),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
+                  if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true)
                     SizedBox(
                       height: 48,
                       child: TextFormField(
                         controller: _companyNameController,
                         style: textTheme.bodySmall,
-                        decoration: _inputDecoration(label: 'Nome da Empresa'),
+                        decoration: inputDecoration(label: 'Nome da Empresa'),
                       ),
                     ),
-                  if (widget.submission.companyName != null && widget.submission.companyName!.isNotEmpty)
+                  if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true)
                     const SizedBox(height: 12),
-                  _readOnlyField('Agente Retail', _agenteRetailController),
+                  if (widget.isManualMode)
+                    SizedBox(
+                      height: 48,
+                      child: _buildUserPicker(),
+                    )
+                  else
+                    readOnlyField('Agente Retail', _agenteRetailController),
                   const SizedBox(height: 20),
                   // --- All Opportunity Fields (no section title) ---
                   SizedBox(
@@ -975,7 +948,7 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _nameController,
                       style: textTheme.bodySmall,
-                      decoration: _inputDecoration(label: 'Nome da Oportunidade'),
+                      decoration: inputDecoration(label: 'Nome da Oportunidade'),
                       validator: (value) => (value == null || value.trim().isEmpty)
                           ? 'Nome da Oportunidade é obrigatório'
                           : null,
@@ -991,7 +964,7 @@ class _OpportunityDetailFormViewState
                           child: TextFormField(
                             controller: _nifController,
                             style: textTheme.bodySmall,
-                            decoration: _inputDecoration(label: 'NIF'),
+                            decoration: inputDecoration(label: 'NIF'),
                             validator: (value) => (value == null || value.trim().isEmpty)
                                 ? 'NIF é obrigatório'
                                 : null,
@@ -1008,7 +981,7 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _dataCriacaoController,
                       style: textTheme.bodySmall,
-                      decoration: _inputDecoration(label: 'Data de Criação'),
+                      decoration: inputDecoration(label: 'Data de Criação'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1017,7 +990,7 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _dataUltimaAtualizacaoController,
                       style: textTheme.bodySmall,
-                      decoration: _inputDecoration(label: 'Última Atualização'),
+                      decoration: inputDecoration(label: 'Última Atualização'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1025,7 +998,7 @@ class _OpportunityDetailFormViewState
                     height: 48,
                     child: DropdownButtonFormField<String>(
                       value: _faseOptions.contains(_faseController.text) ? _faseController.text : '--None--',
-                      decoration: _inputDecoration(label: 'Fase'),
+                      decoration: inputDecoration(label: 'Fase'),
                       items: _faseOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -1049,7 +1022,7 @@ class _OpportunityDetailFormViewState
                     height: 48,
                     child: DropdownButtonFormField<String>(
                       value: _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text) ? _tipoOportunidadeController.text : '--None--',
-                      decoration: _inputDecoration(label: 'Tipo de Oportunidade'),
+                      decoration: inputDecoration(label: 'Tipo de Oportunidade'),
                       items: _tipoOportunidadeOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -1073,7 +1046,7 @@ class _OpportunityDetailFormViewState
                     height: 48,
                     child: DropdownButtonFormField<String>(
                       value: _segmentoOptions.contains(_selectedSegmentoCliente) ? _selectedSegmentoCliente : '--None--',
-                      decoration: _inputDecoration(label: 'Segmento de Cliente'),
+                      decoration: inputDecoration(label: 'Segmento de Cliente'),
                       items: _segmentoOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -1108,7 +1081,7 @@ class _OpportunityDetailFormViewState
                     height: 48,
                     child: DropdownButtonFormField<String>(
                       value: _solucaoOptions.contains(_selectedSolucao) ? _selectedSolucao : '--None--',
-                      decoration: _inputDecoration(label: 'Solução'),
+                      decoration: inputDecoration(label: 'Solução'),
                       items: _solucaoOptions.map((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -1129,7 +1102,7 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _fechoController,
                       style: textTheme.bodySmall,
-                      decoration: _inputDecoration(
+                      decoration: inputDecoration(
                         label: 'Data de Previsão de Fecho',
                         hint: 'Selecione a data de fecho',
                         suffixIcon: const Icon(Icons.calendar_today),
@@ -1187,7 +1160,7 @@ class _OpportunityDetailFormViewState
                   ),
                   const SizedBox(height: 20),
                   // --- Faturas Section ---
-                  _sectionTitle('Secção Faturas'),
+                  sectionTitle('Secção Faturas'),
                   const SizedBox(height: 12),
                   FutureBuilder<List<Map<String, String?>>>(
                     future: _fetchMultipleDownloadUrls(), // Call the new function
@@ -1255,8 +1228,44 @@ class _OpportunityDetailFormViewState
                   ),
                   const SizedBox(height: 20),
                   // --- Actions or Rejection Info ---
-                  if (widget.submission.status == 'rejected')
+                  if (widget.submission?.status == 'rejected')
                     _buildRejectionInfoSection(context, theme)
+                  else if (widget.isManualMode)
+                    Center(
+                      child: SizedBox(
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.add_circle_outline),
+                          label: _isSubmitting
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                )
+                              : Text('Criar Oportunidade', style: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                  color: Colors.white,
+                                )),
+                          onPressed: _isSubmitting ? null : _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
+                            minimumSize: const Size(180, 44),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            textStyle: textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
                   else
                     Center(
                       child: Wrap(
@@ -1337,7 +1346,6 @@ class _OpportunityDetailFormViewState
                         ],
                       ),
                     ),
-                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -1349,14 +1357,14 @@ class _OpportunityDetailFormViewState
 
   // --- NEW: Widget Builder for Rejection Info Section ---
   Widget _buildRejectionInfoSection(BuildContext context, ThemeData theme) {
-    final rejectionReason = widget.submission.reviewDetails?.rejectionReason;
+    final rejectionReason = widget.submission?.reviewDetails?.rejectionReason;
     final reviewTimestamp =
-        widget.submission.reviewDetails?.reviewTimestamp
+        widget.submission?.reviewDetails?.reviewTimestamp
             .toDate(); // Convert Timestamp to DateTime
     final reviewerId =
         widget
             .submission
-            .reviewDetails
+            ?.reviewDetails
             ?.reviewerId; // TODO: Fetch reviewer name based on ID?
 
     String formattedTimestamp = 'Unknown date';
@@ -1478,7 +1486,7 @@ class _OpportunityDetailFormViewState
 
   // --- ADDED: Handle Rejection Logic ---
   Future<void> _handleRejection(String reason) async {
-    if (widget.submission.id == null) {
+    if (widget.submission?.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1508,7 +1516,7 @@ class _OpportunityDetailFormViewState
     try {
       final docRef = FirebaseFirestore.instance
           .collection('serviceSubmissions')
-          .doc(widget.submission.id);
+          .doc(widget.submission?.id);
 
       // Prepare review details data
       final reviewData = {
@@ -1529,8 +1537,8 @@ class _OpportunityDetailFormViewState
       // --- Optional: Create Notification for Reseller ---
       try {
         await _createRejectionNotification(
-          widget.submission.resellerId,
-          widget.submission.id!,
+          widget.submission?.resellerId ?? '',
+          widget.submission?.id ?? '',
           reason,
         );
       } catch (e) {
@@ -1608,8 +1616,7 @@ class _OpportunityDetailFormViewState
           'submissionId': submissionId,
           'rejectionReason': reason,
           'clientName':
-              widget.submission.companyName ??
-              widget.submission.responsibleName,
+              widget.submission?.companyName ?? widget.submission?.responsibleName ?? '',
         },
       };
 
@@ -1860,12 +1867,10 @@ class _OpportunityDetailFormViewState
     } else if (!nifRegExp.hasMatch(nifToCheck)) {
       setState(() {
         _nifCheckStatus = NifCheckStatus.error;
-        _nifCheckMessage =
-            'NIF Inválido (deve ter 9 dígitos)'; // Invalid NIF (must have 9 digits)
+        _nifCheckMessage = 'NIF Inválido (deve ter 9 dígitos)';
       });
       return;
     }
-    // --- END ADDED ---
 
     setState(() {
       _nifCheckStatus = NifCheckStatus.loading;
@@ -1974,7 +1979,8 @@ class _OpportunityDetailFormViewState
     } finally {
       if (mounted) {
         setState(() {
-          _isCheckingNif = false; // Ensure loading state is reset
+          // Remove _isCheckingNif reference since we're using _nifCheckStatus
+          _nifCheckStatus = _nifCheckStatus;
         });
       }
     }
@@ -2059,19 +2065,20 @@ class _OpportunityDetailFormViewState
       }
 
       final params = CreateOppParams(
-        submissionId: widget.submission.id!,
+        submissionId: widget.submission?.id ?? '',
         accessToken: accessToken,
         instanceUrl: instanceUrl,
-        resellerSalesforceId: _resellerSalesforceId!,
+        resellerSalesforceId:
+            _resellerSalesforceId ?? '', // Use fetched Reseller SF ID
         opportunityName: _nameController.text,
         nif: _nifController.text,
         companyName: _companyNameController.text,
         segment: _selectedSegmentoCliente ?? '--None--',
         solution: _selectedSolucao ?? '--None--',
         closeDate: formattedCloseDate,
-        opportunityType: _tipoOportunidadeController.text,
-        phase: _faseController.text,
-        fileUrls: widget.submission.documentUrls,
+        opportunityType: _tipoOportunidadeValue ?? '', // Assume determined
+        phase: _faseValue, // Use fixed value
+        fileUrls: widget.submission?.documentUrls,
       );
 
       final result = await ref.read(createOpportunityProvider(params).future);
@@ -2101,6 +2108,88 @@ class _OpportunityDetailFormViewState
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _fetchUserOptions() async {
+    setState(() => _isLoadingUsers = true);
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', whereIn: ['reseller', 'admin'])
+          .get();
+      
+      setState(() {
+        _userOptions = query.docs.map((doc) {
+          final data = doc.data();
+          data['uid'] = doc.id;
+          return data;
+        }).toList();
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingUsers = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao carregar utilizadores: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildUserPicker() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    return Autocomplete<Map<String, dynamic>>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return _userOptions;
+        }
+        return _userOptions.where((user) {
+          final displayName = user['displayName']?.toString().toLowerCase() ?? '';
+          final email = user['email']?.toString().toLowerCase() ?? '';
+          final searchTerm = textEditingValue.text.toLowerCase();
+          return displayName.contains(searchTerm) || email.contains(searchTerm);
+        }).toList();
+      },
+      displayStringForOption: (option) => 
+          '${option['displayName']} (${option['email']})',
+      onSelected: (Map<String, dynamic> selectedUser) {
+        setState(() {
+          _selectedUser = selectedUser;
+          _resellerSalesforceId = selectedUser['salesforceId'] ?? '';
+        });
+      },
+      fieldViewBuilder: (
+        BuildContext context,
+        TextEditingController textEditingController,
+        FocusNode focusNode,
+        VoidCallback onFieldSubmitted,
+      ) {
+        return SizedBox(
+          height: 48,
+          child: TextFormField(
+            controller: textEditingController,
+            focusNode: focusNode,
+            style: textTheme.bodySmall,
+            decoration: inputDecoration(
+              label: 'Selecionar Agente Retail',
+              hint: 'Pesquisar por nome ou email',
+              suffixIcon: _isLoadingUsers
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.search),
+            ),
+            onFieldSubmitted: (String value) {
+              onFieldSubmitted();
+            },
+          ),
+        );
+      },
+    );
   }
 }
 

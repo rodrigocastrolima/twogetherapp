@@ -17,6 +17,10 @@ import '../../../../core/services/loading_service.dart'; // For loading overlay
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
+import 'package:url_launcher/url_launcher.dart';
+import '../../../../presentation/widgets/full_screen_image_viewer.dart';
+import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
+import '../../../../presentation/widgets/simple_list_item.dart';
 
 // Convert to ConsumerStatefulWidget
 class AdminProviderFilesPage extends ConsumerStatefulWidget {
@@ -156,70 +160,45 @@ class _AdminProviderFilesPageState
     );
   }
 
-  // Move _buildFileListItem here (no changes needed inside)
+  // Add file tap handler
+  Future<void> _handleFileTap(BuildContext context, ProviderFile file) async {
+    final fileType = file.fileType.toLowerCase();
+    final url = Uri.parse(file.downloadUrl);
+
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].contains(fileType)) {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => FullScreenImageViewer(imageUrl: file.downloadUrl, imageName: file.fileName), fullscreenDialog: true));
+    } else if (fileType == 'pdf') {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => FullScreenPdfViewer(pdfUrl: file.downloadUrl, pdfName: file.fileName), fullscreenDialog: true));
+    } else {
+      try {
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          throw 'Could not launch $url';
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Não foi possível abrir o link do ficheiro: $e')));
+        }
+      }
+    }
+  }
+
+  // Update _buildFileListItem to use SimpleListItem
   Widget _buildFileListItem(
     BuildContext context,
     ProviderFile file,
     ThemeData theme,
     WidgetRef ref,
   ) {
-    final dateFormatter = DateFormat.yMd().add_jm();
     final fileIcon = _getFileIcon(file.fileType);
 
-    return InkWell(
-      onTap: () {
-        // TODO: Implement file tap action (e.g., download, view)
-        // For now, let's print to console or show a snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tapped on ${file.fileName}'))
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    file.fileName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (file.description.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2.0),
-                      child: Text(
-                        file.description,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Uploaded: ${dateFormatter.format(file.uploadedAt.toDate())}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            if (_isDeleteModeEnabled)
-              IconButton(
+    return SimpleListItem(
+      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+      title: file.fileName,
+      subtitle: file.description.isNotEmpty ? file.description : null,
+      trailing: _isDeleteModeEnabled
+          ? IconButton(
                 icon: Icon(CupertinoIcons.xmark_circle_fill, color: theme.colorScheme.error, size: 24),
                 onPressed: () {
                   _confirmAndDeleteFile(context, ref, file);
@@ -229,15 +208,12 @@ class _AdminProviderFilesPageState
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               )
-            else
-              Icon(
+          : Icon(
                 CupertinoIcons.chevron_forward,
                 color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
                 size: 20,
               ),
-          ],
-        ),
-      ),
+      onTap: () => _handleFileTap(context, file),
     );
   }
 

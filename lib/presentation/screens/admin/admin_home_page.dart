@@ -58,61 +58,133 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+              // --- Title ---
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+                child: Text(
+                  'Início',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
                   // --- Ações Rápidas ---
-                  Text(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Text(
                     'Ações Rápidas',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
+                  ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Wrap(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Wrap(
                     spacing: 24,
                     runSpacing: 16,
                         children: [
-                      _quickActionCard( // Renamed
+                    _quickActionCard(
                         icon: CupertinoIcons.cloud_download,
                         label: 'Dropbox',
                         onTap: () => context.push('/admin/providers'),
                       ),
-                      _quickActionCard( // Renamed
+                    _quickActionCard(
                         icon: CupertinoIcons.add_circled_solid,
                         label: 'Nova Oportunidade',
-                        onTap: () {
-                          // TODO: Implement Nova Oportunidade
-                        },
+                        onTap: () => context.push('/admin/opportunity/create'),
                             ),
                           ],
+                ),
                         ),
                   const SizedBox(height: 40),
                   // --- Notificações ---
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                   Text(
                     'Notificações',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final notificationActions = ref.read(notificationActionsProvider);
+                        return TextButton.icon(
+                          onPressed: () async {
+                            final shouldClear = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Limpar Notificações'),
+                                content: const Text('Tem a certeza que pretende eliminar todas as notificações?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: Text(
+                                      'Limpar',
+                                      style: TextStyle(color: theme.colorScheme.error),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (shouldClear == true && context.mounted) {
+                              // Delete all notifications
+                              final notifications = ref.read(refreshableAdminSubmissionsProvider).value ?? [];
+                              for (final notification in notifications) {
+                                await notificationActions.deleteNotification(notification.id);
+                              }
+                            }
+                          },
+                          icon: Icon(
+                            CupertinoIcons.trash,
+                            size: 18,
+                            color: theme.colorScheme.error.withOpacity(0.7),
+                          ),
+                          label: Text(
+                            'Limpar',
+                            style: TextStyle(
+                              color: theme.colorScheme.error.withOpacity(0.7),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Builder( // Removed SizedBox(height: 500) around this Builder
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Builder(
                     builder: (context) {
                       return _buildNotificationsList(context);
                     },
                     ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

@@ -27,7 +27,6 @@ interface RefreshResult {
 // Define constants
 // Use the standard Salesforce login URL for token exchange/refresh
 const SALESFORCE_TOKEN_ENDPOINT = "https://login.salesforce.com/services/oauth2/token";
-const DEFAULT_EXPIRY_SECONDS = 7200; // 2 hours
 
 /**
  * Refreshes a Salesforce access token using a refresh token.
@@ -52,6 +51,9 @@ export const refreshSalesforceToken = onCall(
 
     // 2. Validate Input Data
     const { refreshToken } = request.data;
+    console.log('Received refreshToken:', refreshToken);
+    console.log('SALESFORCE_CLIENT_ID:', process.env.SALESFORCE_CLIENT_ID);
+
     if (!refreshToken) {
       logger.error("Missing refresh token in request data.");
       throw new HttpsError("invalid-argument", "Refresh token is required.");
@@ -91,6 +93,8 @@ export const refreshSalesforceToken = onCall(
         }
       );
 
+      console.log('Salesforce response:', response.data);
+
       // 6. Process Successful Response
       if (
         response.status === 200 &&
@@ -104,7 +108,7 @@ export const refreshSalesforceToken = onCall(
         return {
           accessToken: response.data.access_token,
           instanceUrl: response.data.instance_url,
-          expiresInSeconds: DEFAULT_EXPIRY_SECONDS,
+          expiresInSeconds: 3600, // Changed from 28800 to 1 hour
         };
       } else {
         // Handle unexpected successful status codes or missing data

@@ -50,6 +50,7 @@ import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart
 import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
 import 'package:twogether/features/providers/domain/models/provider_info.dart';
 import 'package:twogether/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart';
+import '../../features/user_management/presentation/pages/user_create_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -848,20 +849,26 @@ class AppRouter {
 
       // --- Top-Level Secondary Routes (No Shell) ---
       GoRoute(
+        path: '/admin/opportunity/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _SlideTransition(
+          child: OpportunityDetailFormView(),
+        ),
+      ),
+      GoRoute(
         path: '/admin/opportunity-detail',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          final submission = state.extra as ServiceSubmission?;
-          if (submission == null) {
-            return const NoTransitionPage(
+          final opportunity = state.extra as data_models.SalesforceOpportunity?;
+          if (opportunity == null) {
+            return const MaterialPage(
               child: Scaffold(
-                body: Center(child: Text('Error: Submission data missing')),
+                body: Center(child: Text("Opportunity data missing")),
               ),
             );
           }
           return _SlideTransition(
-            child: OpportunityDetailFormView(submission: submission),
-            reverse: false,
+            child: OpportunityDetailsPage(opportunity: opportunity),
           );
         },
       ),
@@ -912,18 +919,21 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        path: '/admin/users/create',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => MaterialPage(child: UserCreatePage()),
+      ),
+      GoRoute(
         path: '/admin/users/:userId',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final user = state.extra as AppUser?;
           if (user == null) {
-            return MaterialPage(
-              key: ValueKey(state.uri.toString()),
-              child: Scaffold(body: Center(child: Text("User not found"))),
+            return _SlideTransition(
+              child: const Scaffold(body: Center(child: Text("User data missing"))),
             );
           }
-          return MaterialPage(
-            key: ValueKey(state.uri.toString()),
+          return _SlideTransition(
             child: UserDetailPage(user: user),
           );
         },

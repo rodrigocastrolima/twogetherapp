@@ -501,37 +501,31 @@ class _OpportunityVerificationPageState
       appBar: null,
       body: SafeArea(
         bottom: false,
-        top: false, // SafeArea is handled by Scaffold/AppBar
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Container(
-              color: _isFilterOpen ? colorScheme.surfaceVariant.withOpacity(0.85) : colorScheme.surface,
+        top: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Title/Header
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+              padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
                     child: Text(
                       'Oportunidades',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
+                  letterSpacing: -0.5,
                       ),
                     ),
                   ),
+            const SizedBox(height: 12),
                   // Tab Bar
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     child: _buildCustomTabBar(context, theme),
                   ),
                   // Header (Search and Filters) - Appears above tabs
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 12.0,
-                    ),
+              padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 0),
                     child: Row(
                       children: [
                         // Search bar always present
@@ -575,7 +569,7 @@ class _OpportunityVerificationPageState
                   // Tab Content Area
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                       child: TabBarView(
                         controller: _tabController,
                         children: [
@@ -590,9 +584,6 @@ class _OpportunityVerificationPageState
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -811,7 +802,7 @@ class _OpportunityVerificationPageState
     );
   }
 
-  // --- Web List Builder (Firestore Submissions) --- Renamed
+  // --- Web List Builder (Firestore Submissions) ---
   Widget _buildSubmissionsWebList(
     BuildContext context,
     List<ServiceSubmission> submissions,
@@ -824,15 +815,13 @@ class _OpportunityVerificationPageState
       itemBuilder: (context, index) {
         final submission = submissions[index];
         // Icon logic (reuse from previous implementation)
-        IconData itemIcon = CupertinoIcons.doc_plaintext;
-        Color iconColor = theme.colorScheme.primary;
-        // You can add more status-based icon/color logic here if needed
         return SimpleListItem(
-          leading: Icon(itemIcon, color: iconColor, size: 32),
           title: submission.companyName ?? submission.responsibleName,
-          subtitle: submission.resellerName,
+          subtitle: 'Revendedor: ${submission.resellerName ?? '-'}',
           trailing: Text(
-                      _formatDate(submission.submissionDate),
+            submission.submissionDate != null
+                ? DateFormat('dd/MM/yyyy').format(submission.submissionDate!)
+                : 'N/A',
             style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -843,7 +832,7 @@ class _OpportunityVerificationPageState
     );
   }
 
-  // --- Mobile List Builder (Firestore Submissions) --- Renamed
+  // --- Mobile List Builder (Firestore Submissions) ---
   Widget _buildSubmissionsMobileList(
     BuildContext context,
     List<ServiceSubmission> submissions,
@@ -855,15 +844,13 @@ class _OpportunityVerificationPageState
       separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final submission = submissions[index];
-        IconData itemIcon = CupertinoIcons.doc_plaintext;
-        Color iconColor = theme.colorScheme.primary;
-        // You can add more status-based icon/color logic here if needed
         return SimpleListItem(
-          leading: Icon(itemIcon, color: iconColor, size: 32),
           title: submission.companyName ?? submission.responsibleName,
-          subtitle: submission.resellerName,
+          subtitle: 'Revendedor: ${submission.resellerName ?? '-'}',
           trailing: Text(
-                      _formatDate(submission.submissionDate),
+            submission.submissionDate != null
+                ? DateFormat('dd/MM/yyyy').format(submission.submissionDate!)
+                : 'N/A',
             style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -888,7 +875,7 @@ class _OpportunityVerificationPageState
         final opportunity = opportunities[index];
         return SimpleListItem(
           title: opportunity.name,
-          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'}  |  Fase: ${opportunity.fase ?? '-'}',
+          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'} | Fase: ${opportunity.fase ?? '-'}',
           trailing: Text(
             opportunity.createdDate != null
                 ? _formatSalesforceDate(opportunity.createdDate!)
@@ -921,7 +908,7 @@ class _OpportunityVerificationPageState
         final opportunity = opportunities[index];
         return SimpleListItem(
           title: opportunity.name,
-          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'}  |  Fase: ${opportunity.fase ?? '-'}',
+          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'} | Fase: ${opportunity.fase ?? '-'}',
           trailing: Text(
             opportunity.createdDate != null
                 ? _formatSalesforceDate(opportunity.createdDate!)

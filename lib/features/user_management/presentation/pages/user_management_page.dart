@@ -14,6 +14,8 @@ import '../providers/user_creation_provider.dart';
 import '../../../../features/chat/presentation/pages/admin_chat_page.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../../../../presentation/widgets/success_dialog.dart';
 
 class UserManagementPage extends ConsumerStatefulWidget {
   const UserManagementPage({super.key});
@@ -190,26 +192,37 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
     }
 
     try {
-      final authRepository = ref.read(authRepositoryProvider);
-      await authRepository.deleteUser(uid);
+      final HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('deleteUserAndFirestore');
+      await callable.call({'uid': uid});
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Utilizador eliminado'),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
+      await showSuccessDialog(
+        context: context,
+        message: 'Utilizador eliminado',
+        onDismissed: () {},
       );
 
       if (!mounted) return;
       await _loadUsers();
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Falha ao eliminar utilizador: ${e.message ?? e.toString()}';
+        _isLoading = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.message ?? e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Falha ao eliminar utilizador: ${e.toString()}';
         _isLoading = false;
       });
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -583,17 +596,34 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: SizedBox(
-              height: 40,
-              child: TextField(
-                controller: searchController,
-                decoration: AppStyles.searchInputDecoration(context, 'Pesquisar...'),
-                onChanged: (value) {
-                  setState(() {
-                    searchQuery = value.trim();
-                  });
-                },
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: searchController,
+                      decoration: AppStyles.searchInputDecoration(context, 'Pesquisar...'),
+                      onChanged: (value) {
+                        setState(() {
+                          searchQuery = value.trim();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Novo Utilizador'),
+                  onPressed: () {
+                    context.push('/admin/users/create');
+                  },
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
