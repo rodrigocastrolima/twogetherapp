@@ -30,6 +30,7 @@ export const cleanupExpiredMessages = functions.scheduler
       
       let totalMessagesDeleted = 0;
       let totalImagesDeleted = 0;
+      let totalFilesDeleted = 0;
       let conversationsUpdated = 0;
       
       // Process each conversation
@@ -62,26 +63,36 @@ export const cleanupExpiredMessages = functions.scheduler
           operationCount++;
           totalMessagesDeleted++;
           
-          // Check if we need to delete an image from storage
+          // Check if we need to delete an image or file from storage
           const messageData = messageDoc.data();
-          if (messageData.type === 'image') {
+          if (messageData.type === 'image' || messageData.type === 'file') {
             try {
-              // Extract image path from URL
-              const imageUrl = messageData.content as string;
-              if (imageUrl && imageUrl.includes('firebase') && imageUrl.includes('storage')) {
+              // Extract file path from URL
+              const fileUrl = messageData.content as string;
+              if (fileUrl && fileUrl.includes('firebase') && fileUrl.includes('storage')) {
                 // Extract the filename and path
-                const urlParts = imageUrl.split('/');
+                const urlParts = fileUrl.split('/');
                 const fileName = urlParts[urlParts.length - 1].split('?')[0];
                 
-                // Delete the image file
-                await storage.bucket().file(`chat_images/${fileName}`).delete();
-                totalImagesDeleted++;
+                // Determine the correct storage path based on message type
+                const storagePath = messageData.type === 'image' 
+                  ? `chat_images/${fileName}`
+                  : `chat_files/${fileName}`;
                 
-                console.debug(`Deleted image: ${fileName}`);
+                // Delete the file
+                await storage.bucket().file(storagePath).delete();
+                
+                if (messageData.type === 'image') {
+                  totalImagesDeleted++;
+                  console.debug(`Deleted image: ${fileName}`);
+                } else {
+                  totalFilesDeleted++;
+                  console.debug(`Deleted file: ${fileName}`);
+                }
               }
-            } catch (imageError) {
-              // Log but continue if image deletion fails
-              console.warn(`Error deleting image: ${imageError}`);
+            } catch (fileError) {
+              // Log but continue if file deletion fails
+              console.warn(`Error deleting ${messageData.type}: ${fileError}`);
             }
           }
           
@@ -145,7 +156,7 @@ export const cleanupExpiredMessages = functions.scheduler
         }
       }
       
-      console.log(`Message cleanup completed successfully. Deleted ${totalMessagesDeleted} messages and ${totalImagesDeleted} images. Updated ${conversationsUpdated} conversations.`);
+      console.log(`Message cleanup completed successfully. Deleted ${totalMessagesDeleted} messages and ${totalImagesDeleted} images and ${totalFilesDeleted} files. Updated ${conversationsUpdated} conversations.`);
       
     } catch (error) {
       console.error(`Error during message cleanup: ${error}`);

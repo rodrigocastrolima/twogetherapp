@@ -12,9 +12,11 @@ import '../../domain/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../widgets/chat_image_preview_sheet.dart';
+import '../widgets/chat_file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 // Add extension to ChatMessage for cleaner code
 extension ChatMessageExtension on ChatMessage {
@@ -25,6 +27,7 @@ extension ChatMessageExtension on ChatMessage {
   bool get isFromUser => senderId == ChatMessageExtension.currentUserId;
   bool get isFromAdmin => isAdmin == true;
   bool get isImage => type == MessageType.image;
+  bool get isFile => type == MessageType.file;
 }
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -757,9 +760,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     Color textColor,
   ) {
     final theme = Theme.of(context);
-    final iphoneBlue = const Color(
-      0xFF0B84FE,
-    ); // Original iPhone-like blue color
+    final iphoneBlue = const Color(0xFF0B84FE); // Original iPhone-like blue color
     final iconGray = const Color(0xFF8E8E93); // iOS gray color for icons
 
     if (message.isImage) {
@@ -786,35 +787,128 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           constraints: const BoxConstraints(
             maxWidth: 220,
             maxHeight: 220,
-        ),
-        child: GestureDetector(
-          onTap: () {
-            // Show dialog with the image when tapped
-            showDialog(
-              context: context,
+          ),
+          child: GestureDetector(
+            onTap: () {
+              // Show dialog with the image when tapped
+              showDialog(
+                context: context,
                 builder: (context) => Dialog(
-                    backgroundColor: Colors.transparent,
-                    insetPadding: const EdgeInsets.all(10),
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: SafeNetworkImage(
-                        imageUrl: message.content,
-                        fit: BoxFit.contain,
+                  backgroundColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.all(10),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: SafeNetworkImage(
+                      imageUrl: message.content,
+                      fit: BoxFit.contain,
                       borderRadius: BorderRadius.circular(14),
-                      ),
                     ),
                   ),
-            );
-          },
-          child: ClipRRect(
+                ),
+              );
+            },
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-            child: SafeNetworkImage(
-              imageUrl: message.content,
+              child: SafeNetworkImage(
+                imageUrl: message.content,
                 fit: BoxFit.contain,
                 borderRadius: BorderRadius.circular(14),
                 height: 220,
                 width: 220,
               ),
+            ),
+          ),
+        ),
+      );
+    } else if (message.type == MessageType.file) {
+      // File message style
+      return Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: GestureDetector(
+          onTap: () async {
+            try {
+              final url = Uri.parse(message.content);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url);
+              } else {
+                if (kDebugMode) {
+                  print('Could not launch $url');
+                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not open file'),
+                  ),
+                );
+              }
+            } catch (e, stackTrace) {
+              if (kDebugMode) {
+                print('Error opening file: $e');
+                print(stackTrace);
+              }
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error opening file: ${e.toString()}'),
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+              );
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getFileIcon(message.fileType ?? 'application/octet-stream'),
+                  color: textColor,
+                  size: 32,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message.fileName ?? 'Unknown file',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (message.fileSize != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatFileSize(message.fileSize!),
+                          style: TextStyle(
+                            color: textColor.withOpacity(0.7),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.download,
+                  color: textColor.withOpacity(0.7),
+                  size: 20,
+                ),
+              ],
             ),
           ),
         ),
@@ -825,6 +919,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         style: TextStyle(color: textColor, fontSize: 16),
       );
     }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  IconData _getFileIcon(String fileType) {
+    if (fileType.startsWith('image/')) return Icons.image;
+    if (fileType.startsWith('video/')) return Icons.video_file;
+    if (fileType.startsWith('audio/')) return Icons.audio_file;
+    if (fileType.contains('pdf')) return Icons.picture_as_pdf;
+    if (fileType.contains('word') || fileType.contains('document')) return Icons.description;
+    if (fileType.contains('excel') || fileType.contains('sheet')) return Icons.table_chart;
+    if (fileType.contains('powerpoint') || fileType.contains('presentation')) return Icons.slideshow;
+    if (fileType.contains('zip') || fileType.contains('archive')) return Icons.archive;
+    return Icons.insert_drive_file;
   }
 
   Widget _buildImageContent(String imageUrl) {
@@ -1014,67 +1127,75 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-        child: Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-          // Camera button
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
-              child: Container(
-                width: 40,
-                height: 40,
-              decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-                child: Icon(Icons.camera_alt_outlined, size: 20, color: theme.colorScheme.onPrimary),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Gallery button
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
-              child: Container(
-                width: 40,
-                height: 40,
-              decoration: BoxDecoration(
-                  color: theme.colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-                child: Icon(Icons.photo_outlined, size: 20, color: theme.colorScheme.onPrimary),
-              ),
-            ),
-          ),
+        children: [
+          if (kIsWeb) ...[
+            // On web, show only the file picker (covers images and files)
+            ChatFilePicker(conversationId: widget.conversationId),
             const SizedBox(width: 12),
-          // Input + send button
-            Expanded(
-              child: Container(
-              height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: theme.dividerColor.withOpacity(0.18), width: 1),
+          ] else ...[
+            // On mobile, show camera and gallery buttons
+            Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.camera_alt_outlined, size: 20, color: theme.colorScheme.onPrimary),
                 ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.photo_outlined, size: 20, color: theme.colorScheme.onPrimary),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Add file picker for files on mobile
+            ChatFilePicker(conversationId: widget.conversationId),
+            const SizedBox(width: 12),
+          ],
+          // Input + send button
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.18), width: 1),
+              ),
               child: Row(
                 children: [
                   Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  focusNode: _focusNode,
-                  textCapitalization: TextCapitalization.sentences,
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _focusNode,
+                      textCapitalization: TextCapitalization.sentences,
                       style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface),
-                  decoration: InputDecoration(
+                      decoration: InputDecoration(
                         hintText: widget.isAdminView ? 'Mensagem' : 'Envie uma mensagem',
                         hintStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                    border: InputBorder.none,
+                        border: InputBorder.none,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                         filled: false,
@@ -1082,14 +1203,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         disabledBorder: InputBorder.none,
-                  ),
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _sendMessage(),
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
                       cursorColor: theme.colorScheme.primary,
                     ),
-                      ),
+                  ),
                   IconButton(
-                              onPressed: _hasText ? _sendMessage : null,
+                    onPressed: _hasText ? _sendMessage : null,
                     icon: Icon(
                       Icons.send_rounded,
                       color: _hasText
@@ -1099,12 +1220,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     ),
                     splashRadius: 22,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                ],
-                    ),
                   ),
-                ),
-          ],
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

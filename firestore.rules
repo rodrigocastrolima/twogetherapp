@@ -130,6 +130,18 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isAdmin();
     }
     
+    // Providers collection
+    match /providers/{providerId} {
+      allow read: if isAuthenticated(); // Any authenticated user can read provider info.
+      allow create, update, delete: if isAdmin(); // Only Admins can manage providers.
+
+      // Files subcollection within providers
+      match /files/{fileId} {
+        allow read: if isAuthenticated(); // Any authenticated user can read files.
+        allow create, update, delete: if isAdmin(); // Only Admins can manage files.
+      }
+    }
+    
     // Default rule - deny access to everything else
     match /{document=**} {
       allow read, write: if isAdmin();

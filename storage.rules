@@ -44,5 +44,11 @@ service firebase.storage {
       allow read: if isAuthenticated(); // Allow authenticated users to read
       allow write: if isAuthenticated(); // Allow authenticated users to write
     }
+
+    // --- Rules for Chat Files (NEW) ---
+    match /chat_files/{allPaths=**} {
+      allow read: if isAuthenticated(); // Allow authenticated users to read
+      allow write: if isAuthenticated(); // Allow authenticated users to write
+    }
   }
 } 

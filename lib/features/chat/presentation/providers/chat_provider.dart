@@ -84,6 +84,31 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> sendFileMessage(
+    String conversationId,
+    dynamic file,
+    String fileName,
+    String fileType,
+    int fileSize,
+  ) async {
+    try {
+      state = const AsyncValue.loading();
+      await _repository.sendFileMessage(
+        conversationId,
+        file,
+        fileName,
+        fileType,
+        fileSize,
+      );
+      state = const AsyncValue.data(null);
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error sending file: $e');
+      }
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+
   Future<void> markConversationAsRead(String conversationId) async {
     try {
       // Check if current user is admin

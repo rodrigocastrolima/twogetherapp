@@ -25,6 +25,7 @@ class ChatRepository {
   // Safety constraints
   static const int _maxMessageLength = 1000; // Maximum characters per message
   static const int _maxImageSizeMB = 5; // Maximum image size in MB
+  static const int _maxFileSizeMB = 20; // Maximum file size in MB
   static const int _messageRateLimitPerMinute =
       30; // Maximum messages per minute
 
@@ -1269,6 +1270,141 @@ class ChatRepository {
         print('Error getting inactive conversations: $e');
       }
       throw Exception('Failed to get inactive conversations: $e');
+    }
+  }
+
+  // Send a file message
+  Future<void> sendFileMessage(
+    String conversationId,
+    dynamic file,
+    String fileName,
+    String fileType,
+    int fileSize,
+  ) async {
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    // Validate file size
+    if (fileSize > _maxFileSizeMB * 1024 * 1024) {
+      throw Exception(
+        'File exceeds maximum size of $_maxFileSizeMB MB',
+      );
+    }
+
+    // Apply rate limiting
+    if (!_checkRateLimit(currentUserId!)) {
+      throw Exception(
+        'Too many messages sent in a short period. Please wait a moment.',
+      );
+    }
+
+    try {
+      // Get user admin status and name
+      final isAdmin = await isCurrentUserAdmin();
+      final userName = await getCurrentUserName();
+
+      // Generate a unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final uniqueFileName = '${timestamp}_$fileName';
+      final storagePath = 'chat_files/$conversationId/$uniqueFileName';
+
+      // Upload file to Firebase Storage
+      final storageRef = _storage.ref().child(storagePath);
+      UploadTask uploadTask;
+
+      if (kIsWeb) {
+        // Web platform
+        final bytes = await file.bytes;
+        uploadTask = storageRef.putData(bytes);
+      } else {
+        // Mobile platform
+        uploadTask = storageRef.putFile(io.File(file.path));
+      }
+
+      // Wait for upload to complete
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      // Create the message
+      final message = ChatMessage(
+        id: '', // Will be set by Firestore
+        senderId: currentUserId!,
+        senderName: userName,
+        content: downloadUrl,
+        type: MessageType.file,
+        timestamp: DateTime.now(), // Will be overwritten by server timestamp
+        isAdmin: isAdmin,
+        fileName: fileName,
+        fileType: fileType,
+        fileSize: fileSize,
+      );
+
+      // Record this message send time for rate limiting
+      _recordMessageSend(currentUserId!);
+
+      // Get conversation info
+      final conversationDoc = await _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .get();
+
+      if (!conversationDoc.exists) {
+        throw Exception("Conversation not found");
+      }
+
+      final conversationData = conversationDoc.data()!;
+      final List<dynamic> participants =
+          conversationData['participants'] ??
+          ['admin', conversationData['resellerId']];
+
+      // Create a batch for better performance
+      final batch = _firestore.batch();
+
+      // Add message to the collection
+      final messageRef = _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId)
+          .collection(_messagesCollection)
+          .doc(); // Generate a new document ID
+
+      batch.set(messageRef, message.toMap());
+
+      // Update conversation with last message info
+      final conversationRef = _firestore
+          .collection(_conversationsCollection)
+          .doc(conversationId);
+
+      final updateData = <String, dynamic>{
+        'lastMessageContent': '📎 ${fileName}',
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageIsFromAdmin': isAdmin,
+      };
+
+      // Determine recipient(s) to mark as having unread messages
+      final String senderId = isAdmin ? 'admin' : currentUserId!;
+
+      // Update unread counts for all participants except the sender
+      for (final participantId in participants) {
+        // Only increment unread count for participants who are not the sender
+        if (participantId != senderId) {
+          // Add to the unreadCounts map
+          updateData['unreadCounts.$participantId'] = FieldValue.increment(1);
+        }
+      }
+
+      // Always mark conversation as active when sending a message
+      updateData['active'] = true;
+
+      batch.update(conversationRef, updateData);
+
+      // Commit all the changes at once
+      await batch.commit();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending file message: $e');
+      }
+      throw Exception('Failed to send file: $e');
     }
   }
 }

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum MessageType { text, image }
+enum MessageType { text, image, file }
 
 class ChatMessage {
   final String id;
@@ -12,6 +12,9 @@ class ChatMessage {
   final bool isRead;
   final MessageType type;
   final bool isDefault;
+  final String? fileName;
+  final String? fileType;
+  final int? fileSize;
 
   const ChatMessage({
     required this.id,
@@ -23,6 +26,9 @@ class ChatMessage {
     this.isRead = false,
     this.type = MessageType.text,
     this.isDefault = false,
+    this.fileName,
+    this.fileType,
+    this.fileSize,
   });
 
   // Create from Firestore document
@@ -49,23 +55,32 @@ class ChatMessage {
       timestamp: timestamp,
       isAdmin: data['isAdmin'] ?? false,
       isRead: data['isRead'] ?? false,
-      type: data['type'] == 'image' ? MessageType.image : MessageType.text,
+      type: data['type'] == 'image' ? MessageType.image : data['type'] == 'file' ? MessageType.file : MessageType.text,
       isDefault: data['isDefault'] ?? false,
+      fileName: data['fileName'],
+      fileType: data['fileType'],
+      fileSize: data['fileSize'],
     );
   }
 
   // Convert to Map for Firestore
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'senderId': senderId,
       'senderName': senderName,
       'content': content,
       'timestamp': FieldValue.serverTimestamp(),
       'isAdmin': isAdmin,
       'isRead': isRead,
-      'type': type == MessageType.image ? 'image' : 'text',
+      'type': type == MessageType.image ? 'image' : type == MessageType.file ? 'file' : 'text',
       'isDefault': isDefault,
     };
+    if (type == MessageType.file) {
+      if (fileName != null) map['fileName'] = fileName as Object;
+      if (fileType != null) map['fileType'] = fileType as Object;
+      if (fileSize != null) map['fileSize'] = fileSize as Object;
+    }
+    return map;
   }
 
   // Create a copy with updated fields
@@ -79,6 +94,9 @@ class ChatMessage {
     bool? isRead,
     MessageType? type,
     bool? isDefault,
+    String? fileName,
+    String? fileType,
+    int? fileSize,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -90,6 +108,9 @@ class ChatMessage {
       isRead: isRead ?? this.isRead,
       type: type ?? this.type,
       isDefault: isDefault ?? this.isDefault,
+      fileName: fileName,
+      fileType: fileType,
+      fileSize: fileSize,
     );
   }
 }

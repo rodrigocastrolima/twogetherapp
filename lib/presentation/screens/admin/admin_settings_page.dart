@@ -64,7 +64,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             child: Text(
               'Definições',
               style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
                 letterSpacing: -0.5,
               ),
@@ -150,27 +150,27 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   title: Text('Conectar Salesforce', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   subtitle: Text(statusSubtitle, style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                   onTap: () async {
-                    if (!isConnected) {
-                      final loadingService = ref.read(loadingServiceProvider);
+                if (!isConnected) {
+                  final loadingService = ref.read(loadingServiceProvider);
                       final salesforceNotifier = ref.read(salesforceAuthProvider.notifier);
                       loadingService.show(context, message: 'Conectando ao Salesforce...');
-                      try {
-                        await salesforceNotifier.signIn();
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Falha na conexão com o Salesforce: $e')),
-                          );
-                        }
-                      } finally {
-                        if (mounted) loadingService.hide();
-                      }
-                    } else {
+                  try {
+                    await salesforceNotifier.signIn();
+                  } catch (e) {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Conectado')),
+                            SnackBar(content: Text('Falha na conexão com o Salesforce: $e')),
                       );
                     }
-                  },
+                  } finally {
+                        if (mounted) loadingService.hide();
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Conectado')),
+                  );
+                }
+              },
                   trailing: Container(width: 10, height: 10, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
                 ),
               ),
