@@ -428,7 +428,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
 
       if (docSnapshot.exists) {
         final submission = ServiceSubmission.fromFirestore(docSnapshot);
-        context.push('/admin/opportunity-detail', extra: submission);
+        context.push('/review-this-submission', extra: submission);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -1021,7 +1021,7 @@ class _OpportunityVerificationPageState
 
   // --- Navigation ---
   void _navigateToDetail(BuildContext context, ServiceSubmission submission) {
-    context.push('/admin/opportunity-detail', extra: submission);
+    context.push('/review-this-submission', extra: submission);
   }
 
   // --- START: Deletion Logic --- Updated

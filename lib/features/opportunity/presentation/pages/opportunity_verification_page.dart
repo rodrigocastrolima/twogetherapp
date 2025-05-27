@@ -1,3 +1,7 @@
+// OBSOLETE FILE: This file is not used in the app. Do not edit or reference this file.
+// The real OpportunityVerificationPage is defined elsewhere (likely in admin_opportunity_page.dart).
+// This file is kept only for historical reference and should be deleted in the future.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -142,13 +146,11 @@ class OpportunityVerificationPage extends ConsumerStatefulWidget {
   const OpportunityVerificationPage({super.key});
 
   @override
-  ConsumerState<OpportunityVerificationPage> createState() =>
-      _OpportunityVerificationPageState();
+  ConsumerState<OpportunityVerificationPage> createState() => _ObsoleteOpportunityVerificationPageState();
 }
 
 // Add SingleTickerProviderStateMixin for TabController
-class _OpportunityVerificationPageState
-    extends ConsumerState<OpportunityVerificationPage>
+class _ObsoleteOpportunityVerificationPageState extends ConsumerState<OpportunityVerificationPage>
     with SingleTickerProviderStateMixin {
   String _searchQuery = '';
   Set<String>? _selectedResellers;
@@ -321,94 +323,8 @@ class _OpportunityVerificationPageState
 
   @override
   Widget build(BuildContext context) {
-    // Watch the Firestore provider here for filter availability
-    final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // Extract unique resellers from pending submissions for the filter sheet
-    final List<String> uniqueResellers = pendingOpportunitiesAsync.maybeWhen(
-      data:
-          (submissions) =>
-              submissions.map((s) => s.resellerName).nonNulls.toSet().toList()
-                ..sort(),
-      orElse: () => [], // Return empty list if loading or error
-    );
-
-    // --- Determine if the Salesforce Refresh button should be visible --- //
-    // Listen to tab changes to rebuild the AppBar actions
-    // Using a simple ValueNotifier + listener approach for simplicity here
-    final isSalesforceTabSelected = ValueNotifier<bool>(
-      _tabController.index == 2, // Updated to check for third tab
-    );
-    _tabController.addListener(() {
-      isSalesforceTabSelected.value = _tabController.index == 2; // Updated to check for third tab
-    });
-    // --- End Salesforce Refresh Button Visibility Logic --- //
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: null,
-      body: SafeArea(
-        bottom: false,
-        top: false, // SafeArea is handled by Scaffold/AppBar
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Title/Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-                  child: Text(
-                    'Oportunidades',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                // Tab Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _buildCustomTabBar(context, theme),
-                ),
-                // Header (Search and Filters) - Appears above tabs
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
-                  ),
-                  child: _buildHeader(
-                    context,
-                    theme,
-                    uniqueResellers,
-                  ),
-                ),
-                // Tab Content Area
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // --- Tab 1: New Submissions (pending_review) ---
-                        _buildNovasSubmissionsTab(context, theme),
-                        // --- Tab 2: Rejected Submissions ---
-                        _buildRejeitadasSubmissionsTab(context, theme),
-                        // --- Tab 3: Active Opportunities (Salesforce) ---
-                        _buildAtivasOpportunitiesTab(context, theme),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    // Throw if this is ever used
+    throw Exception('OBSOLETE: This OpportunityVerificationPage is not used. Check your imports and router.');
   }
 
   // --- Header Builder (Remains mostly the same, pass uniqueResellers) ---
@@ -1362,7 +1278,8 @@ class _OpportunityVerificationPageState
 
   // --- Navigation ---
   void _navigateToDetail(BuildContext context, ServiceSubmission submission) {
-    context.push('/admin/opportunity-detail', extra: submission);
+    // Navigate to the detail page with the submission data
+    context.push('/review-this-submission', extra: submission);
   }
 
   // --- START: Deletion Logic --- Updated

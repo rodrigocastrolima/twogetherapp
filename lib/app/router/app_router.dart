@@ -51,6 +51,7 @@ import 'package:twogether/presentation/screens/clients/reseller_proposal_details
 import 'package:twogether/features/providers/domain/models/provider_info.dart';
 import 'package:twogether/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart';
 import '../../features/user_management/presentation/pages/user_create_page.dart';
+import 'package:twogether/debug/minimal_debug_extra_page.dart'; // Import the new page
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -603,6 +604,14 @@ class AppRouter {
     debugLogDiagnostics: true,
     refreshListenable: authNotifier,
     redirect: (context, state) async {
+      // DETAILED LOGGING START
+      if (kDebugMode) {
+        print(
+          'GoRouter REDIRECT ENTRY --- Path: ${state.path}, FullPath: ${state.fullPath}, MatchedLocation: ${state.matchedLocation}, Name: ${state.name}, ExtraType: ${state.extra?.runtimeType}, ExtraValue: ${state.extra.toString()}, Params: ${state.pathParameters}, QueryParams: ${state.uri.queryParameters}, URI: ${state.uri.toString()}',
+        );
+      }
+      // DETAILED LOGGING END
+
       if (kDebugMode) {
         print(
           'GoRouter Redirect: Checking auth state... Current location: ${state.uri.toString()}',
@@ -685,8 +694,11 @@ class AppRouter {
 
           // --- 4. Apply Role-Based Routing & Salesforce Checks for Authenticated Users ---
           if (isAdmin) {
-            if (!currentRoute.startsWith('/admin') &&
-                currentRoute != '/proposal/create') {
+            final allowedNonAdminPaths = [
+              '/proposal/create',
+              '/review-this-submission' // Allow the actual target page for submissions
+            ];
+            if (!currentRoute.startsWith('/admin') && !allowedNonAdminPaths.contains(currentRoute)) {
               if (kDebugMode) {
                 print(
                   'GoRouter Redirect: Admin detected outside allowed routes, redirecting to /admin from ${state.uri.toString()}',
@@ -749,6 +761,40 @@ class AppRouter {
               child: const ChangePasswordPage(),
             ),
       ),
+
+      // NEW DEBUG ROUTE START
+      GoRoute(
+        path: '/debug-extra-test',
+        name: 'debugExtraTest',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          if (kDebugMode) {
+            print('[DEBUG EXTRA TEST PAGE] Received extra: ${state.extra?.runtimeType} - ${state.extra.toString()}');
+          }
+          return MaterialPage(
+            child: Scaffold(
+              appBar: AppBar(title: const Text('Debug Extra Test')),
+              body: Center(
+                child: Text('Extra received: ${state.extra?.runtimeType}\\nValue: ${state.extra.toString()}'),
+              ),
+            ),
+          );
+        },
+      ),
+      // NEW DEBUG ROUTE END
+
+      // NEW MINIMAL DEBUG ROUTE START
+      GoRoute(
+        path: '/minimal-debug-page',
+        name: 'minimalDebugPage',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          return MaterialPage(
+            child: MinimalDebugExtraPage(extraData: state.extra),
+          );
+        },
+      ),
+      // NEW MINIMAL DEBUG ROUTE END
 
       // Reseller routes SHELL
       ShellRoute(
@@ -856,20 +902,59 @@ class AppRouter {
         ),
       ),
       GoRoute(
-        path: '/admin/opportunity-detail',
+        path: '/review-this-submission',
+        name: 'adminSubmissionReview',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
-          final opportunity = state.extra as data_models.SalesforceOpportunity?;
-          if (opportunity == null) {
+          final submission = state.extra as ServiceSubmission?;
+          if (submission == null) {
             return const MaterialPage(
               child: Scaffold(
-                body: Center(child: Text("Opportunity data missing")),
+                body: Center(child: Text("Error: Submission data missing for review.")),
               ),
             );
           }
           return _SlideTransition(
-            child: OpportunityDetailsPage(opportunity: opportunity),
+            child: OpportunityDetailFormView(submission: submission),
           );
+        },
+      ),
+      GoRoute(
+        path: '/admin/opportunity-detail',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          if (state.extra is data_models.SalesforceOpportunity) {
+            final opportunity = state.extra as data_models.SalesforceOpportunity?;
+            // The null check for opportunity is actually redundant now if previous line is true, 
+            // but kept for clarity if SalesforceOpportunity itself could be null conceptually (though not from this cast).
+            if (opportunity == null) { 
+              return const MaterialPage(
+                child: Scaffold(
+                  body: Center(child: Text("Opportunity data missing")),
+                ),
+              );
+            }
+            return _SlideTransition(
+              child: OpportunityDetailsPage(opportunity: opportunity),
+            );
+          } else {
+            // Handle incorrect type or null extra
+            String errorMessage = "Error: Incorrect data type for /admin/opportunity-detail.";
+            if (state.extra == null) {
+              errorMessage = "Error: Missing data for /admin/opportunity-detail.";
+            } else {
+              errorMessage = "Error: Expected SalesforceOpportunity, got ${state.extra?.runtimeType} for /admin/opportunity-detail.";
+              if (kDebugMode) {
+                print("ROUTING ERROR on /admin/opportunity-detail: Expected SalesforceOpportunity, got ${state.extra?.runtimeType}");
+              }
+            }
+            return MaterialPage(
+              child: Scaffold(
+                appBar: AppBar(title: const Text("Navigation Error")),
+                body: Center(child: Text(errorMessage)),
+              ),
+            );
+          }
         },
       ),
       GoRoute(
@@ -1074,42 +1159,6 @@ class AppRouter {
           }
           return MaterialPage(
             child: ProposalDetailPage(proposal: proposal, index: index),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/opportunity-details', // Keep this top-level one
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) {
-          final opportunity = state.extra as data_models.SalesforceOpportunity?;
-          if (opportunity == null) {
-            return const MaterialPage(
-              child: Scaffold(
-                body: Center(child: Text("Opportunity data missing")),
-              ),
-            );
-          }
-          return _SlideTransition(
-            child: OpportunityDetailsPage(opportunity: opportunity),
-          );
-        },
-      ),
-      // Add the Admin Proposal Detail as a top-level route within the admin scope
-      // This makes its path simpler: /admin/proposal/:proposalId
-      GoRoute(
-        path: '/admin/proposal/:proposalId',
-        name: 'adminProposalDetail', // Keep the name
-        // Ensure this is only accessible by admin via redirect logic
-        pageBuilder: (context, state) {
-          final container = ProviderScope.containerOf(context);
-          final authNotifier = container.read(authNotifierProvider);
-          if (!authNotifier.isAdmin) {
-            return const MaterialPage(child: Scaffold(body: Center(child: Text('Access Denied'))));
-          }
-          final proposalId = state.pathParameters['proposalId']!;
-          return _SlideTransition(
-            child: AdminSalesforceProposalDetailPage(proposalId: proposalId),
-            reverse: false,
           );
         },
       ),

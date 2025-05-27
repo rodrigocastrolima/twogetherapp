@@ -18,6 +18,13 @@ import 'package:twogether/features/opportunity/data/models/create_opp_models.dar
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import provider
 import 'package:go_router/go_router.dart'; // For navigation
 
+// --- Add imports for file picker and storage ---
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import 'dart:io';
+import 'package:twogether/features/services/presentation/widgets/file_upload_widget.dart';
+import 'package:twogether/features/services/presentation/providers/service_submission_provider.dart';
+
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
   final ServiceSubmission? submission;
@@ -1162,70 +1169,76 @@ class _OpportunityDetailFormViewState
                   // --- Faturas Section ---
                   sectionTitle('Secção Faturas'),
                   const SizedBox(height: 12),
-                  FutureBuilder<List<Map<String, String?>>>(
-                    future: _fetchMultipleDownloadUrls(), // Call the new function
-                    builder: (context, snapshot) {
-                      // Check connection state
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Row(
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.primary, // Use theme color
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'A carregar...', // Loading...
-                              style: textTheme.bodySmall,
-                            ),
-                          ],
-                        );
-                      }
-
-                      // Check for errors during the fetch process itself (e.g., network error)
-                      if (snapshot.hasError) {
-                        return Row(
-                          children: [
-                            Icon(Icons.error_outline, color: colorScheme.error),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Erro: ${snapshot.error}', // Error: ...
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.error,
+                  if (widget.isManualMode) ...[
+                    // --- Use shared FileUploadWidget for manual mode ---
+                    const FileUploadWidget(),
+                    const SizedBox(height: 20),
+                  ]
+                  else
+                    FutureBuilder<List<Map<String, String?>>>(
+                      future: _fetchMultipleDownloadUrls(), // Call the new function
+                      builder: (context, snapshot) {
+                        // Check connection state
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return Row(
+                            children: [
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.primary, // Use theme color
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'A carregar...', // Loading...
+                                style: textTheme.bodySmall,
+                              ),
+                            ],
+                          );
+                        }
+
+                        // Check for errors during the fetch process itself (e.g., network error)
+                        if (snapshot.hasError) {
+                          return Row(
+                            children: [
+                              Icon(Icons.error_outline, color: colorScheme.error),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Erro: ${snapshot.error}', // Error: ...
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        // Check if data (list of results) exists and is not null/empty
+                        final results = snapshot.data;
+                        if (results == null || results.isEmpty) {
+                          return Text(
+                            'Nenhum ficheiro disponível', // No files available
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                          ],
-                        );
-                      }
+                          );
+                        }
 
-                      // Check if data (list of results) exists and is not null/empty
-                      final results = snapshot.data;
-                      if (results == null || results.isEmpty) {
-                        return Text(
-                          'Nenhum ficheiro disponível', // No files available
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        // --- Display Previews using Wrap --- //
+                        return Wrap(
+                          spacing: 8.0,
+                          runSpacing: 8.0,
+                          children:
+                              results.map((fileData) {
+                                return _buildDocumentPreview(context, fileData);
+                              }).toList(),
                         );
-                      }
-
-                      // --- Display Previews using Wrap --- //
-                      return Wrap(
-                        spacing: 8.0,
-                        runSpacing: 8.0,
-                        children:
-                            results.map((fileData) {
-                              return _buildDocumentPreview(context, fileData);
-                            }).toList(),
-                      );
-                    },
-                  ),
+                      },
+                    ),
                   const SizedBox(height: 20),
                   // --- Actions or Rejection Info ---
                   if (widget.submission?.status == 'rejected')
@@ -2033,9 +2046,20 @@ class _OpportunityDetailFormViewState
     return '${parts[2]}-${parts[0].padLeft(2, '0')}-${parts[1].padLeft(2, '0')}';
   }
 
+  // --- MODIFIED: _submitForm to get files from provider and upload them ---
   Future<void> _submitForm() async {
     try {
       setState(() => _isSubmitting = true);
+
+      // --- NEW: Get files from FileUploadWidget/provider and upload ---
+      List<String>? invoiceUrls;
+      if (widget.isManualMode) {
+        final fileState = ref.read(serviceSubmissionProvider);
+        final files = fileState.selectedFiles;
+        if (files.isNotEmpty) {
+          invoiceUrls = await _uploadInvoiceFiles(files);
+        }
+      }
 
       // Get Salesforce auth data
       final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
@@ -2078,7 +2102,7 @@ class _OpportunityDetailFormViewState
         closeDate: formattedCloseDate,
         opportunityType: _tipoOportunidadeValue ?? '', // Assume determined
         phase: _faseValue, // Use fixed value
-        fileUrls: widget.submission?.documentUrls,
+        fileUrls: invoiceUrls ?? widget.submission?.documentUrls,
       );
 
       final result = await ref.read(createOpportunityProvider(params).future);
@@ -2093,7 +2117,7 @@ class _OpportunityDetailFormViewState
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao criar oportunidade: ${result.error}')),
+            SnackBar(content: Text('Erro ao criar oportunidade:  ${result.error}')),
           );
         }
       }
@@ -2108,6 +2132,27 @@ class _OpportunityDetailFormViewState
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  // --- NEW: Upload files to Firebase Storage and get URLs ---
+  Future<List<String>> _uploadInvoiceFiles(List<PlatformFile> files) async {
+    List<String> downloadUrls = [];
+    for (final file in files) {
+      final fileName = file.name;
+      final ref = FirebaseStorage.instance.ref().child('manual_invoices/${DateTime.now().millisecondsSinceEpoch}_$fileName');
+      UploadTask uploadTask;
+      if (file.bytes != null) {
+        uploadTask = ref.putData(file.bytes!);
+      } else if (file.path != null) {
+        uploadTask = ref.putFile(File(file.path!));
+      } else {
+        continue;
+      }
+      final snapshot = await uploadTask;
+      final url = await snapshot.ref.getDownloadURL();
+      downloadUrls.add(url);
+    }
+    return downloadUrls;
   }
 
   Future<void> _fetchUserOptions() async {

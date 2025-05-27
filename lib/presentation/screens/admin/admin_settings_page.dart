@@ -32,472 +32,173 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
     final isDarkMode = themeMode == ThemeMode.dark;
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
-
     final salesforceState = ref.watch(salesforceAuthProvider);
-
     Color statusColor;
     String statusSubtitle;
     bool isConnected = false;
-
     switch (salesforceState) {
       case SalesforceAuthState.authenticated:
         statusColor = AppTheme.success;
-        statusSubtitle = 'Connected';
+        statusSubtitle = 'Conectado';
         isConnected = true;
         break;
       case SalesforceAuthState.unauthenticated:
       case SalesforceAuthState.error:
         statusColor = AppTheme.destructive;
-        statusSubtitle = 'Disconnected - Tap to connect';
+        statusSubtitle = 'Desconectado - Toque para conectar';
         break;
       case SalesforceAuthState.authenticating:
       case SalesforceAuthState.unknown:
         statusColor = AppTheme.muted;
-        statusSubtitle = 'Checking Status...';
+        statusSubtitle = 'A verificar estado...';
         break;
     }
-
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Definições de Perfil',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: textColor,
+          // --- Page Title ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+            child: Text(
+              'Definições',
+              style: theme.textTheme.headlineLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
           const SizedBox(height: 32),
-
-          _buildSettingsGroup('Conta', [
-            _buildActionSetting(
-              'Perfil de Administrador',
-              'Ver e editar perfil',
-              CupertinoIcons.person_fill,
-              () {
-                // Navigate to admin profile
-              },
+          // --- Conta Section ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  leading: Icon(CupertinoIcons.person_fill, color: theme.colorScheme.primary, size: 24),
+                  title: Text('Perfil de Administrador', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  subtitle: Text('Ver e editar perfil', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                  onTap: () {},
+                  trailing: Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
+                ),
+              ),
             ),
-          ]),
+          ),
           const SizedBox(height: 24),
-
-          _buildSettingsGroup('Definições Comuns', [
-            _buildToggleSetting(
-              'Tema',
-              isDarkMode ? 'Escuro' : 'Claro',
-              isDarkMode
-                  ? CupertinoIcons.moon_fill
-                  : CupertinoIcons.sun_max_fill,
-              isDarkMode,
-              (value) {
-                if (kDebugMode) {
-                  print('[AdminSettingsPage] Theme switch toggled: $value');
-                }
-                ref.read(themeProvider.notifier).toggleTheme();
-              },
+          // --- Definições Comuns Section ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      leading: Icon(isDarkMode ? CupertinoIcons.moon_fill : CupertinoIcons.sun_max_fill, color: theme.colorScheme.primary, size: 24),
+                      title: Text('Tema', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                      subtitle: Text(isDarkMode ? 'Escuro' : 'Claro', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                      trailing: Switch(
+                        value: isDarkMode,
+                        onChanged: (value) => ref.read(themeProvider.notifier).toggleTheme(),
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      leading: Icon(CupertinoIcons.bell_fill, color: theme.colorScheme.primary, size: 24),
+                      title: Text('Notificações', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                      subtitle: Text('Gerir preferências de notificação', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                      trailing: Switch(
+                        value: _notificationsEnabled,
+                        onChanged: (value) => setState(() => _notificationsEnabled = value),
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            _buildLanguageSetting(
-              'Idioma',
-              'Selecionar idioma da aplicação',
-              CupertinoIcons.globe,
-              'pt',
-            ),
-            _buildToggleSetting(
-              'Notificações',
-              'Gerir preferências de notificação',
-              CupertinoIcons.bell_fill,
-              _notificationsEnabled,
-              (value) {
-                setState(() {
-                  _notificationsEnabled = value;
-                });
-              },
-            ),
-            _buildToggleSetting(
-              'Alertas de Segurança',
-              'Receber alertas sobre atividade suspeita',
-              CupertinoIcons.shield_fill,
-              _securityAlertsEnabled,
-              (value) {
-                setState(() {
-                  _securityAlertsEnabled = value;
-                });
-              },
-            ),
-          ]),
+          ),
           const SizedBox(height: 24),
-
-          _buildSettingsGroup('Preferências de Administrador', [
-            _buildActionSetting(
-              'Configuração do Sistema',
-              'Gerir configurações gerais do sistema',
-              CupertinoIcons.gear_alt_fill,
-              () {
-                // TODO: Navigate to system configuration
-              },
-            ),
-            _buildActionSetting(
-              'Conectar Salesforce',
-              statusSubtitle,
-              CupertinoIcons.cloud,
-              () async {
-                if (!isConnected) {
-                  final loadingService = ref.read(loadingServiceProvider);
-                  final salesforceNotifier = ref.read(
-                    salesforceAuthProvider.notifier,
-                  );
-                  loadingService.show(
-                    context,
-                    message: 'Connecting to Salesforce...',
-                  );
-                  try {
-                    await salesforceNotifier.signIn();
-                  } catch (e) {
-                    if (mounted) {
+          // --- Preferências de Administrador Section ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  leading: Icon(CupertinoIcons.cloud, color: theme.colorScheme.primary, size: 24),
+                  title: Text('Conectar Salesforce', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  subtitle: Text(statusSubtitle, style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                  onTap: () async {
+                    if (!isConnected) {
+                      final loadingService = ref.read(loadingServiceProvider);
+                      final salesforceNotifier = ref.read(salesforceAuthProvider.notifier);
+                      loadingService.show(context, message: 'Conectando ao Salesforce...');
+                      try {
+                        await salesforceNotifier.signIn();
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Falha na conexão com o Salesforce: $e')),
+                          );
+                        }
+                      } finally {
+                        if (mounted) loadingService.hide();
+                      }
+                    } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Salesforce connection failed: $e'),
-                        ),
+                        const SnackBar(content: Text('Conectado')),
                       );
                     }
-                  } finally {
-                    if (mounted) {
-                      loadingService.hide();
-                    }
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Already connected. Disconnect functionality not implemented yet.',
-                      ),
-                    ),
-                  );
-                }
-              },
-              statusIndicator: _buildStatusIndicator(statusColor),
-              hideChevron: true,
-            ),
-            _buildActionSetting(
-              'Developer Tools',
-              'Access admin-only scripts and tools.',
-              CupertinoIcons.hammer_fill,
-              () => context.push('/admin/dev-tools'),
-            ),
-          ]),
-          const SizedBox(height: 24),
-
-          _buildActionSetting(
-            'Terminar Sessão',
-            'Encerrar a sessão atual',
-            CupertinoIcons.square_arrow_right,
-            () {
-              _handleLogout(context, ref);
-            },
-            color: Theme.of(context).colorScheme.error,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsGroup(String title, List<Widget> children) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: AppStyles.standardBlur,
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color:
-                      isDark
-                          ? Color.alphaBlend(
-                            theme.colorScheme.onSurface.withAlpha(
-                              (255 * 0.05).round(),
-                            ),
-                            Colors.transparent,
-                          )
-                          : Color.alphaBlend(
-                            theme.dividerColor.withAlpha((255 * 0.1).round()),
-                            Colors.transparent,
-                          ),
-                  width: 0.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        isDark
-                            ? Color.alphaBlend(
-                              theme.colorScheme.shadow.withAlpha(
-                                (255 * 0.2).round(),
-                              ),
-                              Colors.transparent,
-                            )
-                            : Color.alphaBlend(
-                              theme.colorScheme.shadow.withAlpha(
-                                (255 * 0.05).round(),
-                              ),
-                              Colors.transparent,
-                            ),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(children: children),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToggleSetting(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Color.alphaBlend(
-                      theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.7).round(),
-                      ),
-                      Colors.transparent,
-                    ),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: theme.colorScheme.primary,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanguageSetting(
-    String title,
-    String subtitle,
-    IconData icon,
-    String currentLocale,
-  ) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: theme.colorScheme.primary, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Color.alphaBlend(
-                      theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.7).round(),
-                      ),
-                      Colors.transparent,
-                    ),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  theme.colorScheme.surface.withAlpha((255 * 0.5).round()),
-                  Colors.transparent,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Color.alphaBlend(
-                    theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
-                    Colors.transparent,
-                  ),
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: currentLocale,
-                  icon: Icon(
-                    CupertinoIcons.chevron_down,
-                    size: 16,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  dropdownColor: Color.alphaBlend(
-                    theme.colorScheme.surface.withAlpha((255 * 0.95).round()),
-                    Colors.transparent,
-                  ),
-                  style: TextStyle(color: theme.colorScheme.onSurface),
-                  onChanged: (String? value) async {
-                    // Language changing is removed, so this callback does nothing
                   },
-                  items: const [
-                    DropdownMenuItem<String>(
-                      value: 'pt',
-                      child: Text('Português'),
-                    ),
-                  ],
+                  trailing: Container(width: 10, height: 10, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
                 ),
               ),
             ),
           ),
+          const SizedBox(height: 24),
+          // --- Terminar Sessão ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  leading: Icon(CupertinoIcons.square_arrow_right, color: theme.colorScheme.error, size: 24),
+                  title: Text('Terminar Sessão', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.error)),
+                  subtitle: Text('Encerrar a sessão atual', style: TextStyle(color: theme.colorScheme.error.withOpacity(0.7), fontSize: 14)),
+                  onTap: () => _handleLogout(context, ref),
+                  trailing: null,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionSetting(
-    String title,
-    String subtitle,
-    IconData icon,
-    VoidCallback onTap, {
-    Color? color,
-    Widget? statusIndicator,
-    bool hideChevron = false,
-  }) {
-    final theme = Theme.of(context);
-    final defaultColor = theme.colorScheme.onSurface;
-    final iconColor = color ?? theme.colorScheme.primary;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  iconColor.withAlpha((255 * 0.1).round()),
-                  Colors.transparent,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color.alphaBlend(
-                        color ?? defaultColor,
-                        Colors.transparent,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Color.alphaBlend(
-                        (color ?? defaultColor).withAlpha((255 * 0.7).round()),
-                        Colors.transparent,
-                      ),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (statusIndicator != null) statusIndicator,
-            if (!hideChevron) ...[
-              const SizedBox(width: 8),
-              Icon(
-                CupertinoIcons.chevron_right,
-                color: Color.alphaBlend(
-                  (color ?? defaultColor).withAlpha((255 * 0.7).round()),
-                  Colors.transparent,
-                ),
-                size: 20,
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -575,15 +276,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStatusIndicator(Color color) {
-    return Container(
-      width: 10,
-      height: 10,
-      margin: const EdgeInsets.only(left: 8),
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
