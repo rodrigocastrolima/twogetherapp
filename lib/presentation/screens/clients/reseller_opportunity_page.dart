@@ -275,6 +275,87 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
+  void _showIconLegendDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Legenda dos Ícones'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                _buildLegendRow(
+                  context,
+                  const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue),
+                  'Ação Necessária:',
+                  'Requer a sua atenção para dar seguimento ao processo.',
+                ),
+                const SizedBox(height: 8),
+                _buildLegendRow(
+                  context,
+                  const Icon(CupertinoIcons.clock_fill, color: Colors.orange),
+                  'A Aguardar:',
+                  'A Twogether está a tratar desta oportunidade ou o prazo expirou. Por favor, aguarde ou verifique.',
+                ),
+                const SizedBox(height: 8),
+                _buildLegendRow(
+                  context,
+                  const Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green),
+                  'Concluído:',
+                  'O processo desta oportunidade foi finalizado com sucesso.',
+                ),
+                const SizedBox(height: 8),
+                _buildLegendRow(
+                  context,
+                  const Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red),
+                  'Cancelada/Rejeitada:',
+                  'Esta oportunidade foi cancelada ou não foi aprovada.',
+                ),
+                const SizedBox(height: 8),
+                _buildLegendRow(
+                  context,
+                  Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant),
+                  'Outro:',
+                  'Oportunidade em estado inicial ou outro.',
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Fechar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLegendRow(BuildContext context, Icon icon, String title, String subtitle) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        icon,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: theme.textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -298,12 +379,81 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 const SizedBox(height: 32),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'Clientes',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Clientes',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        richMessage: TextSpan(
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 15, // Increased font size
+                          ),
+                          children: <InlineSpan>[
+                            const TextSpan(text: 'Legenda dos Ícones:\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // Title font size
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue, size: 20), // Increased icon size
+                            ),
+                            const TextSpan(text: ' Ação Necessária: Requer a sua atenção.\n'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(CupertinoIcons.clock_fill, color: Colors.orange, size: 20), // Increased icon size
+                            ),
+                            const TextSpan(text: ' A Aguardar: Aguarde a Twogether ou verifique.\n'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green, size: 20), // Increased icon size
+                            ),
+                            const TextSpan(text: ' Concluído: Processo finalizado com sucesso.\n'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red, size: 20), // Increased icon size
+                            ),
+                            const TextSpan(text: ' Cancelada/Rejeitada: Oportunidade não aprovada.\n'),
+                            WidgetSpan(
+                              alignment: PlaceholderAlignment.middle,
+                              child: Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant, size: 20), // Increased icon size
+                            ),
+                            const TextSpan(text: ' Outro: Estado inicial ou diferente.'),
+                          ],
+                        ),
+                        preferBelow: false,
+                        verticalOffset: 22, 
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), 
+                        decoration: BoxDecoration(
+                          color: (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceContainerHigh : theme.cardColor).withOpacity(0.98),
+                          borderRadius: BorderRadius.circular(10), 
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.shadowColor.withOpacity(0.08),
+                              blurRadius: 6,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 0,
+                          child: Icon(
+                            CupertinoIcons.info_circle,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            size: 24,
+                          ),
+                          onPressed: () {
+                            _showIconLegendDialog(context);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
