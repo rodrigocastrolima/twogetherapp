@@ -3,7 +3,7 @@
 
 # Set the project and bucket name
 $projectId = "twogetherapp-65678"
-$bucketName = "$projectId.appspot.com"
+$bucketName = "$projectId.firebasestorage.app"
 
 Write-Host "Applying CORS configuration to Firebase Storage bucket: $bucketName" -ForegroundColor Cyan
 

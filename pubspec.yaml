@@ -98,6 +98,7 @@ dependencies:
   mime: ^1.0.5
 
   open_file: ^3.3.2 # Added for opening files
+  file_saver: ^0.2.14 # Added for saving files to device
 
 dev_dependencies:
   flutter_test:

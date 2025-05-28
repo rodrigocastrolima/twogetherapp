@@ -58,7 +58,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: theme.colorScheme.background,
       body: SafeArea(
         child: Center(
               child: Column(
@@ -125,7 +125,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                     Consumer(
                       builder: (context, ref, _) {
                         final notificationActions = ref.read(notificationActionsProvider);
-                        return TextButton.icon(
+                        return IconButton(
                           onPressed: () async {
                             final shouldClear = await showDialog<bool>(
                               context: context,
@@ -158,15 +158,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                           },
                           icon: Icon(
                             CupertinoIcons.trash,
-                            size: 18,
-                            color: theme.colorScheme.error.withOpacity(0.7),
+                            size: 22,
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
-                          label: Text(
-                            'Limpar',
-                            style: TextStyle(
-                              color: theme.colorScheme.error.withOpacity(0.7),
-                            ),
-                          ),
+                          tooltip: 'Limpar notificações',
                         );
                       },
                     ),

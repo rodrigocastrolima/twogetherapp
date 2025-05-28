@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// A clean, cardless list item for notifications, clients, opportunities, etc.
-/// - Shows a leading icon/avatar, title, optional subtitle, optional trailing widget, and optional unread dot.
+/// - Shows a leading icon/avatar, title, optional subtitle, optional trailing widget, and optional unread badge.
 /// - Uses a subtle hover/focus background and a simple bottom divider.
 /// - No elevation, no card, just a flat row.
 class SimpleListItem extends StatefulWidget {
@@ -44,7 +44,6 @@ class _SimpleListItemState extends State<SimpleListItem> {
         : Colors.transparent;
     final textColor = theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface;
     final subtitleColor = theme.textTheme.bodyMedium?.color?.withOpacity(0.7) ?? theme.colorScheme.onSurfaceVariant;
-    final unreadDotColor = const Color(0xFF3B82F6);
 
     // Use only vertical padding for the outer container, horizontal goes inside
     final rowPadding = widget.padding ?? const EdgeInsets.symmetric(vertical: 0);
@@ -75,77 +74,80 @@ class _SimpleListItemState extends State<SimpleListItem> {
         child: Container(
           color: effectiveBgColor,
           padding: rowPadding,
-          child: Column(
+          child: Stack(
             children: [
-              const SizedBox(height: verticalContentSpacing),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
-                child: Row(
-                  crossAxisAlignment: widget.subtitle != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-                  children: [
-                    if (widget.leading != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: widget.leading!,
-                      ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+              Column(
+                children: [
+                  const SizedBox(height: verticalContentSpacing),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
+                    child: Row(
+                      crossAxisAlignment: widget.subtitle != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                      children: [
+                        if (widget.leading != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: widget.leading!,
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  widget.title,
-                                  style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: textColor,
-                                    fontFamily: theme.textTheme.bodyLarge?.fontFamily,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              Text(
+                                widget.title,
+                                style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: textColor,
+                                  fontFamily: theme.textTheme.bodyLarge?.fontFamily,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              if (widget.isUnread)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.only(left: 8),
-                                  decoration: BoxDecoration(
-                                    color: unreadDotColor,
-                                    shape: BoxShape.circle,
+                              if (widget.subtitle != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6.0),
+                                  child: Text(
+                                    widget.subtitle!,
+                                    style: subtitleStyle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                             ],
                           ),
-                          if (widget.subtitle != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6.0),
-                              child: Text(
-                                widget.subtitle!,
-                                style: subtitleStyle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (widget.trailing != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16),
+                            child: widget.trailing!,
+                          ),
+                      ],
                     ),
-                    if (widget.trailing != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: widget.trailing!,
-                      ),
-                  ],
+                  ),
+                  const SizedBox(height: verticalContentSpacing),
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: theme.dividerColor.withOpacity(0.10),
+                    indent: 0,
+                  ),
+                ],
+              ),
+              // NOVO Badge positioned aligned with subtitle text
+              if (widget.isUnread && widget.subtitle != null)
+                Positioned(
+                  top: verticalContentSpacing + 6.0 + 18, // verticalContentSpacing + subtitle top padding + line height
+                  right: horizontalContentPadding,
+                  child: Text(
+                    'NOVO',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: verticalContentSpacing),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: theme.dividerColor.withOpacity(0.10),
-                indent: 0,
-              ),
             ],
           ),
         ),

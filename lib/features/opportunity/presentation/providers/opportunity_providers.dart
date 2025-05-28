@@ -131,16 +131,25 @@ final createOpportunityProvider =
 
 // --- NEW Providers for Admin SF Opportunity Management ---
 
-/// Provides an instance of the OpportunityService.
-final salesforceOpportunityServiceProvider = Provider<OpportunityService>((
-  ref,
-) {
-  // Get dependencies required by OpportunityService constructor
+/// Provider for the OpportunityService used by admin/OAuth users
+final salesforceOpportunityServiceProvider = Provider<OpportunityService>((ref) {
   final authNotifier = ref.watch(salesforceAuthProvider.notifier);
-  final functions = FirebaseFunctions.instance; // Use default instance
+  final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+  return OpportunityService(
+    authNotifier: authNotifier,
+    functions: functions,
+  );
+});
 
-  // Correctly instantiate OpportunityService with dependencies
-  return OpportunityService(authNotifier: authNotifier, functions: functions);
+/// Provider for the OpportunityService used by resellers (JWT flow)
+/// This uses the same service class but the context determines which methods are called
+final resellerOpportunityServiceProvider = Provider<OpportunityService>((ref) {
+  final authNotifier = ref.watch(salesforceAuthProvider.notifier); // Still needed for other operations
+  final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+  return OpportunityService(
+    authNotifier: authNotifier,
+    functions: functions,
+  );
 });
 
 /// FutureProvider to fetch the list of existing Salesforce Opportunities for Admin view.

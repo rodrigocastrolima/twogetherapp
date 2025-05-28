@@ -3,6 +3,7 @@ import 'dart:io'; // For HttpException
 import 'package:http/http.dart' as http; // For API calls
 import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
 import 'dart:typed_data'; // For Uint8List
+import 'package:file_picker/file_picker.dart'; // For PlatformFile
 
 import '../models/detailed_salesforce_proposal.dart';
 import '../models/cpe_proposal_link.dart'; // Although parsing happens in DetailedSalesforceProposal.fromJson
@@ -209,6 +210,59 @@ class SalesforceProposalRepository {
     } catch (e) {
       print("Error calling delete file function: $e");
       throw Exception('An unexpected error occurred while deleting file: $e');
+    }
+  }
+
+  /// Creates CPEs for an existing proposal via Cloud Function.
+  /// Returns the list of created CPE-Proposta IDs if successful.
+  Future<List<String>> createCpeForProposal({
+    required String accessToken,
+    required String instanceUrl,
+    required String proposalId,
+    required String accountId,
+    required String resellerSalesforceId,
+    required List<Map<String, dynamic>> cpeItems, // Contains CPE data and files
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('createCpeForProposal');
+      
+      final Map<String, dynamic> data = {
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        'proposalId': proposalId,
+        'accountId': accountId,
+        'resellerSalesforceId': resellerSalesforceId,
+        'cpeItems': cpeItems,
+      };
+
+      final HttpsCallableResult result = await callable.call(data);
+
+      if (result.data?['success'] == true) {
+        final List<dynamic> cpeIds = result.data?['createdCpePropostaIds'] ?? [];
+        print("Successfully created CPEs for proposal via Cloud Function: ${cpeIds.join(', ')}");
+        return cpeIds.cast<String>();
+      } else {
+        throw Exception(
+          result.data?['error'] ?? 'Unknown error creating CPEs for proposal.',
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      print(
+        "FirebaseFunctionsException calling createCpeForProposal: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+      );
+      if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
+        throw Exception('Salesforce session expired. Please re-authenticate.');
+      }
+      if (e.code == 'not-found') {
+        throw Exception('Proposal not found.');
+      }
+      if (e.code == 'invalid-argument') {
+        throw Exception('Invalid CPE data provided: ${e.message}');
+      }
+      throw Exception('Cloud function error during CPE creation: ${e.message}');
+    } catch (e) {
+      print("Error calling create CPE for proposal function: $e");
+      throw Exception('An unexpected error occurred while creating CPEs: $e');
     }
   }
 }

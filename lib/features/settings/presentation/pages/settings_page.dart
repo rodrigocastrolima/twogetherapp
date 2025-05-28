@@ -13,6 +13,7 @@ import '../../../../core/providers/theme_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../presentation/widgets/app_loading_indicator.dart';
+import '../../../notifications/presentation/providers/notification_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -28,44 +29,105 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final themeNotifier = ref.watch(themeProvider.notifier);
     final theme = Theme.of(context);
 
-    return ClipRect(
-      child: NoScrollbarBehavior.noScrollbars(
-        context,
-        SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.spacing16,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      'Definições',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      textAlign: TextAlign.left,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSettingsMenu(
-                    context,
-                    ref,
-                    themeNotifier,
-                    currentTheme,
-                    theme,
-                  ),
-                ],
+    return Scaffold(
+      backgroundColor: theme.colorScheme.background,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          // --- Title ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+            child: Text(
+              'Definições',
+              style: theme.textTheme.headlineLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: -0.5,
               ),
             ),
           ),
-        ),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSettingsTile(
+                  icon: Icons.person_outline,
+                  title: 'Perfil',
+                  subtitle: 'Ver perfil',
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                  ),
+                  onTap: () {
+                    context.push('/profile-details');
+                  },
+                  theme: theme,
+                ),
+                const SizedBox(height: 24),
+                // Group Tema and Notificações in a single card
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  margin: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.dark_mode, color: theme.colorScheme.primary, size: 24),
+                        title: Text('Tema', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                        subtitle: Text(getThemeName(), style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                        trailing: Switch(
+                          value: currentTheme == ThemeMode.dark,
+                          activeColor: theme.colorScheme.primary,
+                          inactiveThumbColor: theme.colorScheme.outline,
+                          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return theme.colorScheme.primary;
+                            }
+                            return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                          }),
+                          onChanged: (bool value) {
+                            themeNotifier.setTheme(value ? ThemeMode.dark : ThemeMode.light);
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        leading: Icon(Icons.notifications_outlined, color: theme.colorScheme.primary, size: 24),
+                        title: Text('Notificações', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                        subtitle: Text(ref.watch(pushNotificationSettingsProvider) ? 'Ativadas' : 'Desativadas', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                        trailing: Switch(
+                          value: ref.watch(pushNotificationSettingsProvider),
+                          activeColor: theme.colorScheme.primary,
+                          inactiveThumbColor: theme.colorScheme.outline,
+                          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                            if (states.contains(WidgetState.selected)) {
+                              return theme.colorScheme.primary;
+                            }
+                            return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                          }),
+                          onChanged: (bool value) {
+                            ref.read(pushNotificationSettingsProvider.notifier).setEnabled(value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildSettingsTile(
+                  icon: Icons.logout,
+                  title: 'Sair',
+                  subtitle: 'Encerrar sessão',
+                  textColor: theme.colorScheme.error,
+                  onTap: () => _handleLogout(context),
+                  theme: theme,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -139,189 +201,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  Widget _buildSettingsMenu(
-    BuildContext context,
-    WidgetRef ref,
-    ThemeNotifier themeNotifier,
-    ThemeMode currentTheme,
-    ThemeData theme,
-  ) {
-    String getThemeName() {
-      switch (currentTheme) {
-        case ThemeMode.light:
-          return 'Claro';
-        case ThemeMode.dark:
-          return 'Escuro';
-        case ThemeMode.system:
-          return 'Sistema';
-      }
+  String getThemeName() {
+    final currentTheme = ref.watch(themeProvider);
+    switch (currentTheme) {
+      case ThemeMode.light:
+        return 'Claro';
+      case ThemeMode.dark:
+        return 'Escuro';
+      case ThemeMode.system:
+        return 'Sistema';
     }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSettingsSection('Informações Pessoais', [
-          _buildSettingsTile(
-            icon: Icons.person_outline,
-            title: 'Perfil',
-            subtitle: 'Ver perfil',
-            trailing: Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
-            ),
-            onTap: () {
-              context.push('/profile-details');
-            },
-            theme: theme,
-          ),
-        ], theme),
-        const SizedBox(height: AppConstants.spacing32),
-        _buildSettingsSection('Preferências', [
-          _buildSettingsTile(
-            icon: Icons.dark_mode,
-            title: 'Tema',
-            subtitle: getThemeName(),
-            trailing: Switch(
-              value: currentTheme == ThemeMode.dark,
-              activeColor: theme.colorScheme.primary,
-              inactiveTrackColor: theme.colorScheme.onSurface.withAlpha(
-                (255 * 0.3).round(),
-              ),
-              onChanged: (bool value) {
-                if (kDebugMode) {
-                  // print('[SettingsPage] Theme switch toggled: $value');
-                }
-                themeNotifier.setTheme(
-                  value ? ThemeMode.dark : ThemeMode.light,
-                );
-              },
-            ),
-            theme: theme,
-          ),
-          _buildSettingsTile(
-            icon: Icons.notifications_outlined,
-            title: 'Notificações',
-            subtitle: 'Todas',
-            trailing: DropdownButton<String>(
-              value: 'Todas',
-              underline: const SizedBox(),
-              icon: Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurface.withAlpha(
-                  (255 * 0.5).round(),
-                ),
-              ),
-              dropdownColor: theme.colorScheme.surface.withAlpha(
-                (255 * 0.9).round(),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: 'Todas',
-                  child: Text(
-                    'Todas',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.7).round(),
-                      ),
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'Importantes',
-                  child: Text(
-                    'Importantes',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.7).round(),
-                      ),
-                    ),
-                  ),
-                ),
-                DropdownMenuItem(
-                  value: 'Nenhuma',
-                  child: Text(
-                    'Nenhuma',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withAlpha(
-                        (255 * 0.7).round(),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              onChanged: (value) {
-                // Handle notifications change
-              },
-            ),
-            theme: theme,
-          ),
-        ], theme),
-        const SizedBox(height: AppConstants.spacing32),
-        _buildSettingsSection('', [
-          _buildSettingsTile(
-            icon: Icons.logout,
-            title: 'Sair',
-            subtitle: 'Encerrar sessão',
-            textColor: theme.colorScheme.error,
-            onTap: () => _handleLogout(context),
-            theme: theme,
-          ),
-        ], theme),
-      ],
-    );
-  }
-
-  Widget _buildSettingsSection(
-    String title,
-    List<Widget> items,
-    ThemeData theme,
-  ) {
-    // If this is a single-action card, build it directly with InkWell+Material
-    if (items.length == 1 && items.first is _SingleActionSettingsTile) {
-      final data = items.first as _SingleActionSettingsTile;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
-              child: Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                ),
-                textAlign: TextAlign.left,
-              ),
-            ),
-          data,
-        ],
-      );
-    }
-    // Otherwise, multi-row card
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
-            child: Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-              textAlign: TextAlign.left,
-            ),
-          ),
-        Material(
-          color: theme.colorScheme.surface,
-          elevation: 2,
-          borderRadius: BorderRadius.circular(10),
-          child: Column(children: items),
-        ),
-      ],
-    );
   }
 
   Widget _buildSettingsTile({
@@ -347,42 +236,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
     // For multi-row cards, return the row widget
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                  ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: EdgeInsets.zero,
+      child: Material(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isError ? theme.colorScheme.error.withOpacity(0.8) : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isError ? theme.colorScheme.error.withOpacity(0.8) : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
-                  ),
-                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                trailing,
               ],
-            ),
+            ],
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            trailing,
-          ],
-        ],
+        ),
       ),
     );
   }

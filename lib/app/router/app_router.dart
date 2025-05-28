@@ -1262,6 +1262,60 @@ class AppRouter {
           );
         },
       ),
+      GoRoute(
+        path: '/opportunity-details',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          if (state.extra is data_models.SalesforceOpportunity) {
+            final opportunity = state.extra as data_models.SalesforceOpportunity?;
+            if (opportunity == null) {
+              return const MaterialPage(
+                child: Scaffold(
+                  body: Center(child: Text("Opportunity data missing")),
+                ),
+              );
+            }
+            return _SlideTransition(
+              child: OpportunityDetailsPage(opportunity: opportunity),
+            );
+          } else {
+            String errorMessage = "Error: Incorrect data type for /opportunity-details.";
+            if (state.extra == null) {
+              errorMessage = "Error: Missing data for /opportunity-details.";
+            } else {
+              errorMessage = "Error: Expected SalesforceOpportunity, got \\${state.extra?.runtimeType} for /opportunity-details.";
+              if (kDebugMode) {
+                print("ROUTING ERROR on /opportunity-details: Expected SalesforceOpportunity, got \\${state.extra?.runtimeType}");
+              }
+            }
+            return MaterialPage(
+              child: Scaffold(
+                appBar: AppBar(title: const Text("Navigation Error")),
+                body: Center(child: Text(errorMessage)),
+              ),
+            );
+          }
+        },
+      ),
+      GoRoute(
+        path: '/admin/proposal/:proposalId',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final proposalId = state.pathParameters['proposalId'];
+          if (proposalId != null) {
+            return _SlideTransition(
+              child: AdminSalesforceProposalDetailPage(proposalId: proposalId),
+              reverse: false,
+            );
+          } else {
+            return const NoTransitionPage(
+              child: Scaffold(
+                body: Center(child: Text('Error: Proposal ID missing')),
+              ),
+            );
+          }
+        },
+      ),
     ],
     // Optional: Add error page handling
     errorPageBuilder:

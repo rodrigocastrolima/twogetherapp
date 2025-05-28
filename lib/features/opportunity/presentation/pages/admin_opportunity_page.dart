@@ -167,8 +167,8 @@ class _OpportunityVerificationPageState
   void initState() {
     super.initState();
 
-    // Initialize TabController with 3 tabs
-    _tabController = TabController(length: 3, vsync: this);
+    // Initialize TabController with 2 tabs (removed rejected tab)
+    _tabController = TabController(length: 2, vsync: this);
 
     // Force ID token refresh
     FirebaseAuth.instance.currentUser
@@ -413,11 +413,6 @@ class _OpportunityVerificationPageState
         'color': Colors.blue,
       },
       {
-        'icon': CupertinoIcons.xmark_seal_fill,
-        'label': 'Rejeitadas',
-        'color': Colors.red,
-      },
-      {
         'icon': CupertinoIcons.checkmark_seal_fill,
         'label': 'Ativas',
         'color': Colors.green,
@@ -489,15 +484,15 @@ class _OpportunityVerificationPageState
     // Listen to tab changes to rebuild the AppBar actions
     // Using a simple ValueNotifier + listener approach for simplicity here
     final isSalesforceTabSelected = ValueNotifier<bool>(
-      _tabController.index == 2, // Updated to check for third tab
+      _tabController.index == 1, // Updated to check for second tab
     );
     _tabController.addListener(() {
-      isSalesforceTabSelected.value = _tabController.index == 2; // Updated to check for third tab
+      isSalesforceTabSelected.value = _tabController.index == 1; // Updated to check for second tab
     });
     // --- End Salesforce Refresh Button Visibility Logic --- //
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: colorScheme.background,
       appBar: null,
       body: SafeArea(
         bottom: false,
@@ -542,7 +537,7 @@ class _OpportunityVerificationPageState
                             ),
                           ),
                         ),
-                        if (_tabController.index == 2) ...[
+                        if (_tabController.index == 1) ...[
                           const SizedBox(width: 16),
                           SizedBox(
                             height: 40,
@@ -575,9 +570,7 @@ class _OpportunityVerificationPageState
                         children: [
                           // --- Tab 1: New Submissions (pending_review) ---
                           _buildNovasSubmissionsTab(context, theme),
-                          // --- Tab 2: Rejected Submissions ---
-                          _buildRejeitadasSubmissionsTab(context, theme),
-                          // --- Tab 3: Active Opportunities (Salesforce) ---
+                          // --- Tab 2: Active Opportunities (Salesforce) ---
                           _buildAtivasOpportunitiesTab(context, theme),
                         ],
                       ),
@@ -599,89 +592,6 @@ class _OpportunityVerificationPageState
         // Filter only pending_review submissions
         final filteredSubmissions = allSubmissions
             .where((submission) => submission.status == 'pending_review')
-            .where((submission) {
-              // Apply search and filter logic
-              final resellerMatch =
-                  _selectedResellers == null ||
-                  _selectedResellers!.isEmpty ||
-                  (_selectedResellers?.contains(submission.resellerName) ??
-                      false);
-              final serviceTypeMatch =
-                  _selectedServiceTypes == null ||
-                  _selectedServiceTypes!.isEmpty ||
-                  (_selectedServiceTypes?.contains(
-                        submission.serviceCategory,
-                      ) ??
-                      false);
-              bool energyTypeMatch = true;
-              if (_selectedServiceTypes == null ||
-                  _selectedServiceTypes!.isEmpty ||
-                  _selectedServiceTypes!.contains(ServiceCategory.energy)) {
-                if (_selectedEnergyTypes != null &&
-                    _selectedEnergyTypes!.isNotEmpty) {
-                  energyTypeMatch =
-                      submission.energyType != null &&
-                      _selectedEnergyTypes!.contains(submission.energyType);
-                }
-              }
-              final searchMatch =
-                  _searchQuery.isEmpty ||
-                  (submission.companyName ?? '').toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ) ||
-                  (submission.responsibleName).toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ) ||
-                  (submission.nif ?? '').toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  );
-              return resellerMatch &&
-                  serviceTypeMatch &&
-                  energyTypeMatch &&
-                  searchMatch;
-            }).toList();
-
-        // Determine if using web or mobile layout based on constraints
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isWebView = constraints.maxWidth > 800;
-            return filteredSubmissions.isEmpty
-                ? _buildEmptyState(
-                  context,
-                  theme,
-                  isSubmissionsTab: true,
-                )
-                : (isWebView
-                    ? _buildSubmissionsWebList(
-                      context,
-                      filteredSubmissions,
-                      theme,
-                    )
-                    : _buildSubmissionsMobileList(
-                      context,
-                      filteredSubmissions,
-                      theme,
-                    ));
-          },
-        );
-      },
-      loading: () => _buildLoadingState(context, theme),
-      error:
-          (error, stack) =>
-              _buildErrorState(context, error, theme),
-    );
-  }
-
-  // --- Builder for "Rejeitadas" Tab ---
-  Widget _buildRejeitadasSubmissionsTab(BuildContext context, ThemeData theme) {
-    // Watch the necessary provider
-    final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
-
-    return pendingOpportunitiesAsync.when(
-      data: (allSubmissions) {
-        // Filter only rejected submissions
-        final filteredSubmissions = allSubmissions
-            .where((submission) => submission.status == 'rejected')
             .where((submission) {
               // Apply search and filter logic
               final resellerMatch =

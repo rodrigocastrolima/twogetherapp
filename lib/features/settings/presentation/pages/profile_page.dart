@@ -184,381 +184,288 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'Perfil',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  'Perfil',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 24),
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _errorMessage != null
-              ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: AppTheme.destructive),
-                    textAlign: TextAlign.center,
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(theme),
+                    const SizedBox(height: 20),
+                    _buildProfileContent(theme),
+                  ],
                 ),
-              )
-              : _buildProfileContent(theme),
-              ],
-            ),
+              ),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: AppTheme.destructive),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(ThemeData theme) {
+    final userData = _userData ?? {};
+    String getField(String key, [String fallback = 'Não informado']) {
+      final additional = userData['additionalData'] as Map<String, dynamic>? ?? {};
+      final value = userData[key] ?? additional[key];
+      if (value == null || (value is String && value.trim().isEmpty)) return fallback;
+      return value.toString();
+    }
+    return Center(
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+            child: Text(
+              getField('displayName', getField('email', '?')).isNotEmpty
+                  ? getField('displayName', getField('email', '?'))[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            getField('displayName', getField('email', 'Usuário')),
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            getField('email'),
+            style: TextStyle(fontSize: 14, color: theme.colorScheme.onBackground.withOpacity(0.7)),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildActionButton(
+                context,
+                icon: Icons.monetization_on_outlined,
+                label: 'Comissões',
+                route: '/dashboard',
+              ),
+              const SizedBox(width: 16),
+              _buildActionButton(
+                context,
+                icon: Icons.lock_outline,
+                label: 'Alterar Senha',
+                route: '/change-password',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildProfileContent(ThemeData theme) {
     final currentUser = FirebaseAuth.instance.currentUser;
+    final userData = _userData ?? {};
+    final additional = userData['additionalData'] as Map<String, dynamic>? ?? {};
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
+    String getField(String key, [String fallback = 'Não informado']) {
+      final value = userData[key] ?? additional[key];
+      if (value == null || (value is String && value.trim().isEmpty)) return fallback;
+      return value.toString();
+    }
+
+    String formatDate(dynamic timestamp) {
+      if (timestamp == null) return 'Não disponível';
+      if (timestamp is Timestamp) {
+        final date = timestamp.toDate();
+        return '${date.day}/${date.month}/${date.year}';
+      }
+      if (timestamp is String && timestamp.length >= 10) {
+        try {
+          final date = DateTime.parse(timestamp);
+          return '${date.day}/${date.month}/${date.year}';
+        } catch (_) {}
+      }
+      return timestamp.toString();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Personal Info
+        _buildTwoColumnSection(
+          theme,
+          'Informação Pessoal',
+          [
+            _infoItem('Nome do Colaborador', getField('displayName')),
+            _infoItem('Email Principal', getField('email')),
+            _infoItem('Telefone Principal', getField('phoneNumber', getField('mobilePhone'))),
+            _infoItem('Email Secundário', getField('emailSecondary')),
+          ],
+          [
+            _infoItem('Data de Nascimento', formatDate(additional['birthDate'])),
+            _infoItem('Nome do Revendedor', getField('resellerName', getField('revendedorRetail'))),
+            _infoItem('Data de Registo', formatDate(additional['joinedDate'])),
+            _infoItem('Telefone Secundário', getField('phoneSecondary')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Legal Info
+        _buildTwoColumnSection(
+          theme,
+          'Informação Legal',
+          [
+            _infoItem('NIF (Pessoal)', getField('collaboratorNif')),
+            _infoItem('CC', getField('ccNumber')),
+            _infoItem('SS', getField('ssNumber')),
+          ],
+          [
+            _infoItem('NIF (Empresa)', getField('companyNif')),
+            _infoItem('Código Comercial', getField('commercialCode')),
+            _infoItem('IBAN', getField('iban')),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Location Info
+        _buildTwoColumnSection(
+          theme,
+          'Localização',
+          [
+            _infoItem('Morada', getField('address')),
+            _infoItem('Código Postal', getField('postalCode')),
+            _infoItem('Localidade', getField('city')),
+          ],
+          [
+            _infoItem('Distrito', getField('district')),
+            _infoItem('Tipologia', getField('tipologia')),
+            _infoItem('Atividade Comercial', getField('atividadeComercial')),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _infoItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Profile header with centered avatar
-          Center(
-            child: Column(
-              children: [
-                // Centered avatar
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
-                  child: Text(
-                    _getInitials(),
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Name and email centered below avatar
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spacing16,
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        _userData?['displayName'] ??
-                            currentUser?.email?.split('@').first ??
-                            'Usuário',
-                        style: AppTextStyles.h3,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        currentUser?.email ?? '',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.colorScheme.onBackground.withOpacity(
-                            0.7,
-                          ),
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          SizedBox(
+            width: 180,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              textAlign: TextAlign.left,
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // Password change status message
-          if (_passwordChangeMessage != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.spacing16,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color:
-                      _passwordChangeSuccess
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _passwordChangeSuccess
-                          ? Icons.check_circle_outline
-                          : Icons.error_outline,
-                      color: _passwordChangeSuccess ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _passwordChangeMessage!,
-                        style: TextStyle(
-                          color:
-                              _passwordChangeSuccess
-                                  ? Colors.green
-                                  : Colors.red,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : 'N/D',
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+              textAlign: TextAlign.left,
             ),
-
-          // Add spacing if message is shown
-          if (_passwordChangeMessage != null) const SizedBox(height: 12),
-
-          // User information
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacing16,
-            ),
-            child: _buildProfileSection('Informações Pessoais', [
-              _buildProfileItem(
-                'Nome completo',
-                _userData?['displayName'] ?? 'Não informado',
-                icon: Icons.person_outline,
-                theme: theme,
-              ),
-              _buildProfileItem(
-                'E-mail',
-                currentUser?.email ?? 'Não informado',
-                icon: Icons.email_outlined,
-                theme: theme,
-              ),
-              _buildProfileItem(
-                'Telefone',
-                _userData?['phoneNumber'] ?? 'Não informado',
-                icon: Icons.phone_outlined,
-                theme: theme,
-              ),
-            ], theme),
           ),
-
-          const SizedBox(height: 12),
-
-          // Account information
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacing16,
-            ),
-            child: _buildProfileSection('Informações da Conta', [
-              _buildProfileItem(
-                'Tipo de conta',
-                _formatRole(_userData?['role']),
-                icon: Icons.badge_outlined,
-                theme: theme,
-              ),
-              _buildProfileItem(
-                'Membro desde',
-                _formatDate(_userData?['createdAt']),
-                icon: Icons.calendar_today_outlined,
-                theme: theme,
-              ),
-            ], theme),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Actions
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacing16,
-            ),
-            child: _buildProfileSection('Ações', [
-              _buildActionItem(
-                'Comissões',
-                icon: Icons.monetization_on_outlined,
-                onTap: () => context.push('/dashboard'),
-                theme: theme,
-              ),
-              _buildActionItem(
-                'Alterar Senha',
-                icon: Icons.lock_outline,
-                onTap: () => context.push('/change-password'),
-                theme: theme,
-              ),
-            ], theme),
-          ),
-
-          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildActionItem(
-    String title, {
-    required IconData icon,
-    required VoidCallback onTap,
-    required ThemeData theme,
-  }) {
-    final onSurfaceColor = theme.colorScheme.onSurface;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: theme.colorScheme.surface,
-        elevation: 2,
-        borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              child: Row(
-                children: [
-                Icon(icon, color: theme.colorScheme.primary, size: 22),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: onSurfaceColor,
-                    ),
-                  ),
-                ),
-                  Icon(
-                    Icons.chevron_right,
-                  color: onSurfaceColor.withOpacity(0.5),
-                    size: 20,
-                  ),
-                ],
-            ),
-          ),
-        ),
+  Widget _buildTwoColumnSection(ThemeData theme, String title, List<Widget> left, List<Widget> right) {
+    final isWide = MediaQuery.of(context).size.width > 900;
+    final textTheme = theme.textTheme;
+    final int maxLen = left.length > right.length ? left.length : right.length;
+    final paddedLeft = List<Widget>.from(left)..addAll(List.generate(maxLen - left.length, (_) => const SizedBox.shrink()));
+    final paddedRight = List<Widget>.from(right)..addAll(List.generate(maxLen - right.length, (_) => const SizedBox.shrink()));
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.dividerColor.withAlpha(25)),
       ),
-    );
-  }
-
-  String _getInitials() {
-    final name = _userData?['displayName'] as String? ?? '';
-    if (name.isEmpty) {
-      final email = FirebaseAuth.instance.currentUser?.email ?? '';
-      return email.isNotEmpty ? email[0].toUpperCase() : '?';
-    }
-
-    final parts = name.split(' ');
-    if (parts.length > 1) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
-    }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
-  }
-
-  String _formatRole(String? role) {
-    if (role == null) return 'Usuário';
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return 'Administrador';
-      case 'reseller':
-        return 'Revendedor';
-      default:
-        return 'Usuário';
-    }
-  }
-
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'Não disponível';
-    if (timestamp is Timestamp) {
-      final date = timestamp.toDate();
-      return '${date.day}/${date.month}/${date.year}';
-    }
-    return 'Não disponível';
-  }
-
-  Widget _buildProfileSection(
-    String title,
-    List<Widget> items,
-    ThemeData theme,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...items,
-      ],
-    );
-  }
-
-  Widget _buildProfileItem(
-    String label,
-    String value, {
-    required IconData icon,
-    required ThemeData theme,
-  }) {
-    final onBackground = theme.colorScheme.onBackground;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: theme.colorScheme.surface,
-        elevation: 0,
-        borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: theme.colorScheme.primary.withOpacity(0.7),
-                  size: 22,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+            const SizedBox(height: 4),
+            isWide
+                ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        label,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: onBackground.withOpacity(0.6),
-                        fontWeight: FontWeight.normal,
+                      Expanded(
+                        child: Column(
+                          children: paddedLeft.map((w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)).toList(),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        color: onBackground,
+                      const SizedBox(width: 32),
+                      Expanded(
+                        child: Column(
+                          children: paddedRight.map((w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)).toList(),
                         ),
                       ),
                     ],
+                  )
+                : Column(
+                    children: [
+                      ...left.map((w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)),
+                      ...right.map((w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)),
+                    ],
                   ),
-                ),
-              ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context, {required IconData icon, required String label, required String route}) {
+    final theme = Theme.of(context);
+    return ElevatedButton.icon(
+      icon: Icon(icon, color: theme.colorScheme.primary),
+      label: Text(label, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
+        elevation: 1,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: () => context.push(route),
     );
   }
 }

@@ -76,6 +76,10 @@ export { createSalesforceProposal } from './createSalesforceProposal'; // <-- AD
 export { getResellerOpportunityProposals } from './getResellerOpportunityProposals';
 // --- NEW Export for Reseller Proposal Details Fetching ---
 export { getResellerProposalDetails } from './getResellerProposalDetails';
+// --- NEW Export for CPE Proposta Details ---
+export { getSalesforceCPEDetails } from './getSalesforceCPEDetails';
+export { updateCpePropostaDetails } from './updateCpePropostaDetails';
+export { createCpeForProposal } from './createCpeForProposal';
 // -------------------------------------------------------
 
 // Start writing functions

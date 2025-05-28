@@ -183,112 +183,55 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                         }
                         return conversationsStream.when(
                           data: (conversations) {
-                            // Get all conversations or filter active ones based on state
-                            final List<ChatConversation> activeConversations =
-                                conversations
-                                    .where((c) => c.active ?? false)
-                                    .toList();
+                            // Create maps of conversations by reseller ID
+                            final conversationsByResellerId = <String, ChatConversation>{};
+                            for (var conversation in conversations) {
+                              conversationsByResellerId[conversation.resellerId] = conversation;
+                            }
 
-                            final List<ChatConversation> inactiveConversations =
-                                conversations
-                                    .where((c) => !(c.active ?? false))
-                                    .toList();
+                            // Apply search filter to all resellers (not just those with conversations)
+                            final filteredResellers = _searchQuery.isEmpty
+                                ? resellers
+                                : resellers.where((reseller) {
+                                    // Search in name and email
+                                    return (reseller['name'] ?? '')
+                                            .toLowerCase()
+                                            .contains(_searchQuery) ||
+                                        (reseller['email'] ?? '')
+                                            .toLowerCase()
+                                            .contains(_searchQuery);
+                                  }).toList();
 
-                            // Apply search filter if there's a query
-                            final List<ChatConversation>
-                            searchFilteredActiveConversations =
-                                _searchQuery.isEmpty
-                                    ? activeConversations
-                                    : activeConversations.where((c) {
-                                      // Find the reseller for this conversation
-                                      final reseller = resellers.firstWhere(
-                                        (r) => r['id'] == c.resellerId,
-                                        orElse: () => {'name': '', 'email': ''},
-                                      );
-
-                                      // Search in name, email, and last message
-                                      return (reseller['name'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (reseller['email'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (c.lastMessageContent ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery);
-                                    }).toList();
-
-                            final List<ChatConversation>
-                            searchFilteredInactiveConversations =
-                                _searchQuery.isEmpty
-                                    ? inactiveConversations
-                                    : inactiveConversations.where((c) {
-                                      // Find the reseller for this conversation
-                                      final reseller = resellers.firstWhere(
-                                        (r) => r['id'] == c.resellerId,
-                                        orElse: () => {'name': '', 'email': ''},
-                                      );
-
-                                      // Search in name, email, and last message
-                                      return (reseller['name'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (reseller['email'] ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery) ||
-                                          (c.lastMessageContent ?? '')
-                                              .toLowerCase()
-                                              .contains(_searchQuery);
-                                    }).toList();
-
-                            // Create maps of conversations by reseller ID for both filtered lists
-                            final activeConversationsByResellerId = {
-                              for (var conversation
-                                  in searchFilteredActiveConversations)
-                                conversation.resellerId: conversation,
-                            };
-
-                            final inactiveConversationsByResellerId = {
-                              for (var conversation
-                                  in searchFilteredInactiveConversations)
-                                conversation.resellerId: conversation,
-                            };
-
-                            // ** Replace _buildChatUI call with ListView builder **
-
-                            final allFilteredResellers =
-                                resellers.where((reseller) {
-                                  return activeConversationsByResellerId
-                                          .containsKey(reseller['id']) ||
-                                      inactiveConversationsByResellerId
-                                          .containsKey(reseller['id']);
-                                }).toList();
-
-                            // Combine maps for easier lookup in ListView
-                            final combinedConversationsById = {
-                              ...activeConversationsByResellerId,
-                              ...inactiveConversationsByResellerId,
-                            };
-
-                            // --- Sorting Logic ---
-                            final sortedResellers = List<Map<String, dynamic>>.from(resellers);
+                            // Sort resellers: those with conversations first (by last message time), then alphabetically
+                            final sortedResellers = List<Map<String, dynamic>>.from(filteredResellers);
                             sortedResellers.sort((a, b) {
-                              final conversationA = combinedConversationsById[a['id']];
-                              final conversationB = combinedConversationsById[b['id']];
-                              final timeA = conversationA?.lastMessageTime;
-                              final timeB = conversationB?.lastMessageTime;
-                              if (timeA == null && timeB == null) {
-                                return (a['name'] as String? ?? '').compareTo(
-                                  b['name'] as String? ?? '',
-                                );
-                              } else if (timeA == null) {
-                                return 1;
-                              } else if (timeB == null) {
-                                return -1;
+                              final conversationA = conversationsByResellerId[a['id']];
+                              final conversationB = conversationsByResellerId[b['id']];
+                              
+                              // If both have conversations, sort by last message time
+                              if (conversationA != null && conversationB != null) {
+                                final timeA = conversationA.lastMessageTime;
+                                final timeB = conversationB.lastMessageTime;
+                                if (timeA != null && timeB != null) {
+                                  return timeB.compareTo(timeA);
+                                } else if (timeA != null) {
+                                  return -1;
+                                } else if (timeB != null) {
+                                  return 1;
+                                }
                               }
-                              return timeB.compareTo(timeA);
+                              // If only one has a conversation, prioritize it
+                              else if (conversationA != null) {
+                                return -1;
+                              } else if (conversationB != null) {
+                                return 1;
+                              }
+                              
+                              // If neither has conversations, sort alphabetically by name
+                              return (a['name'] as String? ?? '').compareTo(
+                                b['name'] as String? ?? '',
+                              );
                             });
-                            // --- End Sorting Logic ---
 
                             if (sortedResellers.isEmpty) {
                               // Handle empty state after filtering
@@ -304,7 +247,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      "No conversations found",
+                                      "Nenhum revendedor encontrado",
                                       style: theme.textTheme.bodyLarge
                                           ?.copyWith(
                                             color: theme.colorScheme.onSurface,
@@ -314,8 +257,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                     const SizedBox(height: 8),
                                     Text(
                                       _searchQuery.isNotEmpty
-                                          ? "Try adjusting your search."
-                                          : "Start a new conversation!",
+                                          ? "Tente ajustar sua pesquisa."
+                                          : "Comece uma nova conversa!",
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
                                             color: theme.colorScheme.onSurface
@@ -323,14 +266,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                           ),
                                       textAlign: TextAlign.center,
                                     ),
-                                    // Optional: Add button to clear search or start new chat
+                                    // Optional: Add button to clear search
                                     if (_searchQuery.isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.only(
                                           top: 16.0,
                                         ),
                                         child: CupertinoButton(
-                                          child: Text("Clear Search"),
+                                          child: Text("Limpar Pesquisa"),
                                           onPressed:
                                               () => _searchController.clear(),
                                         ),
@@ -347,12 +290,21 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                         separatorBuilder: (context, index) => const SizedBox(height: 0),
                         itemBuilder: (context, index) {
                           final reseller = sortedResellers[index];
-                          final conversation = combinedConversationsById[reseller['id']];
+                          final conversation = conversationsByResellerId[reseller['id']];
                           final isSelected = isWide && _selectedReseller?['id'] == reseller['id'];
                           final hasUnread = conversation?.unreadByAdmin ?? false;
-                          final lastMessage = (conversation?.lastMessageContent?.isNotEmpty ?? false)
-                              ? conversation!.lastMessageContent
-                              : reseller['email'] ?? '';
+                          final hasConversation = conversation != null;
+                          
+                          // Determine what to show as subtitle
+                          String subtitle;
+                          if (hasConversation && (conversation.lastMessageContent?.isNotEmpty ?? false)) {
+                            subtitle = conversation.lastMessageContent!;
+                          } else if (hasConversation) {
+                            subtitle = 'Conversa iniciada';
+                          } else {
+                            subtitle = reseller['email'] ?? '';
+                          }
+                          
                           String? formattedDate;
                           if (conversation?.lastMessageTime != null) {
                             final now = DateTime.now();
@@ -367,6 +319,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               formattedDate = DateFormat('dd/MM/yy').format(last);
                             }
                           }
+                          
                           final yellow = Color(0xFFFFBE45);
                           return Container(
                             color: isSelected ? theme.colorScheme.primary.withOpacity(0.08) : null,
@@ -377,7 +330,9 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                     decoration: BoxDecoration(
                                   color: hasUnread
                                       ? yellow.withOpacity(0.15)
-                                      : theme.colorScheme.secondaryContainer,
+                                      : hasConversation
+                                          ? theme.colorScheme.secondaryContainer
+                                          : theme.colorScheme.surfaceVariant,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -386,12 +341,14 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                     size: 20,
                                     color: hasUnread
                                         ? yellow
-                                        : theme.colorScheme.onSecondaryContainer,
+                                        : hasConversation
+                                            ? theme.colorScheme.onSecondaryContainer
+                                            : theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ),
                               title: reseller['name'],
-                              subtitle: lastMessage,
+                              subtitle: subtitle,
                               trailing: formattedDate != null
                                   ? Text(
                                       formattedDate,
@@ -456,50 +413,50 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32), // match message container/input bar
                                   child: Container(
-                                    color: Colors.white,
+                                    color: theme.colorScheme.background,
                                     padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
-              child: Row(
+                                    child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
+                                      children: [
+                                        Container(
                                           width: 44,
                                           height: 44,
-                    decoration: BoxDecoration(
+                                          decoration: BoxDecoration(
                                             color: theme.colorScheme.secondaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Icon(
                                               CupertinoIcons.person,
                                               size: 26,
-                                  color: theme.colorScheme.primary,
+                                              color: theme.colorScheme.primary,
                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: 16),
                                         Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
                                               _selectedReseller?['name'] ?? '',
                                               style: theme.textTheme.headlineSmall?.copyWith(
                                                 fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
+                                                color: theme.colorScheme.onSurface,
+                                              ),
+                                            ),
                                             const SizedBox(height: 2),
-                        Text(
+                                            Text(
                                               _selectedReseller?['email'] ?? '',
                                               style: theme.textTheme.bodySmall?.copyWith(
                                                 color: theme.colorScheme.onSurfaceVariant,
                                                 fontSize: 13,
-                          ),
-                        ),
-                      ],
-                  ),
-                ],
-              ),
-            ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -514,22 +471,13 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    child: Container(
-                      decoration: BoxDecoration(
-                                      color: const Color(0xFFF7F7F8),
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(18),
-                                      child: ChatPage(
-                                        conversationId: _selectedConversation?.id ?? '',
-                                        title: _selectedReseller?['name'] ?? 'Chat',
-                                        isAdminView: true,
-                                        showAppBar: false,
-                                      ),
-                              ),
-                            ),
-                          ),
+                                  child: ChatPage(
+                                    conversationId: _selectedConversation?.id ?? '',
+                                    title: _selectedReseller?['name'] ?? 'Chat',
+                                    isAdminView: true,
+                                    showAppBar: false,
+                                  ),
+                                ),
                               ),
                             ],
                           ))

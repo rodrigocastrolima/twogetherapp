@@ -133,63 +133,72 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? theme.colorScheme.surface : theme.colorScheme.surface,
+          isDark ? theme.colorScheme.background : theme.colorScheme.surface,
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar:
           widget.showBackButton
               ? AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                scrolledUnderElevation: 0,
-                surfaceTintColor: Colors.transparent,
-                toolbarHeight: 80,
-                leading: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: IconButton(
-                    icon: Icon(
-                      CupertinoIcons.chevron_left,
-                      color: AppTheme.foreground,
-                      size: 20,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  surfaceTintColor: Colors.transparent,
+                  toolbarHeight: 80,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: IconButton(
+                      icon: Icon(
+                        CupertinoIcons.chevron_left,
+                        color: AppTheme.foreground,
+                        size: 20,
+                      ),
+                      onPressed:
+                          widget.onBackButtonPressed ??
+                          () {
+                            if (Navigator.canPop(context)) {
+                              context.pop();
+                            } else {
+                              // Fallback to going to admin home if can't pop
+                              context.go('/admin');
+                            }
+                          },
                     ),
-                    onPressed:
-                        widget.onBackButtonPressed ??
-                        () {
-                          if (Navigator.canPop(context)) {
-                            context.pop();
-                          } else {
-                            // Fallback to going to admin home if can't pop
-                            context.go('/admin');
-                          }
-                        },
                   ),
-                ),
-                title: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: LogoWidget(height: 50, darkMode: false),
-                ),
-                centerTitle: true,
-                actions: [],
-              )
+                  title: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: LogoWidget(height: 50, darkMode: false),
+                  ),
+                  centerTitle: true,
+                  actions: [],
+                )
               : (!widget.showNavigation
                   ? null
                   : (isSmallScreen
                       ? AppBar(
-                        backgroundColor: Colors.transparent,
-                        elevation: 0,
-                        scrolledUnderElevation: 0,
-                        surfaceTintColor: Colors.transparent,
-                        toolbarHeight: 80,
-                        leading: null,
-                        title: Center(
-                          child: LogoWidget(height: 40, darkMode: isDark),
-                        ),
-                        centerTitle: true,
-                        actions: [],
-                      )
-                      : null)),
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          surfaceTintColor: Colors.transparent,
+                          toolbarHeight: 80,
+                          leading: null,
+                          title: Center(
+                            child: LogoWidget(height: 40, darkMode: isDark),
+                          ),
+                          centerTitle: true,
+                          actions: [],
+                        )
+                      : AppBar(
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          surfaceTintColor: Colors.transparent,
+                          toolbarHeight: 0, // Hide the AppBar but keep it transparent
+                          automaticallyImplyLeading: false,
+                          title: null,
+                          actions: [],
+                        ))),
       body: Container(
-        decoration: BoxDecoration(color: theme.colorScheme.surface),
+        decoration: BoxDecoration(color: theme.colorScheme.background),
         child: Material(
           color: Colors.transparent,
           child: Stack(
@@ -285,7 +294,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     int unreadCount,
   ) {
     final theme = Theme.of(context);
-    final Color sidebarBackgroundColor = theme.colorScheme.surface;
+    final Color sidebarBackgroundColor = isDark ? AppTheme.darkNavBarBackground : Colors.white;
     final Color textColor = isDark ? Colors.white : Colors.black;
     final Color tulipTreeColor = Color(0xFFffbe45);
 

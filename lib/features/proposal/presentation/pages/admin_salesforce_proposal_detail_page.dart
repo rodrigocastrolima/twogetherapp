@@ -4,6 +4,7 @@ import 'package:intl/intl.dart'; // For date/number formatting
 import 'package:go_router/go_router.dart'; // If needed later for navigation
 import 'package:file_picker/file_picker.dart'; // <-- RESTORED IMPORT
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../providers/proposal_providers.dart'; // Provider for proposal details
 import '../../data/models/detailed_salesforce_proposal.dart';
@@ -795,6 +796,10 @@ class _AdminSalesforceProposalDetailPageState
                             _isEditing
                               ? _buildEditableTextField('Consumo para o período do contrato (KWh)', _controllers['consumoPeriodoContratoKwhC']!)
                               : _buildDetailItem('Consumo para o período do contrato (KWh)', displayProposal.consumoPeriodoContratoKwhC, fieldKey: 'consumoPeriodoContratoKwhC', isNumeric: true),
+                            if (!_isEditing)
+                              _buildDetailItem('Energia', displayProposal.energiaC == true ? 'Sim' : 'Não'),
+                            if (!_isEditing)
+                              _buildDetailItem('Solar', displayProposal.solarC == true ? 'Sim' : 'Não'),
                             // Group Energia and Solar checkboxes together
                             if (_isEditing)
                               Padding(
@@ -815,26 +820,6 @@ class _AdminSalesforceProposalDetailPageState
                                   ],
                                 ),
                               ),
-                            // Contrato inserido on its own row
-                            if (_isEditing)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 0.0, bottom: 8.0),
-                                child: Row(
-                                  children: [
-                                    Checkbox(
-                                      value: _editedProposal?.contratoInseridoC ?? false,
-                                      onChanged: (val) => _updateEditedProposalField('contratoInseridoC', val),
-                                    ),
-                                    const Text('Contrato inserido'),
-                                  ],
-                                ),
-                              ),
-                            if (!_isEditing)
-                              _buildDetailItem('Energia', displayProposal.energiaC == true ? 'Sim' : 'Não'),
-                            if (!_isEditing)
-                              _buildDetailItem('Solar', displayProposal.solarC == true ? 'Sim' : 'Não'),
-                            if (!_isEditing)
-                              _buildDetailItem('Contrato inserido', displayProposal.contratoInseridoC == true ? 'Sim' : 'Não'),
                           ],
                           [
                             _isEditing
@@ -857,7 +842,74 @@ class _AdminSalesforceProposalDetailPageState
                               : _buildDetailItem('Data de Criação da Proposta', _formatDate(displayProposal.dataCriacaoPropostaC)),
                           ],
               ]),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+                        // --- Section: Contrato Inserido (Separate Card) ---
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 8.0),
+                          child: Text(
+                            'Marque esta opção quando o contrato estiver inserido no Salesforce.',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Contrato inserido',
+                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      displayProposal.contratoInseridoC == true ? 'Sim' : 'Não',
+                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                        color: displayProposal.contratoInseridoC == true ? Colors.green : Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_isEditing)
+                                  Checkbox(
+                                    value: _editedProposal?.contratoInseridoC ?? false,
+                                    onChanged: (val) => _updateEditedProposalField('contratoInseridoC', val),
+                                  )
+                                else if (!(displayProposal.contratoInseridoC == true))
+                                  Switch(
+                                    value: displayProposal.contratoInseridoC == true,
+                                    onChanged: (val) async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: const Text('Confirmar'),
+                                          content: const Text('Tem certeza que deseja marcar o contrato como inserido?'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+                                            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirmar')),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed == true) {
+                                        await _updateContratoInserido(displayProposal.id);
+                                      }
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         // --- Section 3: Files (before CPEs) ---
               _buildFilesSection(context, displayProposal.files),
                         const SizedBox(height: 24),
@@ -1255,6 +1307,7 @@ class _AdminSalesforceProposalDetailPageState
           proposalId: widget.proposalId,
           accountId: currentData.entidadeId!,
           resellerSalesforceId: currentData.agenteRetailId!,
+          nif: currentData.nifC,
         );
       },
     );
@@ -1263,11 +1316,6 @@ class _AdminSalesforceProposalDetailPageState
 
     if (result == true) {
       _refreshData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('CPE link added successfully. Refreshing...'),
-        ),
-      );
     }
   }
 
@@ -1350,5 +1398,65 @@ class _AdminSalesforceProposalDetailPageState
         ],
       ),
     );
+  }
+
+  Future<void> _updateContratoInserido(String proposalId) async {
+    try {
+      // Get Salesforce credentials
+      final authNotifier = ref.read(salesforceAuthProvider.notifier);
+      final authState = ref.read(salesforceAuthProvider);
+      
+      if (authState != SalesforceAuthState.authenticated) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erro: Não autenticado com o Salesforce.')),
+          );
+        }
+        return;
+      }
+      
+      final String? accessToken = await authNotifier.getValidAccessToken();
+      final String? instanceUrl = authNotifier.currentInstanceUrl;
+      
+      if (accessToken == null || instanceUrl == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erro: Não foi possível obter as credenciais do Salesforce.')),
+          );
+        }
+        return;
+      }
+      
+      await FirebaseFunctions.instance
+          .httpsCallable('updateSalesforceProposal')
+          .call({
+        'proposalId': proposalId,
+        'accessToken': accessToken,
+        'instanceUrl': instanceUrl,
+        'fieldsToUpdate': {
+          'Contrato_inserido__c': true,
+          'Status__c': 'Aceite',
+        },
+      });
+      
+      // Refresh the data from provider
+      ref.refresh(proposalDetailsProvider(widget.proposalId)); // ignore: unused_result
+      
+      if (mounted) {
+        await showSuccessDialog(
+          context: context,
+          message: 'Contrato marcado como inserido e status alterado para "Aceite" com sucesso!',
+          onDismissed: () {
+            // Optional: Any additional action after success dialog
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar: $e')),
+        );
+      }
+    }
   }
 }

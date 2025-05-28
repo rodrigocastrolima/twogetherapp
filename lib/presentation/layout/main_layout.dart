@@ -112,7 +112,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               : null,
       body: Container(
         decoration: BoxDecoration(
-          color: effectiveBackgroundColor, // Use effective background color
+          color: theme.colorScheme.background, // Use background color for consistency
         ), // Ensure full background coverage
         child: Material(
           color: Colors.transparent,

@@ -374,14 +374,19 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                                   // Action Icons
                                   Row(
                                     children: [
-                                      _CircleIconButton(
-                                        // Changed to stateful version
-                                        icon: CupertinoIcons.bell_fill,
-                                        onTap: () {
-                                          /* TODO */
+                                      Consumer(
+                                        builder: (context, ref, _) {
+                                          final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
+                                          final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
+                                          
+                                          return _CircleIconButton(
+                                            icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
+                                            onTap: () async {
+                                              await notificationSettings.toggle();
+                                            },
+                                            isHighlighted: false,
+                                          );
                                         },
-                                        isHighlighted:
-                                            false, // This might be separate from hover scale
                                       ),
                                       const SizedBox(
                                         width: 8,
@@ -427,28 +432,58 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   width: double.infinity,
                   color: theme.colorScheme.background,
                   padding: const EdgeInsets.only(top: 20, bottom: 60),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1200),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: MediaQuery.of(context).size.width < 600
-                              ? 16
-                              : MediaQuery.of(context).size.width < 900
-                                  ? 16
-                                  : 16,
-                        ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                            _buildQuickActionsSection(),
-                      const SizedBox(height: 30),
-                            _buildNotificationsSection(),
-                            const SizedBox(height: 40),
+                      // --- Quick Actions Section ---
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                        child: Text(
+                          'Ações Rápidas',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                        child: Wrap(
+                          spacing: 24,
+                          runSpacing: 16,
+                          children: [
+                            _QuickActionCard(
+                              icon: CupertinoIcons.add_circled_solid,
+                              label: 'Novo Serviço',
+                              onTap: () => context.push('/services'),
+                            ),
+                            _QuickActionCard(
+                              icon: CupertinoIcons.cloud_download,
+                              label: 'Dropbox',
+                              onTap: () => context.push('/providers'),
+                            ),
                           ],
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 40),
+                      // --- Notifications Section ---
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                        child: Text(
+                          'Notificações',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _buildNotificationsSection(),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -611,133 +646,81 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  // --- MODIFIED Quick Actions Section ---
-  Widget _buildQuickActionsSection() {
-    final theme = Theme.of(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isMobile = screenWidth < 600;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ações Rápidas',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 24,
-            runSpacing: 16,
-                  children: [
-              _QuickActionCard(
-                icon: CupertinoIcons.add_circled_solid,
-                label: 'Novo Serviço',
-                onTap: () => context.push('/services'),
-              ),
-              _QuickActionCard(
-                      icon: CupertinoIcons.cloud_download,
-                label: 'Dropbox',
-                onTap: () => context.push('/providers'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildNotificationsSection() {
     final theme = Theme.of(context);
     final authNotifier = ref.watch(authNotifierProvider);
     final bool passwordHasBeenChanged = authNotifier.initialPasswordChanged;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Notificações',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onBackground,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Consumer(
-          builder: (context, ref, child) {
-            final notificationsStream = ref.watch(userNotificationsProvider);
-            final notificationActions = ref.read(notificationActionsProvider);
+    return Consumer(
+      builder: (context, ref, child) {
+        final notificationsStream = ref.watch(userNotificationsProvider);
+        final notificationActions = ref.read(notificationActionsProvider);
 
-            return notificationsStream.when(
-              data: (notificationsFromProvider) {
-                List<UserNotification> combinedNotifications = [...notificationsFromProvider];
-                final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
-                if (!passwordHasBeenChanged) {
-                  final passwordReminder = UserNotification(
-                    id: '__password_reminder__', userId: currentUserId,
-                    title: 'Security Recommendation', message: 'Change your initial password.',
-                    type: NotificationType.system, createdAt: DateTime.now(), isRead: true,
-                    metadata: { 'isPasswordReminder': true },
-                  );
-                  combinedNotifications.insert(0, passwordReminder);
-                }
+        return notificationsStream.when(
+          data: (notificationsFromProvider) {
+            List<UserNotification> combinedNotifications = [...notificationsFromProvider];
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? 'unknown_user';
+            if (!passwordHasBeenChanged) {
+              final passwordReminder = UserNotification(
+                id: '__password_reminder__', userId: currentUserId,
+                title: 'Security Recommendation', message: 'Change your initial password.',
+                type: NotificationType.system, createdAt: DateTime.now(), isRead: true,
+                metadata: { 'isPasswordReminder': true },
+              );
+              combinedNotifications.insert(0, passwordReminder);
+            }
 
-                if (combinedNotifications.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        children: [
-                          Icon(CupertinoIcons.bell_slash, size: 48, color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                          const SizedBox(height: 16),
-                          Text('Sem notificações', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)))
-                        ],
-                      ),
+            if (combinedNotifications.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48.0),
+                  child: Column(
+                    children: [
+                      Icon(CupertinoIcons.bell_slash, size: 48, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                      const SizedBox(height: 16),
+                      Text('Sem notificações', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)))
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: combinedNotifications.length,
+              itemBuilder: (context, index) {
+                final notification = combinedNotifications[index];
+                return SimpleListItem(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  );
-                }
-
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: combinedNotifications.length,
-                  itemBuilder: (context, index) {
-                    final notification = combinedNotifications[index];
-                    return SimpleListItem(
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
-                      ),
-                      title: notification.title,
-                      subtitle: notification.metadata['clientName']?.toString() ?? notification.message,
-                      trailing: Text(
-                        _getNotificationDateString(notification),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                      ),
-                      isUnread: !notification.isRead,
-                      onTap: () => _handleNotificationTap(notification, notificationActions),
-                      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                    );
-                  },
+                    child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
+                  ),
+                  title: notification.title,
+                  subtitle: notification.metadata['clientName']?.toString() ?? notification.message,
+                  trailing: Text(
+                    _getNotificationDateString(notification),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                  isUnread: !notification.isRead,
+                  onTap: () => _handleNotificationTap(notification, notificationActions),
+                  padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
             );
           },
-        ),
-      ],
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => Center(child: Text('Falha ao carregar notificações', style: TextStyle(color: theme.colorScheme.error))),
+        );
+      },
     );
   }
 

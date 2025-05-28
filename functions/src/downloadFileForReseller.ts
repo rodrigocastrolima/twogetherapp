@@ -13,6 +13,7 @@ interface DownloadFileForResellerParams {
 interface FileDownloadData {
   fileData: string; // Base64 encoded
   contentType: string;
+  fileExtension: string | null;
 }
 
 interface DownloadFileForResellerResult {
@@ -113,14 +114,35 @@ export const downloadFileForReseller = onCall(
       conn = await getSalesforceConnection();
       logger.info(`${functionName}: Internal Salesforce connection successful.`);
 
-      // 4. Construct Salesforce API URL for VersionData
+      // 4. Query ContentVersion for FileExtension (same as admin version)
+      logger.info(`${functionName}: Querying ContentVersion for FileExtension...`);
+      let fileExtension: string | null = null;
+      try {
+        // Retrieve the full record by ID
+        const cvRecord = await conn.sobject('ContentVersion').retrieve(contentVersionId);
+        // Access the FileExtension property from the result
+        if (cvRecord && typeof cvRecord.FileExtension === 'string') {
+          fileExtension = cvRecord.FileExtension;
+          logger.info(`${functionName}: Retrieved FileExtension: ${fileExtension}`);
+        } else {
+          logger.warn(`${functionName}: Could not retrieve FileExtension for ${contentVersionId}. Record: ${JSON.stringify(cvRecord)}`);
+        }
+      } catch (queryError: any) {
+         // Log error but don't fail the whole function, just proceed without extension
+         logger.error(`${functionName}: Error querying FileExtension for ${contentVersionId}:`, queryError);
+         if (queryError.errorCode === 'NOT_FOUND') {
+            throw new HttpsError('not-found', `ContentVersion with ID ${contentVersionId} not found.`);
+         } // Other errors might indicate permission issues but we try downloading anyway
+      }
+
+      // 5. Construct Salesforce API URL for VersionData
       // Use the connection's version and instance URL
       const apiVersion = conn.version;
       const instanceUrl = conn.instanceUrl;
       const salesforceUrl = `${instanceUrl}/services/data/v${apiVersion}/sobjects/ContentVersion/${contentVersionId}/VersionData`;
       logger.info(`${functionName}: Constructed Salesforce URL.`, { url: salesforceUrl });
 
-      // 5. Call Salesforce API using axios with the JWT token
+      // 6. Call Salesforce API using axios with the JWT token
       logger.info(`${functionName}: Making request to Salesforce for file content...`);
       const response = await axios.get(salesforceUrl, {
         headers: {
@@ -131,7 +153,7 @@ export const downloadFileForReseller = onCall(
 
       logger.info(`${functionName}: Successfully received response from Salesforce.`, { status: response.status });
 
-      // 6. Prepare response for Flutter App
+      // 7. Prepare response for Flutter App
       const contentType = response.headers['content-type'] || 'application/octet-stream';
       const fileData = Buffer.from(response.data).toString('base64');
       logger.info(`${functionName}: Encoded file data to Base64.`, { contentType });
@@ -141,6 +163,7 @@ export const downloadFileForReseller = onCall(
         data: {
           fileData: fileData,
           contentType: contentType,
+          fileExtension: fileExtension,
         }
       };
 

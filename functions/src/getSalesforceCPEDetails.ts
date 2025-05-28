@@ -96,8 +96,8 @@ export const getSalesforceCPEDetails = onCall(
       logger.info("Fetching CPE-Proposta details...", { cpePropostaId });
       const cpePropostaResult = await conn.sobject('CPE_Proposta__c').findOne({ Id: cpePropostaId }, [
         'Id', 'Name', 'Status__c', 'Consumo_ou_Pot_ncia_Pico__c', 'Fideliza_o_Anos__c', 'Margem_Comercial__c',
-        'Agente_Retail__c', 'Respons_vel_de_Neg_cio_Retail__c', 'Respons_vel_de_Neg_cio_Exclusivo__c', 'Gestor_de_Revenda__c',
-        // 'Ciclo_de_Ativa_o__c', // TODO: Add back if/when permissions are granted
+        'Agente_Retail__c', 'Agente_Retail__r.Name', 'Respons_vel_de_Neg_cio_Retail__c', 'Respons_vel_de_Neg_cio_Exclusivo__c', 'Gestor_de_Revenda__c',
+        // 'Ciclo_de_Ativa_o__c', 'Ciclo_de_Ativa_o__r.Name', // TODO: Add back if/when permissions are granted
         'Comiss_o_Retail__c', 'Nota_Informativa__c', 'Pagamento_da_Factura_Retail__c', 'Factura_Retail__c',
         'Visita_T_cnica__c', 'CPE_Proposta__c'
       ] as string[]);
@@ -119,6 +119,24 @@ export const getSalesforceCPEDetails = onCall(
         throw new HttpsError("not-found", "CPE not found for this CPE-Proposta.");
       }
 
+      // 7. Fetch files associated with the CPE-Proposta record
+      logger.info("Fetching files associated with CPE-Proposta...", { cpePropostaId });
+      const fileResults = await conn.query(`
+        SELECT ContentDocument.Id, ContentDocument.Title, ContentDocument.FileExtension, ContentDocument.FileType, ContentDocument.LatestPublishedVersionId 
+        FROM ContentDocumentLink 
+        WHERE LinkedEntityId = '${cpePropostaId}' 
+        ORDER BY ContentDocument.CreatedDate DESC
+      `);
+      
+      const files = fileResults.records.map((link: any) => ({
+        id: link.ContentDocument.Id,
+        title: link.ContentDocument.Title,
+        fileType: link.ContentDocument.FileType,
+        fileExtension: link.ContentDocument.FileExtension,
+        contentVersionId: link.ContentDocument.LatestPublishedVersionId,
+      }));
+      logger.info(`Found ${files.length} files associated with CPE-Proposta.`);
+
       // Map fields for frontend
       const cpeProposta = {
         id: cpePropostaResult.Id,
@@ -128,15 +146,18 @@ export const getSalesforceCPEDetails = onCall(
         fidelizacaoAnosC: cpePropostaResult.Fideliza_o_Anos__c,
         margemComercialC: cpePropostaResult.Margem_Comercial__c,
         agenteRetailC: cpePropostaResult.Agente_Retail__c,
+        agenteRetailName: cpePropostaResult.Agente_Retail__r?.Name,
         responsavelNegocioRetailC: cpePropostaResult.Respons_vel_de_Neg_cio_Retail__c,
         responsavelNegocioExclusivoC: cpePropostaResult.Respons_vel_de_Neg_cio_Exclusivo__c,
         gestorDeRevendaC: cpePropostaResult.Gestor_de_Revenda__c,
-        // cicloDeAtivacaoC: cpePropostaResult.Ciclo_de_Ativa_o__c, // commented out for now
+        // cicloDeAtivacaoC: cpePropostaResult.Ciclo_de_Ativa_o__c, // TODO: Add back if/when permissions are granted
+        // cicloDeAtivacaoName: cpePropostaResult.Ciclo_de_Ativa_o__r?.Name, // TODO: Add back if/when permissions are granted
         comissaoRetailC: cpePropostaResult.Comiss_o_Retail__c,
         notaInformativaC: cpePropostaResult.Nota_Informativa__c,
         pagamentoDaFacturaRetailC: cpePropostaResult.Pagamento_da_Factura_Retail__c,
         facturaRetailC: cpePropostaResult.Factura_Retail__c,
         visitaTecnicaC: cpePropostaResult.Visita_T_cnica__c,
+        files: files,
         cpe: {
           id: cpePropostaResult.CPE_Proposta__c,
           name: cpeResult.Name,

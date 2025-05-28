@@ -149,6 +149,10 @@ class _OpportunityDetailFormViewState
     'Fidelizada',
     'Cross',
     'Angariada',
+    'Angariada Energia',
+    'Angariada GN',
+    'Angariada Solar',
+    'Renovação',
   ];
   final List<String> _faseOptions = const [
     '--None--',
@@ -169,26 +173,30 @@ class _OpportunityDetailFormViewState
     super.initState();
     final isManualMode = widget.isManualMode;
     // Initialize controllers
-    _nameController = TextEditingController(
-      text: isManualMode ? '' : (widget.submission?.companyName ?? widget.submission?.responsibleName ?? ''),
-    );
+    _nameController = TextEditingController(); // Don't auto-fill opportunity name
     _nifController = TextEditingController(text: isManualMode ? '' : widget.submission?.nif ?? '');
     _fechoController = TextEditingController(); // Always empty initially
     _agenteRetailController = TextEditingController(text: isManualMode ? '' : 'A carregar...');
+    // Auto-fill dates in both manual and submission modes
     _dataCriacaoController = TextEditingController(
-      text: isManualMode
-          ? ''
-          : (widget.submission != null ? DateFormat.yMd().format(DateTime.now()) : ''),
+      text: DateFormat.yMd().format(DateTime.now()),
     );
     _dataUltimaAtualizacaoController = TextEditingController(
-      text: isManualMode
-          ? ''
-          : (widget.submission != null ? DateFormat.yMd().format(DateTime.now()) : ''),
+      text: DateFormat.yMd().format(DateTime.now()),
     );
     _faseController = TextEditingController(text: _faseValue);
     _tipoOportunidadeController = TextEditingController();
     _responsibleNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.responsibleName ?? '');
     _companyNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.companyName ?? '');
+
+    // Add listeners to trigger UI updates when fields change
+    if (widget.isManualMode) {
+      _nameController.addListener(() => setState(() {}));
+      _nifController.addListener(() => setState(() {}));
+      _responsibleNameController.addListener(() => setState(() {}));
+      _companyNameController.addListener(() => setState(() {}));
+    }
+
     // Initialize derived picklist values
     if (!isManualMode) {
       _determineTipoOportunidade();
@@ -460,65 +468,150 @@ class _OpportunityDetailFormViewState
       context: context,
       barrierDismissible: false, // User must tap button!
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text('Rejeitar Submissão'), // Reject Submission
-          content: Form(
-            key: dialogFormKey,
-            child: SingleChildScrollView(
-              child: ListBody(
-                children: <Widget>[
-                  const Text(
-                    'Por favor, indique o motivo para rejeitar esta submissão.', // Please provide the reason for rejecting this submission.
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: reasonController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText:
-                          'Insira o motivo aqui...', // Enter reason here...
-                      border: OutlineInputBorder(),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            final colorScheme = theme.colorScheme;
+            final textTheme = theme.textTheme;
+            bool isSubmitting = false;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              titlePadding: const EdgeInsets.all(0),
+              title: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 60, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Rejeitar Submissão',
+                        style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'O motivo da rejeição não pode estar vazio'; // Rejection reason cannot be empty
-                      }
-                      return null;
-                    },
                   ),
+                  if (!isSubmitting)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        icon: Icon(
+                          CupertinoIcons.xmark, 
+                          color: colorScheme.onSurface.withAlpha(150),
+                          size: 22,
+                        ),
+                        onPressed: () => Navigator.of(dialogContext).pop(null),
+                        tooltip: 'Fechar',
+                        splashRadius: 20,
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
                 ],
               ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancelar'), // Cancel
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(null); // Dismiss and return null
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor:
-                    Theme.of(context).colorScheme.error, // Use error color
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              content: Form(
+                key: dialogFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Por favor, indique o motivo para rejeitar esta submissão.',
+                      style: textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: reasonController,
+                      autofocus: true,
+                      style: textTheme.bodySmall,
+                      decoration: InputDecoration(
+                        labelText: 'Motivo da Rejeição',
+                        labelStyle: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant, 
+                          fontWeight: FontWeight.w500
+                        ),
+                        hintText: 'Insira o motivo aqui...',
+                        hintStyle: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round())
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.surfaceVariant,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: colorScheme.outline.withAlpha((255 * 0.2).round())
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: colorScheme.error, width: 1),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: colorScheme.error, width: 2),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      ),
+                      maxLines: 3,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'O motivo da rejeição não pode estar vazio';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
-              child: const Text('Confirmar Rejeição'), // Confirm Rejection
-              onPressed: () {
-                // Validate the reason field
-                if (dialogFormKey.currentState?.validate() ?? false) {
-                  Navigator.of(dialogContext).pop(
-                    reasonController.text.trim(),
-                  ); // Dismiss and return reason
-                }
-              },
-            ),
-          ],
+              actionsAlignment: MainAxisAlignment.end,
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: isSubmitting ? null : () {
+                      if (dialogFormKey.currentState?.validate() ?? false) {
+                        Navigator.of(dialogContext).pop(reasonController.text.trim());
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.error,
+                      foregroundColor: theme.colorScheme.onError,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                    ),
+                    child: isSubmitting
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.onError,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          'Confirmar Rejeição',
+                          style: textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                            color: colorScheme.onError,
+                          ),
+                        ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -913,7 +1006,7 @@ class _OpportunityDetailFormViewState
                 children: [
                   // Title
                   Text(
-                    'Detalhe da Oportunidade',
+                    'Submeter Oportunidade',
                     style: textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: colorScheme.onSurface,
@@ -926,7 +1019,7 @@ class _OpportunityDetailFormViewState
                     child: TextFormField(
                       controller: _responsibleNameController,
                       style: textTheme.bodySmall,
-                      decoration: inputDecoration(label: 'Nome do Responsável'),
+                      decoration: inputDecoration(label: widget.isManualMode ? 'Nome do Cliente' : 'Nome do Responsável'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1064,14 +1157,36 @@ class _OpportunityDetailFormViewState
                         return _segmentoOptions.map<Widget>((String item) {
                           final iconWidget = _segmentoIcons[item];
                           if (iconWidget is Row) {
-                            return iconWidget.children.firstWhere((w) => w is Icon);
-                          } else if (iconWidget is Text && item == '--None--') {
+                            // Extract the icon from the Row widget and return it with proper text color
+                            final icon = iconWidget.children.firstWhere((w) => w is Icon) as Icon;
+                            final text = iconWidget.children.firstWhere((w) => w is Text) as Text;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                icon,
+                                const SizedBox(width: 8),
+                                Text(
+                                  text.data ?? item,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else if (item == '--None--') {
                             return Text(
                               'Selecione um segmento',
-                              style: textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             );
                           } else {
-                            return iconWidget ?? const SizedBox.shrink();
+                            return Text(
+                              item,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface,
+                              ),
+                            );
                           }
                         }).toList();
                       },
@@ -1175,70 +1290,70 @@ class _OpportunityDetailFormViewState
                     const SizedBox(height: 20),
                   ]
                   else
-                    FutureBuilder<List<Map<String, String?>>>(
-                      future: _fetchMultipleDownloadUrls(), // Call the new function
-                      builder: (context, snapshot) {
-                        // Check connection state
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return Row(
-                            children: [
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colorScheme.primary, // Use theme color
-                                ),
+                  FutureBuilder<List<Map<String, String?>>>(
+                    future: _fetchMultipleDownloadUrls(), // Call the new function
+                    builder: (context, snapshot) {
+                      // Check connection state
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary, // Use theme color
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'A carregar...', // Loading...
-                                style: textTheme.bodySmall,
-                              ),
-                            ],
-                          );
-                        }
-
-                        // Check for errors during the fetch process itself (e.g., network error)
-                        if (snapshot.hasError) {
-                          return Row(
-                            children: [
-                              Icon(Icons.error_outline, color: colorScheme.error),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Erro: ${snapshot.error}', // Error: ...
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-
-                        // Check if data (list of results) exists and is not null/empty
-                        final results = snapshot.data;
-                        if (results == null || results.isEmpty) {
-                          return Text(
-                            'Nenhum ficheiro disponível', // No files available
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        }
-
-                        // --- Display Previews using Wrap --- //
-                        return Wrap(
-                          spacing: 8.0,
-                          runSpacing: 8.0,
-                          children:
-                              results.map((fileData) {
-                                return _buildDocumentPreview(context, fileData);
-                              }).toList(),
+                            const SizedBox(width: 8),
+                            Text(
+                              'A carregar...', // Loading...
+                              style: textTheme.bodySmall,
+                            ),
+                          ],
                         );
-                      },
-                    ),
+                      }
+
+                      // Check for errors during the fetch process itself (e.g., network error)
+                      if (snapshot.hasError) {
+                        return Row(
+                          children: [
+                            Icon(Icons.error_outline, color: colorScheme.error),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Erro: ${snapshot.error}', // Error: ...
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Check if data (list of results) exists and is not null/empty
+                      final results = snapshot.data;
+                      if (results == null || results.isEmpty) {
+                        return Text(
+                          'Nenhum ficheiro disponível', // No files available
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      }
+
+                      // --- Display Previews using Wrap --- //
+                      return Wrap(
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children:
+                            results.map((fileData) {
+                              return _buildDocumentPreview(context, fileData);
+                            }).toList(),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 20),
                   // --- Actions or Rejection Info ---
                   if (widget.submission?.status == 'rejected')
@@ -1261,12 +1376,12 @@ class _OpportunityDetailFormViewState
                               : Text('Criar Oportunidade', style: textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.5,
-                                  color: Colors.white,
+                                  color: _areAllFieldsFilled() && !_isSubmitting ? Colors.white : null,
                                 )),
-                          onPressed: _isSubmitting ? null : _submitForm,
+                          onPressed: _areAllFieldsFilled() && !_isSubmitting ? _submitForm : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
+                            backgroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.primary : null,
+                            foregroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.onPrimary : null,
                             minimumSize: const Size(180, 44),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -1672,6 +1787,7 @@ class _OpportunityDetailFormViewState
     // Determine if it's an image (basic check based on extension from path)
     // More robust check would use contentType if available
     final bool isImage = _isImageFile(fileName);
+    final bool isUnsupportedImage = _isUnsupportedImageFile(fileName);
     final bool isPdf = fileName.toLowerCase().endsWith('.pdf');
 
     Widget content;
@@ -1731,6 +1847,27 @@ class _OpportunityDetailFormViewState
           ],
         ),
       );
+    } else if (isUnsupportedImage) {
+      // --- Unsupported Image Format (e.g., HEIC) ---
+      content = GestureDetector(
+        onTap: () => _launchUrl(downloadUrl), // Download the file
+        child: Tooltip(
+          message: 'Formato de imagem não suportado no navegador. Clique para baixar: $fileName',
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.image_not_supported, color: colorScheme.secondary, size: 30),
+              const SizedBox(height: 4),
+              Icon(
+                Icons.download,
+                size: 14,
+                color: colorScheme.primary,
+              ), // Indicate download
+            ],
+          ),
+        ),
+      );
     } else if (isImage) {
       // --- Image Preview ---
       content = GestureDetector(
@@ -1767,7 +1904,19 @@ class _OpportunityDetailFormViewState
               (context, error, stackTrace) => Tooltip(
                 message:
                     'Erro na pré-visualização: $error', // Error previewing: ...
-                child: const Center(child: Icon(Icons.broken_image, size: 30)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.broken_image, color: colorScheme.error, size: 30),
+                    const SizedBox(height: 4),
+                    Icon(
+                      Icons.download,
+                      size: 14,
+                      color: colorScheme.primary,
+                    ),
+                  ],
+                ),
               ),
         ),
       );
@@ -1860,8 +2009,14 @@ class _OpportunityDetailFormViewState
         lowerCaseFileName.endsWith('.jpeg') ||
         lowerCaseFileName.endsWith('.png') ||
         lowerCaseFileName.endsWith('.gif') ||
-        lowerCaseFileName.endsWith('.heic') ||
         lowerCaseFileName.endsWith('.webp');
+  }
+
+  // --- NEW: Helper to check if file is an unsupported image format ---
+  bool _isUnsupportedImageFile(String fileName) {
+    final lowerCaseFileName = fileName.toLowerCase();
+    return lowerCaseFileName.endsWith('.heic') ||
+        lowerCaseFileName.endsWith('.heif');
   }
 
   // --- NEW: NIF Check Logic --- //
@@ -2235,6 +2390,39 @@ class _OpportunityDetailFormViewState
         );
       },
     );
+  }
+
+  // --- NEW: Helper method to check if all required fields are filled ---
+  bool _areAllFieldsFilled() {
+    // Check basic required fields
+    final hasOpportunityName = _nameController.text.trim().isNotEmpty;
+    final hasNif = _nifController.text.trim().isNotEmpty;
+    final hasSelectedSegmento = _selectedSegmentoCliente != null && _selectedSegmentoCliente != '--None--';
+    final hasSolucao = _selectedSolucao != null && _selectedSolucao != '--None--';
+    final hasCloseDate = _selectedFechoDate != null;
+    
+    // Check if user is selected in manual mode
+    final hasSelectedUser = !widget.isManualMode || _selectedUser != null;
+    
+    // Check if files are present
+    bool hasFiles = false;
+    if (widget.isManualMode) {
+      // For manual mode, watch the provider for selected files to trigger rebuilds
+      final fileState = ref.watch(serviceSubmissionProvider);
+      hasFiles = fileState.selectedFiles.isNotEmpty;
+    } else {
+      // For submission mode, check if submission has files
+      hasFiles = widget.submission?.documentUrls?.isNotEmpty == true ||
+                 widget.submission?.invoicePhoto?.storagePath?.isNotEmpty == true;
+    }
+    
+    return hasOpportunityName && 
+           hasNif && 
+           hasSelectedSegmento && 
+           hasSolucao && 
+           hasCloseDate && 
+           hasSelectedUser &&
+           hasFiles;
   }
 }
 

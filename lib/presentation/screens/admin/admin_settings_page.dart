@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
@@ -14,6 +13,7 @@ import '../../../app/router/app_router.dart';
 import '../../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../../core/services/loading_service.dart';
 import '../../../core/services/salesforce_auth_service.dart';
+import '../../../features/notifications/presentation/providers/notification_provider.dart';
 
 class AdminSettingsPage extends ConsumerStatefulWidget {
   const AdminSettingsPage({super.key});
@@ -23,7 +23,6 @@ class AdminSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
-  bool _notificationsEnabled = true;
   bool _securityAlertsEnabled = true;
 
   @override
@@ -60,7 +59,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
         children: [
           // --- Page Title ---
           Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+            padding: const EdgeInsets.fromLTRB(32.0, 16.0, 32.0, 0),
             child: Text(
               'Definições',
               style: theme.textTheme.headlineLarge?.copyWith(
@@ -71,27 +70,6 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
             ),
           ),
           const SizedBox(height: 32),
-          // --- Conta Section ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                child: ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  leading: Icon(CupertinoIcons.person_fill, color: theme.colorScheme.primary, size: 24),
-                  title: Text('Perfil de Administrador', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-                  subtitle: Text('Ver e editar perfil', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
-                  onTap: () {},
-                  trailing: Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
           // --- Definições Comuns Section ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -105,13 +83,20 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     borderRadius: BorderRadius.circular(16),
                     child: ListTile(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      leading: Icon(isDarkMode ? CupertinoIcons.moon_fill : CupertinoIcons.sun_max_fill, color: theme.colorScheme.primary, size: 24),
+                      leading: Icon(isDarkMode ? Icons.dark_mode : Icons.wb_sunny, color: theme.colorScheme.primary, size: 24),
                       title: Text('Tema', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                       subtitle: Text(isDarkMode ? 'Escuro' : 'Claro', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                       trailing: Switch(
                         value: isDarkMode,
-                        onChanged: (value) => ref.read(themeProvider.notifier).toggleTheme(),
                         activeColor: theme.colorScheme.primary,
+                        inactiveThumbColor: theme.colorScheme.outline,
+                        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return theme.colorScheme.primary;
+                          }
+                          return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                        }),
+                        onChanged: (value) => ref.read(themeProvider.notifier).toggleTheme(),
                       ),
                     ),
                   ),
@@ -120,13 +105,20 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                     borderRadius: BorderRadius.circular(16),
                     child: ListTile(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      leading: Icon(CupertinoIcons.bell_fill, color: theme.colorScheme.primary, size: 24),
+                      leading: Icon(Icons.notifications_outlined, color: theme.colorScheme.primary, size: 24),
                       title: Text('Notificações', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-                      subtitle: Text('Gerir preferências de notificação', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                      subtitle: Text(ref.watch(adminPushNotificationSettingsProvider) ? 'Ativadas' : 'Desativadas', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                       trailing: Switch(
-                        value: _notificationsEnabled,
-                        onChanged: (value) => setState(() => _notificationsEnabled = value),
+                        value: ref.watch(adminPushNotificationSettingsProvider),
                         activeColor: theme.colorScheme.primary,
+                        inactiveThumbColor: theme.colorScheme.outline,
+                        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return theme.colorScheme.primary;
+                          }
+                          return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                        }),
+                        onChanged: (value) => ref.read(adminPushNotificationSettingsProvider.notifier).setEnabled(value),
                       ),
                     ),
                   ),
@@ -146,7 +138,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 borderRadius: BorderRadius.circular(16),
                 child: ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  leading: Icon(CupertinoIcons.cloud, color: theme.colorScheme.primary, size: 24),
+                  leading: Icon(Icons.cloud, color: theme.colorScheme.primary, size: 24),
                   title: Text('Conectar Salesforce', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   subtitle: Text(statusSubtitle, style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                   onTap: () async {
@@ -188,7 +180,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 borderRadius: BorderRadius.circular(16),
                 child: ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  leading: Icon(CupertinoIcons.square_arrow_right, color: theme.colorScheme.error, size: 24),
+                  leading: Icon(Icons.logout, color: theme.colorScheme.error, size: 24),
                   title: Text('Terminar Sessão', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.error)),
                   subtitle: Text('Encerrar a sessão atual', style: TextStyle(color: theme.colorScheme.error.withOpacity(0.7), fontSize: 14)),
                   onTap: () => _handleLogout(context, ref),

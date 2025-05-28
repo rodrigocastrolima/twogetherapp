@@ -16,6 +16,7 @@ import '../../widgets/success_dialog.dart'; // Import the success dialog
 import '../../widgets/app_loading_indicator.dart'; // Import the custom loading indicator
 import 'package:go_router/go_router.dart'; // Import go_router
 import '../../../features/proposal/presentation/providers/proposal_providers.dart'; // Import for provider invalidation
+import '../../../features/opportunity/presentation/providers/opportunity_providers.dart'; // Import for opportunity provider invalidation
 
 // Enum to represent different document types
 enum DocumentType { contract, idDocument, proofOfAddress, crcDocument }
@@ -26,6 +27,7 @@ class SubmitProposalDocumentsPage extends ConsumerStatefulWidget {
   final String proposalName;
   final List<SalesforceCPEProposalData> cpeList;
   final String nif;
+  final String? opportunityId; // Add optional opportunity ID
 
   const SubmitProposalDocumentsPage({
     super.key,
@@ -33,6 +35,7 @@ class SubmitProposalDocumentsPage extends ConsumerStatefulWidget {
     required this.proposalName,
     required this.cpeList,
     required this.nif,
+    this.opportunityId, // Optional parameter
   });
 
   @override
@@ -274,8 +277,14 @@ class _SubmitProposalDocumentsPageState
 
       // 6. Handle result
       if (result.data['success'] == true) {
-        // Invalidate the provider for proposal details to ensure refresh
+        // Invalidate providers to ensure refresh
         ref.invalidate(resellerProposalDetailsProvider(widget.proposalId));
+        ref.invalidate(resellerOpportunitiesProvider);
+        
+        // Also invalidate the opportunity proposals provider if opportunity ID is available
+        if (widget.opportunityId != null) {
+          ref.invalidate(resellerOpportunityProposalNamesProvider(widget.opportunityId!));
+        }
 
         // --- Create Notification Document ---
         try {
@@ -286,7 +295,7 @@ class _SubmitProposalDocumentsPageState
           await notificationRepo.createProposalAcceptedNotification(
             proposalId: widget.proposalId,
             proposalName: widget.proposalName, // Now available via widget
-            opportunityId: null, // Or pass if available from somewhere
+            opportunityId: widget.opportunityId, // Pass the opportunity ID
             clientNif: widget.nif,
             resellerName: currentUser?.displayName,
             resellerId: currentUser?.uid,
@@ -394,156 +403,418 @@ class _SubmitProposalDocumentsPageState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bool allDocumentsReady = _areAllDocumentsReady();
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       // Conditionally show AppBar
       appBar: _isLoading ? null : AppBar(
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
-          // Disable back button during non-loading interactions if needed, 
-          // but primarily relying on the full-screen loader to block.
-          onPressed: () => Navigator.of(context).pop(), 
-        ),
-        title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
-        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            CupertinoIcons.chevron_left,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: LogoWidget(height: 60, darkMode: isDark),
+        centerTitle: true,
       ),
       body: Stack(
         children: [
-          // Main content column (conditionally visible or behind loader)
-          if (!_isLoading) // Only build the main content if not loading
-            Column( 
-              crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
-                  child: Text(
-                    'Carregar documentos',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                       fontWeight: FontWeight.bold,
-                       color: theme.colorScheme.onSurface, 
-                    ),
+          // Main content with proper layout constraints
+          if (!_isLoading)
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Page Title Section
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16, bottom: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Aceitar Proposta',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.proposalName,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Main content
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Digital signature section (no card container)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: _isDigitallySigned
+                                            ? theme.colorScheme.primary.withAlpha((255 * 0.1).round())
+                                            : theme.colorScheme.surfaceVariant,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Icon(
+                                        _isDigitallySigned 
+                                            ? Icons.description_outlined 
+                                            : Icons.description,
+                                        color: _isDigitallySigned 
+                                            ? theme.colorScheme.primary 
+                                            : theme.colorScheme.onSurfaceVariant,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Contratos assinados digitalmente',
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Switch.adaptive(
+                                      value: _isDigitallySigned,
+                                      onChanged: (bool value) {
+                                        setState(() {
+                                          _isDigitallySigned = value;
+                                          if (_isDigitallySigned) {
+                                            _contractFiles.updateAll((key, _) => null);
+                                          }
+                                        });
+                                      },
+                                      activeColor: theme.colorScheme.primary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Contracts section (if not digitally signed)
+                              if (!_isDigitallySigned) ...[
+                                Text(
+                                  'Contratos Assinados',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ...widget.cpeList.map((cpe) {
+                                  String cpeDisplayName = cpe.cpeC ?? 'CPE ...${cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id}';
+                                  return _buildModernFileUploadCard(
+                                    context,
+                                    'Contrato Assinado ($cpeDisplayName)',
+                                    'Ficheiro PDF assinado para este CPE',
+                                    Icons.description_outlined,
+                                    DocumentType.contract,
+                                    _contractFiles[cpe.id],
+                                    cpeProposalId: cpe.id,
+                                  );
+                                }).toList(),
+                                const SizedBox(height: 32),
+                              ],
+
+                              // Required documents section
+                              Text(
+                                'Documentos Obrigatórios',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              
+                              _buildModernFileUploadCard(
+                                context,
+                                'Documento de identificação (CC)',
+                                'Cartão de Cidadão ou documento equivalente',
+                                CupertinoIcons.person_crop_rectangle,
+                                DocumentType.idDocument,
+                                _idDocumentFile,
+                              ),
+                              
+                              _buildModernFileUploadCard(
+                                context,
+                                'Prova de residência',
+                                'Comprovativo de morada atual',
+                                CupertinoIcons.house,
+                                DocumentType.proofOfAddress,
+                                _proofOfAddressFile,
+                              ),
+                              
+                              _buildModernFileUploadCard(
+                                context,
+                                'Certidão Permanente (CRC)',
+                                'Certidão do Registo Comercial',
+                                CupertinoIcons.doc_chart,
+                                DocumentType.crcDocument,
+                                _crcDocumentFile,
+                              ),
+
+                              const SizedBox(height: 40),
+
+                              // Submit button
+                              Center(
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading || !allDocumentsReady 
+                                        ? null 
+                                        : _submitDocuments,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: theme.colorScheme.primary,
+                                      foregroundColor: theme.colorScheme.onPrimary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12.0),
+                                      ),
+                                      minimumSize: const Size(double.infinity, 50),
+                                    ),
+                                    child: Text(
+                                      'Submeter Documentos',
+                                      style: theme.textTheme.labelLarge?.copyWith(
+                                        color: theme.colorScheme.onPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SwitchListTile.adaptive(
-                      title: const Text('Contratos assinados digitalmente'),
-              value: _isDigitallySigned,
-                          onChanged: (bool value) { // Already disabled by _isLoading in onPressed of button
-                setState(() {
-                  _isDigitallySigned = value;
-                  if (_isDigitallySigned) {
-                    _contractFiles.updateAll((key, _) => null);
-                  }
-                });
-              },
-                      contentPadding: EdgeInsets.zero,
-              secondary: Icon(
-                            _isDigitallySigned ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.checkmark_seal,
-                            color: _isDigitallySigned ? theme.colorScheme.primary : null,
               ),
             ),
-            const SizedBox(height: 16),
-            if (!_isDigitallySigned)
-              ...widget.cpeList.map((cpe) {
-                            String shortId = cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id;
-                return _buildFileUploadPlaceholder(
-                  context,
-                          'Contrato Assinado (CPE ...$shortId)',
-                  Icons.description_outlined,
-                  DocumentType.contract,
-                          _contractFiles[cpe.id],
-                          cpeProposalId: cpe.id,
-                );
-              }).toList(),
-            const Divider(height: 24),
-                        _buildFileUploadPlaceholder(context, 'Documento de identificação (CC)', CupertinoIcons.person_crop_rectangle, DocumentType.idDocument, _idDocumentFile),
-                        _buildFileUploadPlaceholder(context, 'Prova de residência', CupertinoIcons.house, DocumentType.proofOfAddress, _proofOfAddressFile),
-                        _buildFileUploadPlaceholder(context, 'Certidão Permanente (CRC)', CupertinoIcons.doc_chart, DocumentType.crcDocument, _crcDocumentFile),
-            const SizedBox(height: 32),
-            Center(
-              child: CupertinoButton.filled(
-                            onPressed: _isLoading || !allDocumentsReady ? null : _submitDocuments,
-                        child: const Text('Submeter Documentos'),
-                      ),
-                    ),
-                        const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          
           // Custom loading indicator as overlay
           if (_isLoading)
-            const AppLoadingIndicator(), 
+            const AppLoadingIndicator(),
         ],
       ),
     );
   }
 
-  // Helper widget for file upload placeholders
-  Widget _buildFileUploadPlaceholder(
+  // Helper widget for modern file upload cards
+  Widget _buildModernFileUploadCard(
     BuildContext context,
     String title,
+    String subtitle,
     IconData icon,
     DocumentType docType,
     PlatformFile? pickedFile, {
     String? cpeProposalId,
   }) {
-    bool isFilePicked = pickedFile != null;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color:
-              isFilePicked
-                  ? Colors.green
-                  : Theme.of(context).colorScheme.primary,
+    final theme = Theme.of(context);
+    final bool isFilePicked = pickedFile != null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.shadow.withAlpha((255 * 0.05).round()),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        title: Text(
-          isFilePicked ? pickedFile.name : title,
-          style: TextStyle(color: isFilePicked ? Colors.green : null),
-          overflow: TextOverflow.ellipsis,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              // Icon container
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isFilePicked
+                      ? Colors.green.withAlpha((255 * 0.1).round())
+                      : theme.colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isFilePicked ? Icons.check_circle : icon,
+                  color: isFilePicked
+                      ? Colors.green
+                      : theme.colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              
+              // Content (always shows original title/subtitle)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Right side: File info or add button
+              if (isFilePicked) ...[
+                // File icon with tooltip and click-to-view functionality
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 4), // Add padding to prevent cutoff
+                  child: Stack(
+                    clipBehavior: Clip.none, // Allow overflow for the remove button
+                    children: [
+                      Tooltip(
+                        message: pickedFile!.name,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: () {
+                            // TODO: Implement SecureFileViewer for local files
+                            // This would require creating a temporary download URL or handling bytes directly
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Visualização de ficheiros locais em desenvolvimento'),
+                                backgroundColor: theme.colorScheme.primary,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+                              borderRadius: BorderRadius.circular(6.0),
+                              border: Border.all(
+                                color: Colors.black.withAlpha((255 * 0.1).round()),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: _getFileIcon(pickedFile.name, theme),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Remove button positioned at top-right corner
+                      Positioned(
+                        top: -6,
+                        right: -6,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () {
+                            if (_isLoading) return;
+                            setState(() {
+                              switch (docType) {
+                                case DocumentType.contract:
+                                  if (cpeProposalId != null) {
+                                    _contractFiles[cpeProposalId] = null;
+                                  }
+                                  break;
+                                case DocumentType.idDocument:
+                                  _idDocumentFile = null;
+                                  break;
+                                case DocumentType.proofOfAddress:
+                                  _proofOfAddressFile = null;
+                                  break;
+                                case DocumentType.crcDocument:
+                                  _crcDocumentFile = null;
+                                  break;
+                              }
+                            });
+                          },
+                          child: Icon(
+                            CupertinoIcons.xmark,
+                            color: Colors.red,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Add button (only this is clickable)
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _pickFile(docType, cpeProposalId: cpeProposalId),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    child: Icon(
+                      Icons.add,
+                      color: theme.colorScheme.primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        trailing:
-            isFilePicked
-                ? IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  tooltip: 'Remover ficheiro',
-                  onPressed: () {
-                    if (_isLoading) return;
-                    setState(() {
-                      switch (docType) {
-                        case DocumentType.contract:
-                          if (cpeProposalId != null) {
-                            _contractFiles[cpeProposalId] = null;
-                          }
-                          break;
-                        case DocumentType.idDocument:
-                          _idDocumentFile = null;
-                          break;
-                        case DocumentType.proofOfAddress:
-                          _proofOfAddressFile = null;
-                          break;
-                        case DocumentType.crcDocument:
-                          _crcDocumentFile = null;
-                          break;
-                      }
-                    });
-                  },
-                )
-                : null,
-        onTap: () => _pickFile(docType, cpeProposalId: cpeProposalId),
       ),
     );
+  }
+
+  // Helper method to get file icon based on file extension
+  Widget _getFileIcon(String fileName, ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    final fileType = fileName.toLowerCase().split('.').last;
+    
+    if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'heic'].contains(fileType)) {
+      return Icon(Icons.image_outlined, color: colorScheme.primary, size: 20);
+    } else if (fileType == 'pdf') {
+      return Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 20);
+    } else {
+      return Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 20);
+    }
   }
 }

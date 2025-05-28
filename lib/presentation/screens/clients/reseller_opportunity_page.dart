@@ -370,238 +370,234 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       body: SafeArea(
         bottom: false,
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Clientes',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        richMessage: TextSpan(
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontSize: 15, // Increased font size
-                          ),
-                          children: <InlineSpan>[
-                            const TextSpan(text: 'Legenda dos Ícones:\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // Title font size
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue, size: 20), // Increased icon size
-                            ),
-                            const TextSpan(text: ' Ação Necessária: Requer a sua atenção.\n'),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Icon(CupertinoIcons.clock_fill, color: Colors.orange, size: 20), // Increased icon size
-                            ),
-                            const TextSpan(text: ' A Aguardar: Aguarde a Twogether ou verifique.\n'),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green, size: 20), // Increased icon size
-                            ),
-                            const TextSpan(text: ' Concluído: Processo finalizado com sucesso.\n'),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red, size: 20), // Increased icon size
-                            ),
-                            const TextSpan(text: ' Cancelada/Rejeitada: Oportunidade não aprovada.\n'),
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant, size: 20), // Increased icon size
-                            ),
-                            const TextSpan(text: ' Outro: Estado inicial ou diferente.'),
-                          ],
-                        ),
-                        preferBelow: false,
-                        verticalOffset: 22, 
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), 
-                        decoration: BoxDecoration(
-                          color: (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceContainerHigh : theme.cardColor).withOpacity(0.98),
-                          borderRadius: BorderRadius.circular(10), 
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.shadowColor.withOpacity(0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minSize: 0,
-                          child: Icon(
-                            CupertinoIcons.info_circle,
-                            color: theme.colorScheme.onSurfaceVariant,
-                            size: 24,
-                          ),
-                          onPressed: () {
-                            _showIconLegendDialog(context);
-                          },
-                        ),
-                      ),
-                    ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Clientes',
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child:
-                      isSmallScreen
-                          ? Row(
-                              children: [
-                                Expanded(child: _buildSearchBar(context)),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 160,
-                                  child: _buildFilterDropdown(context),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    richMessage: TextSpan(
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 15, // Increased font size
+                      ),
+                      children: <InlineSpan>[
+                        const TextSpan(text: 'Legenda dos Ícones:\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // Title font size
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue, size: 20), // Increased icon size
+                        ),
+                        const TextSpan(text: ' Ação Necessária: Requer a sua atenção.\n'),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(CupertinoIcons.clock_fill, color: Colors.orange, size: 20), // Increased icon size
+                        ),
+                        const TextSpan(text: ' A Aguardar: Aguarde a Twogether ou verifique.\n'),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green, size: 20), // Increased icon size
+                        ),
+                        const TextSpan(text: ' Concluído: Processo finalizado com sucesso.\n'),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red, size: 20), // Increased icon size
+                        ),
+                        const TextSpan(text: ' Cancelada/Rejeitada: Oportunidade não aprovada.\n'),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant, size: 20), // Increased icon size
+                        ),
+                        const TextSpan(text: ' Outro: Estado inicial ou diferente.'),
+                      ],
+                    ),
+                    preferBelow: false,
+                    verticalOffset: 22, 
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), 
+                    decoration: BoxDecoration(
+                      color: (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceContainerHigh : theme.cardColor).withOpacity(0.98),
+                      borderRadius: BorderRadius.circular(10), 
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.shadowColor.withOpacity(0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      minSize: 0,
+                      child: Icon(
+                        CupertinoIcons.info_circle,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        _showIconLegendDialog(context);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child:
+                  isSmallScreen
+                      ? Row(
+                          children: [
+                            Expanded(child: _buildSearchBar(context)),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 160,
+                              child: _buildFilterDropdown(context),
+                            ),
+                          ],
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: _buildDesktopSearchBar(context),
+                              ),
+                              const SizedBox(width: 16),
+                              SizedBox(
+                                width: 200.0,
+                                child: _buildDesktopFilterDropdown(context),
+                              ),
+                            ],
+                          ),
+                        ),
+            ),
+            Expanded(
+              child: opportunitiesAsync.when(
+                data: (opportunities) {
+                  // Apply status filter first
+                  List<sfo.SalesforceOpportunity> statusFilteredOpportunities =
+                      opportunities
+                          .where(
+                            (opportunity) =>
+                                _matchesFilter(opportunity, _selectedFilter),
+                          )
+                          .toList();
+
+                  // Then apply search filter
+                  final displayOpportunities =
+                      _searchQuery.isEmpty
+                          ? statusFilteredOpportunities
+                          : statusFilteredOpportunities.where((opportunity) {
+                            final query = _searchQuery.toLowerCase();
+                            final nameMatch = (opportunity.name)
+                                .toLowerCase()
+                                .contains(query);
+                            final accountNameMatch = (opportunity.accountName ??
+                                    '')
+                                .toLowerCase()
+                                .contains(query);
+                            return nameMatch || accountNameMatch;
+                          }).toList();
+
+                  if (displayOpportunities.isEmpty) {
+                    return _buildEmptyState(context);
+                  }
+
+                  return AnimationLimiter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
+                        itemCount: displayOpportunities.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 0),
+                        itemBuilder: (context, index) {
+                          final opportunity = displayOpportunities[index];
+                          // Get status visuals
+                          String? latestStatus;
+                          if (opportunity.propostasR?.records != null &&
+                              opportunity.propostasR!.records.isNotEmpty) {
+                            latestStatus = opportunity.propostasR!.records.first.statusC;
+                          }
+                          IconData? statusIcon;
+                          Color statusIconColor = theme.colorScheme.onSurfaceVariant;
+                          switch (latestStatus) {
+                            case 'Aceite':
+                              statusIcon = CupertinoIcons.checkmark_seal_fill;
+                              statusIconColor = Colors.green;
+                              break;
+                            case 'Enviada':
+                            case 'Em Aprovação':
+                              statusIcon = CupertinoIcons.exclamationmark_circle_fill;
+                              statusIconColor = Colors.blue;
+                              break;
+                            case 'Não Aprovada':
+                            case 'Cancelada':
+                              statusIcon = CupertinoIcons.xmark_seal_fill;
+                              statusIconColor = Colors.red;
+                              break;
+                            case 'Expirada':
+                            case 'Aprovada':
+                              statusIcon = CupertinoIcons.clock_fill;
+                              statusIconColor = Colors.orange;
+                              break;
+                            default:
+                              statusIcon = CupertinoIcons.doc_text;
+                              statusIconColor = theme.colorScheme.onSurfaceVariant;
+                          }
+                          String displayDate = '';
+                          if (opportunity.createdDate != null) {
+                            try {
+                              final dateTime = DateTime.parse(opportunity.createdDate!);
+                              displayDate = DateFormat('dd/MM/yy', 'pt_PT').format(dateTime);
+                            } catch (e) {
+                              displayDate = '';
+                            }
+                          }
+                          final cardName = opportunity.accountName ?? opportunity.name;
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 375),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                child: SimpleListItem(
+                                  leading: Icon(statusIcon, color: statusIconColor, size: 28),
+                                  title: cardName,
+                                  subtitle: displayDate,
+                                  onTap: () {
+                                    context.push('/opportunity-details', extra: opportunity);
+                                  },
                                 ),
-                              ],
-                            )
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 16.0),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: _buildDesktopSearchBar(context),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  SizedBox(
-                                    width: 200.0,
-                                    child: _buildDesktopFilterDropdown(context),
-                                  ),
-                                ],
                               ),
                             ),
-                ),
-                Expanded(
-                  child: opportunitiesAsync.when(
-                    data: (opportunities) {
-                      // Apply status filter first
-                      List<sfo.SalesforceOpportunity> statusFilteredOpportunities =
-                          opportunities
-                              .where(
-                                (opportunity) =>
-                                    _matchesFilter(opportunity, _selectedFilter),
-                              )
-                              .toList();
-
-                      // Then apply search filter
-                      final displayOpportunities =
-                          _searchQuery.isEmpty
-                              ? statusFilteredOpportunities
-                              : statusFilteredOpportunities.where((opportunity) {
-                                final query = _searchQuery.toLowerCase();
-                                final nameMatch = (opportunity.name)
-                                    .toLowerCase()
-                                    .contains(query);
-                                final accountNameMatch = (opportunity.accountName ??
-                                        '')
-                                    .toLowerCase()
-                                    .contains(query);
-                                return nameMatch || accountNameMatch;
-                              }).toList();
-
-                      if (displayOpportunities.isEmpty) {
-                        return _buildEmptyState(context);
-                      }
-
-                      return AnimationLimiter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
-                            itemCount: displayOpportunities.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 0),
-                            itemBuilder: (context, index) {
-                              final opportunity = displayOpportunities[index];
-                              // Get status visuals
-                              String? latestStatus;
-                              if (opportunity.propostasR?.records != null &&
-                                  opportunity.propostasR!.records.isNotEmpty) {
-                                latestStatus = opportunity.propostasR!.records.first.statusC;
-                              }
-                              IconData? statusIcon;
-                              Color statusIconColor = theme.colorScheme.onSurfaceVariant;
-                              switch (latestStatus) {
-                                case 'Aceite':
-                                  statusIcon = CupertinoIcons.checkmark_seal_fill;
-                                  statusIconColor = Colors.green;
-                                  break;
-                                case 'Enviada':
-                                case 'Em Aprovação':
-                                  statusIcon = CupertinoIcons.exclamationmark_circle_fill;
-                                  statusIconColor = Colors.blue;
-                                  break;
-                                case 'Não Aprovada':
-                                case 'Cancelada':
-                                  statusIcon = CupertinoIcons.xmark_seal_fill;
-                                  statusIconColor = Colors.red;
-                                  break;
-                                case 'Expirada':
-                                case 'Aprovada':
-                                  statusIcon = CupertinoIcons.clock_fill;
-                                  statusIconColor = Colors.orange;
-                                  break;
-                                default:
-                                  statusIcon = CupertinoIcons.doc_text;
-                                  statusIconColor = theme.colorScheme.onSurfaceVariant;
-                              }
-                              String displayDate = '';
-                              if (opportunity.createdDate != null) {
-                                try {
-                                  final dateTime = DateTime.parse(opportunity.createdDate!);
-                                  displayDate = DateFormat('dd/MM/yy', 'pt_PT').format(dateTime);
-                                } catch (e) {
-                                  displayDate = '';
-                                }
-                              }
-                              final cardName = opportunity.accountName ?? opportunity.name;
-                              return AnimationConfiguration.staggeredList(
-                                position: index,
-                                duration: const Duration(milliseconds: 375),
-                                child: SlideAnimation(
-                                  verticalOffset: 50.0,
-                                  child: FadeInAnimation(
-                                    child: SimpleListItem(
-                                      leading: Icon(statusIcon, color: statusIconColor, size: 28),
-                                      title: cardName,
-                                      subtitle: displayDate,
-                                      onTap: () {
-                                        context.push('/opportunity-details', extra: opportunity);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                    loading: () => _buildLoadingIndicator(context, isDark),
-                    error:
-                        (error, stackTrace) =>
-                            _buildErrorState(context, error, isDark),
-                  ),
-                ),
-              ],
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+                loading: () => _buildLoadingIndicator(context, isDark),
+                error:
+                    (error, stackTrace) =>
+                        _buildErrorState(context, error, isDark),
+              ),
             ),
-          ),
+          ],
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(context, isDark),

@@ -286,7 +286,7 @@ class AppStyles {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+        borderSide: BorderSide(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6), width: 1.5),
       ),
     );
   }

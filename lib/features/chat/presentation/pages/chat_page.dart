@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +13,14 @@ import '../../domain/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
 import '../widgets/chat_image_preview_sheet.dart';
-import '../widgets/chat_file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/theme/theme.dart';
+import '../../../../presentation/widgets/secure_file_viewer.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/rendering.dart';
 
 // Add extension to ChatMessage for cleaner code
 extension ChatMessageExtension on ChatMessage {
@@ -57,6 +61,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   bool _hasText = false; // Add this to track whether there's text in the input
   Timer? _debounceTimer; // Add debounce timer to prevent too many updates
   late final ChatNotifier _chatNotifier; // <-- ADD member variable
+
+  // Add state for file/image attachments
+  dynamic _selectedFile; // Can be XFile or File
+  String? _selectedFileName;
+  String? _selectedFileType;
+  int? _selectedFileSize;
+  bool _isAttachmentImage = false;
 
   @override
   void initState() {
@@ -130,19 +141,55 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _isLoading) return;
+    final hasText = text.isNotEmpty;
+    final hasAttachment = _selectedFile != null;
+    
+    if (!hasText && !hasAttachment) return;
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // Clear the input immediately for better UX
       _messageController.clear();
-      await ref
-          .read(chatNotifierProvider.notifier)
-          .sendTextMessage(widget.conversationId, text);
+      final fileToSend = _selectedFile;
+      final fileName = _selectedFileName;
+      final fileType = _selectedFileType;
+      final fileSize = _selectedFileSize;
+      final isImage = _isAttachmentImage;
+      
+      // Clear attachment state
+      _removeAttachment();
 
-      // Scroll to bottom after message is sent
+      // Send text message first if there is text
+      if (hasText) {
+        await ref
+            .read(chatNotifierProvider.notifier)
+            .sendTextMessage(widget.conversationId, text);
+      }
+
+      // Send attachment if there is one
+      if (hasAttachment) {
+        if (isImage) {
+          await ref
+              .read(chatNotifierProvider.notifier)
+              .sendImageMessage(widget.conversationId, fileToSend);
+        } else {
+          await ref
+              .read(chatNotifierProvider.notifier)
+              .sendFileMessage(
+                widget.conversationId,
+                fileToSend,
+                fileName!,
+                fileType!,
+                fileSize!,
+              );
+        }
+      }
+
+      // Scroll to bottom after messages are sent
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -153,7 +200,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
       });
 
-      // This will mark as read automatically when we send a message
+      // Mark as read automatically when we send messages
       _markAsRead();
     } catch (e) {
       // Show error message to user
@@ -208,52 +255,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         print('Image size: ${await pickedImage.length()} bytes');
       }
 
-      if (mounted) {
-        // Show the image preview as a semi-transparent overlay route
-        final result = await Navigator.of(context, rootNavigator: true).push(
-          PageRouteBuilder(
-            opaque: false, // Makes the route transparent
-            fullscreenDialog: true,
-            transitionDuration: const Duration(
-              milliseconds: 200,
-            ), // Match old duration
-            pageBuilder:
-                (context, animation, secondaryAnimation) =>
-                    ChatImagePreviewSheet(
-                      imageFile: pickedImage,
-                      conversationId: widget.conversationId,
-                    ),
-            transitionsBuilder: (
-              context,
-              animation,
-              secondaryAnimation,
-              child,
-            ) {
-              // Simple Fade transition
-              return FadeTransition(opacity: animation, child: child);
-            },
-          ),
-        );
+      // Set as attachment instead of showing preview
+      final fileSize = await pickedImage.length();
+      setState(() {
+        _selectedFile = pickedImage;
+        _selectedFileName = pickedImage.name;
+        _selectedFileType = 'image/${pickedImage.path.split('.').last.toLowerCase()}';
+        _selectedFileSize = fileSize;
+        _isAttachmentImage = true;
+        _isImageLoading = false;
+      });
 
-        /* // REMOVE Old showModalBottomSheet logic
-        final result = await showModalBottomSheet(
-          context: context,
-          isScrollControlled: true, // Allows sheet to be taller
-          backgroundColor: Colors.transparent, // Make background transparent
-          builder: (sheetContext) => ChatImagePreviewSheet(
-             imageFile: pickedImage,
-             conversationId: widget.conversationId,
-          ),
-        );
-        */
+      // Focus on the text input so user can add a message
+      _focusNode.requestFocus();
 
-        // If the image was sent successfully (result is true), mark as read & scroll
-        if (result == true) {
-          ref
-              .read(chatNotifierProvider.notifier)
-              .markConversationAsRead(widget.conversationId);
-        }
-      }
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Error selecting image: $e');
@@ -309,7 +324,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final isOnline = _isBusinessHours();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: isDark ? theme.colorScheme.background : Colors.transparent,
       appBar:
           widget.showAppBar
               ? AppBar(
@@ -387,187 +402,189 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       body: SafeArea(
         bottom: true,
         top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!(widget.isAdminView && !widget.showAppBar)) ...[
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      'Mensagens',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      textAlign: TextAlign.left,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!(widget.isAdminView && !widget.showAppBar)) ...[
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Text(
+                  'Mensagens',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: -0.5,
                   ),
-                  const SizedBox(height: 24),
-                ],
-                Expanded(
-                  child: Column(
-                    children: [
-                      // Messages area
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF7F7F8),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          margin: const EdgeInsets.symmetric(horizontal: 24),
-                          child: messagesStream.when(
-                            data: (messages) {
-                              final realMessages = messages.where((m) => !m.isDefault).toList();
-                              if (realMessages.isEmpty && !widget.isAdminView) {
-                                return _buildEmptyStateUI(context);
-                              } else if (realMessages.isEmpty && widget.isAdminView) {
-                                return Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: theme.colorScheme.primary.withOpacity(0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          CupertinoIcons.chat_bubble_2_fill,
-                                          color: theme.colorScheme.primary,
-                                          size: 32,
-                                        ),
+                  textAlign: TextAlign.left,
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  children: [
+                    // Messages area
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF232F3E) : const Color(0xFFF7F7F8),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        margin: EdgeInsets.zero, // Remove horizontal margin here
+                        child: messagesStream.when(
+                          data: (messages) {
+                            final realMessages = messages.where((m) => !m.isDefault).toList();
+                            if (realMessages.isEmpty && !widget.isAdminView) {
+                              return _buildEmptyStateUI(context);
+                            } else if (realMessages.isEmpty && widget.isAdminView) {
+                              return Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary.withOpacity(0.1),
+                                        shape: BoxShape.circle,
                                       ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Sem mensagens ainda',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: theme.colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      child: Icon(
+                                        CupertinoIcons.chat_bubble_2_fill,
+                                        color: theme.colorScheme.primary,
+                                        size: 32,
                                       ),
-                                    ],
-                                  ),
-                                );
-                              }
-                              // Correctly use ScrollConfiguration with NoScrollbarBehavior
-                              return ScrollConfiguration(
-                                behavior: const NoScrollbarBehavior(),
-                                child: ListView.builder(
-                                  controller: _scrollController,
-                                  reverse: true, 
-                                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-                                  itemCount: realMessages.length,
-                                  itemBuilder: (context, index) {
-                                    final message = realMessages[index];
-                                    return _buildMessageBubble(context, message, true);
-                                  },
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Sem mensagens ainda',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
-                            },
-                            loading: () => Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    theme.colorScheme.primary,
-                                  ),
+                            }
+                            // Correctly use ScrollConfiguration with NoScrollbarBehavior
+                            return ScrollConfiguration(
+                              behavior: const NoScrollbarBehavior(),
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                reverse: true, 
+                                padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+                                itemCount: realMessages.length,
+                                itemBuilder: (context, index) {
+                                  final message = realMessages[index];
+                                  return _buildMessageBubble(context, message, true);
+                                },
+                              ),
+                            );
+                          },
+                          loading: () => Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  theme.colorScheme.primary,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Carregando mensagens...',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onBackground.withOpacity(
-                                      0.7,
-                                    ),
-                                    fontSize: 14,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Carregando mensagens...',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onBackground.withOpacity(
+                                    0.7,
                                   ),
+                                  fontSize: 14,
                                 ),
-                                if (kDebugMode)
-                                  Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Text(
-                                      "Loading conversation: ${widget.conversationId}",
-                                      style: TextStyle(
-                                        color: theme.colorScheme.onBackground
-                                            .withOpacity(0.5),
-                                        fontSize: 12,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            error: (error, stack) => Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  color: theme.colorScheme.error,
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Erro ao carregar mensagens',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              ),
+                              if (kDebugMode)
                                 Padding(
                                   padding: const EdgeInsets.all(16.0),
                                   child: Text(
-                                    'Erro ao carregar mensagens: ${error.toString()}',
+                                    "Loading conversation: ${widget.conversationId}",
                                     style: TextStyle(
-                                      color: theme.colorScheme.onBackground.withOpacity(
-                                        0.6,
-                                      ),
+                                      color: theme.colorScheme.onBackground
+                                          .withOpacity(0.5),
+                                      fontSize: 12,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
-                                if (kDebugMode)
-                                  Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Text(
-                                      "Conversation ID: ${widget.conversationId}",
-                                      style: TextStyle(
-                                        color: theme.colorScheme.onBackground
-                                            .withOpacity(0.5),
-                                        fontSize: 12,
-                                      ),
-                                      textAlign: TextAlign.center,
+                            ],
+                          ),
+                          error: (error, stack) => Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: theme.colorScheme.error,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Erro ao carregar mensagens',
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Text(
+                                  'Erro ao carregar mensagens: ${error.toString()}',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onBackground.withOpacity(
+                                      0.6,
                                     ),
                                   ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    // Force refresh by rebuilding
-                                    setState(() {});
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: theme.colorScheme.primary,
-                                    foregroundColor: theme.colorScheme.onPrimary,
-                                  ),
-                                  child: Text('Tentar novamente'),
+                                  textAlign: TextAlign.center,
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (kDebugMode)
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text(
+                                    "Conversation ID: ${widget.conversationId}",
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onBackground
+                                          .withOpacity(0.5),
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Force refresh by rebuilding
+                                  setState(() {});
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.colorScheme.primary,
+                                  foregroundColor: theme.colorScheme.onPrimary,
+                                ),
+                                child: Text('Tentar novamente'),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      // Input area - always visible
-                      _buildMessageInput(),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            // Input area - always visible, outside the chat container
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0), // Add spacing above input
+              child: _buildMessageInput(),
+            ),
+          ],
         ),
       ),
     );
@@ -641,6 +658,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     bool showTime,
   ) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     // Fix alignment logic:
     // If in admin view, align admin messages (isFromAdmin) to the right
@@ -664,14 +682,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // Set bubble colors based on sender and theme
     // Use transparent background for images
     final bubbleColor = isImage
-            ? Colors.transparent
-            : isFromMe
-            ? theme.messageBubbleSent
-            : theme.messageBubbleReceived;
+        ? Colors.transparent
+        : isFromMe
+            ? (isDark ? AppTheme.darkPrimary : theme.messageBubbleSent)
+            : (isDark ? theme.colorScheme.surface : theme.messageBubbleReceived);
 
     final textColor = isFromMe
-            ? theme.messageBubbleTextSent
-            : theme.messageBubbleTextReceived;
+        ? (isDark ? AppTheme.darkPrimaryForeground : theme.messageBubbleTextSent)
+        : (isDark ? theme.colorScheme.onSurface : theme.messageBubbleTextReceived);
 
     // Set padding based on message type
     final contentPadding =
@@ -742,7 +760,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       DateFormat('HH:mm').format(message.timestamp),
                       style: TextStyle(
                         fontSize: 10,
-                        color: theme.colorScheme.onBackground.withOpacity(0.5),
+                        color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onBackground.withOpacity(0.5),
                       ),
                     ),
                   ),
@@ -790,19 +808,27 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
           child: GestureDetector(
             onTap: () {
+              // Parse the content to extract the URL if it's JSON
+              String imageUrl = message.content;
+              try {
+                if (message.content.startsWith('{') && message.content.endsWith('}')) {
+                  final contentData = json.decode(message.content) as Map<String, dynamic>;
+                  imageUrl = contentData['url'] as String? ?? message.content;
+                }
+              } catch (e) {
+                if (kDebugMode) {
+                  print('Error parsing image content JSON, using as-is: $e');
+                }
+                // Use the original content if parsing fails
+              }
+              
               // Show dialog with the image when tapped
-              showDialog(
-                context: context,
-                builder: (context) => Dialog(
-                  backgroundColor: Colors.transparent,
-                  insetPadding: const EdgeInsets.all(10),
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: SafeNetworkImage(
-                      imageUrl: message.content,
-                      fit: BoxFit.contain,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => SecureFileViewer.fromUrl(
+                    url: imageUrl,
+                    title: 'Imagem do Chat',
+                    fileType: 'image',
                   ),
                 ),
               );
@@ -810,11 +836,22 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: SafeNetworkImage(
-                imageUrl: message.content,
+                imageUrl: (() {
+                  // Parse the content to extract the URL if it's JSON
+                  try {
+                    if (message.content.startsWith('{') && message.content.endsWith('}')) {
+                      final contentData = json.decode(message.content) as Map<String, dynamic>;
+                      return contentData['url'] as String? ?? message.content;
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print('Error parsing thumbnail content JSON, using as-is: $e');
+                    }
+                  }
+                  return message.content;
+                })(),
                 fit: BoxFit.contain,
                 borderRadius: BorderRadius.circular(14),
-                height: 220,
-                width: 220,
               ),
             ),
           ),
@@ -822,93 +859,74 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       );
     } else if (message.type == MessageType.file) {
       // File message style
-      return Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          borderRadius: BorderRadius.circular(14),
+      return ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 220,
         ),
-        child: GestureDetector(
-          onTap: () async {
-            try {
-              final url = Uri.parse(message.content);
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url);
-              } else {
-                if (kDebugMode) {
-                  print('Could not launch $url');
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Could not open file'),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: GestureDetector(
+            onTap: () {
+              // Use SecureFileViewer for files as well
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => SecureFileViewer.fromUrl(
+                    url: message.content,
+                    title: message.fileName ?? 'Arquivo',
+                    fileType: message.fileType,
                   ),
-                );
-              }
-            } catch (e, stackTrace) {
-              if (kDebugMode) {
-                print('Error opening file: $e');
-                print(stackTrace);
-              }
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error opening file: ${e.toString()}'),
-                  backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _getFileIcon(message.fileType ?? 'application/octet-stream'),
-                  color: textColor,
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        message.fileName ?? 'Unknown file',
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (message.fileSize != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatFileSize(message.fileSize!),
-                          style: TextStyle(
-                            color: textColor.withOpacity(0.7),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ],
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _getFileIcon(message.fileType ?? 'application/octet-stream'),
+                    color: textColor,
+                    size: 32,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.download,
-                  color: textColor.withOpacity(0.7),
-                  size: 20,
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message.fileName ?? 'Unknown file',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (message.fileSize != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatFileSize(message.fileSize!),
+                            style: TextStyle(
+                              color: textColor.withOpacity(0.7),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.download,
+                    color: textColor.withOpacity(0.7),
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -940,290 +958,272 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     return Icons.insert_drive_file;
   }
 
-  Widget _buildImageContent(String imageUrl) {
-    if (kDebugMode) {
-      print('Attempting to load image: $imageUrl');
-    }
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.6,
-        maxHeight: 200,
-      ),
-      child: GestureDetector(
-        onTap: () {
-          // Show full image when tapped
-          showDialog(
-            context: context,
-            builder:
-                (_) => Dialog(
-                  backgroundColor: Colors.transparent,
-                  insetPadding: const EdgeInsets.all(10),
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.contain,
-                      placeholder:
-                          (context, url) =>
-                              const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) {
-                        if (kDebugMode) {
-                          print('Error loading full-size image: $error');
-                        }
-                        return Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.error,
-                                color: Colors.white,
-                                size: 40,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Falha ao carregar imagem',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-          );
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            placeholder:
-                (context, url) => const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-            errorWidget: (context, url, error) {
-              if (kDebugMode) {
-                print('Error loading thumbnail image: $error for URL: $url');
-              }
-              return Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error, color: CupertinoColors.systemRed),
-                    SizedBox(height: 8),
-                    Text(
-                      'Falha ao carregar imagem',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-            cacheManager: null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageContentWithFallback(String imageUrl) {
-    if (kDebugMode) {
-      print('Attempting to load image with fallback: $imageUrl');
-    }
-
-    // Try to load with standard Image.network as fallback
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.6,
-        maxHeight: 200,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          loadingBuilder: (
-            BuildContext context,
-            Widget child,
-            ImageChunkEvent? loadingProgress,
-          ) {
-            if (loadingProgress == null) {
-              return child;
-            }
-            return Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  value:
-                      loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            if (kDebugMode) {
-              print('Direct Image.network also failed: $error');
-              print(stackTrace);
-            }
-
-            // As a last resort, try a simple WebView or iframe approach
-            return Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.exclamationmark_triangle,
-                    color: Colors.orange,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Não é possível exibir a imagem',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Toque para abrir no navegador',
-                    style: TextStyle(fontSize: 10, color: Colors.blue),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   Widget _buildMessageInput() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Define button colors - use gray instead of primary blue
+    final buttonColor = isDark 
+        ? AppTheme.darkMuted.withAlpha((255 * 0.8).round())
+        : theme.colorScheme.surface.withAlpha((255 * 0.9).round());
+    final buttonIconColor = isDark 
+        ? AppTheme.darkMutedForeground 
+        : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
+    
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      child: Column(
         children: [
-          if (kIsWeb) ...[
-            // On web, show only the file picker (covers images and files)
-            ChatFilePicker(conversationId: widget.conversationId),
-            const SizedBox(width: 12),
-          ] else ...[
-            // On mobile, show camera and gallery buttons
-            Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.camera_alt_outlined, size: 20, color: theme.colorScheme.onPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.photo_outlined, size: 20, color: theme.colorScheme.onPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Add file picker for files on mobile
-            ChatFilePicker(conversationId: widget.conversationId),
-            const SizedBox(width: 12),
-          ],
-          // Input + send button
-          Expanded(
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: theme.dividerColor.withOpacity(0.18), width: 1),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      focusNode: _focusNode,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface),
-                      decoration: InputDecoration(
-                        hintText: widget.isAdminView ? 'Mensagem' : 'Envie uma mensagem',
-                        hintStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                        filled: false,
-                        fillColor: Colors.transparent,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
+          // Attachment preview (if any)
+          if (_selectedFile != null) _buildAttachmentPreview(),
+          // Main input row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (kIsWeb) ...[
+                // On web, show only the file picker (covers images and files)
+                Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onTap: _pickFile,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          width: 1,
+                        ),
                       ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                      cursorColor: theme.colorScheme.primary,
+                      child: Icon(Icons.attach_file, size: 20, color: buttonIconColor),
                     ),
                   ),
-                  IconButton(
-                    onPressed: _hasText ? _sendMessage : null,
-                    icon: Icon(
-                      Icons.send_rounded,
-                      color: _hasText
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withOpacity(0.5),
-                      size: 22,
+                ),
+                const SizedBox(width: 12),
+              ] else ...[
+                // On mobile, show camera and gallery buttons
+                Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(Icons.camera_alt_outlined, size: 20, color: buttonIconColor),
                     ),
-                    splashRadius: 22,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(Icons.photo_outlined, size: 20, color: buttonIconColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Add file picker for files on mobile
+                Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    onTap: _pickFile,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(Icons.attach_file, size: 20, color: buttonIconColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              // Input + send button
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    color: isDark ? AppTheme.darkInput : Colors.white,
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()), width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SelectionContainer.disabled(
+                          child: Theme(
+                            data: theme.copyWith(
+                              textSelectionTheme: TextSelectionThemeData(
+                                cursorColor: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                                selectionColor: Colors.transparent,
+                                selectionHandleColor: Colors.transparent,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _messageController,
+                              focusNode: _focusNode,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: theme.textTheme.bodyMedium?.copyWith(color: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface),
+                              decoration: InputDecoration(
+                                hintText: _selectedFile != null 
+                                    ? 'Adicionar mensagem...' 
+                                    : (widget.isAdminView ? 'Mensagem' : 'Envie uma mensagem'),
+                                hintStyle: theme.textTheme.bodyMedium?.copyWith(color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round())),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                focusColor: Colors.transparent,
+                                hoverColor: Colors.transparent,
+                              ),
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _sendMessage(),
+                              cursorColor: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: (_hasText || _selectedFile != null) ? _sendMessage : null,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        icon: Icon(
+                          Icons.send_rounded,
+                          color: (_hasText || _selectedFile != null)
+                              ? (isDark ? AppTheme.darkPrimary : theme.colorScheme.primary)
+                              : (isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round())),
+                          size: 22,
+                        ),
+                        splashRadius: 22,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentPreview() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF232F3E) : const Color(0xFFF7F7F8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withOpacity(0.18),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // File icon or image preview
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Icon(
+              _getFileIcon(_selectedFileType ?? 'application/octet-stream'),
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // File info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selectedFileName ?? 'Unknown file',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _selectedFileSize != null ? _formatFileSize(_selectedFileSize!) : '',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Remove button
+          IconButton(
+            onPressed: _removeAttachment,
+            icon: Icon(
+              Icons.close,
+              color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withOpacity(0.6),
+              size: 20,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),
@@ -1415,6 +1415,64 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final hour = now.hour;
     return hour >= 9 && hour < 18; // 9am to 6pm
   }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        if (kDebugMode) {
+          print('No file selected');
+        }
+        return;
+      }
+
+      final file = result.files.first;
+      if (kDebugMode) {
+        print('Selected file: ${file.name}');
+        print('File size: ${file.size}');
+        print('File type: ${file.extension}');
+      }
+
+      // Set as attachment
+      setState(() {
+        _selectedFile = kIsWeb ? file : File(file.path!);
+        _selectedFileName = file.name;
+        _selectedFileType = file.extension ?? 'application/octet-stream';
+        _selectedFileSize = file.size;
+        _isAttachmentImage = false; // This is a file, not an image
+      });
+
+      // Focus on the text input so user can add a message
+      _focusNode.requestFocus();
+
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('Error picking file: $e');
+        print(stackTrace);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking file: ${e.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  void _removeAttachment() {
+    setState(() {
+      _selectedFile = null;
+      _selectedFileName = null;
+      _selectedFileType = null;
+      _selectedFileSize = null;
+      _isAttachmentImage = false;
+    });
+  }
 }
 
 class SafeNetworkImage extends StatefulWidget {
@@ -1467,7 +1525,7 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         try {
           content = json.decode(widget.imageUrl) as Map<String, dynamic>;
           if (content.containsKey('url')) {
-            _processedUrl = content['url'] as String;
+            _processedUrl = content['url'] as String? ?? widget.imageUrl;
 
             // TEMPORARY WORKAROUND - Skip base64 for large images to avoid corruption issues
             // Only use base64 data if it's reasonably sized (< 50KB) and appears valid
@@ -1949,32 +2007,32 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
         } catch (e) {
           if (kDebugMode) {
             print('Error getting fresh download URL: $e');
+          }
 
-            // Try a fallback approach for certain error types
-            if (e.toString().contains('object-not-found')) {
-              // This could be a URL encoding issue, try with an alternative path format
-              try {
-                if (storagePath.contains('%2F')) {
-                  // Try with decoded path
-                  final decodedPath = Uri.decodeComponent(storagePath);
-                  final ref = FirebaseStorage.instance.ref(decodedPath);
-                  final freshUrl = await ref.getDownloadURL();
+          // Try a fallback approach for certain error types
+          if (e.toString().contains('object-not-found')) {
+            // This could be a URL encoding issue, try with an alternative path format
+            try {
+              if (storagePath.contains('%2F')) {
+                // Try with decoded path
+                final decodedPath = Uri.decodeComponent(storagePath);
+                final ref = FirebaseStorage.instance.ref(decodedPath);
+                final freshUrl = await ref.getDownloadURL();
 
-                  if (kDebugMode) {
-                    print('Success with decoded path: $freshUrl');
-                  }
-
-                  return freshUrl;
-                }
-              } catch (fallbackError) {
                 if (kDebugMode) {
-                  print('Fallback approach also failed: $fallbackError');
+                  print('Success with decoded path: $freshUrl');
                 }
+
+                return freshUrl;
+              }
+            } catch (fallbackError) {
+              if (kDebugMode) {
+                print('Fallback approach also failed: $fallbackError');
               }
             }
           }
-          throw e;
         }
+        throw e;
       }
     } catch (e) {
       if (kDebugMode) {

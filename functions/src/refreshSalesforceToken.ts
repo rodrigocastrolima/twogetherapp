@@ -67,9 +67,10 @@ export const refreshSalesforceToken = onCall(
       logger.error("Salesforce Client ID is not configured (env var SALESFORCE_CLIENT_ID).");
       throw new HttpsError("internal", "Server configuration error: Salesforce Client ID missing.");
     }
+    
+    // Note: Client Secret is optional for PKCE flows
     if (!SALESFORCE_CLIENT_SECRET) {
-      logger.error("Salesforce Client Secret is not configured (env var SALESFORCE_CLIENT_SECRET).");
-      throw new HttpsError("internal", "Server configuration error: Salesforce Client Secret missing.");
+      logger.warn("Salesforce Client Secret is not configured (env var SALESFORCE_CLIENT_SECRET). Assuming PKCE flow without client secret.");
     }
 
     // 4. Prepare Request to Salesforce Token Endpoint
@@ -77,7 +78,11 @@ export const refreshSalesforceToken = onCall(
     params.append("grant_type", "refresh_token");
     params.append("refresh_token", refreshToken);
     params.append("client_id", SALESFORCE_CLIENT_ID);
-    params.append("client_secret", SALESFORCE_CLIENT_SECRET);
+    
+    // Only add client_secret if it's available (for confidential clients)
+    if (SALESFORCE_CLIENT_SECRET) {
+      params.append("client_secret", SALESFORCE_CLIENT_SECRET);
+    }
 
     try {
       // 5. Make POST Request using axios

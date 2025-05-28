@@ -26,7 +26,6 @@ import '../../../../presentation/widgets/success_dialog.dart'; // Import Success
 // --- Helper Class for CPE Input Data --- //
 class _CpeInputData {
   final TextEditingController cpeController = TextEditingController();
-  final TextEditingController nifController = TextEditingController();
   final TextEditingController consumoController = TextEditingController();
   final TextEditingController fidelizacaoController = TextEditingController();
   String? selectedCicloId; // NEW: Store the selected Salesforce ID
@@ -36,7 +35,6 @@ class _CpeInputData {
   // Call this when removing a block to prevent memory leaks
   void dispose() {
     cpeController.dispose();
-    nifController.dispose();
     consumoController.dispose();
     fidelizacaoController.dispose();
     comissaoController.dispose();
@@ -76,7 +74,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   bool _isSubmitting = false; // Add state variable for loading indicator
 
   // --- Controllers for Informação da Entidade --- //
-  late TextEditingController _nifController;
   late TextEditingController _responsavelNegocioController;
 
   // --- Controllers & State for Informação da Proposta --- //
@@ -114,7 +111,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   void initState() {
     super.initState();
     // Initialize Entidade controllers
-    _nifController = TextEditingController(text: widget.nif);
     _responsavelNegocioController = TextEditingController();
 
     // Initialize Proposta controllers
@@ -137,7 +133,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   @override
   void dispose() {
     // Dispose Entidade controllers
-    _nifController.dispose();
     _responsavelNegocioController.dispose();
 
     // Dispose Proposta controllers
@@ -207,8 +202,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   void _addCpeBlock() {
     setState(() {
       final newCpeData = _CpeInputData();
-      // Pre-fill NIF in new blocks with the main NIF
-      newCpeData.nifController.text = _nifController.text;
       _cpeItems.add(newCpeData);
     });
   }
@@ -346,7 +339,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
         processedCpeDataList.add({
           'cpe': cpeData.cpeController.text.trim(),
-          'nif': cpeData.nifController.text.trim(),
+          'nif': widget.nif, // Use widget.nif since NIF is now read-only
           'consumo': cpeData.consumoController.text.trim(),
           'fidelizacao': cpeData.fidelizacaoController.text.trim(),
           'cicloId': cpeData.selectedCicloId,
@@ -382,7 +375,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
         'solarChecked': _solarChecked,
         'solarInvestment':
             _solarChecked ? _solarInvestmentController.text.trim() : null,
-        'mainNif': _nifController.text.trim(),
+        'mainNif': widget.nif, // Use widget.nif since NIF is now read-only
         'responsavelNegocio':
             _responsavelNegocioController.text.trim().isEmpty
                 ? null
@@ -550,12 +543,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     ];
 
     final rightColumn = <Widget>[
-      buildField(TextFormField(
-        controller: cpeData.nifController,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: 'NIF'),
-        validator: (value) => (value?.trim().isEmpty ?? true) ? 'NIF é obrigatório para CPE #${index + 1}' : null,
-      )),
+      buildField(_buildReadOnlyField('NIF', widget.nif)),
       buildField(TextFormField(
         controller: cpeData.fidelizacaoController,
         style: textTheme.bodySmall,
@@ -793,16 +781,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                       _sectionTitle('Informação da Entidade'),
                       _buildReadOnlyField('Entidade', widget.accountName),
                       const SizedBox(height: 8),
-                      SizedBox(
-                        height: 56,
-                        child: TextFormField(
-                controller: _nifController,
-                          style: theme.textTheme.bodySmall,
-                          decoration: _inputDecoration(label: 'NIF'),
-                keyboardType: TextInputType.text,
-                          validator: (value) => (value?.trim().isEmpty ?? true) ? 'NIF é obrigatório' : null,
-                        ),
-              ),
+                      _buildReadOnlyField('NIF', widget.nif),
                       const SizedBox(height: 8),
                       _buildReadOnlyField('Oportunidade', widget.opportunityName),
                       const SizedBox(height: 8),

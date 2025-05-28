@@ -792,4 +792,105 @@ class OpportunityService {
   }
 
   // --- END ADDED HELPER ---
+
+  // --- NEW METHOD: Download File Data FOR RESELLERS (JWT Flow) ---
+  Future<
+    ({
+      Uint8List? fileData,
+      String? contentType,
+      String? fileExtension,
+      String? error,
+      bool sessionExpired,
+    })
+  >
+  downloadFileForReseller({required String contentVersionId}) async {
+    if (kDebugMode) {
+      print(
+        '[OpportunityService] Calling downloadFileForReseller Cloud Function. contentVersionId: $contentVersionId',
+      );
+    }
+    try {
+      final HttpsCallable callable = _functions.httpsCallable(
+        'downloadFileForReseller', // The name of the Cloud Function for resellers
+      );
+      final result = await callable.call<Map<String, dynamic>>({
+        'contentVersionId': contentVersionId,
+      });
+
+      final Map<String, dynamic>? data =
+          result.data['data'] as Map<String, dynamic>?;
+      final bool success = result.data['success'] as bool? ?? false;
+
+      if (success && data != null) {
+        // Decode the base64 file data
+        final String? base64Data = data['fileData'] as String?;
+        if (base64Data != null) {
+          final Uint8List fileBytes = base64Decode(base64Data);
+          if (kDebugMode) {
+            print(
+              '[OpportunityService] Successfully downloaded file via downloadFileForReseller. Size: ${fileBytes.length} bytes',
+            );
+          }
+          return (
+            fileData: fileBytes,
+            contentType: data['contentType'] as String?,
+            fileExtension: data['fileExtension'] as String?,
+            error: null,
+            sessionExpired: false,
+          );
+        }
+      }
+
+      // Handle unsuccessful response
+      final String errorMsg = result.data['error'] as String? ?? 'Unknown error from downloadFileForReseller';
+      if (kDebugMode) {
+        print('[OpportunityService] downloadFileForReseller error: $errorMsg');
+      }
+      return (
+        fileData: null,
+        contentType: null,
+        fileExtension: null,
+        error: errorMsg,
+        sessionExpired: false,
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] FirebaseFunctionsException in downloadFileForReseller:');
+        print('  Code: ${e.code}');
+        print('  Message: ${e.message}');
+        print('  Details: ${e.details}');
+      }
+
+      // Check for session expiry or auth issues
+      if ((e.details as Map<String, dynamic>?)?['sessionExpired'] == true ||
+          e.code == 'unauthenticated') {
+        return (
+          fileData: null,
+          contentType: null,
+          fileExtension: null,
+          error: 'Salesforce session expired. Please re-authenticate.',
+          sessionExpired: true,
+        );
+      }
+
+      return (
+        fileData: null,
+        contentType: null,
+        fileExtension: null,
+        error: 'Cloud Function error: ${e.message ?? e.code}',
+        sessionExpired: false,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('[OpportunityService] Generic error in downloadFileForReseller: $e');
+      }
+      return (
+        fileData: null,
+        contentType: null,
+        fileExtension: null,
+        error: 'An unexpected error occurred while downloading the file.',
+        sessionExpired: false,
+      );
+    }
+  }
 }

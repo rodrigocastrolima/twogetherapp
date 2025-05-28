@@ -5,9 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
 import '../../../features/proposal/data/models/salesforce_proposal_ref.dart';
+import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/logo.dart';
+import '../../widgets/simple_list_item.dart';
 import '../../../../core/theme/theme.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../features/notifications/data/repositories/notification_repository.dart';
+import './submit_proposal_documents_page.dart';
+import '../../widgets/secure_file_viewer.dart';
 
 // Helper function to determine color based on customer segment
 Color _getSegmentColor(String? segment, ThemeData theme, bool isDark) {
@@ -73,7 +80,7 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
       return _ProposalStatusVisuals(
         iconData: CupertinoIcons.xmark_seal_fill,
         iconColor: Colors.red,
-        isInteractive: true,
+        isInteractive: false, // Changed to false to prevent interaction
       );
     case 'Expirada':
       return _ProposalStatusVisuals(
@@ -103,7 +110,7 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
   }
 }
 
-class OpportunityDetailsPage extends ConsumerWidget {
+class OpportunityDetailsPage extends ConsumerStatefulWidget {
   final SalesforceOpportunity opportunity;
   final String? heroTag;
 
@@ -114,30 +121,37 @@ class OpportunityDetailsPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OpportunityDetailsPage> createState() => _OpportunityDetailsPageState();
+}
+
+class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage> {
+  String? _selectedProposalId;
+  String? _selectedProposalName;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     // Format CreatedDate for the Opportunity
     String formattedOpportunityDate = 'N/A';
-    if (opportunity.createdDate != null) {
+    if (widget.opportunity.createdDate != null) {
       try {
-        final date = DateTime.parse(opportunity.createdDate!);
+        final date = DateTime.parse(widget.opportunity.createdDate!);
         formattedOpportunityDate = DateFormat.yMd('pt_PT').format(date);
       } catch (e) {
-        formattedOpportunityDate =
-            opportunity.createdDate!; // Fallback to raw string if parse fails
+        formattedOpportunityDate = widget.opportunity.createdDate!;
       }
     }
 
     // --- Watch the NEW proposals provider ---
     final proposalsAsync = ref.watch(
-      resellerOpportunityProposalNamesProvider(opportunity.id),
+      resellerOpportunityProposalNamesProvider(widget.opportunity.id),
     );
     // -------------------------------------
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // Ensure background color is set
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -151,72 +165,176 @@ class OpportunityDetailsPage extends ConsumerWidget {
         title: LogoWidget(height: 60, darkMode: isDark),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header with client name and status
-            _buildClientIdentificationHeader(
-              context,
-              opportunity,
-              theme,
-              isDark,
+                // --- Centered Header ---
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: _getSegmentColor(widget.opportunity.segmentoDeClienteC, theme, isDark),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha((255 * 0.1).round()),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(CupertinoIcons.person_fill, color: isDark ? Colors.white : Colors.black, size: 40),
             ),
-
-            const SizedBox(height: 24),
-
-            // Opportunity Details Section
-            _buildOpportunityDetailsSection(context, formattedOpportunityDate),
-
-            const SizedBox(height: 24),
-
-            // --- Proposals Section ---
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Text(
+                          widget.opportunity.accountName ?? widget.opportunity.name,
+                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('NIF:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
+                                const SizedBox(width: 6),
+                                Text(widget.opportunity.nifC ?? 'N/A', style: theme.textTheme.bodyMedium),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Data de Início:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  widget.opportunity.createdDate != null
+                                      ? DateFormat('dd/MM/yyyy').format(DateTime.parse(widget.opportunity.createdDate!))
+                                      : 'N/A',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
             Text(
-              'Propostas', // TODO: Add localization
+                  'Propostas',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 12),
             proposalsAsync.when(
               data: (proposals) {
                 if (proposals.isEmpty) {
                   return const Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24.0),
-                      child: Text(
-                        'Nenhuma proposta encontrada',
-                      ), // TODO: Add localization
+                          padding: EdgeInsets.symmetric(vertical: 16.0),
+                          child: Text('Nenhuma proposta encontrada'),
                     ),
                   );
                 }
-                // Reverse the list so oldest proposals are first
                 final displayedProposals = proposals.reversed.toList();
-
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: displayedProposals.length,
-                  separatorBuilder: (_, __) => const SizedBox.shrink(),
-                  itemBuilder: (context, index) {
+                    List<Widget> proposalWidgets = [];
+                    for (int index = 0; index < displayedProposals.length; index++) {
                     final proposal = displayedProposals[index];
-                    // Pass the index directly for chronological numbering (oldest = 1)
-                    return _buildProposalRefTile(context, proposal, index);
-                  },
-                );
+                      final statusVisuals = _getProposalStatusVisuals(proposal.statusC, theme);
+                      final titleText = 'Proposta ${index + 1}';
+                      String subtitleText = proposal.statusC ?? 'Status desconhecido';
+                      if (proposal.dataDeCriacaoDaPropostaC != null) {
+                        try {
+                          final date = DateTime.parse(proposal.dataDeCriacaoDaPropostaC!);
+                          final formattedDate = DateFormat('dd/MM/yy').format(date);
+                          subtitleText = '${proposal.statusC ?? "N/A"} - $formattedDate';
+                        } catch (e) {/* ignore parse errors, fallback to status only */}
+                      }
+                      proposalWidgets.add(
+                        SimpleListItem(
+                          leading: Icon(statusVisuals.iconData, color: statusVisuals.iconColor, size: 24),
+                          title: titleText,
+                          subtitle: subtitleText,
+                          trailing: statusVisuals.isInteractive
+                              ? Icon(CupertinoIcons.chevron_right, size: 16, color: isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground)
+                              : null,
+                          onTap: statusVisuals.isInteractive
+                              ? () {
+                                  setState(() {
+                                    if (_selectedProposalId == proposal.id) {
+                                      _selectedProposalId = null;
+                                      _selectedProposalName = null;
+                                    } else {
+                                      _selectedProposalId = proposal.id;
+                                      _selectedProposalName = proposal.name;
+                                    }
+                                  });
+                                }
+                              : null,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                        ),
+                      );
+                      // Insert the details card directly after the selected proposal
+                      if (_selectedProposalId == proposal.id) {
+                        proposalWidgets.add(
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                            child: Center(
+                              key: ValueKey(_selectedProposalId),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Card(
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  color: isDark ? const Color(0xFF232325) : Colors.white,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: _InlineProposalDetails(
+                                      proposalId: _selectedProposalId!,
+                                      proposalName: _selectedProposalName ?? '',
+                                      showActions: true,
+                                      compact: true,
+                                      opportunityId: widget.opportunity.id,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                    return Column(children: proposalWidgets);
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error:
-                  (error, stackTrace) => Center(
-                    child: Text(
-                      'Erro ao carregar propostas: $error',
-                    ), // TODO: Add localization
+                  error: (error, stackTrace) => Center(
+                    child: Text('Erro ao carregar propostas: $error'),
+                  ),
+                ),
+              ],
                   ),
             ),
-            // --------------------------
-          ],
         ),
       ),
     );
@@ -292,14 +410,14 @@ class OpportunityDetailsPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _buildDetailRow(context, 'NIF', opportunity.nifC ?? 'N/A'),
+          _buildDetailRow(context, 'NIF', widget.opportunity.nifC ?? 'N/A'),
           _buildDetailRow(
             context,
             'Data de Início',
-            opportunity.createdDate != null
+            widget.opportunity.createdDate != null
                 ? DateFormat(
                   'dd/MM/yyyy',
-                ).format(DateTime.parse(opportunity.createdDate!))
+                ).format(DateTime.parse(widget.opportunity.createdDate!))
                 : 'N/A',
           ),
         ],
@@ -331,105 +449,468 @@ class OpportunityDetailsPage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  // --- UPDATED Helper to build a proposal list tile using SalesforceProposalRef ---
-  Widget _buildProposalRefTile(
-    BuildContext context,
-    SalesforceProposalRef proposal,
-    int index, // totalProposals removed
-  ) {
+class _InlineProposalDetails extends ConsumerWidget {
+  final String proposalId;
+  final String proposalName;
+  final bool showActions;
+  final bool compact;
+  final String? opportunityId;
+  
+  const _InlineProposalDetails({
+    required this.proposalId, 
+    required this.proposalName, 
+    this.showActions = false, 
+    this.compact = false,
+    this.opportunityId,
+  });
+
+  String _formatDate(String? dateString) {
+    if (dateString == null) return 'N/A';
+    try {
+      final dateTime = DateTime.parse(dateString);
+      return DateFormat('dd/MM/yyyy').format(dateTime.toLocal());
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  String _formatCurrency(double? value) {
+    if (value == null) return 'N/A';
+    final format = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
+    return format.format(value);
+  }
+
+  String _formatYears(double? value) {
+    if (value == null) return 'N/A';
+    if (value == value.toInt()) {
+      return '${value.toInt()} Ano${value.toInt() == 1 ? '' : 's'}';
+    }
+    return '${value.toStringAsFixed(1)} Anos';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final shadowColor =
-        isDark
-            ? Colors.black.withAlpha((255 * 0.15).round())
-            : Colors.grey.withAlpha((255 * 0.2).round());
+    final detailsAsync = ref.watch(resellerProposalDetailsProvider(proposalId));
+    // Define actionable statuses
+    const actionableStatuses = {'Pendente', 'Enviada'};
+    final double verticalSpacing = compact ? 8.0 : 16.0;
+    final double cardPadding = compact ? 8.0 : 16.0;
+    final double fontSize = compact ? 15.0 : 17.0;
+    final double titleFontSize = compact ? 17.0 : 20.0;
 
-    final statusVisuals = _getProposalStatusVisuals(proposal.statusC, theme);
-    // Numbering is now index + 1 because the list is reversed (oldest is index 0)
-    final titleText = 'Proposta ${index + 1}';
-    // Format creation date if available
-    String subtitleText = proposal.statusC ?? 'Status desconhecido';
-    if (proposal.dataDeCriacaoDaPropostaC != null) {
-      try {
-        final date = DateTime.parse(proposal.dataDeCriacaoDaPropostaC!);
-        final formattedDate = DateFormat('dd/MM/yy').format(date);
-        subtitleText = '${proposal.statusC ?? "N/A"} - $formattedDate';
-      } catch (e) {
-        // Keep subtitle as just status if date parsing fails
+    return detailsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) {
+        String errorMessage = 'Erro ao carregar detalhes da proposta.';
+        if (error is Exception) {
+          errorMessage = 'Erro: ${error.toString()}';
+        }
+        return Center(
+          child: Padding(
+            padding: EdgeInsets.all(cardPadding),
+            child: Text(errorMessage, textAlign: TextAlign.center, style: TextStyle(fontSize: fontSize)),
+          ),
+        );
+      },
+      data: (proposal) {
+        final cpeList = proposal.cpePropostas ?? [];
+        final bool showActionButtons = showActions && actionableStatuses.contains(proposal.status);
+        // --- Proposal Details Layout ---
+        // Calculate total commission
+        double totalCommission = 0;
+        for (final cpe in cpeList) {
+          if (cpe.commissionRetail != null) {
+            totalCommission += cpe.commissionRetail as double;
       }
     }
-
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-      ),
-      color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7), // Standardized card color
-      shadowColor: shadowColor,
-      margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 0),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16.0,
-          vertical: 10.0,
-        ),
-        leading: Icon(
-          statusVisuals.iconData,
-          color: statusVisuals.iconColor,
-          size: 28,
-        ),
-        title: Text(
-          titleText,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Total Commission and Data Validade on the same line
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text('Total Comissão:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
+                    const SizedBox(width: 8),
+                    Text(_formatCurrency(totalCommission), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary, fontSize: fontSize)),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text('Data de Validade:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: fontSize)),
+                    const SizedBox(width: 6),
+                    Text(_formatDate(proposal.expiryDate), style: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize)),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: verticalSpacing),
+            Text('CPEs', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
+            if (cpeList.isEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: verticalSpacing),
+                child: Center(child: Text('Nenhum contrato associado.', style: TextStyle(fontSize: fontSize))),
+              )
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final cpe in cpeList)
+                      Container(
+                        width: 260,
+                        margin: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
+                        child: Material(
+                          elevation: 2,
+                          borderRadius: BorderRadius.circular(14),
+                          color: theme.colorScheme.surface,
+                          child: Padding(
+                            padding: EdgeInsets.all(cardPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  cpe.cpeC != null && cpe.cpeC!.isNotEmpty
+                                      ? '${cpe.cpeC}'
+                                      : '${cpe.id.substring(cpe.id.length - 6)}',
           style: theme.textTheme.titleMedium?.copyWith(
-            // Using titleMedium for a bit more emphasis
             fontWeight: FontWeight.w600,
-            color:
-                statusVisuals.isInteractive
-                    ? (isDark ? AppTheme.darkForeground : AppTheme.foreground)
-                    : (isDark
-                        ? AppTheme.darkMutedForeground
-                        : AppTheme
-                            .mutedForeground), // Grey out if not interactive
+                                    color: theme.colorScheme.onSurface,
+                                    fontSize: fontSize,
+                                  ),
+                                ),
+                                SizedBox(height: 6),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: 80,
+                                        child: Text(
+                                          'Comissão:',
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            color: theme.colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: fontSize,
           ),
-        ),
-        subtitle: Text(
-          subtitleText,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color:
-                statusVisuals.isInteractive
-                    ? (isDark
-                        ? AppTheme.darkMutedForeground.withAlpha(200)
-                        : AppTheme.mutedForeground.withAlpha(200))
-                    : (isDark
-                        ? AppTheme.darkMutedForeground.withAlpha(150)
-                        : AppTheme.mutedForeground.withAlpha(
-                          150,
-                        )), // Grey out more if not interactive
+                                      ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          _formatCurrency(cpe.commissionRetail),
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.primary,
+                                            fontSize: fontSize,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                _buildDetailRow(
+                                  context,
+                                  'Potência',
+                                  cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
+                                  fontSize,
+                                ),
+                                _buildDetailRow(
+                                  context,
+                                  'Fidelização',
+                                  _formatYears(cpe.loyaltyYears),
+                                  fontSize,
+                                ),
+                                // Add file previews if files exist
+                                if (cpe.attachedFiles.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Ficheiros:',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: fontSize,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4.0,
+                                    runSpacing: 4.0,
+                                    children: cpe.attachedFiles.map((fileInfo) {
+                                      return _buildFilePreview(context, fileInfo);
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (showActionButtons) ...[
+              SizedBox(height: verticalSpacing),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                      label: const Text('Rejeitar'),
+                      onPressed: () async {
+                        // --- START: Confirmation Dialog for Reject ---
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext ctx) {
+                            return AlertDialog(
+                              title: const Text('Confirmar Rejeição'),
+                              content: const Text('Tem a certeza que pretende rejeitar esta proposta?'),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('Cancelar'),
+                                  onPressed: () => Navigator.of(ctx).pop(),
+                                ),
+                                TextButton(
+                                  child: const Text('Rejeitar', style: TextStyle(color: Colors.red)),
+                                  onPressed: () async {
+                                    Navigator.of(ctx).pop(); // Close dialog
+                                    // Show loading indicator
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+                                    try {
+                                      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+                                      final callable = functions.httpsCallable('rejectProposalForReseller');
+                                      final result = await callable.call<Map<String, dynamic>>({
+                                        'proposalId': proposalId,
+                                      });
+                                      Navigator.of(context).pop(); // Close loading
+                                      if (result.data['success'] == true) {
+                                        // Create notification
+                                        try {
+                                          final currentUser = ref.read(currentUserProvider);
+                                          final notificationRepo = ref.read(notificationRepositoryProvider);
+                                          await notificationRepo.createProposalRejectedNotification(
+                                            proposalId: proposalId,
+                                            proposalName: proposalName,
+                                            opportunityId: opportunityId,
+                                            clientName: proposal.nifC,
+                                            resellerName: currentUser?.displayName,
+                                            resellerId: currentUser?.uid,
+                                          );
+                                        } catch (e) {}
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Proposta rejeitada com sucesso'),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                        ref.refresh(resellerProposalDetailsProvider(proposalId));
+                                      } else {
+                                        final errorMsg = result.data['error'] ?? 'Falha ao rejeitar a proposta';
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Erro: $errorMsg'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      Navigator.of(context).pop(); // Close loading
+                                      String errorMessage = e is FirebaseFunctionsException ? (e.message ?? e.code) : e.toString();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Erro ao rejeitar proposta: $errorMessage'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        // --- END: Confirmation Dialog for Reject ---
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
+                        side: BorderSide(
+                          color: theme.colorScheme.error.withAlpha((255 * 0.7).round()),
+                          width: 1.2,
+                        ),
+                        minimumSize: const Size(120, 40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        textStyle: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: Icon(Icons.check_circle_outline, color: theme.colorScheme.tertiary),
+                      label: Text('Aceitar', style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        color: theme.colorScheme.tertiary,
+                      )),
+                      onPressed: () {
+                        // --- START: Navigate to Submit Documents Page ---
+                        final nif = proposal.nifC;
+                        if (nif == null || nif.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Erro: NIF não encontrado para esta proposta.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => SubmitProposalDocumentsPage(
+                              proposalId: proposalId,
+                              proposalName: proposalName,
+                              cpeList: cpeList,
+                              nif: nif,
+                              opportunityId: opportunityId,
+                            ),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              const begin = Offset(1.0, 0.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOutCubic;
+
+                              var tween = Tween(begin: begin, end: end).chain(
+                                CurveTween(curve: curve),
+                              );
+
+                              return SlideTransition(
+                                position: animation.drive(tween),
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 300),
+                            reverseTransitionDuration: const Duration(milliseconds: 250),
+                          ),
+                        );
+                        // --- END: Navigate to Submit Documents Page ---
+                      },
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: theme.colorScheme.tertiary,
+                        side: BorderSide(
+                          color: theme.colorScheme.tertiary,
+                          width: 1.5,
+                        ),
+                        minimumSize: const Size(120, 40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        textStyle: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, String label, String value, double fontSize) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+                fontSize: fontSize,
+              ),
+            ),
           ),
+          const SizedBox(width: 6),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilePreview(BuildContext context, SalesforceFileInfo fileInfo) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    // Determine file type from title extension
+    final fileName = fileInfo.title.toLowerCase();
+    Widget iconWidget;
+    
+    if (fileName.endsWith('.pdf')) {
+      iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 20);
+    } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
+               fileName.endsWith('.png') || fileName.endsWith('.gif') ||
+               fileName.endsWith('.webp') || fileName.endsWith('.bmp')) {
+      iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 20);
+    } else {
+      iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 20);
+    }
+
+    return GestureDetector(
+      onTap: () => _viewFile(context, fileInfo),
+      child: Tooltip(
+        message: fileInfo.title,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+            borderRadius: BorderRadius.circular(6.0),
+            border: Border.all(
+              color: Colors.black.withAlpha((255 * 0.1).round()),
+              width: 0.5,
+            ),
+          ),
+          child: Center(child: iconWidget),
         ),
-        trailing:
-            statusVisuals.isInteractive
-                ? Icon(
-                  CupertinoIcons.chevron_right,
-                  size: 18,
-                  color:
-                      isDark
-                          ? AppTheme.darkMutedForeground
-                          : AppTheme.mutedForeground,
-                )
-                : null, // No chevron if not interactive
-        onTap:
-            statusVisuals.isInteractive
-                ? () {
-                  context.push(
-                    '/reseller-proposal-details',
-                    extra: {
-                      'proposalId': proposal.id,
-                      'proposalName': proposal.name,
-                    }, // Pass original name for detail page title
-                  );
-                }
-                : null, // Disable tap if not interactive
+      ),
+    );
+  }
+
+  Future<void> _viewFile(BuildContext context, SalesforceFileInfo fileInfo) async {
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => SecureFileViewer.fromSalesforce(
+          contentVersionId: fileInfo.id,
+          title: fileInfo.title,
+          isResellerContext: true,
+        ),
+        fullscreenDialog: true,
       ),
     );
   }
