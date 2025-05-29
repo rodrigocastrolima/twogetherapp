@@ -600,7 +600,7 @@ class _InlineProposalDetails extends ConsumerWidget {
                                             fontWeight: FontWeight.w500,
                                             fontSize: fontSize,
           ),
-                                      ),
+        ),
                                       ),
                                       const SizedBox(width: 6),
                                       Expanded(

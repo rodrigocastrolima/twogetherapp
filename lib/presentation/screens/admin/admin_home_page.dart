@@ -13,6 +13,7 @@ import '../../../features/notifications/presentation/providers/notification_prov
 import '../../../core/models/enums.dart';
 import '../../../features/services/data/repositories/service_submission_repository.dart';
 import '../../widgets/simple_list_item.dart';
+import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
 // import '../../../core/theme/ui_styles.dart'; // Removed
 
 class AdminHomePage extends ConsumerStatefulWidget {
@@ -530,29 +531,10 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                     secondarySubtitleText = notification.metadata['clientName'] ?? '?';
                   }
                   final isNew = !notification.isRead;
-                  return SimpleListItem(
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: iconColor.withAlpha((255 * (theme.brightness == Brightness.dark ? 0.2 : 0.1)).round()),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Icon(itemIcon, size: 20, color: iconColor),
-                      ),
-                    ),
-                    title: notification.title,
-                    subtitle: '$resellerName / $secondarySubtitleText',
-                    trailing: Text(
-                      formattedDate,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                      ),
-                    ),
-                    isUnread: isNew,
+                  return UnifiedNotificationItem(
+                    notification: notification,
                     onTap: () => _handleAdminNotificationTap(context, notification, notificationActions),
+                    onDelete: () => notificationActions.deleteNotification(notification.id),
                   );
                 },
               ),

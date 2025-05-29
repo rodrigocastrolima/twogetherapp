@@ -11,6 +11,7 @@ import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget for AppBar
 import '../../../../presentation/widgets/simple_list_item.dart';
+import '../../../../core/services/file_icon_service.dart';
 
 class ResellerProviderFilesPage extends ConsumerWidget {
   final String providerId;
@@ -115,10 +116,14 @@ class ResellerProviderFilesPage extends ConsumerWidget {
   }
 
   Widget _buildFileListItem(BuildContext context, ProviderFile file, ThemeData theme) {
-    final fileIcon = _getFileIcon(file.fileType);
-
+    final iconAsset = FileIconService.getIconAssetPath(file.fileType);
     return SimpleListItem(
-      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+      leading: Image.asset(
+        iconAsset,
+        width: 40,
+        height: 40,
+        fit: BoxFit.contain,
+      ),
       title: file.fileName,
       subtitle: file.description.isNotEmpty ? file.description : null,
       trailing: Icon(
@@ -128,34 +133,6 @@ class ResellerProviderFilesPage extends ConsumerWidget {
       ),
       onTap: () => _handleFileTap(context, file),
     );
-  }
-
-  // Icon helper (same as admin version)
-  IconData _getFileIcon(String fileType) {
-    switch (fileType.toLowerCase()) {
-      case 'pdf':
-        return CupertinoIcons.doc_text_fill;
-      case 'doc':
-      case 'docx':
-        return CupertinoIcons.doc_richtext;
-      case 'xls':
-      case 'xlsx':
-        return CupertinoIcons.table_fill;
-      case 'ppt':
-      case 'pptx':
-        return CupertinoIcons.tv_music_note_fill;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'bmp':
-        return CupertinoIcons.photo_fill;
-      case 'zip':
-      case 'rar':
-        return CupertinoIcons.archivebox_fill;
-      default:
-        return CupertinoIcons.doc_fill;
-    }
   }
 }
 

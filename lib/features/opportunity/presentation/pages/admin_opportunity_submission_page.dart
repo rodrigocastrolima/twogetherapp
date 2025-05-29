@@ -24,6 +24,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:twogether/features/services/presentation/widgets/file_upload_widget.dart';
 import 'package:twogether/features/services/presentation/providers/service_submission_provider.dart';
+import '../../../../presentation/widgets/app_input_field.dart'; // Import AppDropdownField
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
@@ -1096,15 +1097,10 @@ class _OpportunityDetailFormViewState
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 48,
-                    child: DropdownButtonFormField<String>(
-                      value: _faseOptions.contains(_faseController.text) ? _faseController.text : '--None--',
-                      decoration: inputDecoration(label: 'Fase'),
-                      items: _faseOptions.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: textTheme.bodySmall),
-                        );
-                      }).toList(),
+                    child: AppDropdownField<String>(
+                      label: 'Fase',
+                      value: _faseController.text,
+                      items: _faseOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
                       onChanged: (value) {
                         setState(() {
                           _faseController.text = value ?? '';
@@ -1113,22 +1109,15 @@ class _OpportunityDetailFormViewState
                       validator: (value) => (value == null || value == '--None--')
                           ? 'Fase é obrigatória'
                           : null,
-                      hint: Text('Selecione uma fase', style: textTheme.bodySmall),
-                      style: textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 48,
-                    child: DropdownButtonFormField<String>(
-                      value: _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text) ? _tipoOportunidadeController.text : '--None--',
-                      decoration: inputDecoration(label: 'Tipo de Oportunidade'),
-                      items: _tipoOportunidadeOptions.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: textTheme.bodySmall),
-                        );
-                      }).toList(),
+                    child: AppDropdownField<String>(
+                      label: 'Tipo de Oportunidade',
+                      value: _tipoOportunidadeController.text,
+                      items: _tipoOportunidadeOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
                       onChanged: (value) {
                         setState(() {
                           _tipoOportunidadeController.text = value ?? '';
@@ -1137,85 +1126,32 @@ class _OpportunityDetailFormViewState
                       validator: (value) => (value == null || value == '--None--')
                           ? 'Tipo de Oportunidade é obrigatório'
                           : null,
-                      hint: Text('Selecione o tipo de oportunidade', style: textTheme.bodySmall),
-                      style: textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 48,
-                    child: DropdownButtonFormField<String>(
-                      value: _segmentoOptions.contains(_selectedSegmentoCliente) ? _selectedSegmentoCliente : '--None--',
-                      decoration: inputDecoration(label: 'Segmento de Cliente'),
-                      items: _segmentoOptions.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: _segmentoIcons[value] ?? Text(value, style: textTheme.bodySmall),
-                        );
-                      }).toList(),
-                      selectedItemBuilder: (BuildContext context) {
-                        return _segmentoOptions.map<Widget>((String item) {
-                          final iconWidget = _segmentoIcons[item];
-                          if (iconWidget is Row) {
-                            // Extract the icon from the Row widget and return it with proper text color
-                            final icon = iconWidget.children.firstWhere((w) => w is Icon) as Icon;
-                            final text = iconWidget.children.firstWhere((w) => w is Text) as Text;
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                icon,
-                                const SizedBox(width: 8),
-                                Text(
-                                  text.data ?? item,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            );
-                          } else if (item == '--None--') {
-                            return Text(
-                              'Selecione um segmento',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            );
-                          } else {
-                            return Text(
-                              item,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface,
-                              ),
-                            );
-                          }
-                        }).toList();
-                      },
+                    child: AppDropdownField<String>(
+                      label: 'Segmento de Cliente',
+                      value: _selectedSegmentoCliente,
+                      items: _segmentoOptions.map((v) => DropdownMenuItem<String>(value: v, child: _segmentoIcons[v] ?? Text(v))).toList(),
                       onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
                       validator: (value) => (value == null || value == '--None--')
                           ? 'Segmento de Cliente é obrigatório'
                           : null,
-                      hint: Text('Selecione um segmento de cliente', style: textTheme.bodySmall),
-                      style: textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 48,
-                    child: DropdownButtonFormField<String>(
-                      value: _solucaoOptions.contains(_selectedSolucao) ? _selectedSolucao : '--None--',
-                      decoration: inputDecoration(label: 'Solução'),
-                      items: _solucaoOptions.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: textTheme.bodySmall),
-                        );
-                      }).toList(),
+                    child: AppDropdownField<String>(
+                      label: 'Solução',
+                      value: _selectedSolucao,
+                      items: _solucaoOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
                       onChanged: (value) => setState(() => _selectedSolucao = value),
                       validator: (value) => (value == null || value == '--None--')
                           ? 'Solução é obrigatória'
                           : null,
-                      hint: Text('Selecione uma solução', style: textTheme.bodySmall),
-                      style: textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 12),

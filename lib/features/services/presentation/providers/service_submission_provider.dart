@@ -283,6 +283,8 @@ class ServiceSubmissionNotifier extends StateNotifier<ServiceSubmissionState> {
         resellerName, // Pass details for notification
         state.responsibleName ?? 'N/A',
         state.serviceCategory ?? 'N/A',
+        state.energyType,
+        state.clientType,
       );
 
       // 5. Update state on success

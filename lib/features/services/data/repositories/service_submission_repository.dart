@@ -404,6 +404,8 @@ class ServiceSubmissionRepository {
     String resellerName,
     String responsibleName,
     String serviceCategoryName,
+    String? energyType,
+    String? clientType,
   ) async {
     final submissionId = submissionRef.id; // Get ID from reference
     try {
@@ -424,11 +426,15 @@ class ServiceSubmissionRepository {
       }
 
       // Create notification AFTER successful save
-    await _createSubmissionNotification(
-      submissionId,
-      resellerName,
+      await _createSubmissionNotification(
+        submissionId,
+        resellerName,
         responsibleName,
         serviceCategoryName,
+        companyName: data['companyName'] as String?,
+        responsibleName: data['responsibleName'] as String?,
+        energyType: energyType,
+        clientType: clientType,
       );
     } catch (e) {
       if (kDebugMode) {
@@ -455,6 +461,7 @@ class ServiceSubmissionRepository {
     String resellerName,
     String clientName,
     String serviceType,
+    {String? companyName, String? responsibleName, String? energyType, String? clientType}
   ) async {
     if (kDebugMode) {
       print('========== NOTIFICATION CREATION START ==========');
@@ -480,7 +487,11 @@ class ServiceSubmissionRepository {
             submissionId: submissionId,
             resellerName: resellerName,
             clientName: clientName,
-            serviceType: serviceType,
+            companyName: companyName,
+            responsibleName: responsibleName,
+            serviceCategory: serviceType,
+            energyType: energyType,
+            clientType: clientType,
           );
 
       if (notificationId.isEmpty) {

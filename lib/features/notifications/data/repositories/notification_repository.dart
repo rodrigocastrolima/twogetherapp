@@ -240,63 +240,65 @@ class NotificationRepository {
     required String submissionId,
     required String resellerName,
     required String clientName,
-    required String serviceType,
+    String? companyName,
+    String? responsibleName,
+    String? serviceCategory, // 'energy', 'insurance', etc.
+    String? energyType, // 'solar', 'electricityGas', etc.
+    String? clientType, // 'residential', 'commercial'
   }) async {
     try {
-      if (kDebugMode) {
-        print('Creating notification for submission: $submissionId');
-        print(
-          'Submission details: resellerName=$resellerName, clientName=$clientName, serviceType=$serviceType',
-        );
+      // Determine service type display string
+      String serviceTypeDisplay = '';
+      if (serviceCategory == 'energy') {
+        if (energyType == 'solar') {
+          serviceTypeDisplay = 'Solar';
+        } else if (clientType == 'residential') {
+          serviceTypeDisplay = 'Energia Residencial';
+        } else if (clientType == 'commercial') {
+          serviceTypeDisplay = 'Energia Comercial';
+        }
+      }
+      if (serviceTypeDisplay.isEmpty && serviceCategory != null) {
+        serviceTypeDisplay = serviceCategory[0].toUpperCase() + serviceCategory.substring(1);
       }
 
-      // Create a single notification for the submission (not tied to any specific admin)
+      // Determine client name
+      String clientDisplayName = '';
+      if ((clientType == 'residential' && responsibleName != null && responsibleName.isNotEmpty)) {
+        clientDisplayName = responsibleName;
+      } else if ((clientType == 'commercial' || serviceTypeDisplay == 'Solar') && companyName != null && companyName.isNotEmpty) {
+        clientDisplayName = companyName;
+      } else {
+        clientDisplayName = clientName;
+      }
+
       final notification = UserNotification(
-        id: '', // Will be set by Firestore
-        userId:
-            'system', // Using 'system' as userId to indicate it's a system-generated notification
-        title: 'New Submission',
-        message:
-            'New $serviceType submission from $resellerName for client $clientName',
+        id: '',
+        userId: 'system',
+        title: 'Nova Submissão de Serviço',
+        message: 'Nova submissão de serviço $serviceTypeDisplay de $resellerName para cliente $clientDisplayName',
         type: NotificationType.newSubmission,
         createdAt: DateTime.now(),
         metadata: {
           'submissionId': submissionId,
           'resellerName': resellerName,
           'clientName': clientName,
-          'serviceType': serviceType,
+          'companyName': companyName,
+          'responsibleName': responsibleName,
+          'serviceCategory': serviceCategory,
+          'energyType': energyType,
+          'clientType': clientType,
+          'serviceType': serviceTypeDisplay,
         },
       );
 
-      // Add to Firestore
       final docRef = await _notificationsRef.add(notification.toFirestore());
-
-      if (kDebugMode) {
-        print('Created notification: ${docRef.id}');
-        print('Notification data: ${notification.toFirestore()}');
-      }
-
       return docRef.id;
     } catch (e) {
       if (kDebugMode) {
         print('Error creating submission notification: $e');
-        print('Stack trace: ${StackTrace.current}');
-
-        // Add detailed error information for debugging
-        if (e.toString().contains('permission')) {
-          print(
-            'PERMISSION ERROR: This appears to be a Firestore security rule issue.',
-          );
-          print(
-            'Ensure your security rules allow creating notifications with userId="system"',
-          );
-          print(
-            'Check firestore.rules and make sure notifications collection allows writes',
-          );
-        }
+        print('Stack trace: \n${StackTrace.current}');
       }
-
-      // Instead of rethrowing, return an empty string to prevent submission creation from failing
       return '';
     }
   }

@@ -294,9 +294,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     int unreadCount,
   ) {
     final theme = Theme.of(context);
-    final Color sidebarBackgroundColor = isDark ? AppTheme.darkNavBarBackground : Colors.white;
+    final Color sidebarBackgroundColorWithOpacity = isDark
+        ? AppTheme.darkNavBarBackground
+        : Colors.white;
     final Color textColor = isDark ? Colors.white : Colors.black;
-    final Color tulipTreeColor = Color(0xFFffbe45);
 
     return Positioned(
       top: 0,
@@ -308,7 +309,13 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
           filter: AppStyles.standardBlur,
           child: Container(
             decoration: BoxDecoration(
-              color: sidebarBackgroundColor,
+              color: sidebarBackgroundColorWithOpacity,
+              border: Border(
+                right: BorderSide(
+                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
+                  width: 0.5,
+                ),
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
@@ -316,29 +323,23 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                   offset: const Offset(2, 0),
                 ),
               ],
-              border: Border(
-                right: BorderSide(
-                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 0.5,
-                ),
-              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 32),
+                const SizedBox(height: 32), // Increased top padding
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0), // Increased horizontal padding
                   child: Center(
-                    child: LogoWidget(height: 72, darkMode: isDark),
+                    child: LogoWidget(height: 72, darkMode: isDark), // Increased logo size
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 40), // Increased spacing after logo
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.symmetric(
                       vertical: 16,
-                      horizontal: 16,
+                      horizontal: 16, // Increased horizontal padding
                     ),
                     children: [
                       _buildSidebarItem(
@@ -347,17 +348,15 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         isSelected: currentIndex == 0,
                         onTap: () => _handleNavigation(0),
                         textColor: textColor,
-                        tulipTreeColor: tulipTreeColor,
                         theme: theme,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 16), // Increased spacing between items
                       _buildSidebarItem(
                         icon: CupertinoIcons.graph_square,
                         label: 'Oportunidades',
                         isSelected: currentIndex == 3,
                         onTap: () => _handleNavigation(3),
                         textColor: textColor,
-                        tulipTreeColor: tulipTreeColor,
                         theme: theme,
                       ),
                       const SizedBox(height: 16),
@@ -368,7 +367,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         onTap: () => _handleNavigation(1),
                         badgeCount: unreadCount,
                         textColor: textColor,
-                        tulipTreeColor: tulipTreeColor,
                         theme: theme,
                       ),
                       const SizedBox(height: 16),
@@ -378,7 +376,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         isSelected: currentIndex == 4,
                         onTap: () => _handleNavigation(4),
                         textColor: textColor,
-                        tulipTreeColor: tulipTreeColor,
                         theme: theme,
                       ),
                       const SizedBox(height: 16),
@@ -388,7 +385,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         isSelected: currentIndex == 2,
                         onTap: () => _handleNavigation(2),
                         textColor: textColor,
-                        tulipTreeColor: tulipTreeColor,
                         theme: theme,
                       ),
                     ],
@@ -409,9 +405,10 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     required VoidCallback onTap,
     int badgeCount = 0,
     required Color textColor,
-    required Color tulipTreeColor,
     required ThemeData theme,
   }) {
+    final Color tulipTreeColor = AppTheme.tulipTree;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       decoration: isSelected
@@ -611,44 +608,24 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                isSelected
-                    ? ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (Rect bounds) {
-                        return LinearGradient(
-                          colors: [
-                            tulipTreeColor,
-                            tulipTreeColor.withRed(
-                              (tulipTreeColor.red + 15).clamp(0, 255),
-                            ),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds);
-                      },
-                      child: Icon(icon, size: 24),
-                    )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
-                if (badgeCount > 0)
-                  Positioned(
-                    top: -5,
-                    right: -8,
-                    child: Container(
-                      width: AppStyles.badgeSize,
-                      height: AppStyles.badgeSize,
-                      decoration: AppStyles.notificationBadge,
-                      alignment: Alignment.center,
-                      child: Text(
-                        badgeCount.toString(),
-                        style: AppStyles.badgeTextStyle(context),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            isSelected
+                ? ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (Rect bounds) {
+                      return LinearGradient(
+                        colors: [
+                          tulipTreeColor,
+                          tulipTreeColor.withRed(
+                            (tulipTreeColor.red + 15).clamp(0, 255),
+                          ),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ).createShader(bounds);
+                    },
+                    child: Icon(icon, size: 24),
+                  )
+                : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
             const SizedBox(height: 4),
             Text(
               label,

@@ -11,6 +11,7 @@ import '../../../features/services/data/repositories/service_submission_reposito
     as repo;
 import '../../widgets/success_dialog.dart'; // Import the success dialog
 import '../../widgets/logo.dart'; // Import the LogoWidget
+import '../../widgets/app_input_field.dart';
 
 class ServicesPage extends ConsumerStatefulWidget {
   const ServicesPage({super.key});
@@ -565,26 +566,22 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             Text('Detalhes do Cliente', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
             if (_selectedClientType == ClientType.commercial) ...[
-              _buildTextField(
+              AppInputField(
                 controller: _companyNameController,
                 label: 'Nome da Empresa',
                 hint: 'Insira o nome da empresa',
-                onChanged:
-                    (value) =>
-                        notifier.updateFormFields({'companyName': value}),
+                onChanged: (value) => notifier.updateFormFields({'companyName': value}),
               ),
               const SizedBox(height: AppConstants.spacing16),
             ],
-            _buildTextField(
+            AppInputField(
               controller: _responsibleNameController,
               label: 'Nome do Responsável',
               hint: 'Insira o nome do responsável',
-              onChanged:
-                  (value) =>
-                      notifier.updateFormFields({'responsibleName': value}),
+              onChanged: (value) => notifier.updateFormFields({'responsibleName': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
-            _buildTextField(
+            AppInputField(
               controller: _nifController,
               label: 'NIF',
               hint: 'Insira o NIF',
@@ -592,7 +589,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               onChanged: (value) => notifier.updateFormFields({'nif': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
-            _buildTextField(
+            AppInputField(
               controller: _emailController,
               label: 'Email',
               hint: 'Insira o email de contacto',
@@ -600,7 +597,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               onChanged: (value) => notifier.updateFormFields({'email': value}),
             ),
             const SizedBox(height: AppConstants.spacing16),
-            _buildTextField(
+            AppInputField(
               controller: _phoneController,
               label: 'Telefone',
               hint: 'Insira o número de telefone',
@@ -793,60 +790,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    TextInputType? keyboardType,
-    void Function(String)? onChanged,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.dividerColor.withOpacity(0.4), width: 1),
-            color: Colors.transparent,
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            onChanged: onChanged,
-            style: textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              filled: false,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              isDense: true,
-            ),
-          ),
-        ),
-      ],
     );
   }
 

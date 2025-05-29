@@ -81,7 +81,7 @@ export const refreshSalesforceToken = onCall(
     
     // Only add client_secret if it's available (for confidential clients)
     if (SALESFORCE_CLIENT_SECRET) {
-      params.append("client_secret", SALESFORCE_CLIENT_SECRET);
+    params.append("client_secret", SALESFORCE_CLIENT_SECRET);
     }
 
     try {

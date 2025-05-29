@@ -909,21 +909,13 @@ class _OpportunityVerificationPageState
           const SizedBox(height: 16),
           Text(
             isSubmissionsTab
-                ? 'Nenhuma submissão pendente encontrada.'
-                : 'Nenhuma oportunidade existente encontrada.',
+                ? 'Nenhuma nova submissão encontrada.'
+                : 'É necessário conectar-se ao Salesforce para visualizar as oportunidades ativas.',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
             ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
-          if (isSubmissionsTab)
-            Text(
-              'Tente ajustar a pesquisa ou os filtros.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
         ],
       ),
     );

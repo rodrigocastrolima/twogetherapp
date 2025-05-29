@@ -77,59 +77,59 @@ class _SimpleListItemState extends State<SimpleListItem> {
           child: Stack(
             children: [
               Column(
-                children: [
-                  const SizedBox(height: verticalContentSpacing),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
-                    child: Row(
-                      crossAxisAlignment: widget.subtitle != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-                      children: [
-                        if (widget.leading != null)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 16),
-                            child: widget.leading!,
-                          ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+            children: [
+              const SizedBox(height: verticalContentSpacing),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
+                child: Row(
+                  crossAxisAlignment: widget.subtitle != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                  children: [
+                    if (widget.leading != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: widget.leading!,
+                      ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                               Text(
-                                widget.title,
-                                style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  color: textColor,
-                                  fontFamily: theme.textTheme.bodyLarge?.fontFamily,
-                                ),
+                                  widget.title,
+                                  style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: textColor,
+                                    fontFamily: theme.textTheme.bodyLarge?.fontFamily,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                          ),
+                          if (widget.subtitle != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6.0),
+                              child: Text(
+                                widget.subtitle!,
+                                style: subtitleStyle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (widget.subtitle != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6.0),
-                                  child: Text(
-                                    widget.subtitle!,
-                                    style: subtitleStyle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        if (widget.trailing != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16),
-                            child: widget.trailing!,
-                          ),
-                      ],
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: verticalContentSpacing),
-                  Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: theme.dividerColor.withOpacity(0.10),
-                    indent: 0,
+                    if (widget.trailing != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: widget.trailing!,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: verticalContentSpacing),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: theme.dividerColor.withOpacity(0.10),
+                indent: 0,
                   ),
                 ],
               ),
@@ -147,7 +147,7 @@ class _SimpleListItemState extends State<SimpleListItem> {
                       letterSpacing: 0.5,
                     ),
                   ),
-                ),
+              ),
             ],
           ),
         ),

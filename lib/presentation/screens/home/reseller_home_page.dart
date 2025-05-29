@@ -24,7 +24,8 @@ import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedP
 import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; // Import package
-import '../../widgets/simple_list_item.dart';
+import '../../widgets/simple_list_item.dart' as widgets;
+import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -691,27 +692,22 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
               itemCount: combinedNotifications.length,
               itemBuilder: (context, index) {
                 final notification = combinedNotifications[index];
-                return SimpleListItem(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _getNotificationIconColor(notification, theme).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(_getNotificationIconData(notification), color: _getNotificationIconColor(notification, theme), size: 18),
-                  ),
-                  title: notification.title,
-                  subtitle: notification.metadata['clientName']?.toString() ?? notification.message,
-                  trailing: Text(
-                    _getNotificationDateString(notification),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                  isUnread: !notification.isRead,
+                
+                // Handle password reminder with special case
+                if (notification.id == '__password_reminder__') {
+                  return UnifiedNotificationItem(
+                    notification: notification,
+                    onTap: () => _handleNotificationTap(notification, notificationActions),
+                    onDelete: () => notificationActions.deleteNotification(notification.id),
+                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                  );
+                }
+                
+                // Use unified component for regular notifications
+                return UnifiedNotificationItem(
+                  notification: notification,
                   onTap: () => _handleNotificationTap(notification, notificationActions),
+                  onDelete: () => notificationActions.deleteNotification(notification.id),
                   padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                 );
               },
@@ -722,61 +718,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         );
       },
     );
-  }
-
-  // Helper methods for notification icon and color
-  IconData _getNotificationIconData(UserNotification notification) {
-    switch (notification.type) {
-      case NotificationType.statusChange:
-        final status = notification.metadata['newStatus'] as String? ?? '';
-        if (status == 'approved') {
-          return Icons.swap_horiz_rounded;
-        } else if (status == 'rejected') {
-          return Icons.warning_amber_rounded;
-        } else {
-          return Icons.swap_horiz_rounded;
-        }
-      case NotificationType.rejection:
-        return Icons.warning_amber_rounded;
-      case NotificationType.payment:
-        return Icons.payments_rounded;
-      case NotificationType.system:
-      default:
-        return Icons.notifications;
-    }
-  }
-
-  Color _getNotificationIconColor(UserNotification notification, ThemeData theme) {
-    switch (notification.type) {
-      case NotificationType.statusChange:
-        final status = notification.metadata['newStatus'] as String? ?? '';
-        if (status == 'approved') {
-          return theme.colorScheme.tertiary;
-        } else if (status == 'rejected') {
-          return theme.colorScheme.error;
-        } else {
-          return theme.colorScheme.secondary;
-        }
-      case NotificationType.rejection:
-        return theme.colorScheme.error;
-      case NotificationType.payment:
-        return theme.colorScheme.tertiary;
-      case NotificationType.system:
-      default:
-        return theme.colorScheme.primary;
-    }
-  }
-
-  String _getNotificationDateString(UserNotification notification) {
-    final formatter = DateFormat('dd MMM');
-    final timeFormatter = DateFormat('HH:mm');
-    final formattedDate = formatter.format(notification.createdAt);
-    final formattedTime = timeFormatter.format(notification.createdAt);
-    if (notification.createdAt.day == DateTime.now().day) {
-      return 'Today, $formattedTime';
-    } else {
-      return formattedDate;
-    }
   }
 
   // --- Helper method to handle notification tap

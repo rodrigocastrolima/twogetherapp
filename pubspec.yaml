@@ -139,6 +139,13 @@ flutter:
     - assets/images/tutorial/
     - assets/images/upgraide.png
     - assets/images/homepage.jpg
+    - assets/
+    - icons/file_types/pdf.png
+    - icons/file_types/word.png
+    - icons/file_types/excel.png
+    - icons/file_types/powerpoint.png
+    - icons/file_types/image.png
+    - icons/file_types/file.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -139,8 +139,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
             contentVersionId: widget.contentVersionId!,
           )
         : await opportunityService.downloadFile(
-            contentVersionId: widget.contentVersionId!,
-          );
+      contentVersionId: widget.contentVersionId!,
+    );
 
     if (!mounted) return;
 
@@ -365,14 +365,14 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
   Future<void> _onDownload(BuildContext context) async {
     if (_fileBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No file data to download.')),
-      );
+    );
       return;
     }
 
-    try {
-      // Determine file extension
+      try {
+        // Determine file extension
       String fileExtension = '';
       if (_fileExtension?.isNotEmpty == true) {
         fileExtension = _fileExtension!.replaceAll('.', ''); // Remove dot for file_saver
@@ -433,8 +433,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
         );
       }
 
-    } catch (e) {
-      logger.e('Error saving file', error: e);
+      } catch (e) {
+        logger.e('Error saving file', error: e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving file: $e')),
       );
@@ -462,22 +462,22 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
             // Salesforce files have limitations in web environment with path_provider
             // Users can still download the file using the download button
             if (widget.contentVersionId == null)
-              CupertinoButton(
-                padding: const EdgeInsets.all(8.0),
-                child: const Icon(CupertinoIcons.share, size: 24),
-                onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
-                      ? null
-                      : () => _onShare(context),
-              ),
+            CupertinoButton(
+              padding: const EdgeInsets.all(8.0),
+              child: const Icon(CupertinoIcons.share, size: 24),
+              onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
+                    ? null
+                    : () => _onShare(context),
+          ),
             CupertinoButton(
               padding: const EdgeInsets.all(8.0),
               child: const Icon(CupertinoIcons.cloud_download, size: 24),
               onPressed: _isLoading || _fileBytes == null
                     ? null
                     : () => _onDownload(context),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
       ),
       child: _buildBody(context),
     );
@@ -533,12 +533,12 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
         // For web, use browser's built-in PDF viewer (opens in new tab)
         // Defer navigation to avoid setState during build
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          final blob = html.Blob([_fileBytes!], 'application/pdf'); 
-          final url = html.Url.createObjectUrlFromBlob(blob);
-          html.window.open(url, '_blank');
-          if (Navigator.canPop(context)) { 
-            Navigator.of(context).pop();
-          }
+        final blob = html.Blob([_fileBytes!], 'application/pdf'); 
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        html.window.open(url, '_blank');
+        if (Navigator.canPop(context)) { 
+          Navigator.of(context).pop();
+        }
         });
         return const Center(
           child: Column(

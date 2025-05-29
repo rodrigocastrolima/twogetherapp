@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart'; // Import GoRouter
 import 'package:file_picker/file_picker.dart'; // Ensure file_picker is imported
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 // TODO: Add import for file_picker if needed later
 // import 'package:file_picker/file_picker.dart';
 
@@ -20,6 +21,7 @@ import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import 
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 import '../../../../presentation/widgets/simple_list_item.dart'; // Import SimpleListItem
+import '../../../../presentation/widgets/app_input_field.dart'; // Import AppDropdownField
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceOpportunityDetailPage extends ConsumerStatefulWidget {
@@ -51,7 +53,6 @@ class _AdminSalesforceOpportunityDetailPageState
 
   // --- NEW: State variables for dropdowns ---
   String? _selectedFaseC;
-  String? _selectedFaseLDF;
   // --- END NEW ---
 
   // List of editable TEXT fields (using model property names) - REMOVED faseC and faseLDF
@@ -78,7 +79,6 @@ class _AdminSalesforceOpportunityDetailPageState
     'nifC': 'NIF__c', // Added
     'backOffice': 'Back_Office__c', // Added
     'faseC': 'Fase__c', // ASSUMED API Name for Fase
-    'faseLDF': 'Fase_LDF__c', // ASSUMED API Name for Fase LDF
     'dataDePrevisaoDeFechoC': 'Data_de_Previs_o_de_Fecho__c', // Added date field
     'dataUltimaAtualizacaoFase': 'Data_da_ltima_actualiza_o_de_Fase__c', // Added date field
     'tipoDeOportunidadeC': 'Tipo_de_Oportunidade__c', // Added tipo de oportunidade field
@@ -101,16 +101,6 @@ class _AdminSalesforceOpportunityDetailPageState
     '6 - Conclusão Perdido Futuro',
     '6 - Conclusão Desistência Cliente',
   ];
-
-  final List<String> _faseLdfOptions = const [
-    '--None--',
-    'Oportunidade Identificada',
-    'Contacto',
-    'Reunião',
-    'Proposta',
-    'Fecho',
-  ];
-  // --- END NEW ---
 
   // Add picklist options for new editable fields
   final List<String> _tipoOportunidadeOptions = const [
@@ -174,7 +164,6 @@ class _AdminSalesforceOpportunityDetailPageState
 
     // Initialize dropdown state variables
     _selectedFaseC = _editedOpportunity?.faseC;
-    _selectedFaseLDF = _editedOpportunity?.faseLDF;
 
     // Update TEXT controllers with current values and add listeners
     _controllers.forEach((field, controller) {
@@ -233,6 +222,12 @@ class _AdminSalesforceOpportunityDetailPageState
         case 'backOffice':
           _editedOpportunity = _editedOpportunity!.copyWith(backOffice: value);
           break;
+        case 'dataUltimaAtualizacaoFase':
+          _editedOpportunity = _editedOpportunity!.copyWith(dataUltimaAtualizacaoFase: value);
+          break;
+        case 'dataDePrevisaoDeFechoC':
+          _editedOpportunity = _editedOpportunity!.copyWith(dataDePrevisaoDeFechoC: value);
+          break;
         // Add cases for other editable TEXT fields
       }
     });
@@ -256,11 +251,8 @@ class _AdminSalesforceOpportunityDetailPageState
           // Update the model copy that will be saved
           _editedOpportunity = _editedOpportunity!.copyWith(faseC: valueToSave);
           break;
-        case 'faseLDF':
-          _selectedFaseLDF = value;
-          _editedOpportunity = _editedOpportunity!.copyWith(
-            faseLDF: valueToSave,
-          );
+        case 'tipoDeOportunidadeC':
+          _editedOpportunity = _editedOpportunity!.copyWith(tipoDeOportunidadeC: valueToSave);
           break;
         // Add cases for other dropdown fields if needed
       }
@@ -273,7 +265,8 @@ class _AdminSalesforceOpportunityDetailPageState
     if (dateString == null) return 'N/A';
     try {
       final dateTime = DateTime.parse(dateString);
-      return DateFormat('dd MMM yyyy').format(dateTime.toLocal());
+      // Use Portuguese locale if available, fallback to just dd/MM/yyyy
+      return DateFormat('dd/MM/yyyy', 'pt_PT').format(dateTime.toLocal());
     } catch (e) {
       return dateString; // Return original string if parsing fails
     }
@@ -348,14 +341,13 @@ class _AdminSalesforceOpportunityDetailPageState
   void _cancelEdit() {
     setState(() {
       _isEditing = false;
-      // Restore original data and update controllers/dropdown state
-      if (_originalOpportunity != null) {
-        _initializeEditState(_originalOpportunity!); // Reset to original
-      }
-      // --- Clear file changes ---
+      // --- Clear file changes first ---
       _filesToAdd.clear();
       _filesToDelete.clear();
-      // --- End Clear file changes ---
+      // --- Now restore original data and update controllers/dropdown state, including files ---
+      if (_originalOpportunity != null) {
+        _initializeEditState(_originalOpportunity!); // Reset to original, including files
+      }
     });
   }
 
@@ -428,16 +420,6 @@ class _AdminSalesforceOpportunityDetailPageState
     if (faseCApiName != null && originalFaseC != editedFaseC) {
       fieldsToUpdate[faseCApiName] =
           editedFaseC; // Add null or the selected value
-    }
-
-    // Fase_LDF__c
-    final originalFaseLDF = _originalOpportunity!.faseLDF;
-    final editedFaseLDF =
-        _editedOpportunity!.faseLDF; // Already handles '--None--' to null
-    final faseLdfApiName = _fieldApiNameMapping['faseLDF'];
-    if (faseLdfApiName != null && originalFaseLDF != editedFaseLDF) {
-      fieldsToUpdate[faseLdfApiName] =
-          editedFaseLDF; // Add null or the selected value
     }
 
     // Compare date fields
@@ -552,6 +534,7 @@ class _AdminSalesforceOpportunityDetailPageState
       ref.refresh(opportunityDetailsProvider(widget.opportunityId));
       setState(() {
         _isEditing = false;
+        _isSaving = false;
       });
         },
       );
@@ -564,6 +547,7 @@ class _AdminSalesforceOpportunityDetailPageState
   void _toggleEdit() {
     setState(() {
       _isEditing = !_isEditing;
+      _isSaving = false;
       if (!_isEditing && _originalOpportunity != null) {
         _initializeEditState(_originalOpportunity!);
       }
@@ -626,60 +610,72 @@ class _AdminSalesforceOpportunityDetailPageState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
-                        Text(
-                          'Detalhes da Oportunidade',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          textAlign: TextAlign.left,
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                                size: 28,
-                              ),
-                              tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
-                              onPressed: _toggleEdit,
+                        Center(
+                          child: Text(
+                            displayOpportunity.name ?? 'Detalhes da Oportunidade',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 28,
                             ),
-                            if (_isEditing)
-                              const SizedBox(width: 8),
-                            if (_isEditing)
-                              SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton(
-                                  icon: _isSaving
-                                      ? SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.save_outlined,
-                                          color: theme.colorScheme.primary,
-                                          size: 28,
-                                        ),
-                                  onPressed: _isSaving ? null : _saveEdit,
-                                  tooltip: 'Guardar',
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    shape: const CircleBorder(),
-                                    padding: const EdgeInsets.all(0),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8), // Extra padding for hover/click area
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                    color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                    size: 28,
                                   ),
+                                  tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                                  onPressed: _toggleEdit,
                                 ),
-                              ),
-                          ],
+                                if (_isEditing)
+                                  const SizedBox(width: 8),
+                                if (_isEditing)
+                                  SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton(
+                                      icon: _isSaving
+                                          ? SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                              ),
+                                            )
+                                          : Icon(
+                                              Icons.save_outlined,
+                                              color: theme.colorScheme.primary,
+                                              size: 28,
+                                            ),
+                                      onPressed: _isSaving ? null : _saveEdit,
+                                      tooltip: 'Guardar',
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        shape: const CircleBorder(),
+                                        padding: const EdgeInsets.all(0),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -693,127 +689,244 @@ class _AdminSalesforceOpportunityDetailPageState
                           // LEFT COLUMN
                           [
                             _isEditing
-                              ? _buildEditableTextField('Oportunidade', _controllers['name']!)
-                              : _buildDetailItem('Oportunidade', displayOpportunity.name, 'name'),
+                                ? AppInputField(
+                                    controller: _controllers['name']!,
+                                    label: 'Oportunidade',
+                                    readOnly: false,
+                                    onChanged: (String value) => _updateEditedOpportunityTextField('name', value),
+                                  )
+                                : AppInputField(
+                                    controller: _controllers['name']!,
+                                    label: 'Oportunidade',
+                                    readOnly: true,
+                                  ),
+                            AppInputField(
+                              controller: TextEditingController(text: displayOpportunity.accountName ?? ''),
+                              label: 'Entidade',
+                              readOnly: true,
+                            ),
+                            AppInputField(
+                              controller: TextEditingController(text: displayOpportunity.ownerName ?? ''),
+                              label: 'Owner',
+                              readOnly: true,
+                            ),
                             _isEditing
-                              ? _buildEditableTextField('Entidade', TextEditingController(text: displayOpportunity.accountName ?? ''), readOnly: true)
-                              : _buildDetailItem('Entidade', displayOpportunity.accountName),
+                              ? AppDropdownField<String>(
+                                  label: 'Tipo de Oportunidade',
+                                  value: _tipoOportunidadeOptions.contains(_editedOpportunity?.tipoDeOportunidadeC)
+                                      ? _editedOpportunity?.tipoDeOportunidadeC
+                                      : _tipoOportunidadeOptions.first,
+                                  items: _tipoOportunidadeOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      _updateEditedOpportunityDropdownField('tipoDeOportunidadeC', value);
+                                    }
+                                  },
+                                )
+                              : AppInputField(
+                                  controller: TextEditingController(text: displayOpportunity.tipoDeOportunidadeC ?? 'N/A'),
+                                  label: 'Tipo de Oportunidade',
+                                  readOnly: true,
+                                ),
                             _isEditing
-                              ? _buildEditableTextField('Owner', TextEditingController(text: displayOpportunity.ownerName ?? ''), readOnly: true)
-                              : _buildDetailItem('Owner', displayOpportunity.ownerName),
-                            _isEditing
-                              ? _buildEditableDropdownField('Tipo de Oportunidade', displayOpportunity.tipoDeOportunidadeC, _tipoOportunidadeOptions, (newValue) {
-                                  setState(() {
-                                    _editedOpportunity = _editedOpportunity?.copyWith(tipoDeOportunidadeC: newValue);
-                                  });
-                                })
-                              : _buildDetailItem('Tipo de Oportunidade', displayOpportunity.tipoDeOportunidadeC),
-                            _isEditing
-                              ? _buildEditableTextField('Observações', _controllers['observacoes']!, maxLines: 5)
-                              : _buildDetailItem('Observações', displayOpportunity.observacoes, 'observacoes', _isEditing ? 5 : null),
+                              ? AppInputField(
+                                  controller: _controllers['observacoes']!,
+                                  label: 'Observações',
+                                  maxLines: 5,
+                                  readOnly: false,
+                                  onChanged: (String value) => _updateEditedOpportunityTextField('observacoes', value),
+                                )
+                              : AppInputField(
+                                  controller: _controllers['observacoes']!,
+                                  label: 'Observações',
+                                  maxLines: 5,
+                                  readOnly: true,
+                                ),
                             // Motivo da Perda: only show if Fase is '6 - Conclusão Desistência Cliente'
                             if ((_isEditing && (_selectedFaseC == '6 - Conclusão Desistência Cliente')) ||
                                 (!_isEditing && displayOpportunity.faseC == '6 - Conclusão Desistência Cliente' && (displayOpportunity.motivoDaPerda?.isNotEmpty ?? false)))
                               _isEditing
-                                ? _buildEditableDropdownField('Motivo da Perda', displayOpportunity.motivoDaPerda, _motivoDaPerdaOptions, (newValue) {
-                                    setState(() {
-                                      _editedOpportunity = _editedOpportunity?.copyWith(motivoDaPerda: newValue);
-                                    });
-                                  })
-                                : _buildDetailItem('Motivo da Perda', displayOpportunity.motivoDaPerda),
+                                ? AppDropdownField<String>(
+                                    label: 'Motivo da Perda',
+                                    value: _motivoDaPerdaOptions.contains(_editedOpportunity?.motivoDaPerda)
+                                        ? _editedOpportunity?.motivoDaPerda
+                                        : _motivoDaPerdaOptions.first,
+                                    items: _motivoDaPerdaOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                    onChanged: (String? value) {
+                                      if (value != null) {
+                                        _updateEditedOpportunityTextField('motivoDaPerda', value);
+                                      }
+                                    },
+                                  )
+                                : AppInputField(
+                                    controller: TextEditingController(text: displayOpportunity.motivoDaPerda ?? 'N/A'),
+                                    label: 'Motivo da Perda',
+                                    readOnly: true,
+                                  ),
+                          ],
+                          // RIGHT COLUMN
+                          [
+                            // Date field: Data de Criação da Oportunidade (always read-only)
+                            AppInputField(
+                              controller: TextEditingController(text: _formatDate(displayOpportunity.dataDeCriacaoDaOportunidadeC)),
+                              label: 'Data de Criação da Oportunidade',
+                              readOnly: true,
+                            ),
+                            AppInputField(
+                              controller: _controllers['nifC']!,
+                              label: 'NIF',
+                              readOnly: true,
+                            ),
                             _isEditing
-                              ? _buildEditableTextField('Qualificação concluída', TextEditingController(text: _formatBool(displayOpportunity.qualificacaoConcluida)), readOnly: true)
-                              : _buildDetailItem('Qualificação concluída', _formatBool(displayOpportunity.qualificacaoConcluida)),
+                              ? AppDropdownField<String>(
+                                  label: 'Fase',
+                                  value: _faseOptions.contains(_editedOpportunity?.faseC)
+                                      ? _editedOpportunity?.faseC
+                                      : _faseOptions.first,
+                                  items: _faseOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      _updateEditedOpportunityDropdownField('faseC', value);
+                                    }
+                                  },
+                                )
+                              : AppInputField(
+                                  controller: TextEditingController(text: displayOpportunity.faseC ?? 'N/A'),
+                                  label: 'Fase',
+                                  readOnly: true,
+                                ),
+                            AppInputField(
+                              controller: TextEditingController(text: _formatBool(displayOpportunity.qualificacaoConcluida)),
+                              label: 'Qualificação concluída',
+                              readOnly: true,
+                            ),
                             if (!_isEditing)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(
-                        width: 150,
-                                      child: Text('Red Flag:', style: TextStyle(fontWeight: FontWeight.w500)),
-                      ),
+                      Text('Red Flag', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 8),
                       _buildRedFlagIndicator(displayOpportunity.redFlag),
                     ],
                   ),
                 ),
                           ],
-                          // RIGHT COLUMN
-                          [
-                            _isEditing
-                              ? _buildEditableTextField('Data de Criação da Oportunidade', TextEditingController(text: _formatDate(displayOpportunity.dataDeCriacaoDaOportunidadeC)), readOnly: true)
-                              : _buildDetailItem('Data de Criação da Oportunidade', _formatDate(displayOpportunity.dataDeCriacaoDaOportunidadeC)),
-                            _isEditing
-                              ? _buildEditableTextField('NIF', _controllers['nifC']!)
-                              : _buildDetailItem('NIF', displayOpportunity.nifC, 'nifC'),
-                            _isEditing
-                              ? _buildEditableDropdownField('Fase', _selectedFaseC, _faseOptions, (newValue) { _updateEditedOpportunityDropdownField('faseC', newValue); })
-                              : _buildDetailItem('Fase', displayOpportunity.faseC),
-                            _isEditing
-                              ? _buildEditableDropdownField('Fase LDF', _selectedFaseLDF, _faseLdfOptions, (newValue) { _updateEditedOpportunityDropdownField('faseLDF', newValue); })
-                              : _buildDetailItem('Fase LDF', displayOpportunity.faseLDF),
-                          ],
               ]),
               const SizedBox(height: 16),
                         // --- Section 2: Twogether Retail ---
-              _buildDetailSection(context, 'Twogether Retail', [
-                          _isEditing
-                            ? _buildEditableDropdownField('Segmento de Cliente', displayOpportunity.segmentoDeClienteC, _segmentoDeClienteOptions, (newValue) {
-                                setState(() {
-                                  _editedOpportunity = _editedOpportunity?.copyWith(segmentoDeClienteC: newValue);
-                                });
-                              })
-                            : _buildDetailItem('Segmento de Cliente', displayOpportunity.segmentoDeClienteC),
-                          _isEditing
-                            ? _buildEditableDropdownField('Solução', displayOpportunity.soluOC, _solucaoOptions, (newValue) {
-                                setState(() {
-                                  _editedOpportunity = _editedOpportunity?.copyWith(soluOC: newValue);
-                                });
-                              })
-                            : _buildDetailItem('Solução', displayOpportunity.soluOC),
-                          _isEditing
-                            ? _buildEditableTextField('Agente Retail', TextEditingController(text: displayOpportunity.resellerName ?? ''), readOnly: true)
-                            : _buildDetailItem('Agente Retail', displayOpportunity.resellerName),
+              _buildDetailSectionTwoColumn(context, 'Twogether Retail', [
+                          [
+                            _isEditing
+                              ? AppDropdownField<String>(
+                                  label: 'Segmento de Cliente',
+                                  value: _segmentoDeClienteOptions.contains(_editedOpportunity?.segmentoDeClienteC)
+                                      ? _editedOpportunity?.segmentoDeClienteC
+                                      : _segmentoDeClienteOptions.first,
+                                  items: _segmentoDeClienteOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      _updateEditedOpportunityTextField('segmentoDeClienteC', value);
+                                    }
+                                  },
+                                )
+                              : AppInputField(
+                                  controller: TextEditingController(text: displayOpportunity.segmentoDeClienteC ?? 'N/A'),
+                                  label: 'Segmento de Cliente',
+                                  readOnly: true,
+                                ),
+                            _isEditing
+                              ? AppDropdownField<String>(
+                                  label: 'Solução',
+                                  value: _solucaoOptions.contains(_editedOpportunity?.soluOC)
+                                      ? _editedOpportunity?.soluOC
+                                      : _solucaoOptions.first,
+                                  items: _solucaoOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                  onChanged: (String? value) {
+                                    if (value != null) {
+                                      _updateEditedOpportunityTextField('soluOC', value);
+                                    }
+                                  },
+                                )
+                              : AppInputField(
+                                  controller: TextEditingController(text: displayOpportunity.soluOC ?? 'N/A'),
+                                  label: 'Solução',
+                                  readOnly: true,
+                                ),
+                          ],
+                          [
+                            AppInputField(
+                              controller: TextEditingController(text: displayOpportunity.resellerName ?? ''),
+                              label: 'Agente Retail',
+                              readOnly: true,
+                            ),
+                          ],
               ]),
               const SizedBox(height: 16),
                         // --- Section 3: Fases ---
               _buildDetailSectionTwoColumn(context, 'Fases', [
                 [
+                  AppInputField(
+                    controller: TextEditingController(text: _formatDate(displayOpportunity.dataContacto)),
+                    label: 'Data do Contacto',
+                    readOnly: true,
+                  ),
+                  AppInputField(
+                    controller: TextEditingController(text: _formatDate(displayOpportunity.dataProposta)),
+                    label: 'Data da Proposta',
+                    readOnly: true,
+                  ),
                   _isEditing
-                    ? _buildEditableTextField('Data do Contacto', TextEditingController(text: _formatDate(displayOpportunity.dataContacto)), readOnly: true)
-                    : _buildDetailItem('Data do Contacto', _formatDate(displayOpportunity.dataContacto)),
-                  _isEditing
-                    ? _buildEditableTextField('Data da Proposta', TextEditingController(text: _formatDate(displayOpportunity.dataProposta)), readOnly: true)
-                    : _buildDetailItem('Data da Proposta', _formatDate(displayOpportunity.dataProposta)),
-                  _isEditing
-                    ? _buildEditableDateField('Data de Previsão de Fecho', displayOpportunity.dataDePrevisaoDeFechoC, (picked) {
-                        setState(() {
-                          _editedOpportunity = _editedOpportunity?.copyWith(dataDePrevisaoDeFechoC: picked?.toIso8601String());
-                        });
-                      })
-                    : _buildDetailItem('Data de Previsão de Fecho', _formatDate(displayOpportunity.dataDePrevisaoDeFechoC)),
-                  _isEditing
-                    ? _buildEditableTextField('Back Office', TextEditingController(text: displayOpportunity.backOffice ?? ''), readOnly: true)
-                    : _buildDetailItem('Back Office', displayOpportunity.backOffice, 'backOffice'),
+                    ? AppDateInputField(
+                        label: 'Data de Previsão de Fecho',
+                        value: _editedOpportunity?.dataDePrevisaoDeFechoC != null && _editedOpportunity!.dataDePrevisaoDeFechoC!.isNotEmpty
+                            ? DateTime.tryParse(_editedOpportunity!.dataDePrevisaoDeFechoC!)
+                            : null,
+                        onChanged: (DateTime? date) => _updateEditedOpportunityTextField('dataDePrevisaoDeFechoC', date?.toIso8601String() ?? ''),
+                        lastDate: DateTime(2101),
+                      )
+                    : AppInputField(
+                        controller: TextEditingController(text: _formatDate(displayOpportunity.dataDePrevisaoDeFechoC)),
+                        label: 'Data de Previsão de Fecho',
+                        readOnly: true,
+                      ),
+                  AppInputField(
+                    controller: TextEditingController(text: displayOpportunity.backOffice ?? ''),
+                    label: 'Back Office',
+                    readOnly: true,
+                  ),
                 ],
                 [
+                  AppInputField(
+                    controller: TextEditingController(text: _formatDate(displayOpportunity.dataReuniao)),
+                    label: 'Data da Reunião',
+                    readOnly: true,
+                  ),
+                  AppInputField(
+                    controller: TextEditingController(text: _formatDate(displayOpportunity.dataFecho)),
+                    label: 'Data do Fecho',
+                    readOnly: true,
+                  ),
                   _isEditing
-                    ? _buildEditableTextField('Data da Reunião', TextEditingController(text: _formatDate(displayOpportunity.dataReuniao)), readOnly: true)
-                    : _buildDetailItem('Data da Reunião', _formatDate(displayOpportunity.dataReuniao)),
-                  _isEditing
-                    ? _buildEditableTextField('Data do Fecho', TextEditingController(text: _formatDate(displayOpportunity.dataFecho)), readOnly: true)
-                    : _buildDetailItem('Data do Fecho', _formatDate(displayOpportunity.dataFecho)),
-                  _isEditing
-                    ? _buildEditableDateField('Data da última atualização de Fase', displayOpportunity.dataUltimaAtualizacaoFase, (picked) {
-                        setState(() {
-                          _editedOpportunity = _editedOpportunity?.copyWith(dataUltimaAtualizacaoFase: picked?.toIso8601String());
-                        });
-                      })
-                    : _buildDetailItem('Data da última atualização de Fase', _formatDate(displayOpportunity.dataUltimaAtualizacaoFase)),
-                  _isEditing
-                    ? _buildEditableTextField('Ciclo do Ganho', TextEditingController(text: displayOpportunity.cicloDoGanhoName ?? ''), readOnly: true)
-                    : _buildDetailItem('Ciclo do Ganho', displayOpportunity.cicloDoGanhoName),
+                    ? AppDateInputField(
+                        label: 'Data da última atualização de Fase',
+                        value: _editedOpportunity?.dataUltimaAtualizacaoFase != null && _editedOpportunity!.dataUltimaAtualizacaoFase!.isNotEmpty
+                            ? DateTime.tryParse(_editedOpportunity!.dataUltimaAtualizacaoFase!)
+                            : null,
+                        onChanged: (DateTime? date) => _updateEditedOpportunityTextField('dataUltimaAtualizacaoFase', date?.toIso8601String() ?? ''),
+                        lastDate: DateTime(2101),
+                      )
+                    : AppInputField(
+                        controller: TextEditingController(text: _formatDate(displayOpportunity.dataUltimaAtualizacaoFase)),
+                        label: 'Data da última atualização de Fase',
+                        readOnly: true,
+                      ),
+                  AppInputField(
+                    controller: TextEditingController(text: displayOpportunity.cicloDoGanhoName ?? ''),
+                    label: 'Ciclo do Ganho',
+                    readOnly: true,
+                  ),
                 ],
               ]),
               const SizedBox(height: 24),
@@ -853,11 +966,14 @@ class _AdminSalesforceOpportunityDetailPageState
           children: [
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: theme.colorScheme.primary,
               ),
+              textAlign: TextAlign.left,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             ...items,
           ],
         ),
@@ -881,18 +997,24 @@ class _AdminSalesforceOpportunityDetailPageState
             : null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 4.0), // Less vertical spacing
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 150,
+          Container(
+            width: 190, // Fixed width for the label
+            alignment: Alignment.centerRight,
             child: Text(
               '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
             ),
+              textAlign: TextAlign.right,
           ),
-          const SizedBox(width: 10),
+          ),
+          const SizedBox(width: 24),
           Expanded(
             child:
                 (_isEditing && controller != null)
@@ -908,99 +1030,25 @@ class _AdminSalesforceOpportunityDetailPageState
                     )
                     : Text(
                       value ?? 'N/A',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: maxLines,
-                      overflow: TextOverflow.visible,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                        textAlign: TextAlign.left,
                     ),
           ),
         ],
       ),
     );
   }
-
-  // --- NEW: Helper widget for DROPDOWN fields ---
-  Widget _buildDropdownItem(
-    String label,
-    String?
-    currentValue, // Value from the displayed opportunity (original or edited)
-    List<String> options,
-    String?
-    selectedValueState, // Value from the state variable used by the dropdown
-    ValueChanged<String?> onChanged, // Callback to update state and model
-  ) {
-    // --- ADDED: Check if the state value is valid within the options --- //
-    final String? dropdownValue =
-        (selectedValueState != null && options.contains(selectedValueState))
-            ? selectedValueState
-            : null; // If state is null or not in options, pass null to DropdownButton
-    // --- END ADDED Check --- //
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // Align label top
-        children: [
-          SizedBox(
-            width: 150, // Consistent width for labels
-            child: Padding(
-              padding: const EdgeInsets.only(top: 12.0), // Align label
-              child: Text(
-                '$label:',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child:
-                _isEditing
-                    ? DropdownButtonFormField<String>(
-                      // --- MODIFIED: Use the validated dropdownValue --- //
-                      value: dropdownValue,
-                      // --- END MODIFICATION ---
-                      isExpanded: true,
-                      items:
-                          options.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(
-                                value,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                      onChanged: onChanged,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          vertical: 8.0,
-                          horizontal: 10.0,
-                        ),
-                        border: OutlineInputBorder(),
-                      ),
-                    )
-                    : Padding(
-                      padding: const EdgeInsets.only(
-                        top: 12.0,
-                      ), // Match padding
-                      child: Text(
-                        currentValue ?? 'N/A',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-          ),
-        ],
-      ),
-    );
-  }
-  // --- END NEW ---
 
   // --- NEW: Files Section Builder ---
   Widget _buildFilesSection(BuildContext context, List<SalesforceFile> files) {
     final theme = Theme.of(context);
     final List<dynamic> displayedItems = [
       ...files.where((f) => !_filesToDelete.contains(f)),
-      ..._filesToAdd,
+      if (_isEditing) ..._filesToAdd,
     ];
 
     return Card(
@@ -1015,14 +1063,17 @@ class _AdminSalesforceOpportunityDetailPageState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Ficheiros',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: theme.colorScheme.primary,
                   ),
+                  textAlign: TextAlign.left,
                 ),
+                Spacer(),
                 if (_isEditing)
                   IconButton(
                     icon: const Icon(Icons.add),
@@ -1031,7 +1082,7 @@ class _AdminSalesforceOpportunityDetailPageState
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             if (displayedItems.isEmpty)
               Center(
                 child: Padding(
@@ -1074,15 +1125,13 @@ class _AdminSalesforceOpportunityDetailPageState
                     title = file.title;
                     subtitle = file.fileType.toUpperCase();
                     isMarkedForDeletion = _filesToDelete.contains(file);
-      final isImage = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'heic'].contains(fileType);
-      final isPdf = fileType == 'pdf';
-      if (isImage) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (isPdf) {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+      final iconAsset = FileIconService.getIconAssetPath(fileType);
+      iconWidget = Image.asset(
+        iconAsset,
+        width: 30,
+        height: 30,
+        fit: BoxFit.contain,
+      );
                     onTapAction = () {
                       if (isMarkedForDeletion) return;
                       Navigator.push(
@@ -1102,19 +1151,21 @@ class _AdminSalesforceOpportunityDetailPageState
       fileExtension = (file.extension ?? '').toLowerCase();
                     title = file.name;
                     subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
-      if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (fileExtension == "pdf") {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+      final iconAsset = FileIconService.getIconAssetPath(fileExtension);
+      iconWidget = Image.asset(
+        iconAsset,
+        width: 30,
+        height: 30,
+        fit: BoxFit.contain,
+      );
                     onTapAction = null;
                   } else {
                     return const SizedBox.shrink();
                   }
 
-    return Container(
+    return Tooltip(
+      message: title,
+      child: Container(
       width: 70,
       height: 70,
       clipBehavior: Clip.antiAlias,
@@ -1211,6 +1262,7 @@ class _AdminSalesforceOpportunityDetailPageState
               ),
             ),
         ],
+        ),
       ),
     );
   }
@@ -1276,7 +1328,7 @@ class _AdminSalesforceOpportunityDetailPageState
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         if (proposals.isEmpty)
           Center(
             child: Padding(
@@ -1292,7 +1344,7 @@ class _AdminSalesforceOpportunityDetailPageState
             children: proposals.map((proposal) {
               final proposalId = getProposalId(proposal);
               return SimpleListItem(
-                leading: Icon(Icons.description_outlined, size: 20, color: theme.colorScheme.secondary),
+                leading: Icon(Icons.description_outlined, size: 20, color: theme.colorScheme.onSurface),
                 title: proposal.name,
                 onTap: (proposalId == null)
                   ? null
@@ -1323,11 +1375,14 @@ class _AdminSalesforceOpportunityDetailPageState
           children: [
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: theme.colorScheme.primary,
               ),
+              textAlign: TextAlign.left,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1409,7 +1464,7 @@ class _AdminSalesforceOpportunityDetailPageState
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  parsedDate != null ? DateFormat('dd MMM yyyy').format(parsedDate) : 'Selecionar data',
+                  parsedDate != null ? DateFormat('dd/MM/yyyy', 'pt_PT').format(parsedDate) : 'Selecionar data',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface,
                   ),
@@ -1473,27 +1528,6 @@ class _AdminSalesforceOpportunityDetailPageState
     );
   }
 
-  // --- REFACTOR: Editable dropdown field builder ---
-  Widget _buildEditableDropdownField(String label, String? value, List<String> options, ValueChanged<String?> onChanged) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: DropdownButtonFormField<String>(
-        value: options.contains(value) ? value : options.first,
-        decoration: _inputDecoration(label: label),
-        items: options.map((String v) {
-          return DropdownMenuItem<String>(
-            value: v,
-            child: Text(v, style: theme.textTheme.bodySmall),
-          );
-        }).toList(),
-        onChanged: onChanged,
-        style: theme.textTheme.bodySmall,
-        isExpanded: true,
-      ),
-    );
-  }
-
   // --- REFACTOR: Editable date picker field builder ---
   Widget _buildEditableDateField(String label, String? value, ValueChanged<DateTime?> onDatePicked) {
     final theme = Theme.of(context);
@@ -1546,4 +1580,8 @@ class _AdminSalesforceOpportunityDetailPageState
       ),
     );
   }
+
+  void _handleTipoDeOportunidadeChanged(String? value) { if (value != null) _updateEditedOpportunityDropdownField('tipoDeOportunidadeC', value); }
+  void _handleMotivoDaPerdaChanged(String? value) { if (value != null) _updateEditedOpportunityTextField('motivoDaPerda', value); }
+  void _handleFaseCChanged(String? value) { if (value != null) _updateEditedOpportunityDropdownField('faseC', value); }
 }

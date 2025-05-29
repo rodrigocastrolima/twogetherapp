@@ -21,6 +21,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
+import '../../../../core/services/file_icon_service.dart';
 
 // Convert to ConsumerStatefulWidget
 class AdminProviderFilesPage extends ConsumerStatefulWidget {
@@ -191,10 +193,14 @@ class _AdminProviderFilesPageState
     ThemeData theme,
     WidgetRef ref,
   ) {
-    final fileIcon = _getFileIcon(file.fileType);
-
+    final iconAsset = FileIconService.getIconAssetPath(file.fileType);
     return SimpleListItem(
-      leading: Icon(fileIcon, color: theme.colorScheme.primary, size: 40),
+      leading: Image.asset(
+        iconAsset,
+        width: 40,
+        height: 40,
+        fit: BoxFit.contain,
+      ),
       title: file.fileName,
       subtitle: file.description.isNotEmpty ? file.description : null,
       trailing: _isDeleteModeEnabled
@@ -408,19 +414,17 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
   Future<void> _pickFile() async {
     setState(() {
       _dialogErrorMessage = null;
-    }); // Clear previous error
+    });
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
       if (result != null) {
         setState(() {
           _selectedPlatformFile = result.files.first;
         });
-      } else {
-        // User canceled the picker
       }
     } catch (e) {
       setState(() {
-        _dialogErrorMessage = "Error picking file: $e";
+        _dialogErrorMessage = "Erro ao selecionar ficheiro: $e";
       });
     }
   }
@@ -437,58 +441,36 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
     if (_dialogFormKey.currentState?.validate() != true) return;
     if (_selectedPlatformFile == null) {
       setState(() {
-        _dialogErrorMessage = 'Please select a file to upload.';
+        _dialogErrorMessage = 'Por favor, selecione um ficheiro para upload.';
       });
       return;
     }
-
     setState(() {
       _isUploading = true;
       _dialogErrorMessage = null;
     });
     final loadingService = ref.read(loadingServiceProvider);
-    // Optional: Show overlay for whole app
-    // loadingService.show(context, message: 'Uploading File...');
-
     try {
       final file = _selectedPlatformFile!;
       final String description = _descriptionController.text.trim();
       final String fileName = file.name;
       final String fileExtension = _getFileExtension(fileName);
-      final int? fileSize = file.size; // Size might be null
-
-      // Generate Firestore ID first
-      final String fileDocId =
-          FirebaseFirestore.instance
-              .collection('providers')
-              .doc(widget.providerId)
-              .collection('files')
-              .doc()
-              .id;
-
-      final String storagePath =
-          'provider_files/${widget.providerId}/$fileDocId/$fileName';
-      final Reference storageRef = FirebaseStorage.instance.ref().child(
-        storagePath,
-      );
-
+      final int? fileSize = file.size;
+      final String fileDocId = FirebaseFirestore.instance.collection('providers').doc(widget.providerId).collection('files').doc().id;
+      final String storagePath = 'provider_files/${widget.providerId}/$fileDocId/$fileName';
+      final Reference storageRef = FirebaseStorage.instance.ref().child(storagePath);
       UploadTask uploadTask;
       if (kIsWeb) {
         final fileBytes = file.bytes;
-        if (fileBytes == null)
-          throw Exception('File bytes are null for web upload');
+        if (fileBytes == null) throw Exception('File bytes are null for web upload');
         uploadTask = storageRef.putData(fileBytes);
       } else {
         final filePath = file.path;
-        if (filePath == null)
-          throw Exception('File path is null for mobile upload');
+        if (filePath == null) throw Exception('File path is null for mobile upload');
         uploadTask = storageRef.putFile(File(filePath));
       }
-
       final TaskSnapshot snapshot = await uploadTask;
       final String downloadUrl = await snapshot.ref.getDownloadURL();
-
-      // Create Firestore Document
       final fileData = {
         'fileName': fileName,
         'description': description,
@@ -498,19 +480,12 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
         'uploadedAt': FieldValue.serverTimestamp(),
         'storagePath': storagePath,
       };
-
-      await FirebaseFirestore.instance
-          .collection('providers')
-          .doc(widget.providerId)
-          .collection('files')
-          .doc(fileDocId)
-          .set(fileData);
-
-      if (mounted) Navigator.pop(context); // Close dialog on success
+      await FirebaseFirestore.instance.collection('providers').doc(widget.providerId).collection('files').doc(fileDocId).set(fileData);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         setState(() {
-          _dialogErrorMessage = 'Error uploading file: $e';
+          _dialogErrorMessage = 'Erro ao fazer upload: $e';
         });
       }
     } finally {
@@ -518,94 +493,205 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
         setState(() {
           _isUploading = false;
         });
-        // loadingService.hide(); // Hide overlay if shown
       }
     }
+  }
+
+  Widget _buildFilePicker(ThemeData theme, ColorScheme colorScheme, TextTheme textTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Ficheiro',
+              style: textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            if (_selectedPlatformFile == null)
+              IconButton(
+                icon: Icon(CupertinoIcons.add, color: colorScheme.primary, size: 28),
+                tooltip: 'Adicionar ficheiro',
+                onPressed: _isUploading ? null : _pickFile,
+                splashRadius: 22,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_selectedPlatformFile != null)
+          Center(
+            child: _buildFilePreview(_selectedPlatformFile!, theme, colorScheme, textTheme),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilePreview(PlatformFile file, ThemeData theme, ColorScheme colorScheme, TextTheme textTheme) {
+    final iconAsset = FileIconService.getIconAssetPath(file.extension);
+    return Container(
+      width: 80,
+      height: 80,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.black.withOpacity(0.1),
+          width: 0.5,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    iconAsset,
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    file.name,
+                    style: textTheme.bodySmall?.copyWith(fontSize: 9),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (!_isUploading)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: colorScheme.error,
+                  tooltip: 'Remover ficheiro',
+                  onPressed: () {
+                    setState(() {
+                      _selectedPlatformFile = null;
+                    });
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     return AlertDialog(
-      title: const Text('Add New File'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _dialogFormKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_dialogErrorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ErrorMessageWidget(message: _dialogErrorMessage!),
-                ),
-
-              // File Picker Button & Display
-              Text('File', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(CupertinoIcons.folder_open),
-                    label: Text(
-                      _selectedPlatformFile == null
-                          ? 'Select File'
-                          : 'Change File',
-                    ),
-                    onPressed: _isUploading ? null : _pickFile,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      _selectedPlatformFile?.name ?? 'No file selected',
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      titlePadding: const EdgeInsets.all(0),
+      title: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 60, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Adicionar Novo Ficheiro',
+                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 16),
-
-              // Description Field
-              TextFormField(
-                controller: _descriptionController,
-                enabled: !_isUploading,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a description';
-                  }
-                  return null;
-                },
-                maxLines: 3,
+            ),
+          ),
+          if (!_isUploading)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(CupertinoIcons.xmark, size: 22),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Fechar',
+                splashRadius: 20,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
               ),
-            ],
+            ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _dialogFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_dialogErrorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: ErrorMessageWidget(message: _dialogErrorMessage!),
+                  ),
+                _buildFilePicker(theme, colorScheme, textTheme),
+                const SizedBox(height: 20),
+                AppInputField(
+                  controller: _descriptionController,
+                  label: 'Descrição',
+                  maxLines: 3,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor, insira uma descrição';
+                    }
+                    return null;
+                  },
+                  readOnly: _isUploading,
+                ),
+              ],
+            ),
           ),
         ),
       ),
+      actionsAlignment: MainAxisAlignment.end,
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       actions: [
-        TextButton(
-          onPressed: _isUploading ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton.icon(
-          icon:
-              _isUploading
-                  ? SizedBox(
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            icon: _isUploading
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: theme.colorScheme.onPrimary,
+                      color: colorScheme.onPrimary,
                     ),
                   )
-                  : const Icon(CupertinoIcons.cloud_upload_fill, size: 18),
-          label: Text(_isUploading ? 'Uploading...' : 'Upload & Save'),
-          onPressed: _isUploading ? null : _uploadAndSaveFile,
+                : const Icon(CupertinoIcons.cloud_upload_fill, size: 18),
+            label: Text(_isUploading ? 'A fazer upload...' : 'Guardar Ficheiro'),
+            onPressed: _isUploading ? null : _uploadAndSaveFile,
+          ),
         ),
       ],
     );
