@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart'; // If needed later for navigation
 import 'package:file_picker/file_picker.dart'; // <-- RESTORED IMPORT
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart'; // For kDebugMode
 
 import '../providers/proposal_providers.dart'; // Provider for proposal details
 import '../../data/models/detailed_salesforce_proposal.dart';
@@ -20,6 +21,8 @@ import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import 
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 import '../../../../presentation/widgets/simple_list_item.dart'; // Import SimpleListItem
 import '../../../../presentation/widgets/app_input_field.dart'; // Import AppInputField
+import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
+import '../../../../features/notifications/data/repositories/notification_repository.dart'; // Import NotificationRepository
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceProposalDetailPage extends ConsumerStatefulWidget {
@@ -652,32 +655,32 @@ class _AdminSalesforceProposalDetailPageState
       loading: () => const AppLoadingIndicator(),
       error: (error, stack) => Scaffold(
         body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'Error loading proposal details:\n$error',
-              style: TextStyle(color: theme.colorScheme.error),
-              textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Error loading proposal details:\n$error',
+                  style: TextStyle(color: theme.colorScheme.error),
+                  textAlign: TextAlign.center,
             ),
-          ),
-        ),
-      ),
-      data: (proposalFromProvider) {
-        // Initialize state when data first loads IF NOT ALREADY EDITING
-        if (!_isEditing &&
-            (_originalProposal == null ||
-                proposalFromProvider.id != _originalProposal!.id)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _initializeEditState(proposalFromProvider);
-            }
-          });
-        }
+                ),
+              ),
+            ),
+        data: (proposalFromProvider) {
+          // Initialize state when data first loads IF NOT ALREADY EDITING
+          if (!_isEditing &&
+              (_originalProposal == null ||
+                  proposalFromProvider.id != _originalProposal!.id)) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _initializeEditState(proposalFromProvider);
+              }
+            });
+          }
 
-        // Determine which data to display
-        final DetailedSalesforceProposal displayProposal =
-            (_isEditing ? _editedProposal : proposalFromProvider) ??
-            proposalFromProvider; // Fallback to provider data
+          // Determine which data to display
+          final DetailedSalesforceProposal displayProposal =
+              (_isEditing ? _editedProposal : proposalFromProvider) ??
+              proposalFromProvider; // Fallback to provider data
 
         return Scaffold(
           appBar: AppBar(
@@ -696,62 +699,73 @@ class _AdminSalesforceProposalDetailPageState
               constraints: const BoxConstraints(maxWidth: 1200),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+            children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
+                    padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Detalhes da Proposta',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          textAlign: TextAlign.left,
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                                size: 28,
-                              ),
-                              tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
-                              onPressed: _isEditing ? _cancelEdit : _startEdit,
+                        // Left spacer for symmetry
+                        SizedBox(width: _isEditing ? 100 : 56), // Account for button width
+                        // Title in the center with flex
+                        Expanded(
+                          child: Text(
+                            displayProposal.name ?? 'Detalhes da Proposta',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 28,
                             ),
-                            if (_isEditing)
-                              const SizedBox(width: 8),
-                            if (_isEditing)
-                              SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton(
-                                  icon: _isSaving
-                                      ? SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2, // Allow 2 lines for long titles
+                          ),
+                        ),
+                        // Right side buttons
+                        Container(
+                          width: _isEditing ? 100 : 56, // Fixed width for buttons
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                  size: 28,
+                                ),
+                                tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                                onPressed: _isEditing ? _cancelEdit : _startEdit,
+                              ),
+                              if (_isEditing)
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: IconButton(
+                                    icon: _isSaving
+                                        ? SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.save_outlined,
+                                            color: theme.colorScheme.primary,
+                                            size: 28,
                                           ),
-                                        )
-                                      : Icon(
-                                          Icons.save_outlined,
-                                          color: theme.colorScheme.primary,
-                                          size: 28,
-                                        ),
-                                  onPressed: _isSaving ? null : _saveEdit,
-                                  tooltip: 'Guardar',
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    shape: const CircleBorder(),
-                                    padding: const EdgeInsets.all(0),
+                                    onPressed: _isSaving ? null : _saveEdit,
+                                    tooltip: 'Guardar',
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      shape: const CircleBorder(),
+                                      padding: const EdgeInsets.all(0),
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -769,66 +783,9 @@ class _AdminSalesforceProposalDetailPageState
                           [
                             AppInputField(controller: TextEditingController(text: displayProposal.oportunidadeName ?? displayProposal.oportunidadeId ?? 'N/A'), label: 'Oportunidade', readOnly: true),
                           ],
-                        ]),
-                        const SizedBox(height: 16),
+              ]),
+              const SizedBox(height: 16),
                         // --- Section 2: Informação da Proposta (Double Column in Edit Mode) ---
-                        _buildUserDetailSectionTwoColumn(context, 'Informação da Proposta', [
-                          [
-                            AppInputField(controller: TextEditingController(text: displayProposal.name ?? 'N/A'), label: 'Proposta', readOnly: true),
-                            AppDropdownField<String>(
-                              label: 'Status',
-                              value: _statusOptions.contains(_selectedStatus) ? _selectedStatus : _statusOptions.first,
-                              items: _statusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
-                              onChanged: (v) { setState(() { _selectedStatus = v; _updateEditedProposalDropdownField('statusC', v); }); },
-                            ),
-                            AppDropdownField<String>(
-                              label: 'Solução',
-                              value: _solucaoOptions.contains(_selectedSolution) ? _selectedSolution : _solucaoOptions.first,
-                              items: _solucaoOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
-                              onChanged: (v) { setState(() { _selectedSolution = v; _updateEditedProposalDropdownField('soluOC', v); }); },
-                            ),
-                            AppInputField(controller: _controllers['consumoPeriodoContratoKwhC']!, label: 'Consumo para o período do contrato (KWh)', readOnly: false, onChanged: (v) => _updateEditedProposalField('consumoPeriodoContratoKwhC', v)),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0, bottom: 0.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Checkbox(
-                                    value: _isEditing ? (_editedProposal?.energiaC ?? false) : (displayProposal.energiaC ?? false),
-                                    onChanged: _isEditing ? (val) => _updateEditedProposalField('energiaC', val) : null,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text('Energia', style: Theme.of(context).textTheme.bodySmall),
-                                  const SizedBox(width: 24),
-                                  Checkbox(
-                                    value: _isEditing ? (_editedProposal?.solarC ?? false) : (displayProposal.solarC ?? false),
-                                    onChanged: _isEditing ? (val) => _updateEditedProposalField('solarC', val) : null,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text('Solar', style: Theme.of(context).textTheme.bodySmall),
-                                ],
-                              ),
-                            ),
-                          ],
-                          [
-                            AppInputField(controller: _controllers['valorInvestimentoSolarC']!, label: 'Valor de Investimento Solar', readOnly: false, onChanged: (v) => _updateEditedProposalField('valorInvestimentoSolarC', v)),
-                            AppInputField(controller: TextEditingController(text: displayProposal.dataValidadeC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataValidadeC!)) : 'N/A'), label: 'Data de Validade', readOnly: true),
-                            AppInputField(controller: TextEditingController(text: displayProposal.dataInicioContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataInicioContratoC!)) : 'N/A'), label: 'Data de Início do Contrato', readOnly: true),
-                            AppInputField(controller: TextEditingController(text: displayProposal.dataFimContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataFimContratoC!)) : 'N/A'), label: 'Data de Fim do Contrato', readOnly: true),
-                            AppInputField(controller: TextEditingController(text: displayProposal.bundleC ?? 'N/A'), label: 'Bundle', readOnly: true),
-                            AppInputField(controller: TextEditingController(text: displayProposal.dataCriacaoPropostaC ?? 'N/A'), label: 'Data de Criação da Proposta', readOnly: true),
-                          ],
-                        ]),
-                        const SizedBox(height: 16),
-                        // --- Section: Contrato Inserido (Separate Card) ---
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 8.0),
-                          child: Text(
-                            'Marque esta opção quando o contrato estiver inserido no Salesforce.',
-                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
                         Card(
                           elevation: 1,
                           shape: RoundedRectangleBorder(
@@ -837,17 +794,131 @@ class _AdminSalesforceProposalDetailPageState
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Column(
+                                Text(
+                                  'Informação da Proposta',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 20,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  textAlign: TextAlign.left,
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          AppInputField(controller: TextEditingController(text: displayProposal.name ?? 'N/A'), label: 'Proposta', readOnly: true),
+                                          const SizedBox(height: 8),
+                            _isEditing
+                                            ? AppDropdownField<String>(
+                                                label: 'Status',
+                                                value: _statusOptions.contains(_selectedStatus) ? _selectedStatus : _statusOptions.first,
+                                                items: _statusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                                                onChanged: (v) { setState(() { _selectedStatus = v; _updateEditedProposalDropdownField('statusC', v); }); },
+                                              )
+                                            : AppInputField(
+                                                controller: TextEditingController(text: displayProposal.statusC ?? 'N/A'),
+                                                label: 'Status',
+                                                readOnly: true,
+                                              ),
+                                          const SizedBox(height: 8),
+                            _isEditing
+                                            ? AppDropdownField<String>(
+                                                label: 'Solução',
+                                                value: _solucaoOptions.contains(_selectedSolution) ? _selectedSolution : _solucaoOptions.first,
+                                                items: _solucaoOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                                                onChanged: (v) { setState(() { _selectedSolution = v; _updateEditedProposalDropdownField('soluOC', v); }); },
+                                              )
+                                            : AppInputField(
+                                                controller: TextEditingController(text: displayProposal.soluOC ?? 'N/A'),
+                                                label: 'Solução',
+                                                readOnly: true,
+                                              ),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: _controllers['consumoPeriodoContratoKwhC']!, label: 'Consumo para o período do contrato (KWh)', readOnly: false, onChanged: (v) => _updateEditedProposalField('consumoPeriodoContratoKwhC', v)),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.bundleC ?? 'N/A'), label: 'Bundle', readOnly: true),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 32),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          AppInputField(controller: _controllers['valorInvestimentoSolarC']!, label: 'Valor de Investimento Solar', readOnly: false, onChanged: (v) => _updateEditedProposalField('valorInvestimentoSolarC', v)),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.dataValidadeC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataValidadeC!)) : 'N/A'), label: 'Data de Validade', readOnly: true),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.dataInicioContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataInicioContratoC!)) : 'N/A'), label: 'Data de Início do Contrato', readOnly: true),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.dataFimContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataFimContratoC!)) : 'N/A'), label: 'Data de Fim do Contrato', readOnly: true),
+                                          const SizedBox(height: 8),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.dataCriacaoPropostaC ?? 'N/A'), label: 'Data de Criação da Proposta', readOnly: true),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                // Energia and Solar checkboxes at the bottom
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Checkbox(
+                                      value: _isEditing ? (_editedProposal?.energiaC ?? false) : (displayProposal.energiaC ?? false),
+                                      onChanged: _isEditing ? (val) => _updateEditedProposalField('energiaC', val) : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Energia', style: Theme.of(context).textTheme.bodySmall),
+                                    const SizedBox(width: 24),
+                                    Checkbox(
+                                      value: _isEditing ? (_editedProposal?.solarC ?? false) : (displayProposal.solarC ?? false),
+                                      onChanged: _isEditing ? (val) => _updateEditedProposalField('solarC', val) : null,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('Solar', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+              const SizedBox(height: 16),
+                        // --- Section: Contrato Inserido (Separate Card) ---
+                        Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Contrato inserido',
-                                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                                  'Contrato Inserido',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 20,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  textAlign: TextAlign.left,
                                     ),
-                                    const SizedBox(height: 4),
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
                                     Text(
                                       displayProposal.contratoInseridoC == true ? 'Sim' : 'Não',
                                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -881,6 +952,8 @@ class _AdminSalesforceProposalDetailPageState
                                         await _updateContratoInserido(displayProposal.id);
                                       }
                                     },
+                                      ),
+                                  ],
                                   ),
                               ],
                             ),
@@ -888,17 +961,17 @@ class _AdminSalesforceProposalDetailPageState
                         ),
                         const SizedBox(height: 24),
                         // --- Section 3: Files (before CPEs) ---
-                        _buildFilesSection(context, displayProposal.files),
+              _buildFilesSection(context, displayProposal.files),
                         const SizedBox(height: 24),
                         // --- Section 4: Related CPEs ---
                         _buildCpeProposalsSection(context, displayProposal.cpeLinks),
                       ],
                     ),
                   ),
-                ],
+            ],
               ),
             ),
-          ),
+      ),
         );
       },
     );
@@ -921,13 +994,17 @@ class _AdminSalesforceProposalDetailPageState
           children: [
             Text(
               title,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 20, color: theme.colorScheme.primary),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: theme.colorScheme.primary,
+              ),
               textAlign: TextAlign.left,
             ),
             const SizedBox(height: 16),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -942,9 +1019,9 @@ class _AdminSalesforceProposalDetailPageState
                   ),
                 ),
               ],
-            ),
-          ],
-        ),
+              ),
+        ],
+      ),
       ),
     );
   }
@@ -971,14 +1048,17 @@ class _AdminSalesforceProposalDetailPageState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Ficheiros',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: theme.colorScheme.primary,
                 ),
+                  textAlign: TextAlign.left,
+                ),
+                Spacer(),
                 if (_isEditing)
                   IconButton(
                     icon: const Icon(Icons.add),
@@ -1030,15 +1110,13 @@ class _AdminSalesforceProposalDetailPageState
                     title = file.title;
                     subtitle = file.fileType.toUpperCase();
                     isMarkedForDeletion = _filesToDelete.contains(file);
-      final isImage = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'heic'].contains(fileType);
-      final isPdf = fileType == 'pdf';
-      if (isImage) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (isPdf) {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+                    final iconAsset = FileIconService.getIconAssetPath(fileType);
+                    iconWidget = Image.asset(
+                      iconAsset,
+                      width: 30,
+                      height: 30,
+                      fit: BoxFit.contain,
+                    );
                     onTapAction = () {
                       if (isMarkedForDeletion) return;
                       Navigator.push(
@@ -1058,13 +1136,13 @@ class _AdminSalesforceProposalDetailPageState
       fileExtension = (file.extension ?? '').toLowerCase();
                     title = file.name;
                     subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
-      if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (fileExtension == "pdf") {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+                    final iconAsset = FileIconService.getIconAssetPath(fileExtension);
+                    iconWidget = Image.asset(
+                      iconAsset,
+                      width: 30,
+                      height: 30,
+                      fit: BoxFit.contain,
+                    );
                     onTapAction = null;
                   } else {
                     return const SizedBox.shrink();
@@ -1327,6 +1405,17 @@ class _AdminSalesforceProposalDetailPageState
 
   Future<void> _updateContratoInserido(String proposalId) async {
     try {
+      // Get current proposal data to access reseller information
+      final currentData = _getCurrentProviderData();
+      if (currentData == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erro: Dados da proposta não disponíveis.')),
+          );
+        }
+        return;
+      }
+
       // Get Salesforce credentials
       final authNotifier = ref.read(salesforceAuthProvider.notifier);
       final authState = ref.read(salesforceAuthProvider);
@@ -1352,6 +1441,7 @@ class _AdminSalesforceProposalDetailPageState
         return;
       }
       
+      // Update Salesforce
       await FirebaseFunctions.instance
           .httpsCallable('updateSalesforceProposal')
           .call({
@@ -1363,6 +1453,30 @@ class _AdminSalesforceProposalDetailPageState
           'Status__c': 'Aceite',
         },
       });
+      
+      // Create notification for reseller after successful Salesforce update
+      try {
+        if (currentData.agenteRetailId != null) {
+          final notificationRepo = NotificationRepository();
+          await notificationRepo.createContractInsertionNotification(
+            salesforceUserId: currentData.agenteRetailId!,
+            proposalId: proposalId,
+            proposalName: currentData.name ?? 'Proposta',
+            entityName: currentData.entidadeName ?? 'Entidade',
+            entityNif: currentData.nifC,
+            opportunityId: currentData.oportunidadeId,
+          );
+          
+          if (kDebugMode) {
+            print('Contract insertion notification sent to reseller Salesforce ID: ${currentData.agenteRetailId}');
+          }
+        }
+      } catch (notificationError) {
+        // Log the notification error but don't block the main flow
+        if (kDebugMode) {
+          print('Error creating contract insertion notification: $notificationError');
+        }
+      }
       
       // Refresh the data from provider
       ref.refresh(proposalDetailsProvider(widget.proposalId)); // ignore: unused_result

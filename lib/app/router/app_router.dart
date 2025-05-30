@@ -1254,11 +1254,11 @@ class AppRouter {
       GoRoute(
         path: '/admin/cpe-proposta/:id',
         name: 'adminCpePropostaDetail',
+        parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           final cpePropostaId = state.pathParameters['id']!;
           return _SlideTransition(
             child: AdminCpePropostaDetailPage(cpePropostaId: cpePropostaId),
-            reverse: false,
           );
         },
       ),

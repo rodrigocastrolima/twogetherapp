@@ -199,21 +199,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildProfileHeader(theme),
-                    const SizedBox(height: 20),
-                    _buildProfileContent(theme),
-                  ],
-                ),
-              ),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _errorMessage != null
-                      ? Center(
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildProfileHeader(theme),
+                      const SizedBox(height: 20),
+                      _buildProfileContent(theme),
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_errorMessage != null)
+                        Center(
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Text(
@@ -222,8 +220,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                               textAlign: TextAlign.center,
                             ),
                           ),
-                        )
-                      : const SizedBox.shrink(),
+                        ),
+                      const SizedBox(height: 32), // Bottom padding
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),

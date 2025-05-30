@@ -308,6 +308,7 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
                                   elevation: 2,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   color: isDark ? const Color(0xFF232325) : Colors.white,
+                                  clipBehavior: Clip.antiAlias,
                                   child: Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: _InlineProposalDetails(
@@ -570,6 +571,7 @@ class _InlineProposalDetails extends ConsumerWidget {
                           elevation: 2,
                           borderRadius: BorderRadius.circular(14),
                           color: theme.colorScheme.surface,
+                          clipBehavior: Clip.antiAlias,
                           child: Padding(
                             padding: EdgeInsets.all(cardPadding),
                             child: Column(
@@ -812,7 +814,6 @@ class _InlineProposalDetails extends ConsumerWidget {
                         // --- END: Navigate to Submit Documents Page ---
                       },
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
                         foregroundColor: theme.colorScheme.tertiary,
                         side: BorderSide(
                           color: theme.colorScheme.tertiary,

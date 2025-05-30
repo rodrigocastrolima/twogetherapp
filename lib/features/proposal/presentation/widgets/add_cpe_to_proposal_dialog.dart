@@ -10,6 +10,8 @@ import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart';
 import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart';
 import '../../../../core/services/salesforce_auth_service.dart';
 import '../../../../presentation/widgets/success_dialog.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
+import '../../../../core/services/file_icon_service.dart';
 // TODO: Add imports for repository and auth if needed for final submission
 
 class AddCpeToProposalDialog extends ConsumerStatefulWidget {
@@ -64,54 +66,6 @@ class _AddCpeToProposalDialogState
     super.dispose();
   }
 
-  // --- INPUT DECORATION (matching app style) ---
-  InputDecoration _inputDecoration({
-    required String label,
-    String? hint,
-    bool readOnly = false,
-    Widget? suffixIcon,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: textTheme.bodySmall?.copyWith(
-        color: colorScheme.onSurfaceVariant, 
-        fontWeight: FontWeight.w500
-      ),
-      hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(
-        color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round())
-      ),
-      filled: true,
-      fillColor: readOnly 
-        ? colorScheme.surfaceVariant.withAlpha((255 * 0.7).round())
-        : colorScheme.surfaceVariant,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: colorScheme.outline.withAlpha((255 * 0.2).round())
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.error, width: 1),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.error, width: 2),
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      suffixIcon: suffixIcon,
-    );
-  }
-
   // --- File Picker Logic ---
   Future<void> _pickFiles() async {
     try {
@@ -150,52 +104,74 @@ class _AddCpeToProposalDialogState
   Widget _buildFilePreview(BuildContext context, PlatformFile file) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     
     final fileExtension = (file.extension ?? '').toLowerCase();
-    Widget iconWidget;
-    
-    if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
-      iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-    } else if (fileExtension == "pdf") {
-      iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-    } else {
-      iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-    }
+    final iconAsset = FileIconService.getIconAssetPath(fileExtension);
+    final iconWidget = Image.asset(
+      iconAsset,
+      width: 30,
+      height: 30,
+      fit: BoxFit.contain,
+    );
 
-    return Container(
-      width: 70,
-      height: 70,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
-        borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(
-          color: Colors.black.withAlpha((255 * 0.1).round()),
-          width: 1,
+    return Tooltip(
+      message: file.name,
+      child: Container(
+        width: 70,
+        height: 70,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
+          borderRadius: BorderRadius.circular(8.0),
+          border: Border.all(
+            color: Colors.black.withAlpha((255 * 0.1).round()),
+            width: 0.5,
+          ),
         ),
-      ),
-      child: Material(
-        color: Colors.transparent,
         child: Stack(
           children: [
-            Center(child: iconWidget),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    iconWidget,
+                    const SizedBox(height: 4),
+                    Text(
+                      file.name,
+                      style: textTheme.bodySmall?.copyWith(fontSize: 8),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             Positioned(
               top: 2,
               right: 2,
-              child: GestureDetector(
-                onTap: () => _removeFile(_attachedFiles.indexOf(file)),
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: colorScheme.error,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close,
-                    size: 14,
-                    color: colorScheme.onError,
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  color: colorScheme.error,
+                  tooltip: 'Remover ficheiro',
+                  onPressed: () => _removeFile(_attachedFiles.indexOf(file)),
                 ),
               ),
             ),
@@ -394,14 +370,17 @@ class _AddCpeToProposalDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               'Ficheiros',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 20,
+                                color: theme.colorScheme.primary,
                               ),
+                              textAlign: TextAlign.left,
                             ),
+                            Spacer(),
                             IconButton(
                               icon: const Icon(Icons.add),
                               tooltip: 'Adicionar Ficheiro',
@@ -478,48 +457,35 @@ class _AddCpeToProposalDialogState
   }
 
   Widget _buildInputField(String label, TextEditingController controller, String hint) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        style: theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, hint: hint),
-        validator: (val) => (val == null || val.trim().isEmpty) ? 'Campo obrigatório' : null,
-      ),
+    return AppInputField(
+      controller: controller,
+      label: label,
+      hint: hint,
+      readOnly: false,
+      validator: (val) => (val == null || val.trim().isEmpty) ? 'Campo obrigatório' : null,
     );
   }
 
   Widget _buildReadOnlyField(String label, String? value) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        initialValue: value ?? '',
-        readOnly: true,
-        style: theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, readOnly: true),
-      ),
+    return AppInputField(
+      controller: TextEditingController(text: value ?? ''),
+      label: label,
+      readOnly: true,
     );
   }
 
   Widget _buildDropdownField(String label, AsyncValue<List<SalesforceCiclo>> asyncOptions) {
     final theme = Theme.of(context);
     return asyncOptions.when(
-      data: (options) => SizedBox(
-        height: 56,
-        child: DropdownButtonFormField<String>(
-          value: _selectedCicloId,
-          decoration: _inputDecoration(label: label),
-          items: options.map((ciclo) => DropdownMenuItem(
-            value: ciclo.id,
-            child: Text(ciclo.name, style: theme.textTheme.bodySmall),
-          )).toList(),
-          onChanged: (val) => setState(() => _selectedCicloId = val),
-          style: theme.textTheme.bodySmall,
-          isExpanded: true,
-          validator: (val) => val == null ? 'Campo obrigatório' : null,
-        ),
+      data: (options) => AppDropdownField<String>(
+        label: label,
+        value: _selectedCicloId,
+        items: options.map((ciclo) => DropdownMenuItem(
+          value: ciclo.id,
+          child: Text(ciclo.name),
+        )).toList(),
+        onChanged: (val) => setState(() => _selectedCicloId = val),
+        validator: (val) => val == null ? 'Campo obrigatório' : null,
       ),
       loading: () => const SizedBox(
         height: 56,

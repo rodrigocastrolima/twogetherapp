@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   intl: any
   flutter_pdfview: ^1.4.0
   dart_jsonwebtoken: ^3.2.0 # Or latest version

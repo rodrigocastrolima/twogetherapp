@@ -26,6 +26,8 @@ import '../../../features/proposal/presentation/providers/proposal_providers.dar
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; // Import package
 import '../../widgets/simple_list_item.dart' as widgets;
 import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
+import '../../../features/opportunity/presentation/providers/opportunity_providers.dart'; // Add opportunity providers
+import '../../widgets/app_loading_indicator.dart'; // Add loading indicator
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -95,6 +97,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  // Add loading overlay entry for notification navigation
+  OverlayEntry? _loadingOverlay;
 
   // --- Animation State ---
   late AnimationController _helpIconAnimationController;
@@ -231,6 +236,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     _glowController.dispose(); // +++ NEW: Dispose glow controller +++
     // _fireflyController.dispose(); // Dispose firefly controller
     _fireflyFlashController.dispose(); // +++ NEW: Dispose flash controller +++
+    // Clean up loading overlay if it exists
+    _loadingOverlay?.remove();
+    _loadingOverlay = null;
     super.dispose();
   }
 
@@ -738,7 +746,63 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // Navigate based on notification type and metadata
     switch (notification.type) {
       case NotificationType.statusChange:
-        if (notification.metadata.containsKey('submissionId')) {
+        // Check if this is a contract insertion notification
+        final processType = notification.metadata['processType'] as String?;
+        if (processType == 'contract_insertion') {
+          final opportunityId = notification.metadata['opportunityId'] as String?;
+          if (opportunityId != null) {
+            // Show loading overlay over entire app
+            _loadingOverlay = OverlayEntry(
+              builder: (context) => const AppLoadingIndicator(),
+            );
+            Overlay.of(context, rootOverlay: true).insert(_loadingOverlay!);
+            
+            // Get the opportunity data to navigate to details page
+            try {
+              final opportunitiesAsync = ref.read(resellerOpportunitiesProvider);
+              final opportunities = opportunitiesAsync.value;
+              
+              if (opportunities != null) {
+                final opportunity = opportunities.firstWhere(
+                  (opp) => opp.id == opportunityId,
+                  orElse: () => throw Exception('Opportunity not found'),
+                );
+                // Remove loading overlay and navigate
+                if (mounted) {
+                  _loadingOverlay?.remove();
+                  _loadingOverlay = null;
+                  context.push('/opportunity-details', extra: opportunity);
+                }
+              } else {
+                // If opportunities haven't loaded yet, refresh and wait
+                ref.refresh(resellerOpportunitiesProvider);
+                final refreshedOpportunities = await ref.read(resellerOpportunitiesProvider.future);
+                final opportunity = refreshedOpportunities.firstWhere(
+                  (opp) => opp.id == opportunityId,
+                  orElse: () => throw Exception('Opportunity not found'),
+                );
+                // Remove loading overlay and navigate
+                if (mounted) {
+                  _loadingOverlay?.remove();
+                  _loadingOverlay = null;
+                  context.push('/opportunity-details', extra: opportunity);
+                }
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error navigating to opportunity details: $e');
+              }
+              // Remove loading overlay and show error
+              if (mounted) {
+                _loadingOverlay?.remove();
+                _loadingOverlay = null;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erro ao abrir detalhes da oportunidade: $e')),
+                );
+              }
+            }
+          }
+        } else if (notification.metadata.containsKey('submissionId')) {
           final submissionId = notification.metadata['submissionId'];
           context.push('/submissions/$submissionId');
         }

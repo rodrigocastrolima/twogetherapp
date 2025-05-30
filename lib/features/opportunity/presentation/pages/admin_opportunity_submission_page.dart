@@ -9,6 +9,7 @@ import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
 import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
+import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
@@ -25,6 +26,7 @@ import 'dart:io';
 import 'package:twogether/features/services/presentation/widgets/file_upload_widget.dart';
 import 'package:twogether/features/services/presentation/providers/service_submission_provider.dart';
 import '../../../../presentation/widgets/app_input_field.dart'; // Import AppDropdownField
+// Import AppDateInputField
 
 // Detail Form View Widget (With Skeleton Fields)
 class OpportunityDetailFormView extends ConsumerStatefulWidget {
@@ -185,8 +187,13 @@ class _OpportunityDetailFormViewState
     _dataUltimaAtualizacaoController = TextEditingController(
       text: DateFormat.yMd().format(DateTime.now()),
     );
+    
+    // Initialize dropdown values with default --None-- options
     _faseController = TextEditingController(text: _faseValue);
-    _tipoOportunidadeController = TextEditingController();
+    _tipoOportunidadeController = TextEditingController(text: '--None--');
+    _selectedSegmentoCliente = '--None--';
+    _selectedSolucao = '--None--';
+    
     _responsibleNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.responsibleName ?? '');
     _companyNameController = TextEditingController(text: isManualMode ? '' : widget.submission?.companyName ?? '');
 
@@ -998,421 +1005,369 @@ class _OpportunityDetailFormViewState
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(vertical: 32).add(horizontalPadding),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    'Submeter Oportunidade',
-                    style: textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                    ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
+                child: Text(
+                  'Submeter Oportunidade',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
-                  const SizedBox(height: 20),
-                  // Responsible/Company
-                  SizedBox(
-                    height: 48,
-                    child: TextFormField(
-                      controller: _responsibleNameController,
-                      style: textTheme.bodySmall,
-                      decoration: inputDecoration(label: widget.isManualMode ? 'Nome do Cliente' : 'Nome do Responsável'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true)
-                    SizedBox(
-                      height: 48,
-                      child: TextFormField(
-                        controller: _companyNameController,
-                        style: textTheme.bodySmall,
-                        decoration: inputDecoration(label: 'Nome da Empresa'),
-                      ),
-                    ),
-                  if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true)
-                    const SizedBox(height: 12),
-                  if (widget.isManualMode)
-                    SizedBox(
-                      height: 48,
-                      child: _buildUserPicker(),
-                    )
-                  else
-                    readOnlyField('Agente Retail', _agenteRetailController),
-                  const SizedBox(height: 20),
-                  // --- All Opportunity Fields (no section title) ---
-                  SizedBox(
-                    height: 48,
-                    child: TextFormField(
-                      controller: _nameController,
-                      style: textTheme.bodySmall,
-                      decoration: inputDecoration(label: 'Nome da Oportunidade'),
-                      validator: (value) => (value == null || value.trim().isEmpty)
-                          ? 'Nome da Oportunidade é obrigatório'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: TextFormField(
-                            controller: _nifController,
-                            style: textTheme.bodySmall,
-                            decoration: inputDecoration(label: 'NIF'),
-                            validator: (value) => (value == null || value.trim().isEmpty)
-                                ? 'NIF é obrigatório'
-                                : null,
-                          ),
+                  textAlign: TextAlign.left,
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(vertical: 16).add(horizontalPadding),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppInputField(
+                          controller: _responsibleNameController,
+                          label: widget.isManualMode ? 'Nome do Cliente' : 'Nome do Responsável',
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      _buildNifStatusIndicator(),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: TextFormField(
-                      controller: _dataCriacaoController,
-                      style: textTheme.bodySmall,
-                      decoration: inputDecoration(label: 'Data de Criação'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: TextFormField(
-                      controller: _dataUltimaAtualizacaoController,
-                      style: textTheme.bodySmall,
-                      decoration: inputDecoration(label: 'Última Atualização'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: AppDropdownField<String>(
-                      label: 'Fase',
-                      value: _faseController.text,
-                      items: _faseOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _faseController.text = value ?? '';
-                        });
-                      },
-                      validator: (value) => (value == null || value == '--None--')
-                          ? 'Fase é obrigatória'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: AppDropdownField<String>(
-                      label: 'Tipo de Oportunidade',
-                      value: _tipoOportunidadeController.text,
-                      items: _tipoOportunidadeOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _tipoOportunidadeController.text = value ?? '';
-                        });
-                      },
-                      validator: (value) => (value == null || value == '--None--')
-                          ? 'Tipo de Oportunidade é obrigatório'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: AppDropdownField<String>(
-                      label: 'Segmento de Cliente',
-                      value: _selectedSegmentoCliente,
-                      items: _segmentoOptions.map((v) => DropdownMenuItem<String>(value: v, child: _segmentoIcons[v] ?? Text(v))).toList(),
-                      onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
-                      validator: (value) => (value == null || value == '--None--')
-                          ? 'Segmento de Cliente é obrigatório'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: AppDropdownField<String>(
-                      label: 'Solução',
-                      value: _selectedSolucao,
-                      items: _solucaoOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                      onChanged: (value) => setState(() => _selectedSolucao = value),
-                      validator: (value) => (value == null || value == '--None--')
-                          ? 'Solução é obrigatória'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 48,
-                    child: TextFormField(
-                      controller: _fechoController,
-                      style: textTheme.bodySmall,
-                      decoration: inputDecoration(
-                        label: 'Data de Previsão de Fecho',
-                        hint: 'Selecione a data de fecho',
-                        suffixIcon: const Icon(Icons.calendar_today),
-                      ),
-                      keyboardType: TextInputType.datetime,
-                      readOnly: true,
-                      onTap: () async {
-                        DateTime? pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedFechoDate ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime(2101),
-                          initialEntryMode: DatePickerEntryMode.calendarOnly, // calendar only, no manual input
-                          builder: (context, child) {
-                            final theme = Theme.of(context);
-                            return Theme(
-                              data: theme.copyWith(
-                                dialogBackgroundColor: theme.colorScheme.surface,
-                                colorScheme: theme.colorScheme.copyWith(
-                                  primary: theme.colorScheme.primary,
-                                  onPrimary: theme.colorScheme.onPrimary,
-                                  surface: theme.colorScheme.surface,
-                                  onSurface: theme.colorScheme.onSurface,
+                        const SizedBox(height: 16),
+                        if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true) ...[
+                          AppInputField(
+                            controller: _companyNameController,
+                            label: 'Nome da Empresa',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (widget.isManualMode)
+                          _buildUserPicker()
+                        else
+                          AppInputField(
+                            controller: _agenteRetailController,
+                            label: 'Agente Retail',
+                            readOnly: true,
+                          ),
+                        const SizedBox(height: 16),
+                        // --- All Opportunity Fields (no section title) ---
+                        AppInputField(
+                          controller: _nameController,
+                          label: 'Nome da Oportunidade',
+                          validator: (value) => (value == null || value.trim().isEmpty)
+                              ? 'Nome da Oportunidade é obrigatório'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: AppInputField(
+                                controller: _nifController,
+                                label: 'NIF',
+                                validator: (value) => (value == null || value.trim().isEmpty)
+                                    ? 'NIF é obrigatório'
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _buildNifStatusIndicator(),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppInputField(
+                                controller: _dataCriacaoController,
+                                label: 'Data de Criação',
+                                readOnly: true,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: AppInputField(
+                                controller: _dataUltimaAtualizacaoController,
+                                label: 'Última Atualização',
+                                readOnly: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppDropdownField<String>(
+                                label: 'Fase',
+                                value: _faseController.text.isNotEmpty && _faseOptions.contains(_faseController.text) 
+                                    ? _faseController.text 
+                                    : _faseOptions.first,
+                                items: _faseOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _faseController.text = value ?? '';
+                                  });
+                                },
+                                validator: (value) => (value == null || value == '--None--')
+                                    ? 'Fase é obrigatória'
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: AppDropdownField<String>(
+                                label: 'Tipo de Oportunidade',
+                                value: _tipoOportunidadeController.text.isNotEmpty && _tipoOportunidadeOptions.contains(_tipoOportunidadeController.text)
+                                    ? _tipoOportunidadeController.text
+                                    : _tipoOportunidadeOptions.first,
+                                items: _tipoOportunidadeOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _tipoOportunidadeController.text = value ?? '';
+                                  });
+                                },
+                                validator: (value) => (value == null || value == '--None--')
+                                    ? 'Tipo de Oportunidade é obrigatório'
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppDropdownField<String>(
+                                label: 'Segmento de Cliente',
+                                value: _selectedSegmentoCliente ?? '--None--',
+                                items: _segmentoOptions.map((v) => DropdownMenuItem<String>(value: v, child: _segmentoIcons[v] ?? Text(v))).toList(),
+                                onChanged: (value) => setState(() => _selectedSegmentoCliente = value),
+                                validator: (value) => (value == null || value == '--None--')
+                                    ? 'Segmento de Cliente é obrigatório'
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: AppDropdownField<String>(
+                                label: 'Solução',
+                                value: _selectedSolucao ?? '--None--',
+                                items: _solucaoOptions.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+                                onChanged: (value) => setState(() => _selectedSolucao = value),
+                                validator: (value) => (value == null || value == '--None--')
+                                    ? 'Solução é obrigatória'
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        AppDateInputField(
+                          label: 'Data de Previsão de Fecho',
+                          value: _selectedFechoDate,
+                          onChanged: (date) {
+                            setState(() {
+                              _selectedFechoDate = date;
+                              _fechoController.text = date != null ? DateFormat.yMd().format(date) : '';
+                            });
+                          },
+                          validator: (date) => date == null
+                              ? 'Data de Previsão de Fecho é obrigatória'
+                              : null,
+                        ),
+                        const SizedBox(height: 24),
+                        // --- Faturas Section ---
+                        sectionTitle('Secção Faturas'),
+                        const SizedBox(height: 16),
+                        if (widget.isManualMode) ...[
+                          // --- Use shared FileUploadWidget for manual mode ---
+                          const FileUploadWidget(),
+                          const SizedBox(height: 24),
+                        ]
+                        else
+                        FutureBuilder<List<Map<String, String?>>>(
+                          future: _fetchMultipleDownloadUrls(), // Call the new function
+                          builder: (context, snapshot) {
+                            // Check connection state
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Row(
+                                children: [
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: colorScheme.primary, // Use theme color
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'A carregar...', // Loading...
+                                    style: textTheme.bodySmall,
+                                  ),
+                                ],
+                              );
+                            }
+
+                            // Check for errors during the fetch process itself (e.g., network error)
+                            if (snapshot.hasError) {
+                              return Row(
+                                children: [
+                                  Icon(Icons.error_outline, color: colorScheme.error),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Erro: ${snapshot.error}', // Error: ...
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+
+                            // Check if data (list of results) exists and is not null/empty
+                            final results = snapshot.data;
+                            if (results == null || results.isEmpty) {
+                              return Text(
+                                'Nenhum ficheiro disponível', // No files available
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
-                                textButtonTheme: TextButtonThemeData(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: theme.colorScheme.primary,
-                                    textStyle: theme.textTheme.labelLarge,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                              );
+                            }
+
+                            // --- Display Previews using Wrap --- //
+                            return Wrap(
+                              spacing: 8.0,
+                              runSpacing: 8.0,
+                              children:
+                                  results.map((fileData) {
+                                    return _buildDocumentPreview(context, fileData);
+                                  }).toList(),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        // --- Actions or Rejection Info ---
+                        if (widget.submission?.status == 'rejected')
+                          _buildRejectionInfoSection(context, theme)
+                        else if (widget.isManualMode)
+                          Center(
+                            child: SizedBox(
+                              height: 44,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.add_circle_outline),
+                                label: _isSubmitting
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colorScheme.onPrimary,
+                                        ),
+                                      )
+                                    : Text('Criar Oportunidade', style: textTheme.labelLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                        color: _areAllFieldsFilled() && !_isSubmitting ? Colors.white : null,
+                                      )),
+                                onPressed: _areAllFieldsFilled() && !_isSubmitting ? _submitForm : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.primary : null,
+                                  foregroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.onPrimary : null,
+                                  minimumSize: const Size(180, 44),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  textStyle: textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Center(
+                            child: Wrap(
+                              spacing: 16.0,
+                              runSpacing: 8.0,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                SizedBox(
+                                  height: 44,
+                                  child: ElevatedButton.icon(
+                                    icon: Icon(Icons.check_circle_outline, color: colorScheme.onPrimary),
+                                    label: _isSubmitting
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: colorScheme.onPrimary,
+                                            ),
+                                          )
+                                        : Text('Aprovar', style: textTheme.labelLarge?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.5,
+                                            color: colorScheme.onPrimary,
+                                          )),
+                                    onPressed: _isSubmitting ? null : _approveSubmission,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: colorScheme.tertiary,
+                                      foregroundColor: colorScheme.onTertiary,
+                                      minimumSize: const Size(120, 44),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      elevation: 2,
                                     ),
                                   ),
                                 ),
-                                dialogTheme: DialogTheme(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (pickedDate != null && pickedDate != _selectedFechoDate) {
-                          setState(() {
-                            _selectedFechoDate = pickedDate;
-                            _fechoController.text = DateFormat.yMd().format(pickedDate);
-                          });
-                        }
-                      },
-                      validator: (value) => (value == null || value.isEmpty)
-                          ? 'Data de Previsão de Fecho é obrigatória'
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // --- Faturas Section ---
-                  sectionTitle('Secção Faturas'),
-                  const SizedBox(height: 12),
-                  if (widget.isManualMode) ...[
-                    // --- Use shared FileUploadWidget for manual mode ---
-                    const FileUploadWidget(),
-                    const SizedBox(height: 20),
-                  ]
-                  else
-                  FutureBuilder<List<Map<String, String?>>>(
-                    future: _fetchMultipleDownloadUrls(), // Call the new function
-                    builder: (context, snapshot) {
-                      // Check connection state
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Row(
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.primary, // Use theme color
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'A carregar...', // Loading...
-                              style: textTheme.bodySmall,
-                            ),
-                          ],
-                        );
-                      }
-
-                      // Check for errors during the fetch process itself (e.g., network error)
-                      if (snapshot.hasError) {
-                        return Row(
-                          children: [
-                            Icon(Icons.error_outline, color: colorScheme.error),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Erro: ${snapshot.error}', // Error: ...
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.error,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      // Check if data (list of results) exists and is not null/empty
-                      final results = snapshot.data;
-                      if (results == null || results.isEmpty) {
-                        return Text(
-                          'Nenhum ficheiro disponível', // No files available
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        );
-                      }
-
-                      // --- Display Previews using Wrap --- //
-                      return Wrap(
-                        spacing: 8.0,
-                        runSpacing: 8.0,
-                        children:
-                            results.map((fileData) {
-                              return _buildDocumentPreview(context, fileData);
-                            }).toList(),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // --- Actions or Rejection Info ---
-                  if (widget.submission?.status == 'rejected')
-                    _buildRejectionInfoSection(context, theme)
-                  else if (widget.isManualMode)
-                    Center(
-                      child: SizedBox(
-                        height: 44,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.add_circle_outline),
-                          label: _isSubmitting
-                              ? SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                )
-                              : Text('Criar Oportunidade', style: textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                  color: _areAllFieldsFilled() && !_isSubmitting ? Colors.white : null,
-                                )),
-                          onPressed: _areAllFieldsFilled() && !_isSubmitting ? _submitForm : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.primary : null,
-                            foregroundColor: _areAllFieldsFilled() && !_isSubmitting ? colorScheme.onPrimary : null,
-                            minimumSize: const Size(180, 44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            textStyle: textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Center(
-                      child: Wrap(
-                        spacing: 16.0,
-                        runSpacing: 8.0,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          SizedBox(
-                            height: 40,
-                            child: OutlinedButton.icon(
-                              icon: Icon(Icons.check_circle_outline, color: colorScheme.tertiary),
-                              label: _isSubmitting
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: colorScheme.tertiary,
+                                SizedBox(
+                                  height: 44,
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.cancel_outlined, size: 18),
+                                    label: const Text('Rejeitar'),
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : () async {
+                                            final reason = await _showRejectionDialog();
+                                            if (kDebugMode) {
+                                              print('Rejection reason: $reason');
+                                            }
+                                            if (reason != null && reason.isNotEmpty) {
+                                              await _handleRejection(reason);
+                                            }
+                                          },
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: colorScheme.error,
+                                      side: BorderSide(
+                                        color: colorScheme.error.withAlpha((255 * 0.7).round()),
+                                        width: 1.5,
                                       ),
-                                    )
-                                  : Text('Aprovar', style: textTheme.labelLarge?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
-                                      color: colorScheme.tertiary,
-                                    )),
-                              onPressed: _isSubmitting ? null : _approveSubmission,
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: colorScheme.tertiary,
-                                side: BorderSide(
-                                  color: colorScheme.tertiary,
-                                  width: 1.5,
+                                      minimumSize: const Size(120, 44),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      textStyle: textTheme.labelLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                minimumSize: const Size(120, 40),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                textStyle: textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
+                              ],
                             ),
                           ),
-                          SizedBox(
-                            height: 40,
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.cancel_outlined, size: 18),
-                              label: const Text('Rejeitar'),
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : () async {
-                                      final reason = await _showRejectionDialog();
-                                      if (kDebugMode) {
-                                        print('Rejection reason: $reason');
-                                      }
-                                      if (reason != null && reason.isNotEmpty) {
-                                        await _handleRejection(reason);
-                                      }
-                                    },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: colorScheme.error,
-                                side: BorderSide(
-                                  color: colorScheme.error.withAlpha((255 * 0.7).round()),
-                                  width: 1.2,
-                                ),
-                                minimumSize: const Size(120, 40),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                textStyle: textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -1877,7 +1832,12 @@ class _OpportunityDetailFormViewState
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30),
+              Image.asset(
+                FileIconService.getIconAssetPath('pdf'),
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 4),
               Icon(
                 Icons.open_in_new,
@@ -1890,6 +1850,9 @@ class _OpportunityDetailFormViewState
       );
     } else {
       // --- Generic Document Preview Icon ---
+      final fileExtension = fileName.contains('.') 
+          ? fileName.split('.').last 
+          : '';
       content = GestureDetector(
         onTap:
             () => _launchUrl(
@@ -1901,10 +1864,11 @@ class _OpportunityDetailFormViewState
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.insert_drive_file,
-                color: colorScheme.onSurfaceVariant,
-                size: 30,
+              Image.asset(
+                FileIconService.getIconAssetPath(fileExtension),
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
               ),
               const SizedBox(height: 4),
               Icon(
@@ -2273,9 +2237,6 @@ class _OpportunityDetailFormViewState
   }
 
   Widget _buildUserPicker() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     return Autocomplete<Map<String, dynamic>>(
       optionsBuilder: (TextEditingValue textEditingValue) {
         if (textEditingValue.text.isEmpty) {
@@ -2296,33 +2257,63 @@ class _OpportunityDetailFormViewState
           _resellerSalesforceId = selectedUser['salesforceId'] ?? '';
         });
       },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4.0,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 1136),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+                ),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final option = options.elementAt(index);
+                    return InkWell(
+                      onTap: () => onSelected(option),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Text(
+                          '${option['displayName']} (${option['email']})',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
       fieldViewBuilder: (
         BuildContext context,
         TextEditingController textEditingController,
         FocusNode focusNode,
         VoidCallback onFieldSubmitted,
       ) {
-        return SizedBox(
-          height: 48,
-          child: TextFormField(
-            controller: textEditingController,
-            focusNode: focusNode,
-            style: textTheme.bodySmall,
-            decoration: inputDecoration(
-              label: 'Selecionar Agente Retail',
-              hint: 'Pesquisar por nome ou email',
-              suffixIcon: _isLoadingUsers
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.search),
-            ),
-            onFieldSubmitted: (String value) {
-              onFieldSubmitted();
-            },
-          ),
+        return _AppAutocompleteField(
+          controller: textEditingController,
+          focusNode: focusNode,
+          label: 'Selecionar Agente Retail',
+          hint: 'Pesquisar por nome ou email',
+          suffixIcon: _isLoadingUsers
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.search),
+          onFieldSubmitted: onFieldSubmitted,
         );
       },
     );
@@ -2366,3 +2357,69 @@ class _OpportunityDetailFormViewState
 enum NifCheckStatus { initial, loading, exists, notExists, error }
 
 // --- END NEW --- //
+
+/// Custom Autocomplete field that matches AppInputField styling exactly
+class _AppAutocompleteField extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String label;
+  final String? hint;
+  final Widget? suffixIcon;
+  final VoidCallback onFieldSubmitted;
+
+  const _AppAutocompleteField({
+    required this.controller,
+    required this.focusNode,
+    required this.label,
+    required this.onFieldSubmitted,
+    this.hint,
+    this.suffixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+
+    return SizedBox(
+      height: 56,
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+          hintText: (controller.text.isEmpty) ? '' : hint,
+          hintStyle: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+          ),
+          filled: true,
+          fillColor: colorScheme.surfaceVariant,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: colorScheme.primary, width: 2),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+          ),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          suffixIcon: suffixIcon,
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+        ),
+        onFieldSubmitted: (_) => onFieldSubmitted(),
+      ),
+    );
+  }
+}

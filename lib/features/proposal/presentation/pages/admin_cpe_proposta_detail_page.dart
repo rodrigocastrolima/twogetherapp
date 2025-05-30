@@ -9,7 +9,9 @@ import '../../../../presentation/widgets/app_loading_indicator.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart';
 import '../../../../presentation/widgets/success_dialog.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
 import '../../../../core/services/salesforce_auth_service.dart';
+import '../../../../core/services/file_icon_service.dart';
 import '../../data/models/cpe_proposta_detail.dart'; // To be created
 import '../providers/cpe_proposta_providers.dart'; // To be created
 import '../providers/proposal_providers.dart'; // <-- ADDED IMPORT for proposal service
@@ -29,6 +31,35 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
   final List<PlatformFile> _filesToAdd = []; // <-- ADDED file picking state
   final List<dynamic> _filesToDelete = []; // <-- ADDED file deletion state
 
+  // --- Dropdown state variables ---
+  String? _selectedSolucao;
+  String? _selectedStatus;
+  String? _selectedVisitaTecnica;
+  DateTime? _selectedPagamentoFacturaDate;
+
+  // --- Picklist options ---
+  final List<String> _solucaoOptions = const [
+    '--Nenhum --',
+    'LEC',
+    'PAP',
+    'PP',
+    'Energia',
+    'Gás',
+  ];
+
+  final List<String> _statusOptions = const [
+    '--Nenhum --',
+    'Activo',
+    'Não activo',
+  ];
+
+  final List<String> _visitaTecnicaOptions = const [
+    '--Nenhum --',
+    'Em agendamento',
+    'Concluída - OK',
+    'Concluída - not OK',
+  ];
+
   @override
   void dispose() {
     // Dispose all controllers
@@ -45,10 +76,8 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
     // CPE fields (editable)
     _controllers['consumoAnualEsperadoKwhC'] = TextEditingController(text: detail.cpe?.consumoAnualEsperadoKwhC?.toString() ?? '');
     _controllers['fidelizacaoAnosC'] = TextEditingController(text: detail.cpe?.fidelizacaoAnosC?.toString() ?? '');
-    _controllers['solucaoC'] = TextEditingController(text: detail.cpe?.solucaoC ?? '');
     
     // CPE_Proposta fields (editable)
-    _controllers['statusC'] = TextEditingController(text: detail.statusC ?? '');
     _controllers['consumoOuPotenciaPicoC'] = TextEditingController(text: detail.consumoOuPotenciaPicoC?.toString() ?? '');
     _controllers['fidelizacaoAnosCpeProposta'] = TextEditingController(text: detail.fidelizacaoAnosC?.toString() ?? '');
     _controllers['margemComercialC'] = TextEditingController(text: detail.margemComercialC?.toString() ?? '');
@@ -57,60 +86,21 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
     _controllers['gestorDeRevendaC'] = TextEditingController(text: detail.gestorDeRevendaC ?? '');
     _controllers['comissaoRetailC'] = TextEditingController(text: detail.comissaoRetailC?.toString() ?? '');
     _controllers['notaInformativaC'] = TextEditingController(text: detail.notaInformativaC ?? '');
-    _controllers['pagamentoDaFacturaRetailC'] = TextEditingController(text: detail.pagamentoDaFacturaRetailC ?? '');
     _controllers['facturaRetailC'] = TextEditingController(text: detail.facturaRetailC ?? '');
-    _controllers['visitaTecnicaC'] = TextEditingController(text: detail.visitaTecnicaC ?? '');
-  }
 
-  // --- SHARED INPUT DECORATION (copied from admin_salesforce_proposal_detail_page.dart) ---
-  InputDecoration _inputDecoration({
-    required String label,
-    String? hint,
-    bool readOnly = false,
-    Widget? suffixIcon,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-      hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
-      filled: true,
-      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
-      ),
-      disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  // --- REFACTOR: Editable text field builder (copied from admin_salesforce_proposal_detail_page.dart) ---
-  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint, bool readOnly = false, Widget? suffixIcon}) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines ?? 1,
-        minLines: 1,
-        readOnly: readOnly,
-        style: readOnly ? theme.textTheme.bodySmall?.copyWith(color: theme.disabledColor) : theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, hint: hint, readOnly: readOnly, suffixIcon: suffixIcon),
-      ),
-    );
+    // Initialize dropdown values
+    _selectedSolucao = _solucaoOptions.contains(detail.cpe?.solucaoC) ? detail.cpe?.solucaoC : _solucaoOptions.first;
+    _selectedStatus = _statusOptions.contains(detail.statusC) ? detail.statusC : _statusOptions.first;
+    _selectedVisitaTecnica = _visitaTecnicaOptions.contains(detail.visitaTecnicaC) ? detail.visitaTecnicaC : _visitaTecnicaOptions.first;
+    
+    // Initialize date value
+    if (detail.pagamentoDaFacturaRetailC != null) {
+      try {
+        _selectedPagamentoFacturaDate = DateTime.parse(detail.pagamentoDaFacturaRetailC!);
+      } catch (e) {
+        _selectedPagamentoFacturaDate = null;
+      }
+    }
   }
 
   // --- File Picker Logic (copied from admin_salesforce_proposal_detail_page.dart) ---
@@ -245,15 +235,16 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       final fidelizacao = int.tryParse(_controllers['fidelizacaoAnosC']!.text);
       if (fidelizacao != null) cpeFieldsToUpdate['Fideliza_o_Anos__c'] = fidelizacao;
       
-      if (_controllers['solucaoC']!.text.isNotEmpty) {
-        cpeFieldsToUpdate['Solu_o__c'] = _controllers['solucaoC']!.text;
-      }
+      // Handle Solução dropdown (convert --Nenhum -- to null)
+      final solucaoValue = (_selectedSolucao == '--Nenhum --') ? null : _selectedSolucao;
+      cpeFieldsToUpdate['Solu_o__c'] = solucaoValue;
 
       // Prepare CPE_Proposta fields to update
       final cpePropostaFieldsToUpdate = <String, dynamic>{};
-      if (_controllers['statusC']!.text.isNotEmpty) {
-        cpePropostaFieldsToUpdate['Status__c'] = _controllers['statusC']!.text;
-      }
+      
+      // Handle Status dropdown (convert --Nenhum -- to null)
+      final statusValue = (_selectedStatus == '--Nenhum --') ? null : _selectedStatus;
+      cpePropostaFieldsToUpdate['Status__c'] = statusValue;
       
       final consumoPotencia = double.tryParse(_controllers['consumoOuPotenciaPicoC']!.text);
       if (consumoPotencia != null) cpePropostaFieldsToUpdate['Consumo_ou_Pot_ncia_Pico__c'] = consumoPotencia;
@@ -283,17 +274,22 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
         cpePropostaFieldsToUpdate['Nota_Informativa__c'] = _controllers['notaInformativaC']!.text;
       }
       
-      if (_controllers['pagamentoDaFacturaRetailC']!.text.isNotEmpty) {
-        cpePropostaFieldsToUpdate['Pagamento_da_Factura_Retail__c'] = _controllers['pagamentoDaFacturaRetailC']!.text;
+      // Handle Pagamento da Factura Retail date field
+      if (_selectedPagamentoFacturaDate != null) {
+        // Format date as YYYY-MM-DD for Salesforce
+        final formattedDate = _selectedPagamentoFacturaDate!.toIso8601String().split('T')[0];
+        cpePropostaFieldsToUpdate['Pagamento_da_Factura_Retail__c'] = formattedDate;
+      } else {
+        cpePropostaFieldsToUpdate['Pagamento_da_Factura_Retail__c'] = null;
       }
       
       if (_controllers['facturaRetailC']!.text.isNotEmpty) {
         cpePropostaFieldsToUpdate['Factura_Retail__c'] = _controllers['facturaRetailC']!.text;
       }
       
-      if (_controllers['visitaTecnicaC']!.text.isNotEmpty) {
-        cpePropostaFieldsToUpdate['Visita_T_cnica__c'] = _controllers['visitaTecnicaC']!.text;
-      }
+      // Handle Visita Técnica dropdown (convert --Nenhum -- to null)
+      final visitaTecnicaValue = (_selectedVisitaTecnica == '--Nenhum --') ? null : _selectedVisitaTecnica;
+      cpePropostaFieldsToUpdate['Visita_T_cnica__c'] = visitaTecnicaValue;
 
       // Call the cloud function to update CPE-Proposta
       if (cpeFieldsToUpdate.isNotEmpty || cpePropostaFieldsToUpdate.isNotEmpty) {
@@ -382,68 +378,80 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
-                        Text(
-                          detail.name ?? 'Detalhes da CPE-Proposta',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          textAlign: TextAlign.left,
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                                size: 28,
-                              ),
-                              tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
-                              onPressed: _isEditing ? () {
-                                setState(() {
-                                  _isEditing = false;
-                                });
-                              } : () {
-                                setState(() {
-                                  _isEditing = true;
-                                });
-                              },
+                        Center(
+                          child: Text(
+                            detail.name ?? 'Detalhes da CPE-Proposta',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 28,
                             ),
-                            if (_isEditing)
-                              const SizedBox(width: 8),
-                            if (_isEditing)
-                              SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: IconButton(
-                                  icon: _isSaving
-                                      ? SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.save_outlined,
-                                          color: theme.colorScheme.primary,
-                                          size: 28,
-                                        ),
-                                  onPressed: _isSaving ? null : _saveChanges,
-                                  tooltip: 'Guardar',
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    shape: const CircleBorder(),
-                                    padding: const EdgeInsets.all(0),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8), // Extra padding for hover/click area
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                    color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                    size: 28,
                                   ),
+                                  tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                                  onPressed: _isEditing ? () {
+                                    setState(() {
+                                      _isEditing = false;
+                                    });
+                                  } : () {
+                                    setState(() {
+                                      _isEditing = true;
+                                    });
+                                  },
                                 ),
-                              ),
-                          ],
+                                if (_isEditing)
+                                  const SizedBox(width: 8),
+                                if (_isEditing)
+                                  SizedBox(
+                                    width: 44,
+                                    height: 44,
+                                    child: IconButton(
+                                      icon: _isSaving
+                                          ? SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                                              ),
+                                            )
+                                          : Icon(
+                                              Icons.save_outlined,
+                                              color: theme.colorScheme.primary,
+                                              size: 28,
+                                            ),
+                                      onPressed: _isSaving ? null : _saveChanges,
+                                      tooltip: 'Guardar',
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        shape: const CircleBorder(),
+                                        padding: const EdgeInsets.all(0),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -457,18 +465,12 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           'Informação da Empresa',
                           [
                             [
-                              _isEditing
-                                ? _buildEditableTextField('CPE', TextEditingController(text: detail.cpe?.name ?? ''), readOnly: true)
-                                : _buildDetailRow('CPE', detail.cpe?.name),
+                              AppInputField(controller: TextEditingController(text: detail.cpe?.name ?? ''), label: 'CPE', readOnly: true),
                               const SizedBox(height: 8),
-                              _isEditing
-                                ? _buildEditableTextField('Entidade', TextEditingController(text: detail.cpe?.entidadeName ?? ''), readOnly: true)
-                                : _buildDetailRow('Entidade', detail.cpe?.entidadeName),
+                              AppInputField(controller: TextEditingController(text: detail.cpe?.entidadeName ?? ''), label: 'Entidade', readOnly: true),
                             ],
                             [
-                              _isEditing
-                                ? _buildEditableTextField('NIF', TextEditingController(text: detail.cpe?.nifC ?? ''), readOnly: true)
-                                : _buildDetailRow('NIF', detail.cpe?.nifC),
+                              AppInputField(controller: TextEditingController(text: detail.cpe?.nifC ?? ''), label: 'NIF', readOnly: true),
                             ],
                           ],
                         ),
@@ -479,17 +481,22 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           [
                             [
                               _isEditing
-                                ? _buildEditableTextField('Consumo anual esperado (KWh)', _controllers['consumoAnualEsperadoKwhC']!)
-                                : _buildDetailRow('Consumo anual esperado (KWh)', detail.cpe?.consumoAnualEsperadoKwhC?.toString()),
+                                ? AppInputField(controller: _controllers['consumoAnualEsperadoKwhC']!, label: 'Consumo anual esperado (KWh)')
+                                : AppInputField(controller: TextEditingController(text: detail.cpe?.consumoAnualEsperadoKwhC?.toString() ?? ''), label: 'Consumo anual esperado (KWh)', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Fidelização (Anos)', _controllers['fidelizacaoAnosC']!)
-                                : _buildDetailRow('Fidelização (Anos)', detail.cpe?.fidelizacaoAnosC?.toString()),
+                                ? AppInputField(controller: _controllers['fidelizacaoAnosC']!, label: 'Fidelização (Anos)')
+                                : AppInputField(controller: TextEditingController(text: detail.cpe?.fidelizacaoAnosC?.toString() ?? ''), label: 'Fidelização (Anos)', readOnly: true),
                             ],
                             [
                               _isEditing
-                                ? _buildEditableTextField('Solução', _controllers['solucaoC']!)
-                                : _buildDetailRow('Solução', detail.cpe?.solucaoC),
+                                ? AppDropdownField<String>(
+                                    label: 'Solução',
+                                    value: _selectedSolucao,
+                                    items: _solucaoOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                                    onChanged: (v) => setState(() => _selectedSolucao = v),
+                                  )
+                                : AppInputField(controller: TextEditingController(text: detail.cpe?.solucaoC ?? ''), label: 'Solução', readOnly: true),
                             ],
                           ],
                         ),
@@ -500,37 +507,40 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           [
                             [
                               _isEditing
-                                ? _buildEditableTextField('Status', _controllers['statusC']!)
-                                : _buildDetailRow('Status', detail.statusC),
+                                ? AppDropdownField<String>(
+                                    label: 'Status',
+                                    value: _selectedStatus,
+                                    items: _statusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                                    onChanged: (v) => setState(() => _selectedStatus = v),
+                                  )
+                                : AppInputField(controller: TextEditingController(text: detail.statusC ?? ''), label: 'Status', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Consumo ou Potência Pico', _controllers['consumoOuPotenciaPicoC']!)
-                                : _buildDetailRow('Consumo ou Potência Pico', detail.consumoOuPotenciaPicoC?.toString()),
+                                ? AppInputField(controller: _controllers['consumoOuPotenciaPicoC']!, label: 'Consumo ou Potência Pico')
+                                : AppInputField(controller: TextEditingController(text: detail.consumoOuPotenciaPicoC?.toString() ?? ''), label: 'Consumo ou Potência Pico', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Fidelização (Anos)', _controllers['fidelizacaoAnosCpeProposta']!)
-                                : _buildDetailRow('Fidelização (Anos)', detail.fidelizacaoAnosC?.toString()),
+                                ? AppInputField(controller: _controllers['fidelizacaoAnosCpeProposta']!, label: 'Fidelização (Anos)')
+                                : AppInputField(controller: TextEditingController(text: detail.fidelizacaoAnosC?.toString() ?? ''), label: 'Fidelização (Anos)', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Margem Comercial', _controllers['margemComercialC']!)
-                                : _buildDetailRow('Margem Comercial', detail.margemComercialC?.toString()),
+                                ? AppInputField(controller: _controllers['margemComercialC']!, label: 'Margem Comercial')
+                                : AppInputField(controller: TextEditingController(text: detail.margemComercialC?.toString() ?? ''), label: 'Margem Comercial', readOnly: true),
                             ],
                             [
-                              _isEditing
-                                ? _buildEditableTextField('Agente Retail', TextEditingController(text: detail.agenteRetailName ?? ''), readOnly: true)
-                                : _buildDetailRow('Agente Retail', detail.agenteRetailName),
+                              AppInputField(controller: TextEditingController(text: detail.agenteRetailName ?? ''), label: 'Agente Retail', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Responsável de Negócio – Retail', _controllers['responsavelNegocioRetailC']!)
-                                : _buildDetailRow('Responsável de Negócio – Retail', detail.responsavelNegocioRetailC),
+                                ? AppInputField(controller: _controllers['responsavelNegocioRetailC']!, label: 'Responsável de Negócio – Retail')
+                                : AppInputField(controller: TextEditingController(text: detail.responsavelNegocioRetailC ?? ''), label: 'Responsável de Negócio – Retail', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Responsável de Negócio – Exclusivo', _controllers['responsavelNegocioExclusivoC']!)
-                                : _buildDetailRow('Responsável de Negócio – Exclusivo', detail.responsavelNegocioExclusivoC),
+                                ? AppInputField(controller: _controllers['responsavelNegocioExclusivoC']!, label: 'Responsável de Negócio – Exclusivo')
+                                : AppInputField(controller: TextEditingController(text: detail.responsavelNegocioExclusivoC ?? ''), label: 'Responsável de Negócio – Exclusivo', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Gestor de Revenda', _controllers['gestorDeRevendaC']!)
-                                : _buildDetailRow('Gestor de Revenda', detail.gestorDeRevendaC),
+                                ? AppInputField(controller: _controllers['gestorDeRevendaC']!, label: 'Gestor de Revenda')
+                                : AppInputField(controller: TextEditingController(text: detail.gestorDeRevendaC ?? ''), label: 'Gestor de Revenda', readOnly: true),
                             ],
                           ],
                         ),
@@ -540,26 +550,28 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           'Faturação Retail',
                           [
                             [
-                              _isEditing
-                                ? _buildEditableTextField('Ciclo de Ativação', TextEditingController(text: detail.cicloDeAtivacaoName ?? ''), readOnly: true)
-                                : _buildDetailRow('Ciclo de Ativação', detail.cicloDeAtivacaoName),
+                              AppInputField(controller: TextEditingController(text: detail.cicloDeAtivacaoName ?? ''), label: 'Ciclo de Ativação', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Comissão Retail', _controllers['comissaoRetailC']!)
-                                : _buildDetailRow('Comissão Retail', detail.comissaoRetailC?.toString()),
+                                ? AppInputField(controller: _controllers['comissaoRetailC']!, label: 'Comissão Retail')
+                                : AppInputField(controller: TextEditingController(text: detail.comissaoRetailC?.toString() ?? ''), label: 'Comissão Retail', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Nota Informativa', _controllers['notaInformativaC']!)
-                                : _buildDetailRow('Nota Informativa', detail.notaInformativaC),
+                                ? AppInputField(controller: _controllers['notaInformativaC']!, label: 'Nota Informativa')
+                                : AppInputField(controller: TextEditingController(text: detail.notaInformativaC ?? ''), label: 'Nota Informativa', readOnly: true),
                             ],
                             [
                               _isEditing
-                                ? _buildEditableTextField('Pagamento da Factura Retail', _controllers['pagamentoDaFacturaRetailC']!)
-                                : _buildDetailRow('Pagamento da Factura Retail', detail.pagamentoDaFacturaRetailC),
+                                ? AppDateInputField(
+                                    label: 'Pagamento da Factura Retail',
+                                    value: _selectedPagamentoFacturaDate,
+                                    onChanged: (date) => setState(() => _selectedPagamentoFacturaDate = date),
+                                  )
+                                : AppInputField(controller: TextEditingController(text: detail.pagamentoDaFacturaRetailC ?? ''), label: 'Pagamento da Factura Retail', readOnly: true),
                               const SizedBox(height: 8),
                               _isEditing
-                                ? _buildEditableTextField('Factura Retail', _controllers['facturaRetailC']!)
-                                : _buildDetailRow('Factura Retail', detail.facturaRetailC),
+                                ? AppInputField(controller: _controllers['facturaRetailC']!, label: 'Factura Retail')
+                                : AppInputField(controller: TextEditingController(text: detail.facturaRetailC ?? ''), label: 'Factura Retail', readOnly: true),
                             ],
                           ],
                         ),
@@ -569,8 +581,13 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           'Visita Técnica',
                           [
                             _isEditing
-                              ? _buildEditableTextField('Visita Técnica', _controllers['visitaTecnicaC']!)
-                              : _buildDetailRow('Visita Técnica', detail.visitaTecnicaC),
+                              ? AppDropdownField<String>(
+                                  label: 'Visita Técnica',
+                                  value: _selectedVisitaTecnica,
+                                  items: _visitaTecnicaOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                                  onChanged: (v) => setState(() => _selectedVisitaTecnica = v),
+                                )
+                              : AppInputField(controller: TextEditingController(text: detail.visitaTecnicaC ?? ''), label: 'Visita Técnica', readOnly: true),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -602,39 +619,17 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
           children: [
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: theme.colorScheme.primary,
               ),
+              textAlign: TextAlign.left,
             ),
             const SizedBox(height: 12),
             ...children,
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 200,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              value ?? 'N/A',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -664,9 +659,12 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
               children: [
                 Text(
                   'Ficheiros',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: theme.colorScheme.primary,
                   ),
+                  textAlign: TextAlign.left,
                 ),
                 if (_isEditing)
                   IconButton(
@@ -719,13 +717,13 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       fileExtension = (file.extension ?? '').toLowerCase();
       title = file.name;
       subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
-      if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (fileExtension == "pdf") {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+      final iconAsset = FileIconService.getIconAssetPath(fileExtension);
+      iconWidget = Image.asset(
+        iconAsset,
+        width: 30,
+        height: 30,
+        fit: BoxFit.contain,
+      );
       onTapAction = null;
     } else if (item.runtimeType.toString().contains('ProposalFile') || 
                (item.runtimeType.toString().contains('File') && !(item is PlatformFile))) {
@@ -734,15 +732,13 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       title = item.title ?? '';
       subtitle = item.fileType?.toUpperCase() ?? '';
       isMarkedForDeletion = _filesToDelete.contains(item);
-      final isImage = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'heic'].contains(fileType);
-      final isPdf = fileType == 'pdf';
-      if (isImage) {
-        iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-      } else if (isPdf) {
-        iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-      } else {
-        iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-      }
+      final iconAsset = FileIconService.getIconAssetPath(fileType);
+      iconWidget = Image.asset(
+        iconAsset,
+        width: 30,
+        height: 30,
+        fit: BoxFit.contain,
+      );
       onTapAction = () {
         if (isMarkedForDeletion) return;
         Navigator.push(
@@ -881,11 +877,14 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
           children: [
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: theme.colorScheme.primary,
               ),
+              textAlign: TextAlign.left,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

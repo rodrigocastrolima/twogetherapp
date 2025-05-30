@@ -9,6 +9,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../providers/service_submission_provider.dart';
 // import '../../../../core/theme/ui_styles.dart'; // Unused import
 import 'package:file_picker/file_picker.dart'; // Ensure PlatformFile is available
+import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
+import 'package:path/path.dart' as p; // For file extension handling
 
 // Define callback types
 typedef OnFilePickedCallback = void Function(dynamic fileData, String fileName);
@@ -300,10 +302,20 @@ class FileUploadWidget extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min, // Prevent stretching
                           children: [
-                            Icon(
-                              CupertinoIcons.doc_text_fill,
-                              color: colorScheme.onSurfaceVariant,
-                              size: 30,
+                            Image.asset(
+                              FileIconService.getIconAssetPath(
+                                (p.extension(file.name).isEmpty) 
+                                    ? '' 
+                                    : p.extension(file.name).substring(1).toLowerCase(),
+                              ),
+                              width: 30,
+                              height: 30,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => Icon(
+                                CupertinoIcons.doc_text_fill,
+                                color: colorScheme.onSurfaceVariant,
+                                size: 30,
+                              ),
                             ),
                             // Removed filename display from here for cleaner preview
                           ],
@@ -351,14 +363,21 @@ class FileUploadWidget extends ConsumerWidget {
     );
   }
 
-  // Helper function to determine file icon
-  IconData _getFileIcon(String fileName) {
-    if (_isImageFile(fileName)) {
-      return CupertinoIcons.photo_fill;
-    } else if (fileName.toLowerCase().endsWith('.pdf')) {
-      return CupertinoIcons.doc_text_fill;
-    }
-    return CupertinoIcons.doc; // Default icon
+  // Helper function to determine file icon - Updated to use FileIconService
+  Widget _getFileIcon(String fileName, {double size = 30}) {
+    final extension = p.extension(fileName);
+    final fileExtension = extension.isEmpty ? '' : extension.substring(1).toLowerCase();
+    
+    return Image.asset(
+      FileIconService.getIconAssetPath(fileExtension),
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => Icon(
+        CupertinoIcons.doc_text_fill,
+        size: size,
+      ),
+    );
   }
 
   // Helper function to check if a file is an image based on extension

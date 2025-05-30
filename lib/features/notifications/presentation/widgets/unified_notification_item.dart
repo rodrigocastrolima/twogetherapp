@@ -46,6 +46,7 @@ class UnifiedNotificationItem extends StatelessWidget {
 
     // Get icon and color based on notification type and service type
     String? serviceType = notification.metadata['serviceType'] as String?;
+    String? processType = notification.metadata['processType'] as String?;
     IconData itemIcon;
     Color iconColor;
     Color iconBgColor;
@@ -58,9 +59,16 @@ class UnifiedNotificationItem extends StatelessWidget {
       // Fallback to previous logic for other types
       switch (notification.type) {
         case NotificationType.statusChange:
-          itemIcon = CupertinoIcons.arrow_swap;
-          iconColor = const Color(0xFFF59E0B);
-          iconBgColor = const Color(0x1AF59E0B);
+          // Check if this is a contract insertion notification
+          if (processType == 'contract_insertion') {
+            itemIcon = CupertinoIcons.checkmark_circle_fill;
+            iconColor = const Color(0xFF10B981); // Green color for completion
+            iconBgColor = const Color(0x1A10B981);
+          } else {
+            itemIcon = CupertinoIcons.arrow_swap;
+            iconColor = const Color(0xFFF59E0B);
+            iconBgColor = const Color(0x1AF59E0B);
+          }
           break;
         case NotificationType.rejection:
           itemIcon = CupertinoIcons.xmark_circle_fill;

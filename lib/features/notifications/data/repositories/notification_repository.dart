@@ -235,6 +235,39 @@ class NotificationRepository {
     }
   }
 
+  // Helper method to get Firebase uid from Salesforce user ID
+  Future<String?> _getFirebaseUidFromSalesforceId(String salesforceId) async {
+    try {
+      if (kDebugMode) {
+        print('Looking up Firebase uid for Salesforce ID: $salesforceId');
+      }
+
+      final querySnapshot = await _firestore
+          .collection('users')
+          .where('salesforceId', isEqualTo: salesforceId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final firebaseUid = querySnapshot.docs.first.id;
+        if (kDebugMode) {
+          print('Found Firebase uid: $firebaseUid for Salesforce ID: $salesforceId');
+        }
+        return firebaseUid;
+      } else {
+        if (kDebugMode) {
+          print('No Firebase user found for Salesforce ID: $salesforceId');
+        }
+        return null;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error looking up Firebase uid for Salesforce ID $salesforceId: $e');
+      }
+      return null;
+    }
+  }
+
   // Create a new submission notification for admins
   Future<String> createNewSubmissionNotification({
     required String submissionId,
@@ -567,6 +600,64 @@ class NotificationRepository {
       // It's often better not to rethrow here if notification failure shouldn't block primary flow
       // Consider just logging or returning an empty/error indicator if UI needs to know
       return ''; // Or throw specific error if needed by caller
+    }
+  }
+
+  // NEW METHOD: Create a contract insertion completion notification for reseller
+  Future<String> createContractInsertionNotification({
+    required String salesforceUserId, // Changed parameter name to clarify it's Salesforce ID
+    required String proposalId,
+    required String proposalName,
+    required String entityName,
+    String? entityNif,
+    String? opportunityId, // Add opportunity ID parameter
+  }) async {
+    final functionName = 'createContractInsertionNotification';
+    if (kDebugMode) {
+      print('[$runtimeType] $functionName: Called for proposalId: $proposalId, salesforceUserId: $salesforceUserId');
+    }
+    try {
+      // Look up the Firebase uid from the Salesforce user ID
+      final firebaseUid = await _getFirebaseUidFromSalesforceId(salesforceUserId);
+      
+      if (firebaseUid == null) {
+        if (kDebugMode) {
+          print('[$runtimeType] $functionName: No Firebase user found for Salesforce ID: $salesforceUserId');
+        }
+        return ''; // Return empty string to indicate failure without throwing
+      }
+
+      final notification = UserNotification(
+        id: '', // Will be set by Firestore
+        userId: firebaseUid, // Use Firebase uid instead of Salesforce ID
+        title: 'Processo Concluído',
+        message: 'O processo para a entidade $entityName foi concluído.',
+        type: NotificationType.statusChange,
+        createdAt: DateTime.now(),
+        metadata: {
+          'proposalId': proposalId,
+          'proposalName': proposalName,
+          'entityName': entityName,
+          if (entityNif != null) 'entityNif': entityNif,
+          if (opportunityId != null) 'opportunityId': opportunityId, // Add opportunity ID to metadata
+          'contractInsertedAt': DateTime.now().toIso8601String(),
+          'processType': 'contract_insertion',
+          'salesforceUserId': salesforceUserId, // Keep Salesforce ID for reference
+        },
+      );
+
+      final docRef = await _notificationsRef.add(notification.toFirestore());
+      if (kDebugMode) {
+        print(
+          '[$runtimeType] $functionName: Successfully created notification ${docRef.id} for Firebase uid: $firebaseUid',
+        );
+      }
+      return docRef.id;
+    } catch (e) {
+      if (kDebugMode) {
+        print('[$runtimeType] $functionName: Error: $e');
+      }
+      rethrow;
     }
   }
 }

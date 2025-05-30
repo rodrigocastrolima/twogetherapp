@@ -3,6 +3,7 @@ import 'package:introduction_screen/introduction_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart'; // Or use Navigator if not using GoRouter
 import '../../../../core/constants/constants.dart'; // Adjust path as needed
+import '../logo.dart'; // Import LogoWidget
 
 class AppTutorialScreen extends StatelessWidget {
   const AppTutorialScreen({super.key});
@@ -22,60 +23,68 @@ class AppTutorialScreen extends StatelessWidget {
     }
   }
 
-  // Helper to build image widgets consistently
-  Widget _buildImage(
+  // Helper to build image widgets with adaptive frame
+  Widget _buildImageWithFrame(
     BuildContext context,
     String assetPath, {
-    double heightFraction = 0.6,
+    double heightFraction = 0.5,
   }) {
     final screenHeight = MediaQuery.of(context).size.height;
     final height = screenHeight * heightFraction;
-    final theme = Theme.of(context); // Get theme for shadow color
 
     return Container(
-      // Align image container to the top
       alignment: Alignment.topCenter,
-      padding: const EdgeInsets.only(bottom: 0, top: 80),
+      padding: const EdgeInsets.only(bottom: 20, top: 40),
+      child: _buildAdaptiveFrame(
+        context,
+        child: Image.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: height * 0.7,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.red[100],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'Erro ao carregar:\n$assetPath',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red[700], fontSize: 12),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // Widget to create adaptive frame around content
+  Widget _buildAdaptiveFrame(BuildContext context, {required Widget child}) {
+    final theme = Theme.of(context);
+    
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 950),
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withAlpha((255 * 0.25).round()),
+            blurRadius: 30.0,
+            spreadRadius: 5.0,
+            offset: const Offset(0, 15),
+          ),
+        ],
+      ),
       child: Container(
+        padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-            12.0,
-          ), // Rounded corners for the shadow
-          boxShadow: [
-            BoxShadow(
-              // Use a subtle shadow color based on theme
-              color: theme.shadowColor.withOpacity(0.15),
-              blurRadius: 8.0,
-              spreadRadius: 1.0,
-              offset: const Offset(0, 4), // Shadow position
-            ),
-          ],
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: ClipRRect(
-          // Clip the image to the rounded corners
-          borderRadius: BorderRadius.circular(12.0),
-          child: Image.asset(
-            assetPath,
-            height: height,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              // Optional: Better error display for missing assets
-              return Container(
-                height: height,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.red[100],
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Error loading:\n$assetPath\nCheck pubspec.yaml & path',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.red[700], fontSize: 12),
-                ),
-              );
-            },
-          ),
+          borderRadius: BorderRadius.circular(10),
+          child: child, // No AspectRatio - let the image be its natural size!
         ),
       ),
     );
@@ -85,10 +94,6 @@ class AppTutorialScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final logoAssetPath =
-        isDarkMode
-            ? 'assets/images/twogether_logo_dark_br.png'
-            : 'assets/images/twogether_logo_light_br.png';
     final screenHeight = MediaQuery.of(context).size.height;
 
     // --- Decoration for regular slides (Image Top, Text Bottom) ---
@@ -136,10 +141,10 @@ class AppTutorialScreen extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
       // Alignments like other pages
-      imageAlignment: Alignment.topCenter, // Image TOP
+      imageAlignment: Alignment.topCenter, // Changed back to topCenter
       bodyAlignment: Alignment.bottomCenter, // Text BOTTOM
-      // Initial padding (similar to pageDecoration, user can adjust)
-      imagePadding: const EdgeInsets.only(top: 0, bottom: 0),
+      // Adjust padding to position logo lower and better balanced
+      imagePadding: const EdgeInsets.only(top: 120, bottom: 20), // Increased top to move logo lower
       titlePadding: const EdgeInsets.only(bottom: 16.0),
       bodyPadding: const EdgeInsets.only(
         left: 16.0,
@@ -154,74 +159,64 @@ class AppTutorialScreen extends StatelessWidget {
     final List<PageViewModel> pages = [
       // --- Slide 1: Welcome (Use welcomePageDecoration, build image directly) ---
       PageViewModel(
-        title: "Welcome to Twogether Retail",
+        title: "Bem-vindo à App Twogether Retail!",
         body:
-            "Your partner platform for managing services, clients and commissions efficiently. Let's get started!",
-        // Build the centered logo image directly here (but decoration aligns top)
+            "A sua plataforma parceira para gerir serviços, clientes e comissões de forma eficiente. Vamos começar!",
+        // Use LogoWidget instead of asset image
         image: Center(
-          child: Image.asset(
-            logoAssetPath,
-            height: screenHeight * 0.2, // Use the calculated height
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: screenHeight * 0.2,
-                alignment: Alignment.center,
-                child: Text(
-                  'Error loading logo',
-                  style: TextStyle(color: Colors.red),
-                ),
-              );
-            },
+          child: LogoWidget(
+            height: screenHeight * 0.4, // Increased from 0.25 to 0.4 - much bigger
+            darkMode: isDarkMode,
           ),
         ),
         decoration: welcomePageDecoration, // Apply welcome decoration
       ),
-      // --- Slides 2-6: Feature explanations (Use _buildImage helper) ---
+      // --- Slides 2-6: Feature explanations (Use _buildImageWithFrame helper) ---
       PageViewModel(
-        title: "Your Home Base",
+        title: "Menu de Início",
         body:
-            "The main screen gives you a quick overview of earnings, available actions and recent notifications.",
-        image: _buildImage(
+            "O ecrã principal oferece uma visão geral rápida dos ganhos, ações disponíveis e notificações recentes.",
+        image: _buildImageWithFrame(
           context,
           'assets/images/tutorial/home_page.jpg',
         ), // Use helper
         decoration: pageDecoration, // Apply regular decoration
       ),
       PageViewModel(
-        title: "Track Your Earnings",
+        title: "Acompanhe os Seus Ganhos",
         body:
-            "Monitor your earnings in the comission box. Tap 'View Details' to access the full dashboard for charts and breakdowns.",
-        image: _buildImage(
+            "Monitore os seus ganhos na caixa de comissões. Toque em 'Ver Detalhes' para aceder ao dashboard completo com gráficos e análises.",
+        image: _buildImageWithFrame(
           context,
           'assets/images/tutorial/dashboard_page.jpg',
         ), // Use helper
         decoration: pageDecoration,
       ),
       PageViewModel(
-        title: "Submitting Service Requests",
+        title: "Submeter Pedidos de Serviço",
         body:
-            "Use the simple submission form to create new service requests for your clients.",
-        image: _buildImage(
+            "Use o formulário simples de submissão para criar novos pedidos de serviço para os seus clientes.",
+        image: _buildImageWithFrame(
           context,
           'assets/images/tutorial/services_page.jpg',
         ), // Use helper
         decoration: pageDecoration,
       ),
       PageViewModel(
-        title: "Manage Your Clients",
+        title: "Gerir os Seus Clientes",
         body:
-            "Keep track of all your clients and the status of their processes in the Clients section.",
-        image: _buildImage(
+            "Mantenha-se a par de todos os seus clientes e do estado dos seus processos na secção de clientes.",
+        image: _buildImageWithFrame(
           context,
           'assets/images/tutorial/client_page.jpg',
         ), // Use helper
         decoration: pageDecoration,
       ),
       PageViewModel(
-        title: "Need Help? Chat with Us!",
+        title: "Precisa de Ajuda? Fale Connosco!",
         body:
-            "Get quick support for any questions or issues directly through our integrated chat feature.",
-        image: _buildImage(
+            "Obtenha suporte rápido para qualquer questão ou problema diretamente através do nosso chat integrado.",
+        image: _buildImageWithFrame(
           context,
           'assets/images/tutorial/chat_page.jpg',
         ), // Use helper
@@ -236,14 +231,14 @@ class AppTutorialScreen extends StatelessWidget {
       showSkipButton: true,
       // Use theme text styles and colors for buttons
       skip: Text(
-        "Skip",
+        "Saltar",
         style: theme.textTheme.labelLarge?.copyWith(
           color: theme.colorScheme.primary,
         ),
       ),
       next: Icon(Icons.arrow_forward, color: theme.colorScheme.primary),
       done: Text(
-        "Done",
+        "Concluído",
         style: theme.textTheme.labelLarge?.copyWith(
           fontWeight: FontWeight.bold, // Keep bold for emphasis
           color: theme.colorScheme.primary,
@@ -254,7 +249,7 @@ class AppTutorialScreen extends StatelessWidget {
         size: const Size.square(8.0),
         activeSize: const Size(18.0, 8.0),
         activeColor: theme.colorScheme.primary,
-        color: theme.colorScheme.onSurface.withOpacity(0.3),
+        color: theme.colorScheme.onSurface.withAlpha((255 * 0.3).round()),
         spacing: const EdgeInsets.symmetric(horizontal: 4.0),
         activeShape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(25.0),

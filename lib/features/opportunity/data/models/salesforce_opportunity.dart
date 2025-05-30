@@ -172,7 +172,7 @@ class SalesforceOpportunity {
     return SalesforceOpportunity(
       id: idValue,
       name: nameValue,
-      accountName: json['Entidade__r']?['Name'] as String?,
+      accountName: json['Nome_Entidade__c'] as String?,
       resellerName: json['resellerName'] as String?, // Map from top-level field
       nifC: json['NIF__c'] as String?,
       fase: json['fase'] as String?,

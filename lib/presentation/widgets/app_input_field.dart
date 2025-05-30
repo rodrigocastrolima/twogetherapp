@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 /// A reusable input field widget that uses the exact InputDecoration style from admin_salesforce_proposal_detail_page.dart.
 class AppInputField extends StatelessWidget {
@@ -120,16 +122,173 @@ class AppDateInputField extends StatelessWidget {
     final textTheme = theme.textTheme;
     final controller = TextEditingController(
       text: value != null ?
-        MaterialLocalizations.of(context).formatFullDate(value!) : '',
+        DateFormat('dd/MM/yyyy', 'pt_PT').format(value!) : '',
     );
 
     Future<void> _pickDate() async {
       if (readOnly) return;
+      
       final picked = await showDatePicker(
         context: context,
-        initialDate: value ?? DateTime(1990, 1, 1),
+        initialDate: value ?? DateTime.now(),
         firstDate: firstDate ?? DateTime(1900),
-        lastDate: lastDate ?? DateTime.now(),
+        lastDate: lastDate ?? DateTime(2101),
+        locale: const Locale('pt', 'PT'),
+        helpText: 'Selecionar data',
+        cancelText: 'Cancelar',
+        confirmText: 'OK',
+        fieldLabelText: 'Introduzir data',
+        fieldHintText: 'dd/mm/aaaa',
+        errorFormatText: 'Formato de data inválido',
+        errorInvalidText: 'Data inválida',
+        builder: (context, child) {
+          return Theme(
+            data: theme.copyWith(
+              // Modern date picker styling
+              colorScheme: colorScheme.copyWith(
+                primary: colorScheme.primary,
+                onPrimary: colorScheme.onPrimary,
+                surface: colorScheme.surface,
+                onSurface: colorScheme.onSurface,
+                surfaceVariant: colorScheme.surfaceVariant,
+                onSurfaceVariant: colorScheme.onSurfaceVariant,
+              ),
+              datePickerTheme: DatePickerThemeData(
+                backgroundColor: colorScheme.surface,
+                elevation: 4,
+                shadowColor: colorScheme.shadow.withAlpha((255 * 0.1).round()),
+                surfaceTintColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                headerBackgroundColor: colorScheme.surface,
+                headerForegroundColor: colorScheme.onSurface,
+                headerHeadlineStyle: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                ),
+                headerHelpStyle: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+                weekdayStyle: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+                dayStyle: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w400,
+                ),
+                dayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return Colors.white;
+                  }
+                  if (states.contains(MaterialState.disabled)) {
+                    return colorScheme.onSurface.withAlpha((255 * 0.3).round());
+                  }
+                  return colorScheme.onSurface;
+                }),
+                dayBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return colorScheme.primary.withAlpha((255 * 0.8).round());
+                  }
+                  if (states.contains(MaterialState.hovered)) {
+                    return colorScheme.primary.withAlpha((255 * 0.05).round());
+                  }
+                  return Colors.transparent;
+                }),
+                dayOverlayColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.pressed)) {
+                    return colorScheme.primary.withAlpha((255 * 0.1).round());
+                  }
+                  if (states.contains(MaterialState.hovered)) {
+                    return colorScheme.primary.withAlpha((255 * 0.04).round());
+                  }
+                  return Colors.transparent;
+                }),
+                todayForegroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return Colors.white;
+                  }
+                  return colorScheme.primary.withAlpha((255 * 0.9).round());
+                }),
+                todayBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return colorScheme.primary.withAlpha((255 * 0.8).round());
+                  }
+                  return Colors.transparent;
+                }),
+                todayBorder: BorderSide(
+                  color: colorScheme.primary.withAlpha((255 * 0.4).round()),
+                  width: 1,
+                ),
+                yearStyle: textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w400,
+                ),
+                yearForegroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return Colors.white;
+                  }
+                  return colorScheme.onSurface;
+                }),
+                yearBackgroundColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.selected)) {
+                    return colorScheme.primary.withAlpha((255 * 0.8).round());
+                  }
+                  if (states.contains(MaterialState.hovered)) {
+                    return colorScheme.primary.withAlpha((255 * 0.05).round());
+                  }
+                  return Colors.transparent;
+                }),
+                yearOverlayColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.pressed)) {
+                    return colorScheme.primary.withAlpha((255 * 0.1).round());
+                  }
+                  if (states.contains(MaterialState.hovered)) {
+                    return colorScheme.primary.withAlpha((255 * 0.04).round());
+                  }
+                  return Colors.transparent;
+                }),
+                dividerColor: colorScheme.outline.withAlpha((255 * 0.08).round()),
+                inputDecorationTheme: InputDecorationTheme(
+                  filled: true,
+                  fillColor: colorScheme.surfaceVariant.withAlpha((255 * 0.3).round()),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.1).round())),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.1).round())),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.primary.withAlpha((255 * 0.6).round()), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.primary.withAlpha((255 * 0.9).round()),
+                  backgroundColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  textStyle: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            child: child!,
+          );
+        },
       );
       if (picked != null) onChanged(picked);
     }
@@ -151,15 +310,17 @@ class AppDateInputField extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
-              hintText: (controller.text.isEmpty) ? '' : hint,
+              hintText: hint ?? 'dd/mm/aaaa',
               hintStyle: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
               ),
               filled: true,
-              fillColor: colorScheme.surfaceVariant,
+              fillColor: readOnly
+                  ? colorScheme.surfaceVariant.withAlpha((255 * 0.7).round())
+                  : colorScheme.surfaceVariant,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -167,11 +328,17 @@ class AppDateInputField extends StatelessWidget {
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              suffixIcon: const Icon(Icons.calendar_today, size: 20),
+              suffixIcon: Icon(
+                Icons.calendar_today_rounded, 
+                size: 20,
+                color: readOnly 
+                    ? colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round())
+                    : colorScheme.onSurfaceVariant,
+              ),
               floatingLabelBehavior: FloatingLabelBehavior.always,
             ),
           ),

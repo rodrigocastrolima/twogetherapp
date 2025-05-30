@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_strategy/url_strategy.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'app/router/app_router.dart';
 import 'features/auth/presentation/providers/cloud_functions_provider.dart';
@@ -255,18 +256,17 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> with WidgetsBinding
           ),
           themeMode: themeMode,
           routerConfig: router,
-          // TODO: To enable Portuguese localization, add flutter_localizations to pubspec.yaml and uncomment the following lines:
-          // locale: const Locale('pt'),
-          // supportedLocales: const [
-          //   Locale('en', 'US'),
-          //   Locale('pt', 'PT'),
-          //   Locale('pt', 'BR'),
-          // ],
-          // localizationsDelegates: [
-          //   GlobalMaterialLocalizations.delegate,
-          //   GlobalWidgetsLocalizations.delegate,
-          //   GlobalCupertinoLocalizations.delegate,
-          // ],
+          locale: const Locale('pt', 'PT'),
+          supportedLocales: const [
+            Locale('en', 'US'),
+            Locale('pt', 'PT'),
+            Locale('pt', 'BR'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
         ),
       ),
     );

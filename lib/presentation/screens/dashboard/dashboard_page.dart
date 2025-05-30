@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../features/salesforce/presentation/providers/salesforce_providers.dart';
 import '../../../features/salesforce/domain/models/dashboard_stats.dart';
+import '../../../features/opportunity/presentation/providers/opportunity_providers.dart';
+import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../widgets/logo.dart';
 import '../../widgets/app_loading_indicator.dart';
+import '../../widgets/simple_list_item.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -26,13 +29,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final user = FirebaseAuth.instance.currentUser;
-    // final salesforceId = user?.uid; // salesforceId is fetched by the provider now
 
-    // Watch the provider at a higher level
+    // Watch both providers
     final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+    final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: dashboardStatsAsync.isLoading
           ? null // No AppBar when loading
           : AppBar(
@@ -48,34 +51,46 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               centerTitle: true,
             ),
       body: dashboardStatsAsync.when(
-        data: (stats) => Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'Dashboard',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
+        data: (stats) => opportunitiesAsync.when(
+          data: (opportunities) => Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 32),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      'Dashboard',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      textAlign: TextAlign.left,
                     ),
-                    textAlign: TextAlign.left,
                   ),
-                ),
-                Expanded(
-                  child: _buildDashboardContent(context, stats),
-                ),
-              ],
+                  Expanded(
+                    child: _buildDashboardContent(context, stats, opportunities),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          loading: () => const Center(child: AppLoadingIndicator()),
+          error: (error, stack) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Erro ao carregar oportunidades: ${error.toString()}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.error),
+              ),
             ),
           ),
         ),
-        loading: () => const Center(child: AppLoadingIndicator()), // Full screen loader
+        loading: () => const Center(child: AppLoadingIndicator()),
         error: (error, stack) => Center(
-          // Ensure error is displayed within the page structure if AppBar is present
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
@@ -89,141 +104,278 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  Widget _buildDashboardContent(BuildContext context, DashboardStats stats) {
+  Widget _buildDashboardContent(BuildContext context, DashboardStats stats, List<SalesforceOpportunity> opportunities) {
     final theme = Theme.of(context);
     final proposalsWithCommission = stats.proposals.where((p) => p.commission > 0).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // --- Stat Cards Row ---
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+    
+    // Calculate status counts
+    final statusCounts = _calculateStatusCounts(opportunities);
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          // --- Centered Stats Display ---
+          Row(
             children: [
-              _buildMaterialStatCard(
-                context,
-                label: 'Comissões',
-                value: stats.totalCommission.toStringAsFixed(2),
-                icon: Icons.euro,
-                color: theme.colorScheme.primary,
+              Expanded(
+                child: _buildCenteredStat(
+                  context,
+                  label: 'Comissões',
+                  value: '€ ${stats.totalCommission.toStringAsFixed(2)}',
+                  icon: Icons.euro,
+                  color: Colors.green,
+                ),
               ),
-              const SizedBox(width: 16),
-              _buildMaterialStatCard(
-                context,
-                label: 'Oportunidades',
-                value: stats.totalOpportunities.toString(),
-                icon: CupertinoIcons.group_solid,
-                color: theme.colorScheme.primary,
+              const SizedBox(width: 32),
+              Expanded(
+                child: _buildCenteredStat(
+                  context,
+                  label: 'Oportunidades',
+                  value: stats.totalOpportunities.toString(),
+                  icon: CupertinoIcons.group_solid,
+                  color: Colors.blue,
+                ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 32),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
+          const SizedBox(height: 40),
+          
+          // --- Status Breakdown Section ---
+          Text(
+            'Estado dos Clientes',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildStatusGrid(context, statusCounts),
+          const SizedBox(height: 40),
+          
+          // --- Commissions Section ---
+          Text(
             'Comissões',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurface,
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ...proposalsWithCommission.map((proposal) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Material(
-                  elevation: 2,
-                  borderRadius: BorderRadius.circular(14),
-                  color: theme.colorScheme.surface,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            proposal.opportunityName,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '€ ${proposal.commission.toStringAsFixed(2)}',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+          const SizedBox(height: 16),
+          
+          // --- Commission List ---
+          if (proposalsWithCommission.isNotEmpty)
+            ...proposalsWithCommission.map((proposal) => 
+              Padding(
+                padding: const EdgeInsets.only(bottom: 0),
+                child: SimpleListItem(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.euro,
+                      color: Colors.green,
+                      size: 20,
                     ),
                   ),
+                  title: proposal.opportunityName,
+                  subtitle: '€ ${proposal.commission.toStringAsFixed(2)}',
+                  onTap: () {
+                    // Optional: Add navigation to proposal details
+                  },
                 ),
-              )),
-              if (proposalsWithCommission.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text('Sem propostas com comissão.', style: theme.textTheme.bodyMedium),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'Sem propostas com comissão.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-            ],
+              ),
+            ),
+          
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCenteredStat(BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      children: [
+        Icon(
+          icon,
+          size: 48,
+          color: color,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          value,
+          style: theme.textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // Status filtering logic from reseller_opportunity_page.dart
+  String _getProposalStatusForFilter(SalesforceOpportunity opportunity) {
+    if (opportunity.propostasR?.records != null &&
+        opportunity.propostasR!.records.isNotEmpty) {
+      return opportunity.propostasR!.records.first.statusC ?? '';
+    }
+    return '';
+  }
+
+  Map<String, int> _calculateStatusCounts(List<SalesforceOpportunity> opportunities) {
+    int active = 0;
+    int actionNeeded = 0;
+    int pending = 0;
+    int rejected = 0;
+
+    for (final opportunity in opportunities) {
+      final proposalStatus = _getProposalStatusForFilter(opportunity);
+      
+      if (proposalStatus == 'Aceite') {
+        active++;
+      } else if (['Enviada', 'Em Aprovação'].contains(proposalStatus)) {
+        actionNeeded++;
+      } else if (['Aprovada', 'Expirada', 'Criação', 'Em Análise'].contains(proposalStatus)) {
+        pending++;
+      } else if (['Não Aprovada', 'Cancelada'].contains(proposalStatus)) {
+        rejected++;
+      }
+    }
+
+    return {
+      'active': active,
+      'actionNeeded': actionNeeded,
+      'pending': pending,
+      'rejected': rejected,
+    };
+  }
+
+  Widget _buildStatusGrid(BuildContext context, Map<String, int> statusCounts) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatusCard(
+            context,
+            label: 'Ativos',
+            count: statusCounts['active']!,
+            icon: CupertinoIcons.checkmark_seal_fill,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatusCard(
+            context,
+            label: 'Ação Necessária',
+            count: statusCounts['actionNeeded']!,
+            icon: CupertinoIcons.exclamationmark_circle_fill,
+            color: Colors.blue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatusCard(
+            context,
+            label: 'Pendentes',
+            count: statusCounts['pending']!,
+            icon: CupertinoIcons.clock_fill,
+            color: Colors.orange,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatusCard(
+            context,
+            label: 'Rejeitados',
+            count: statusCounts['rejected']!,
+            icon: CupertinoIcons.xmark_seal_fill,
+            color: Colors.red,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMaterialStatCard(BuildContext context, {required String label, required String value, required IconData icon, required Color color, bool isClickable = false}) {
+  Widget _buildStatusCard(BuildContext context, {
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
     final theme = Theme.of(context);
-    return Material(
-      elevation: 2,
-      borderRadius: BorderRadius.circular(14),
-      color: theme.colorScheme.surface,
-      child: Container(
-        width: 240,
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  label == 'Comissões' ? '€ $value' : value,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
         ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            count.toString(),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

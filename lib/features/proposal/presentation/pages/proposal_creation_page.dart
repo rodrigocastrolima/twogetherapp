@@ -20,6 +20,8 @@ import 'package:flutter/cupertino.dart'; // For CupertinoIcons
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
+import '../../../../presentation/widgets/app_input_field.dart'; // Import AppInputField components
+import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 // import 'package:twogether/l10n/l10n.dart'; // TODO: Re-enable l10n
 // import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // TODO: Re-enable l10n
 
@@ -147,55 +149,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
       item.dispose();
     }
     super.dispose();
-  }
-
-  // Helper widget for read-only fields to reduce repetition
-  Widget _buildReadOnlyField(String label, String value) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        initialValue: value,
-        readOnly: true,
-        style: theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, readOnly: true),
-      ),
-    );
-  }
-
-  // Date Picker Logic
-  Future<void> _selectValidityDate(BuildContext context) async {
-    final theme = Theme.of(context); // Get theme for picker styling
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedValidityDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
-      builder: (context, child) {
-        // Apply theme to date picker
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: theme.colorScheme.copyWith(
-              primary: theme.colorScheme.primary, // header background color
-              onPrimary: theme.colorScheme.onPrimary, // header text color
-              onSurface: theme.colorScheme.onSurface, // body text color
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.primary, // button text color
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedValidityDate) {
-      setState(() {
-        _selectedValidityDate = picked;
-        _validityDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
-    }
   }
 
   // --- Add/Remove CPE Block Logic --- //
@@ -488,42 +441,34 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     // Responsive: Use two columns on wide screens, one column on small screens
     final isWide = MediaQuery.of(context).size.width > 700;
 
-    Widget buildField(Widget child) => Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: DefaultTextStyle.merge(
-        style: textTheme.bodySmall,
-        child: child,
-      ),
-    );
-
     final leftColumn = <Widget>[
-      buildField(TextFormField(
+      AppInputField(
         controller: cpeData.cpeController,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: 'CPE'),
+        label: 'CPE',
         validator: (value) => (value?.trim().isEmpty ?? true) ? 'CPE é obrigatório' : null,
-      )),
-      buildField(_buildReadOnlyField('Entidade', widget.accountName)),
-      buildField(TextFormField(
+      ),
+      const SizedBox(height: 8),
+      AppInputField(
+        controller: TextEditingController(text: widget.accountName),
+        label: 'Entidade',
+        readOnly: true,
+      ),
+      const SizedBox(height: 8),
+      AppInputField(
         controller: cpeData.consumoController,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: 'Consumo ou Potência Máxima'),
+        label: 'Consumo ou Potência Máxima',
         keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]*$')),
-        ],
         validator: (value) => (value?.trim().isEmpty ?? true) ? 'Consumo/Potência é obrigatório' : null,
-      )),
-      buildField(activationCyclesAsync.when(
-        data: (cycles) => DropdownButtonFormField<String>(
+      ),
+      const SizedBox(height: 8),
+      activationCyclesAsync.when(
+        data: (cycles) => AppDropdownField<String>(
+          label: 'Ciclo de Ativação',
           value: cpeData.selectedCicloId,
-          hint: const Text('Selecione o Ciclo de Ativação'),
-          isExpanded: true,
-          decoration: _inputDecoration(label: 'Ciclo de Ativação'),
           items: cycles.map((SalesforceCiclo ciclo) {
             return DropdownMenuItem<String>(
               value: ciclo.id,
-              child: Text(ciclo.name, style: textTheme.bodySmall),
+              child: Text(ciclo.name),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -532,42 +477,54 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
             });
           },
           validator: (value) => (value == null || value.isEmpty) ? 'Ciclo de ativação é obrigatório' : null,
+          hint: 'Selecione o Ciclo de Ativação',
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => TextFormField(
+        loading: () => const SizedBox(
+          height: 56,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (err, stack) => AppInputField(
+          controller: TextEditingController(),
+          label: 'Ciclo de Ativação',
+          hint: 'Erro ao carregar ciclos',
           readOnly: true,
-          style: textTheme.bodySmall,
-          decoration: _inputDecoration(label: 'Ciclo de Ativação', hint: 'Erro ao carregar ciclos'),
         ),
-      )),
+      ),
     ];
 
     final rightColumn = <Widget>[
-      buildField(_buildReadOnlyField('NIF', widget.nif)),
-      buildField(TextFormField(
+      AppInputField(
+        controller: TextEditingController(text: widget.nif),
+        label: 'NIF',
+        readOnly: true,
+      ),
+      const SizedBox(height: 8),
+      AppInputField(
         controller: cpeData.fidelizacaoController,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: 'Período de Fidelização (Anos)', hint: 'ex: 1, 2, 0'),
+        label: 'Período de Fidelização (Anos)',
+        hint: 'ex: 1, 2, 0',
         keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
         validator: (value) => (value?.trim().isEmpty ?? true) ? 'Período de fidelização é obrigatório' : null,
-      )),
-      buildField(TextFormField(
+      ),
+      const SizedBox(height: 8),
+      AppInputField(
         controller: cpeData.comissaoController,
-        style: textTheme.bodySmall,
-        decoration: _inputDecoration(label: 'Comissão Retail', prefixText: '€ '),
+        label: 'Comissão Retail',
         keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}')),
-        ],
         validator: (value) => (value?.trim().isEmpty ?? true) ? 'Comissão Retail é obrigatória' : null,
-      )),
+      ),
+      const SizedBox(height: 8),
+      // Empty space to align with left column
+      const SizedBox(height: 56),
     ];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 20.0),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+      ),
+      margin: const EdgeInsets.only(bottom: 16.0),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -578,25 +535,27 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
               children: [
                 Text(
                   'CPE #${index + 1}',
-                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
                 if (_cpeItems.length > 1)
                   IconButton(
                     icon: Icon(Icons.remove_circle_outline, color: colorScheme.error),
                     tooltip: 'Remover CPE #${index + 1}',
                     onPressed: () => _removeCpeBlock(index),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             isWide
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: Column(children: leftColumn)),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 32),
                       Expanded(child: Column(children: rightColumn)),
                     ],
                   )
@@ -605,12 +564,15 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                       ...leftColumn,
                       ...rightColumn,
                     ],
-            ),
+                  ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Ficheiros Anexados', style: textTheme.titleSmall),
+                Text(
+                  'Ficheiros Anexados',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
                 IconButton(
                   icon: const Icon(Icons.add, size: 20),
                   tooltip: 'Adicionar Ficheiros',
@@ -626,23 +588,23 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                 children: List.generate(cpeData.attachedFiles.length, (fileIndex) {
                   final file = cpeData.attachedFiles[fileIndex];
                   final fileExtension = (file.extension ?? '').toLowerCase();
-                  Widget iconWidget;
-                  if (["png", "jpg", "jpeg", "gif", "bmp", "webp", "heic"].contains(fileExtension)) {
-                    iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 30);
-                  } else if (fileExtension == "pdf") {
-                    iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 30);
-                  } else {
-                    iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 30);
-                  }
+                  final iconAsset = FileIconService.getIconAssetPath(fileExtension);
+                  Widget iconWidget = Image.asset(
+                    iconAsset,
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.contain,
+                  );
+                  
                   return Container(
                     width: 70,
                     height: 70,
                     clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant.withOpacity(0.7),
+                      color: colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
                       borderRadius: BorderRadius.circular(8.0),
                       border: Border.all(
-                        color: colorScheme.outline.withOpacity(0.1),
+                        color: colorScheme.outline.withAlpha((255 * 0.1).round()),
                         width: 0.5,
                       ),
                     ),
@@ -664,7 +626,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                               ),
                             ],
                           ),
-                  ),
+                        ),
                         Positioned(
                           top: 0,
                           right: 0,
@@ -688,50 +650,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     );
   }
 
-  InputDecoration _inputDecoration({
-    required String label,
-    String? hint,
-    bool readOnly = false,
-    Widget? suffixIcon,
-    String? prefixText,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-      hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
-      filled: true,
-      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
-      ),
-      disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      suffixIcon: suffixIcon,
-      prefixText: prefixText,
-    );
-  }
-
-  Widget _sectionTitle(String text) => Padding(
-    padding: const EdgeInsets.only(top: 20, bottom: 8),
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-
   @override
   Widget build(BuildContext context) {
     // final l10n = AppLocalizations.of(context)!; // TODO: Re-enable l10n
@@ -739,14 +657,10 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    // Consistent padding value
-    const double sectionSpacing = 24.0;
-    const double fieldSpacing = 16.0;
-
     return Stack(
       children: [
         Scaffold(
-      appBar: AppBar(
+          appBar: AppBar(
             leading: IconButton(
               icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
               onPressed: () => Navigator.of(context).maybePop(),
@@ -760,223 +674,296 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
-              child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-                  horizontal: 32.0,
-                  vertical: 32.0,
-                ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-                      Text(
-                        'Criar Proposta',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _sectionTitle('Informação da Entidade'),
-                      _buildReadOnlyField('Entidade', widget.accountName),
-                      const SizedBox(height: 8),
-                      _buildReadOnlyField('NIF', widget.nif),
-                      const SizedBox(height: 8),
-                      _buildReadOnlyField('Oportunidade', widget.opportunityName),
-                      const SizedBox(height: 8),
-                      _buildReadOnlyField('Agente Retail', widget.resellerName),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 56,
-                        child: TextFormField(
-                controller: _responsavelNegocioController,
-                          style: theme.textTheme.bodySmall,
-                          decoration: _inputDecoration(label: 'Gestor de Negócio Retail', hint: 'Introduza o nome do gestor'),
-                          validator: (value) => null,
-                        ),
-              ),
-                      const SizedBox(height: 24),
-                      _sectionTitle('Informação da Proposta'),
-                      SizedBox(
-                        height: 56,
-                        child: TextFormField(
-                controller: _proposalNameController,
-                          style: theme.textTheme.bodySmall,
-                          decoration: _inputDecoration(label: 'Nome da Proposta'),
-                          validator: (value) => (value?.trim().isEmpty ?? true) ? 'Nome da Proposta é obrigatório' : null,
-                        ),
-              ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 56,
-                        child: DropdownButtonFormField<String>(
-                value: _selectedSolution,
-                          style: theme.textTheme.bodySmall,
-                          items: _solucaoOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                              child: Text(value, style: theme.textTheme.bodySmall),
-                      );
-                    }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedSolution = newValue;
-                  });
-                },
-                          decoration: _inputDecoration(label: 'Solução'),
-                validator: (value) {
-                  if (value == null || value == '--None--') {
-                              return 'Solução é obrigatória';
-                  }
-                  return null;
-                },
-                          hint: Text('Selecione uma solução', style: theme.textTheme.bodySmall),
-              ),
-                      ),
-                      const SizedBox(height: 8),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: CheckboxListTile(
-                              title: const Text('Energia'),
-                      value: _energiaChecked,
-                              onChanged: (v) => setState(() => _energiaChecked = v ?? false),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
+                    child: Text(
+                      'Criar Proposta',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 28,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                          const SizedBox(width: 16),
                   Expanded(
-                    child: CheckboxListTile(
-                              title: const Text('Solar'),
-                      value: _solarChecked,
-                              onChanged: (v) => setState(() => _solarChecked = v ?? false),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-                      const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                            child: SizedBox(
-                              height: 56,
-                    child: TextFormField(
-                      controller: _creationDateController,
-                      readOnly: true,
-                                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                                decoration: _inputDecoration(label: 'Data de Criação', readOnly: true),
-                      ),
-                      ),
-                    ),
-                          const SizedBox(width: 16),
-                  Expanded(
-                            child: SizedBox(
-                              height: 56,
-                    child: TextFormField(
-                      controller: _validityDateController,
-                      readOnly: true,
-                                style: theme.textTheme.bodySmall,
-                                decoration: _inputDecoration(
-                                  label: 'Data de Validade',
-                                  hint: 'Selecione a data',
-                                  suffixIcon: const Icon(Icons.calendar_today),
-                                  readOnly: true,
-                      ),
-                      onTap: () => _selectValidityDate(context),
-                                validator: (value) => (value?.isEmpty ?? true) ? 'Data de Validade é obrigatória' : null,
+                    child: ListView(
+                      padding: const EdgeInsets.all(16.0),
+                      children: [
+                        Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // --- Section 1: Informação da Entidade ---
+                              Card(
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Informação da Entidade',
+                                        style: textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 20,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                AppInputField(
+                                                  controller: TextEditingController(text: widget.accountName),
+                                                  label: 'Entidade',
+                                                  readOnly: true,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppInputField(
+                                                  controller: TextEditingController(text: widget.opportunityName),
+                                                  label: 'Oportunidade',
+                                                  readOnly: true,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppInputField(
+                                                  controller: _responsavelNegocioController,
+                                                  label: 'Gestor de Negócio Retail',
+                                                  hint: 'Introduza o nome do gestor',
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 32),
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                AppInputField(
+                                                  controller: TextEditingController(text: widget.nif),
+                                                  label: 'NIF',
+                                                  readOnly: true,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppInputField(
+                                                  controller: TextEditingController(text: widget.resellerName),
+                                                  label: 'Agente Retail',
+                                                  readOnly: true,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                // Empty space for alignment
+                                                const SizedBox(height: 56),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
+                              const SizedBox(height: 16),
+                              // --- Section 2: Informação da Proposta ---
+                              Card(
+                                elevation: 1,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Informação da Proposta',
+                                        style: textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 20,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                AppInputField(
+                                                  controller: _proposalNameController,
+                                                  label: 'Nome da Proposta',
+                                                  validator: (value) => (value?.trim().isEmpty ?? true) ? 'Nome da Proposta é obrigatório' : null,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppDropdownField<String>(
+                                                  label: 'Solução',
+                                                  value: _selectedSolution,
+                                                  items: _solucaoOptions.map((String value) {
+                                                    return DropdownMenuItem<String>(
+                                                      value: value,
+                                                      child: Text(value),
+                                                    );
+                                                  }).toList(),
+                                                  onChanged: (String? newValue) {
+                                                    setState(() {
+                                                      _selectedSolution = newValue;
+                                                    });
+                                                  },
+                                                  validator: (value) {
+                                                    if (value == null || value == '--None--') {
+                                                      return 'Solução é obrigatória';
+                                                    }
+                                                    return null;
+                                                  },
+                                                  hint: 'Selecione uma solução',
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppInputField(
+                                                  controller: _creationDateController,
+                                                  label: 'Data de Criação',
+                                                  readOnly: true,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                AppInputField(
+                                                  controller: _bundleController,
+                                                  label: 'Bundle (Opcional)',
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 32),
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                AppDateInputField(
+                                                  label: 'Data de Validade',
+                                                  value: _selectedValidityDate,
+                                                  onChanged: (DateTime? newDate) {
+                                                    setState(() {
+                                                      _selectedValidityDate = newDate;
+                                                      _validityDateController.text = newDate != null 
+                                                          ? DateFormat('yyyy-MM-dd').format(newDate)
+                                                          : '';
+                                                    });
+                                                  },
+                                                  validator: (value) => (value == null) ? 'Data de Validade é obrigatória' : null,
+                                                  firstDate: DateTime.now(),
+                                                  lastDate: DateTime(2101),
+                                                  hint: 'Selecione a data de validade',
+                                                ),
+                                                const SizedBox(height: 8),
+                                                if (_solarChecked)
+                                                  AppInputField(
+                                                    controller: _solarInvestmentController,
+                                                    label: 'Valor de Investimento Solar',
+                                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                    validator: (value) => (_solarChecked && (value?.trim().isEmpty ?? true)) ? 'Valor de investimento é obrigatório para Solar' : null,
+                                                  )
+                                                else
+                                                  const SizedBox(height: 56),
+                                                const SizedBox(height: 8),
+                                                // Empty space for alignment
+                                                const SizedBox(height: 56),
+                                                const SizedBox(height: 8),
+                                                // Empty space for alignment
+                                                const SizedBox(height: 56),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      // Checkboxes at the bottom
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Checkbox(
+                                            value: _energiaChecked,
+                                            onChanged: (v) => setState(() => _energiaChecked = v ?? false),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text('Energia', style: theme.textTheme.bodySmall),
+                                          const SizedBox(width: 24),
+                                          Checkbox(
+                                            value: _solarChecked,
+                                            onChanged: (v) => setState(() => _solarChecked = v ?? false),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text('Solar', style: theme.textTheme.bodySmall),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // --- Section 3: CPE Details ---
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Detalhes CPE',
+                                    style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 24),
+                                    tooltip: 'Adicionar CPE',
+                                    onPressed: _addCpeBlock,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _cpeItems.length,
+                                itemBuilder: (context, index) => _buildCpeInputBlock(index, _cpeItems[index]),
+                              ),
+                              const SizedBox(height: 24),
+                              Center(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
+                                    textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: colorScheme.onPrimary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                  onPressed: _isSubmitting ? null : _uploadFilesAndSubmit,
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text('Submeter Proposta'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 56,
-                        child: TextFormField(
-                controller: _bundleController,
-                          style: theme.textTheme.bodySmall,
-                          decoration: _inputDecoration(label: 'Bundle (Opcional)'),
-              ),
-                      ),
-              if (_solarChecked)
-                Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: SizedBox(
-                            height: 56,
-                  child: TextFormField(
-                    controller: _solarInvestmentController,
-                              style: theme.textTheme.bodySmall,
-                              decoration: _inputDecoration(
-                                label: 'Valor de Investimento Solar',
-                      prefixText: '€ ',
-                    ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*[\.,]?[0-9]{0,2}')), // up to 2 decimals
-                    ],
-                              validator: (value) => (_solarChecked && (value?.trim().isEmpty ?? true)) ? 'Valor de investimento é obrigatório para Solar' : null,
-                  ),
-                ),
-                        ),
-                      const SizedBox(height: 24),
-              Padding(
-                        padding: const EdgeInsets.only(top: 20, bottom: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Detalhes CPE', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                            IconButton(
-                              icon: const Icon(Icons.add, size: 24),
-                              tooltip: 'Adicionar CPE',
-                              onPressed: _addCpeBlock,
-                            ),
-                          ],
-                        ),
-              ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _cpeItems.length,
-                        itemBuilder: (context, index) => _buildCpeInputBlock(index, _cpeItems[index]),
-              ),
-                      const SizedBox(height: 24),
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
-                            textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            elevation: 2,
-                  ),
-                          onPressed: _isSubmitting ? null : _uploadFilesAndSubmit,
-                          child: _isSubmitting
-                          ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                              : const Text('Submeter Proposta'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
             ),
           ),
         ),

@@ -611,11 +611,12 @@ class _AdminSalesforceOpportunityDetailPageState
             children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 32, left: 24, right: 24, bottom: 16),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
+                    child: Row(
                       children: [
-                        Center(
+                        // Left spacer for symmetry
+                        SizedBox(width: _isEditing ? 100 : 56), // Account for button width
+                        // Title in the center with flex
+                        Expanded(
                           child: Text(
                             displayOpportunity.name ?? 'Detalhes da Oportunidade',
                             style: theme.textTheme.headlineSmall?.copyWith(
@@ -625,56 +626,54 @@ class _AdminSalesforceOpportunityDetailPageState
                             ),
                             textAlign: TextAlign.center,
                             overflow: TextOverflow.ellipsis,
+                            maxLines: 2, // Allow 2 lines for long titles
                           ),
                         ),
-                        Positioned(
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(8), // Extra padding for hover/click area
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                    color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                                    size: 28,
-                                  ),
-                                  tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
-                                  onPressed: _toggleEdit,
+                        // Right side buttons
+                        Container(
+                          width: _isEditing ? 100 : 56, // Fixed width for buttons
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                  size: 28,
                                 ),
-                                if (_isEditing)
-                                  const SizedBox(width: 8),
-                                if (_isEditing)
-                                  SizedBox(
-                                    width: 44,
-                                    height: 44,
-                                    child: IconButton(
-                                      icon: _isSaving
-                                          ? SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.5,
-                                                valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
-                                              ),
-                                            )
-                                          : Icon(
-                                              Icons.save_outlined,
-                                              color: theme.colorScheme.primary,
-                                              size: 28,
+                                tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                                onPressed: _toggleEdit,
+                              ),
+                              if (_isEditing)
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: IconButton(
+                                    icon: _isSaving
+                                        ? SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
                                             ),
-                                      onPressed: _isSaving ? null : _saveEdit,
-                                      tooltip: 'Guardar',
-                                      style: IconButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        shape: const CircleBorder(),
-                                        padding: const EdgeInsets.all(0),
-                                      ),
+                                          )
+                                        : Icon(
+                                            Icons.save_outlined,
+                                            color: theme.colorScheme.primary,
+                                            size: 28,
+                                          ),
+                                    onPressed: _isSaving ? null : _saveEdit,
+                                    tooltip: 'Guardar',
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      shape: const CircleBorder(),
+                                      padding: const EdgeInsets.all(0),
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
                         ),
                       ],
@@ -700,16 +699,19 @@ class _AdminSalesforceOpportunityDetailPageState
                                     label: 'Oportunidade',
                                     readOnly: true,
                                   ),
+                            const SizedBox(height: 8),
                             AppInputField(
                               controller: TextEditingController(text: displayOpportunity.accountName ?? ''),
                               label: 'Entidade',
                               readOnly: true,
                             ),
+                            const SizedBox(height: 8),
                             AppInputField(
                               controller: TextEditingController(text: displayOpportunity.ownerName ?? ''),
                               label: 'Owner',
                               readOnly: true,
                             ),
+                            const SizedBox(height: 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Tipo de Oportunidade',
@@ -728,6 +730,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Tipo de Oportunidade',
                                   readOnly: true,
                                 ),
+                            const SizedBox(height: 8),
                             _isEditing
                               ? AppInputField(
                                   controller: _controllers['observacoes']!,
@@ -744,7 +747,8 @@ class _AdminSalesforceOpportunityDetailPageState
                                 ),
                             // Motivo da Perda: only show if Fase is '6 - Conclusão Desistência Cliente'
                             if ((_isEditing && (_selectedFaseC == '6 - Conclusão Desistência Cliente')) ||
-                                (!_isEditing && displayOpportunity.faseC == '6 - Conclusão Desistência Cliente' && (displayOpportunity.motivoDaPerda?.isNotEmpty ?? false)))
+                                (!_isEditing && displayOpportunity.faseC == '6 - Conclusão Desistência Cliente' && (displayOpportunity.motivoDaPerda?.isNotEmpty ?? false))) ...[
+                              const SizedBox(height: 8),
                               _isEditing
                                 ? AppDropdownField<String>(
                                     label: 'Motivo da Perda',
@@ -763,6 +767,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                     label: 'Motivo da Perda',
                                     readOnly: true,
                                   ),
+                            ],
                           ],
                           // RIGHT COLUMN
                           [
@@ -772,11 +777,13 @@ class _AdminSalesforceOpportunityDetailPageState
                               label: 'Data de Criação da Oportunidade',
                               readOnly: true,
                             ),
+                            const SizedBox(height: 8),
                             AppInputField(
                               controller: _controllers['nifC']!,
                               label: 'NIF',
                               readOnly: true,
                             ),
+                            const SizedBox(height: 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Fase',
@@ -795,11 +802,13 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Fase',
                                   readOnly: true,
                                 ),
+                            const SizedBox(height: 8),
                             AppInputField(
                               controller: TextEditingController(text: _formatBool(displayOpportunity.qualificacaoConcluida)),
                               label: 'Qualificação concluída',
                               readOnly: true,
                             ),
+                            const SizedBox(height: 8),
                             if (!_isEditing)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
@@ -836,6 +845,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Segmento de Cliente',
                                   readOnly: true,
                                 ),
+                            const SizedBox(height: 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Solução',
@@ -872,11 +882,13 @@ class _AdminSalesforceOpportunityDetailPageState
                     label: 'Data do Contacto',
                     readOnly: true,
                   ),
+                  const SizedBox(height: 8),
                   AppInputField(
                     controller: TextEditingController(text: _formatDate(displayOpportunity.dataProposta)),
                     label: 'Data da Proposta',
                     readOnly: true,
                   ),
+                  const SizedBox(height: 8),
                   _isEditing
                     ? AppDateInputField(
                         label: 'Data de Previsão de Fecho',
@@ -891,6 +903,7 @@ class _AdminSalesforceOpportunityDetailPageState
                         label: 'Data de Previsão de Fecho',
                         readOnly: true,
                       ),
+                  const SizedBox(height: 8),
                   AppInputField(
                     controller: TextEditingController(text: displayOpportunity.backOffice ?? ''),
                     label: 'Back Office',
@@ -903,11 +916,13 @@ class _AdminSalesforceOpportunityDetailPageState
                     label: 'Data da Reunião',
                     readOnly: true,
                   ),
+                  const SizedBox(height: 8),
                   AppInputField(
                     controller: TextEditingController(text: _formatDate(displayOpportunity.dataFecho)),
                     label: 'Data do Fecho',
                     readOnly: true,
                   ),
+                  const SizedBox(height: 8),
                   _isEditing
                     ? AppDateInputField(
                         label: 'Data da última atualização de Fase',
@@ -922,6 +937,7 @@ class _AdminSalesforceOpportunityDetailPageState
                         label: 'Data da última atualização de Fase',
                         readOnly: true,
                       ),
+                  const SizedBox(height: 8),
                   AppInputField(
                     controller: TextEditingController(text: displayOpportunity.cicloDoGanhoName ?? ''),
                     label: 'Ciclo do Ganho',
