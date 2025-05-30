@@ -19,6 +19,8 @@ import '../../../../presentation/widgets/app_loading_indicator.dart';
 import '../../../../core/models/notification.dart';
 import '../../../notifications/data/repositories/notification_repository.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
+import '../../../../core/services/salesforce_auth_service.dart';
 // Removed import of non-existent file
 // import '../../../../features/admin/presentation/widgets/submission_details_dialog.dart';
 // Removed l10n import
@@ -61,6 +63,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   late TextEditingController _companyNifController;
   late TextEditingController _ibanController;
   late TextEditingController _resellerNameController;
+  late TextEditingController _joinedDateController;
 
   // Date picker state variables
   DateTime? _joinedDate;
@@ -94,6 +97,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     _phoneSecondaryController.dispose();
     _emailSecondaryController.dispose();
     _birthDateController.dispose();
+    _joinedDateController.dispose();
     _collaboratorNifController.dispose();
     _ccNumberController.dispose();
     _ssNumberController.dispose();
@@ -262,18 +266,10 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         // Refresh user data after saving
         await _initializeUserData();
 
-      setState(() {
-        _isEditing = false;
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Perfil atualizado com sucesso'),
-            ),
-          );
-        }
+        setState(() {
+          _isEditing = false;
+          _isLoading = false;
+        });
       } else {
         // No changes to save
         setState(() {
@@ -380,6 +376,11 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
      _birthDateController = TextEditingController(
       text: _localUserCopy.additionalData['birthDate'] != null
           ? DateFormat('dd/MM/yyyy').format(DateTime.parse(_localUserCopy.additionalData['birthDate']))
+          : '',
+    );
+    _joinedDateController = TextEditingController(
+      text: _localUserCopy.additionalData['joinedDate'] != null
+          ? DateFormat('dd/MM/yyyy').format(DateTime.parse(_localUserCopy.additionalData['joinedDate']))
           : '',
     );
     _collaboratorNifController = TextEditingController(
@@ -763,60 +764,77 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               [
                 // LEFT COLUMN
                 [
-                    _isEditing
-                      ? _buildEditableTextField(
-                          'Nome do Colaborador', _displayNameController)
-                      : _buildDetailItem(
-                          'Nome do Colaborador', _localUserCopy.displayName ?? ''),
-                    _isEditing
-                      ? _buildEditableTextField('Email Principal', _emailController)
-                      : _buildDetailItem('Email Principal', _localUserCopy.email),
-                    _isEditing
-                      ? _buildEditableTextField(
-                          'Telefone Principal', _phoneController)
-                      : _buildDetailItem('Telefone Principal', _getTelefonePrincipal()),
-                  _isEditing
-                      ? _buildEditableTextField(
-                          'Email Secundário', _emailSecondaryController)
-                      : _buildDetailItem(
-                          'Email Secundário', _localUserCopy.additionalData['emailSecondary'] ?? ''),
-                  _isEditing
-                      ? _buildEditableTextField(
-                          'Telefone Secundário', _phoneSecondaryController)
-                      : _buildDetailItem(
-                          'Telefone Secundário', _localUserCopy.additionalData['phoneSecondary'] ?? ''),
+                    AppInputField(
+                      controller: _displayNameController,
+                      label: 'Nome do Colaborador',
+                      readOnly: !_isEditing,
+                      onChanged: _isEditing ? (v) => setState(() {}) : null,
+                    ),
+                    AppInputField(
+                      controller: _emailController,
+                      label: 'Email Principal',
+                      readOnly: !_isEditing,
+                      onChanged: _isEditing ? (v) => setState(() {}) : null,
+                    ),
+                    AppInputField(
+                      controller: _phoneController,
+                      label: 'Telefone Principal',
+                      readOnly: !_isEditing,
+                      onChanged: _isEditing ? (v) => setState(() {}) : null,
+                    ),
+                  AppInputField(
+                    controller: _emailSecondaryController,
+                    label: 'Email Secundário',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                  AppInputField(
+                    controller: _phoneSecondaryController,
+                    label: 'Telefone Secundário',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
                 ],
                 // RIGHT COLUMN
                 [
                    _isEditing
-                      ? _buildEditableDateField(
-                          'Data de Nascimento', _birthDate, (pickedDate) {
-                           setState(() {
-                              _birthDate = pickedDate;
-                             });
-                         })
-                      : _buildDetailItem(
-                          'Data de Nascimento',
-                          _birthDate != null ? DateFormat('dd/MM/yyyy').format(_birthDate!) : 'N/D'),
+                      ? AppDateInputField(
+                          label: 'Data de Nascimento',
+                          value: _birthDate,
+                          onChanged: (pickedDate) => setState(() => _birthDate = pickedDate),
+                        )
+                      : AppInputField(
+                          controller: _birthDateController,
+                          label: 'Data de Nascimento',
+                          readOnly: true,
+                        ),
                    _isEditing
-                      ? _buildEditableTextField(
-                          'Nome do Revendedor', _resellerNameController)
-                      : _buildDetailItem(
-                          'Nome do Revendedor', _getNomeRevendedor()),
+                      ? AppInputField(
+                          controller: _resellerNameController,
+                          label: 'Nome do Revendedor',
+                          readOnly: !_isEditing,
+                          onChanged: _isEditing ? (v) => setState(() {}) : null,
+                        )
+                      : AppInputField(
+                          controller: _resellerNameController,
+                          label: 'Nome do Revendedor',
+                          readOnly: true,
+                        ),
                     _isEditing
-                      ? _buildEditableDateField(
-                          'Data de Registo', _joinedDate, (pickedDate) {
-                           setState(() {
-                              _joinedDate = pickedDate;
-                             });
-                         })
-                      : _buildDetailItem(
-                          'Data de Registo',
-                          _joinedDate != null ? DateFormat('dd/MM/yyyy').format(_joinedDate!) : 'N/D'),
-                  // Salesforce ID (Read Only) - Use _localUserCopy
-                  _buildDetailItem(
-                    'ID Salesforce',
-                    _getSalesforceId(),
+                      ? AppDateInputField(
+                          label: 'Data de Registo',
+                          value: _joinedDate,
+                          onChanged: (pickedDate) => setState(() => _joinedDate = pickedDate),
+                        )
+                      : AppInputField(
+                          controller: _joinedDateController,
+                          label: 'Data de Registo',
+                          readOnly: true,
+                        ),
+                  AppInputField(
+                    controller: TextEditingController(text: _getSalesforceId()),
+                    label: 'ID Salesforce',
+                    readOnly: true,
                   ),
                 ],
               ],
@@ -831,33 +849,45 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               [
                 // LEFT COLUMN
                 [
-                  _isEditing
-                      ? _buildEditableTextField(
-                          'NIF (Pessoal)', _collaboratorNifController)
-                      : _buildDetailItem(
-                          'NIF (Pessoal)', _localUserCopy.additionalData['collaboratorNif'] ?? ''),
-                   _isEditing
-                      ? _buildEditableTextField('CC', _ccNumberController)
-                      : _buildDetailItem('CC', _localUserCopy.additionalData['ccNumber'] ?? ''),
-                   _isEditing
-                      ? _buildEditableTextField('SS', _ssNumberController)
-                      : _buildDetailItem('SS', _localUserCopy.additionalData['ssNumber'] ?? ''),
+                  AppInputField(
+                    controller: _collaboratorNifController,
+                    label: 'NIF (Pessoal)',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                   AppInputField(
+                    controller: _ccNumberController,
+                    label: 'CC',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                   AppInputField(
+                    controller: _ssNumberController,
+                    label: 'SS',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
                 ],
                 // RIGHT COLUMN
                 [
-                   _isEditing
-                      ? _buildEditableTextField(
-                          'NIF (Empresa)', _companyNifController)
-                      : _buildDetailItem(
-                          'NIF (Empresa)', _localUserCopy.additionalData['companyNif'] ?? ''),
-                    _isEditing
-                      ? _buildEditableTextField(
-                          'Código Comercial', _commercialCodeController)
-                      : _buildDetailItem(
-                          'Código Comercial', _localUserCopy.additionalData['commercialCode'] ?? ''),
-                     _isEditing
-                      ? _buildEditableTextField('IBAN', _ibanController)
-                      : _buildDetailItem('IBAN', _localUserCopy.additionalData['iban'] ?? ''),
+                   AppInputField(
+                    controller: _companyNifController,
+                    label: 'NIF (Empresa)',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                    AppInputField(
+                    controller: _commercialCodeController,
+                    label: 'Código Comercial',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                     AppInputField(
+                    controller: _ibanController,
+                    label: 'IBAN',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
                 ],
               ],
             ),
@@ -871,31 +901,45 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               [
                 // LEFT COLUMN
                 [
-                   _isEditing
-                      ? _buildEditableTextField('Morada', _addressController)
-                      : _buildDetailItem('Morada', _localUserCopy.additionalData['address'] ?? ''),
-                   _isEditing
-                      ? _buildEditableTextField(
-                          'Código Postal', _postalCodeController)
-                      : _buildDetailItem(
-                          'Código Postal', _localUserCopy.additionalData['postalCode'] ?? ''),
-                   _isEditing
-                      ? _buildEditableTextField('Localidade', _cityController)
-                      : _buildDetailItem('Localidade', _localUserCopy.additionalData['city'] ?? ''),
+                   AppInputField(
+                    controller: _addressController,
+                    label: 'Morada',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                   AppInputField(
+                    controller: _postalCodeController,
+                    label: 'Código Postal',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                   AppInputField(
+                    controller: _cityController,
+                    label: 'Localidade',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
                 ],
                 // RIGHT COLUMN
                 [
-                   _isEditing
-                      ? _buildEditableTextField('Distrito', _districtController)
-                      : _buildDetailItem('Distrito', _localUserCopy.additionalData['district'] ?? ''),
-                   _isEditing
-                      ? _buildEditableTextField('Tipologia', _tipologiaController)
-                      : _buildDetailItem('Tipologia', _localUserCopy.additionalData['tipologia'] ?? ''),
-                    _isEditing
-                      ? _buildEditableTextField(
-                          'Atividade Comercial', _atividadeComercialController)
-                      : _buildDetailItem(
-                          'Atividade Comercial', _localUserCopy.additionalData['atividadeComercial'] ?? ''),
+                   AppInputField(
+                    controller: _districtController,
+                    label: 'Distrito',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                   AppInputField(
+                    controller: _tipologiaController,
+                    label: 'Tipologia',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
+                    AppInputField(
+                    controller: _atividadeComercialController,
+                    label: 'Atividade Comercial',
+                    readOnly: !_isEditing,
+                    onChanged: _isEditing ? (v) => setState(() {}) : null,
+                  ),
                 ],
               ],
             ),
@@ -908,36 +952,79 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   Widget _buildOpportunitiesTab(BuildContext context) {
     final String? salesforceId = _getSalesforceId();
     final theme = Theme.of(context);
+    final salesforceAuthState = ref.watch(salesforceAuthProvider);
+
+    if (salesforceAuthState != SalesforceAuthState.authenticated) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.cloud_off,
+                size: 64,
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Salesforce não está conectado',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Para ver as oportunidades, conecte o Salesforce nas definições.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.settings),
+                label: const Text('Ir para Definições'),
+                onPressed: () {
+                  context.push('/admin/settings');
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (salesforceId == null || salesforceId.isEmpty || salesforceId == 'Não vinculado') {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              CupertinoIcons.nosign,
-              size: 64,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.cloud_off,
+                size: 64,
                 color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
+              ),
+              const SizedBox(height: 16),
+              Text(
                 'Salesforce Não Vinculado',
                 style: theme.textTheme.titleLarge?.copyWith(
                   color: theme.colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
+              ),
+              const SizedBox(height: 8),
+              Text(
                 'Este utilizador não tem um ID Salesforce vinculado.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
@@ -957,7 +1044,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    CupertinoIcons.exclamationmark_triangle,
+                    Icons.warning_amber_rounded,
                     size: 48,
                     color: theme.colorScheme.error,
                   ),
@@ -995,37 +1082,29 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
           return Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.briefcase,
-                  size: 64,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.work_outline,
+                    size: 64,
                     color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
                     'Nenhuma Oportunidade Encontrada',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: theme.colorScheme.onSurface,
                     ),
                     textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
                     'Nenhuma oportunidade Salesforce encontrada para este revendedor.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  textAlign: TextAlign.center,
-                ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Recarregar'),
-                    onPressed: () {
-                      setState(_initOpportunitiesFuture);
-                    },
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -1050,130 +1129,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     );
   }
 
-  // --- Helper to build a read-only information item ---
-  Widget _buildDetailItem(
-    String label,
-    String value,
-  ) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0), // Adjust vertical padding
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7), // Use theme color with opacity
-              fontWeight: FontWeight.normal,
-                ),
-              ),
-          const SizedBox(height: 4), // Keep spacing
-                        Text(
-            value.isNotEmpty ? value : 'N/D', // Display N/D if value is empty
-            style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500, // Use w500 fontWeight
-                ),
-              ),
-            ],
-          ),
-    );
-  }
-
-  // --- NEW: Helper to build an editable text field (matching opportunity detail page style) ---
-  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint}) {
-    final theme = Theme.of(context);
-    return SizedBox(
-       // height: 56, // Removed fixed height to allow multiline text field to expand
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines ?? 1,
-        minLines: 1,
-        style: theme.textTheme.bodySmall, // Use bodySmall for text style
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500), // Use bodySmall for label style
-          hintText: hint,
-          hintStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7)),
-          filled: true,
-          fillColor: theme.colorScheme.surfaceVariant, // Themed background
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), // Rounded corners
-            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)), // Themed border
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), // Rounded corners
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2), // Themed focused border
-          ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Adjusted padding
-        ),
-      ),
-    );
-  }
-
-  // --- NEW: Helper to build an editable date picker field (matching opportunity detail page style) ---
-  Widget _buildEditableDateField(String label, DateTime? currentValue, ValueChanged<DateTime?> onDatePicked) {
-    final theme = Theme.of(context);
-    final controller = TextEditingController(text: currentValue != null ? DateFormat('dd/MM/yyyy').format(currentValue) : '');
-    return SizedBox(
-       height: 56, // Keep fixed height for date picker
-      child: TextFormField(
-              controller: controller,
-        style: theme.textTheme.bodySmall, // Use bodySmall for text style
-              decoration: InputDecoration(
-                labelText: label,
-          labelStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500), // Use bodySmall for label style
-          hintText: 'Selecionar data', // Hardcoded Portuguese
-          hintStyle: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7)),
-          filled: true,
-          fillColor: theme.colorScheme.surfaceVariant, // Themed background
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), // Rounded corners
-            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)), // Themed border
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12), // Rounded corners
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2), // Themed focused border
-          ),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Adjusted padding
-          suffixIcon: const Icon(Icons.calendar_today), // Calendar icon
-        ),
-        readOnly: true, // Make text field read-only, tap handles date picking
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: currentValue ?? DateTime.now(),
-            firstDate: DateTime(1900),
-            lastDate: DateTime.now(), // Assuming no future dates for birth/joined date
-            initialEntryMode: DatePickerEntryMode.calendarOnly,
-            builder: (context, child) {
-              final theme = Theme.of(context);
-              return Theme(
-                data: theme.copyWith(
-                  colorScheme: theme.colorScheme.copyWith(
-                    primary: theme.colorScheme.primary, // Themed primary
-                    surface: theme.colorScheme.surface, // Themed surface
-                  ),
-                  dialogBackgroundColor: theme.colorScheme.surface, // Themed background
-                  textButtonTheme: TextButtonThemeData(
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.primary, // Themed text color
-                    ),
-                  ),
-                ),
-                child: child!,
-              );
-            },
-          );
-          onDatePicked(picked);
-        },
-      ),
-    );
-  }
-
   // --- NEW: Helper to build a two-column detail section card ---
   Widget _buildUserDetailSectionTwoColumn(BuildContext context, String title, List<List<Widget>> columns) {
     final theme = Theme.of(context);
@@ -1189,30 +1144,32 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600, // Bold title
-                color: theme.colorScheme.onSurface, // Themed color
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                textAlign: TextAlign.left,
               ),
-            ),
-            const SizedBox(height: 12), // Spacing below title
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start, // Align columns to the top
-        children: [
-          Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: columns[0].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start, // Align columns to the top
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: columns[0].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
+                    ),
+                  ),
+                  const SizedBox(width: 32), // Spacing between columns
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                       children: columns[1].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
                   ),
                 ),
-                const SizedBox(width: 32), // Spacing between columns
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                     children: columns[1].expand((widget) => [widget, const SizedBox(height: 16)]).toList(), // Add spacing between items
-            ),
-          ),
-        ],
+              ],
             ),
           ],
         ),

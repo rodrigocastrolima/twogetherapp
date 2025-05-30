@@ -19,6 +19,7 @@ import '../../../../presentation/widgets/success_dialog.dart'; // Import Success
 import '../../domain/models/provider_file.dart'; // Used in delete logic
 import '../../domain/models/provider_info.dart';
 import '../providers/provider_providers.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
 
 class AdminProviderListPage extends ConsumerStatefulWidget {
   const AdminProviderListPage({super.key});
@@ -529,37 +530,37 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: const EdgeInsets.all(0), // Remove default title padding
+      titlePadding: const EdgeInsets.all(0),
       title: Stack(
-        children: [ // Removed alignment: Alignment.topRight for more control
+        children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 60, 0), // Title padding, leave space for close button
+            padding: const EdgeInsets.fromLTRB(24, 24, 60, 0),
             child: Align(
-              alignment: Alignment.centerLeft, // Align title text to the left
+              alignment: Alignment.centerLeft,
               child: Text(
                 'Adicionar Nova Pasta',
                 style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ),
-          if (!_isUploading) // Only show close button if not uploading
+          if (!_isUploading)
             Positioned(
-              top: 8, // Adjust position for better alignment
+              top: 8,
               right: 8,
               child: IconButton(
                 icon: const Icon(CupertinoIcons.xmark, size: 22),
                 onPressed: () => Navigator.of(context).pop(),
                 tooltip: 'Fechar',
                 splashRadius: 20,
-                padding: const EdgeInsets.all(8), // Standard padding
+                padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(),
               ),
             ),
         ],
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      content: SizedBox( // Constrain dialog width
-        width: MediaQuery.of(context).size.width * 0.8, // Example: 80% of screen width
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
           child: Form(
             key: _dialogFormKey,
@@ -572,64 +573,18 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
                     padding: const EdgeInsets.only(bottom: 16.0),
                     child: ErrorMessageWidget(message: _dialogErrorMessage!),
                   ),
-                
-                // Custom styled Text Field
-                Row(
-                  children: [
-                    Icon(
-                      CupertinoIcons.folder_badge_plus,
-                      color: colorScheme.onSurfaceVariant,
-                      size: 20, // Adjust size to match text
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Nome da Pasta',
-                      style: textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
+                AppInputField(
+                  controller: _nameController,
+                  label: 'Nome da Pasta',
+                  hint: 'Insira o nome da pasta',
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor, insira o nome da pasta.';
+                    }
+                    return null;
+                  },
                 ),
-                const SizedBox(height: 8),
-                // Applying new minimalistic style
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12), // Matches ServicesPage
-                    border: Border.all(color: theme.dividerColor.withOpacity(0.4), width: 1), // Matches ServicesPage
-                    color: Colors.transparent, // Matches ServicesPage
-                  ),
-                  child: TextFormField(
-                    controller: _nameController,
-                    enabled: !_isUploading,
-                    style: textTheme.bodyLarge?.copyWith( // Style for the input text itself
-                      color: colorScheme.onSurface,
-                      // fontWeight: FontWeight.w500, // fontWeight can be inherited or set if needed
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Insira o nome da pasta',
-                      filled: false, // Explicitly set to false
-                      // fillColor: Colors.transparent, // Can also be explicit if needed, but filled: false should suffice
-                      border: InputBorder.none, // Key for minimalistic style
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Adjusted to match ServicesPage more closely
-                      hintStyle: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.6)), // Matches ServicesPage
-                      // prefixIcon removed as the icon is now part of the external label Row
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Por favor, insira o nome da pasta.';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
+                const SizedBox(height: 16),
                 Text(
                   'Logótipo da Pasta',
                   style: textTheme.bodyLarge?.copyWith(
@@ -637,15 +592,14 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
                     color: colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 12),
-
+                const SizedBox(height: 16),
                 Center(
-                  child: SizedBox( // Give SizedBox to parent of Stack to avoid external clipping
-                    width: 150 + 16, // Image size + padding for button overflow
+                  child: SizedBox(
+                    width: 150 + 16,
                     height: 150 + 16,
                     child: Stack(
-                      clipBehavior: Clip.none, // Allow button to overflow slightly if needed
-                      alignment: Alignment.center, // Center the main image container
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
                       children: [
                         Container(
                           decoration: BoxDecoration(
@@ -661,8 +615,8 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
                         ),
                         if (!_isUploading)
                           Positioned(
-                            right: 0, // Adjusted to be fully visible
-                            bottom: 0, // Adjusted to be fully visible
+                            right: 0,
+                            bottom: 0,
                             child: Container(
                               decoration: BoxDecoration(
                                 color: colorScheme.secondary,
@@ -689,7 +643,7 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24), // Spacing before actions
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -716,13 +670,13 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
               style: textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
-                color: colorScheme.onPrimary, // Explicitly set text color
+                color: colorScheme.onPrimary,
               ),
             ),
             onPressed: _isUploading ? null : _saveProvider,
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary, // This should ideally handle icon color
+              foregroundColor: theme.colorScheme.onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.0),

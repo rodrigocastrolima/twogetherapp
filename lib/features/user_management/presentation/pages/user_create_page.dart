@@ -149,12 +149,20 @@ class _UserCreatePageState extends ConsumerState<UserCreatePage> {
           side: BorderSide(color: theme.dividerColor.withAlpha(25)),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
-              const SizedBox(height: 4),
+              Text(
+                title,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                textAlign: TextAlign.left,
+              ),
+              const SizedBox(height: 16),
               isWide
                   ? Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,26 +231,23 @@ class _UserCreatePageState extends ConsumerState<UserCreatePage> {
                       textAlign: TextAlign.left,
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  // After the page title ('Criar Novo Utilizador'), update the picklist section:
-                  Row(
-                    children: [
-                      const SizedBox(width: 24),
-                      SizedBox(
-                        width: 220,
-                        child: AppDropdownField<UserRole>(
-                          label: 'Tipo de Utilizador',
-                          value: _selectedRole,
-                          items: const [
-                            DropdownMenuItem(value: UserRole.admin, child: Text('Administrador')),
-                            DropdownMenuItem(value: UserRole.reseller, child: Text('Revendedor')),
-                          ],
-                          onChanged: (role) {
-                            if (role != null) setState(() => _selectedRole = role);
-                          },
-                        ),
+                  const SizedBox(height: 24),
+                  _buildTwoColumnSection(
+                    'Tipo de Utilizador',
+                    [
+                      AppDropdownField<UserRole>(
+                        label: 'Tipo de Utilizador',
+                        value: _selectedRole,
+                        items: const [
+                          DropdownMenuItem(value: UserRole.admin, child: Text('Administrador')),
+                          DropdownMenuItem(value: UserRole.reseller, child: Text('Revendedor')),
+                        ],
+                        onChanged: (role) {
+                          if (role != null) setState(() => _selectedRole = role);
+                        },
                       ),
                     ],
+                    [],
                   ),
                   // --- Informação Pessoal ---
                   _buildTwoColumnSection(
@@ -297,12 +302,16 @@ class _UserCreatePageState extends ConsumerState<UserCreatePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 24.0),
                       child: Text(_error!, style: TextStyle(color: colorScheme.error)),
                     ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  const SizedBox(height: 24),
+                  Center(
                     child: SizedBox(
-                      width: 340,
+                      width: 260,
                       child: FilledButton(
                         onPressed: _isLoading ? null : _createUser,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          textStyle: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        ),
                         child: _isLoading
                             ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Text('Criar Utilizador'),

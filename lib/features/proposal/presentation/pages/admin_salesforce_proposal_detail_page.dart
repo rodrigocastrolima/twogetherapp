@@ -19,6 +19,7 @@ import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 import '../../../../presentation/widgets/simple_list_item.dart'; // Import SimpleListItem
+import '../../../../presentation/widgets/app_input_field.dart'; // Import AppInputField
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceProposalDetailPage extends ConsumerStatefulWidget {
@@ -75,7 +76,7 @@ class _AdminSalesforceProposalDetailPageState
     'consumoPeriodoContratoKwhC': 'Consumo_para_o_per_odo_do_contrato_KWh__c',
     'valorInvestimentoSolarC': 'Valor_de_Investimento_Solar__c',
     'dataValidadeC': 'Data_de_Validade__c',
-    'dataInicioContratoC': 'Data_de_Início_do_Contrato__c',
+    'dataInicioContratoC': 'Data_de_In_cio_do_Contrato__c',
     'dataFimContratoC': 'Data_de_fim_do_Contrato__c',
     'soluOC': 'Solu_o__c',
     'statusC': 'Status__c',
@@ -185,8 +186,8 @@ class _AdminSalesforceProposalDetailPageState
   void _initializeEditState(DetailedSalesforceProposal proposal) {
     _originalProposal = proposal;
     _editedProposal = proposal.copyWith();
-    _selectedSolution = _editedProposal?.soluOC;
-    _selectedStatus = _editedProposal?.statusC;
+    _selectedSolution = _editedProposal?.soluOC ?? '--Nenhum --';
+    _selectedStatus = _editedProposal?.statusC ?? '--Nenhum --';
     _controllers.forEach((field, controller) {
       final value = _editedProposal?.toJson()[field];
       controller.text = value?.toString() ?? '';
@@ -643,36 +644,40 @@ class _AdminSalesforceProposalDetailPageState
     final theme = Theme.of(context);
     final detailsAsync = ref.watch(proposalDetailsProvider(widget.proposalId));
 
+    // Ensure _selectedSolution and _selectedStatus are initialized
+    _selectedSolution ??= '--Nenhum --';
+    _selectedStatus ??= '--Nenhum --';
+
     return detailsAsync.when(
       loading: () => const AppLoadingIndicator(),
       error: (error, stack) => Scaffold(
         body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error loading proposal details:\n$error',
-                  style: TextStyle(color: theme.colorScheme.error),
-                  textAlign: TextAlign.center,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Error loading proposal details:\n$error',
+              style: TextStyle(color: theme.colorScheme.error),
+              textAlign: TextAlign.center,
             ),
-                ),
-              ),
-            ),
-        data: (proposalFromProvider) {
-          // Initialize state when data first loads IF NOT ALREADY EDITING
-          if (!_isEditing &&
-              (_originalProposal == null ||
-                  proposalFromProvider.id != _originalProposal!.id)) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _initializeEditState(proposalFromProvider);
-              }
-            });
-          }
+          ),
+        ),
+      ),
+      data: (proposalFromProvider) {
+        // Initialize state when data first loads IF NOT ALREADY EDITING
+        if (!_isEditing &&
+            (_originalProposal == null ||
+                proposalFromProvider.id != _originalProposal!.id)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _initializeEditState(proposalFromProvider);
+            }
+          });
+        }
 
-          // Determine which data to display
-          final DetailedSalesforceProposal displayProposal =
-              (_isEditing ? _editedProposal : proposalFromProvider) ??
-              proposalFromProvider; // Fallback to provider data
+        // Determine which data to display
+        final DetailedSalesforceProposal displayProposal =
+            (_isEditing ? _editedProposal : proposalFromProvider) ??
+            proposalFromProvider; // Fallback to provider data
 
         return Scaffold(
           appBar: AppBar(
@@ -691,7 +696,7 @@ class _AdminSalesforceProposalDetailPageState
               constraints: const BoxConstraints(maxWidth: 1200),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+                children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
                     child: Row(
@@ -756,93 +761,65 @@ class _AdminSalesforceProposalDetailPageState
                       padding: const EdgeInsets.all(16.0),
                       children: [
                         // --- Section 1: Informação da Entidade (Double Column in Edit Mode) ---
-                        _buildDetailSectionTwoColumn(context, 'Informação da Entidade', [
+                        _buildUserDetailSectionTwoColumn(context, 'Informação da Entidade', [
                           [
-                            _isEditing
-                              ? _buildEditableTextField('Entidade', TextEditingController(text: displayProposal.entidadeName ?? displayProposal.entidadeId), readOnly: true)
-                              : _buildDetailItem('Entidade', displayProposal.entidadeName ?? displayProposal.entidadeId),
-                            _isEditing
-                              ? _buildEditableTextField('NIF', _controllers['nifC']!)
-                              : _buildDetailItem('NIF', displayProposal.nifC, fieldKey: 'nifC'),
-                            _isEditing
-                              ? _buildEditableTextField('Oportunidade', TextEditingController(text: displayProposal.oportunidadeName ?? displayProposal.oportunidadeId), readOnly: true)
-                              : _buildDetailItem('Oportunidade', displayProposal.oportunidadeName ?? displayProposal.oportunidadeId),
+                            AppInputField(controller: TextEditingController(text: displayProposal.entidadeName ?? displayProposal.entidadeId ?? 'N/A'), label: 'Entidade', readOnly: true),
+                            AppInputField(controller: TextEditingController(text: displayProposal.nifC ?? 'N/A'), label: 'NIF', readOnly: true),
                           ],
                           [
-                            _isEditing
-                              ? _buildEditableTextField('Agente Retail', TextEditingController(text: displayProposal.agenteRetailName ?? displayProposal.agenteRetailId), readOnly: true)
-                              : _buildDetailItem('Agente Retail', displayProposal.agenteRetailName ?? displayProposal.agenteRetailId),
-                            _isEditing
-                              ? _buildEditableTextField('Responsável de Negócio – Retail', _controllers['responsavelNegocioRetailC']!)
-                              : _buildDetailItem('Responsável de Negócio – Retail', displayProposal.responsavelNegocioRetailC, fieldKey: 'responsavelNegocioRetailC'),
-                            _isEditing
-                              ? _buildEditableTextField('Responsável de Negócio – Exclusivo', _controllers['responsavelNegocioExclusivoC']!)
-                              : _buildDetailItem('Responsável de Negócio – Exclusivo', displayProposal.responsavelNegocioExclusivoC, fieldKey: 'responsavelNegocioExclusivoC'),
+                            AppInputField(controller: TextEditingController(text: displayProposal.oportunidadeName ?? displayProposal.oportunidadeId ?? 'N/A'), label: 'Oportunidade', readOnly: true),
                           ],
-              ]),
-              const SizedBox(height: 16),
+                        ]),
+                        const SizedBox(height: 16),
                         // --- Section 2: Informação da Proposta (Double Column in Edit Mode) ---
-                        _buildDetailSectionTwoColumn(context, 'Informação da Proposta', [
+                        _buildUserDetailSectionTwoColumn(context, 'Informação da Proposta', [
                           [
-                            _isEditing
-                              ? _buildEditableTextField('Proposta', _controllers['name']!)
-                              : _buildDetailItem('Proposta', displayProposal.name, fieldKey: 'name'),
-                            _isEditing
-                              ? _buildEditableDropdownField('Status', _selectedStatus, _statusOptions, (newValue) { setState(() { _selectedStatus = newValue; _updateEditedProposalDropdownField('statusC', newValue); }); })
-                              : _buildDropdownField('Status', displayProposal.statusC, 'statusC', _statusOptions, _selectedStatus),
-                            _isEditing
-                              ? _buildEditableDropdownField('Solução', _selectedSolution, _solucaoOptions, (newValue) { setState(() { _selectedSolution = newValue; _updateEditedProposalDropdownField('soluOC', newValue); }); })
-                              : _buildDropdownField('Solução', displayProposal.soluOC, 'soluOC', _solucaoOptions, _selectedSolution),
-                            _isEditing
-                              ? _buildEditableTextField('Consumo para o período do contrato (KWh)', _controllers['consumoPeriodoContratoKwhC']!)
-                              : _buildDetailItem('Consumo para o período do contrato (KWh)', displayProposal.consumoPeriodoContratoKwhC, fieldKey: 'consumoPeriodoContratoKwhC', isNumeric: true),
-                            if (!_isEditing)
-                              _buildDetailItem('Energia', displayProposal.energiaC == true ? 'Sim' : 'Não'),
-                            if (!_isEditing)
-                              _buildDetailItem('Solar', displayProposal.solarC == true ? 'Sim' : 'Não'),
-                            // Group Energia and Solar checkboxes together
-                            if (_isEditing)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0, bottom: 0.0),
-                                child: Row(
-                                  children: [
-                                    Checkbox(
-                                      value: _editedProposal?.energiaC ?? false,
-                                      onChanged: (val) => _updateEditedProposalField('energiaC', val),
-                                    ),
-                                    const Text('Energia'),
-                                    const SizedBox(width: 16),
-                                    Checkbox(
-                                      value: _editedProposal?.solarC ?? false,
-                                      onChanged: (val) => _updateEditedProposalField('solarC', val),
-                                    ),
-                                    const Text('Solar'),
-                                  ],
-                                ),
+                            AppInputField(controller: TextEditingController(text: displayProposal.name ?? 'N/A'), label: 'Proposta', readOnly: true),
+                            AppDropdownField<String>(
+                              label: 'Status',
+                              value: _statusOptions.contains(_selectedStatus) ? _selectedStatus : _statusOptions.first,
+                              items: _statusOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                              onChanged: (v) { setState(() { _selectedStatus = v; _updateEditedProposalDropdownField('statusC', v); }); },
+                            ),
+                            AppDropdownField<String>(
+                              label: 'Solução',
+                              value: _solucaoOptions.contains(_selectedSolution) ? _selectedSolution : _solucaoOptions.first,
+                              items: _solucaoOptions.map((s) => DropdownMenuItem<String>(value: s, child: Text(s))).toList(),
+                              onChanged: (v) { setState(() { _selectedSolution = v; _updateEditedProposalDropdownField('soluOC', v); }); },
+                            ),
+                            AppInputField(controller: _controllers['consumoPeriodoContratoKwhC']!, label: 'Consumo para o período do contrato (KWh)', readOnly: false, onChanged: (v) => _updateEditedProposalField('consumoPeriodoContratoKwhC', v)),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0, bottom: 0.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Checkbox(
+                                    value: _isEditing ? (_editedProposal?.energiaC ?? false) : (displayProposal.energiaC ?? false),
+                                    onChanged: _isEditing ? (val) => _updateEditedProposalField('energiaC', val) : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Energia', style: Theme.of(context).textTheme.bodySmall),
+                                  const SizedBox(width: 24),
+                                  Checkbox(
+                                    value: _isEditing ? (_editedProposal?.solarC ?? false) : (displayProposal.solarC ?? false),
+                                    onChanged: _isEditing ? (val) => _updateEditedProposalField('solarC', val) : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Solar', style: Theme.of(context).textTheme.bodySmall),
+                                ],
                               ),
+                            ),
                           ],
                           [
-                            _isEditing
-                              ? _buildEditableTextField('Valor de Investimento Solar', _controllers['valorInvestimentoSolarC']!)
-                              : _buildDetailItem('Valor de Investimento Solar', displayProposal.valorInvestimentoSolarC, fieldKey: 'valorInvestimentoSolarC', isCurrency: true),
-                            _isEditing
-                              ? _buildEditableDateField('Data de Validade', displayProposal.dataValidadeC, (picked) => _updateEditedProposalField('dataValidadeC', picked?.toIso8601String()))
-                              : _buildDetailItem('Data de Validade', _formatDate(displayProposal.dataValidadeC)),
-                            _isEditing
-                              ? _buildEditableDateField('Data de Início do Contrato', displayProposal.dataInicioContratoC, (picked) => _updateEditedProposalField('dataInicioContratoC', picked?.toIso8601String()))
-                              : _buildDetailItem('Data de Início do Contrato', _formatDate(displayProposal.dataInicioContratoC)),
-                            _isEditing
-                              ? _buildEditableDateField('Data de Fim do Contrato', displayProposal.dataFimContratoC, (picked) => _updateEditedProposalField('dataFimContratoC', picked?.toIso8601String()))
-                              : _buildDetailItem('Data de Fim do Contrato', _formatDate(displayProposal.dataFimContratoC)),
-                            _isEditing
-                              ? _buildEditableTextField('Bundle', TextEditingController(text: displayProposal.bundleC ?? ''), readOnly: true)
-                              : _buildDetailItem('Bundle', displayProposal.bundleC),
-                            _isEditing
-                              ? _buildEditableTextField('Data de Criação da Proposta', TextEditingController(text: _formatDate(displayProposal.dataCriacaoPropostaC)), readOnly: true)
-                              : _buildDetailItem('Data de Criação da Proposta', _formatDate(displayProposal.dataCriacaoPropostaC)),
+                            AppInputField(controller: _controllers['valorInvestimentoSolarC']!, label: 'Valor de Investimento Solar', readOnly: false, onChanged: (v) => _updateEditedProposalField('valorInvestimentoSolarC', v)),
+                            AppInputField(controller: TextEditingController(text: displayProposal.dataValidadeC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataValidadeC!)) : 'N/A'), label: 'Data de Validade', readOnly: true),
+                            AppInputField(controller: TextEditingController(text: displayProposal.dataInicioContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataInicioContratoC!)) : 'N/A'), label: 'Data de Início do Contrato', readOnly: true),
+                            AppInputField(controller: TextEditingController(text: displayProposal.dataFimContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataFimContratoC!)) : 'N/A'), label: 'Data de Fim do Contrato', readOnly: true),
+                            AppInputField(controller: TextEditingController(text: displayProposal.bundleC ?? 'N/A'), label: 'Bundle', readOnly: true),
+                            AppInputField(controller: TextEditingController(text: displayProposal.dataCriacaoPropostaC ?? 'N/A'), label: 'Data de Criação da Proposta', readOnly: true),
                           ],
-              ]),
-              const SizedBox(height: 16),
+                        ]),
+                        const SizedBox(height: 16),
                         // --- Section: Contrato Inserido (Separate Card) ---
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 8.0),
@@ -911,17 +888,17 @@ class _AdminSalesforceProposalDetailPageState
                         ),
                         const SizedBox(height: 24),
                         // --- Section 3: Files (before CPEs) ---
-              _buildFilesSection(context, displayProposal.files),
+                        _buildFilesSection(context, displayProposal.files),
                         const SizedBox(height: 24),
                         // --- Section 4: Related CPEs ---
                         _buildCpeProposalsSection(context, displayProposal.cpeLinks),
                       ],
                     ),
                   ),
-            ],
+                ],
               ),
             ),
-      ),
+          ),
         );
       },
     );
@@ -929,11 +906,7 @@ class _AdminSalesforceProposalDetailPageState
 
   // --- UI Helper Widgets (Modified for Edit Mode) ---
 
-  Widget _buildDetailSectionTwoColumn(
-    BuildContext context,
-    String title,
-    List<List<Widget>> columns,
-  ) {
+  Widget _buildUserDetailSectionTwoColumn(BuildContext context, String title, List<List<Widget>> columns) {
     final theme = Theme.of(context);
     return Card(
       elevation: 1,
@@ -948,21 +921,30 @@ class _AdminSalesforceProposalDetailPageState
           children: [
             Text(
               title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 20, color: theme.colorScheme.primary),
+              textAlign: TextAlign.left,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-                Expanded(child: Column(children: columns[0])),
-                const SizedBox(width: 24),
-                Expanded(child: Column(children: columns[1])),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: columns[0].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
+                  ),
+                ),
+                const SizedBox(width: 32),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: columns[1].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
+                  ),
+                ),
               ],
-              ),
-        ],
-      ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1126,64 +1108,7 @@ class _AdminSalesforceProposalDetailPageState
               ),
             ),
           ),
-          if (_isEditing && !isMarkedForDeletion && item is ProposalFile)
-            Positioned(
-              top: 2,
-              right: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, size: 14),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  color: colorScheme.error,
-                  tooltip: 'Remover ficheiro',
-                                onPressed: () {
-                                  setState(() {
-                                        _filesToDelete.add(item);
-                                  });
-                                },
-                ),
-                    ),
-            ),
-          if (_isEditing && item is PlatformFile)
-            Positioned(
-              top: 2,
-              right: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 2,
-              ),
-          ],
-        ),
-                child: IconButton(
-                  icon: const Icon(Icons.close, size: 14),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  color: colorScheme.error,
-                  tooltip: 'Remover ficheiro',
-                  onPressed: () {
-                    setState(() {
-                      _filesToAdd.remove(item);
-                    });
-                  },
-                ),
-              ),
-            ),
+          // File removal is not allowed in edit mode
         ],
       ),
     );

@@ -78,28 +78,9 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
       }
       final authRepository = ref.read(authRepositoryProvider);
       final resellers = await authRepository.getAllResellers();
-      final adminUsers =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('role', isEqualTo: 'admin')
-              .get();
-      final admins =
-          adminUsers.docs.map((doc) {
-            final data = doc.data();
-            return AppUser(
-              uid: doc.id,
-              email: data['email'] as String? ?? '',
-              role: UserRole.admin,
-              displayName: data['displayName'] as String?,
-              photoURL: data['photoURL'] as String?,
-              isFirstLogin: data['isFirstLogin'] as bool? ?? false,
-              isEmailVerified: data['isEmailVerified'] as bool? ?? false,
-              additionalData: data,
-            );
-          }).toList();
+      
       if (mounted) {
-        final allUsers = [...admins, ...resellers];
-        _users = allUsers.where((user) => user.uid != _currentUserId).toList();
+        _users = resellers.where((user) => user.uid != _currentUserId).toList();
         setState(() {
           _isLoading = false;
         });
@@ -613,14 +594,42 @@ class UserManagementPageState extends ConsumerState<UserManagementPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                FilledButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Novo Utilizador'),
-                  onPressed: () {
-                    context.push('/admin/users/create');
-                  },
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                SizedBox(
+                  height: 40,
+                  child: Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final bgColor = isDark ? theme.colorScheme.surface : Colors.white;
+                      final borderRadius = BorderRadius.circular(12);
+                      final borderColor = theme.dividerColor.withOpacity(0.18);
+                      return FilledButton.icon(
+                        icon: Icon(
+                          Icons.add,
+                          size: 20,
+                          color: theme.colorScheme.primary,
+                        ),
+                        label: Text(
+                          'Novo Utilizador',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        onPressed: () {
+                          context.push('/admin/users/create');
+                        },
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          backgroundColor: bgColor,
+                          foregroundColor: theme.colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: borderRadius,
+                            side: BorderSide(color: borderColor, width: 1),
+                          ),
+                          elevation: 0,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
