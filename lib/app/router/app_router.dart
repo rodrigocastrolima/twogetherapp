@@ -23,7 +23,6 @@ import '../../presentation/screens/admin/admin_settings_page.dart';
 import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
-import '../../core/services/salesforce_auth_service.dart';
 import '../../features/settings/presentation/pages/profile_page.dart';
 import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
 import '../../core/models/enums.dart';
@@ -536,11 +535,10 @@ final authNotifierProvider = ChangeNotifierProvider<AuthNotifier>((ref) {
 // Custom page transitions
 class _SlideTransition extends CustomTransitionPage<void> {
   _SlideTransition({
-    required Widget child, 
+    required super.child, 
     bool reverse = false,
-    Duration transitionDuration = const Duration(milliseconds: 300),
   }) : super(
-          child: child,
+          transitionDuration: const Duration(milliseconds: 300),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             const begin = Offset(1.0, 0.0); // Start from right
             const end = Offset.zero;
@@ -561,7 +559,6 @@ class _SlideTransition extends CustomTransitionPage<void> {
               child: child,
             );
           },
-          transitionDuration: transitionDuration,
         );
 }
 
@@ -618,9 +615,6 @@ class AppRouter {
         );
       } // LOG
       try {
-        final container = ProviderScope.containerOf(context);
-        final salesforceAuthState = container.read(salesforceAuthProvider);
-
         final isAuthenticated = authNotifier.isAuthenticated;
         final isAdmin = authNotifier.isAdmin;
         final currentRoute = state.matchedLocation;
@@ -658,9 +652,6 @@ class AppRouter {
             // Artificial delay to allow the loading indicator to appear briefly
             // Only delay if we are actually coming from a state where it might be too fast (e.g., after login)
             // We check if the previous route was login, or if there was no previous route (direct entry to /auth-loading somehow)
-            final previousRoute =
-                state
-                    .matchedLocation; // This is current, need a way to check previous if possible or rely on login flow.
             // For simplicity, we'll apply the delay always when on /auth-loading and authenticated.
 
             if (kDebugMode) {

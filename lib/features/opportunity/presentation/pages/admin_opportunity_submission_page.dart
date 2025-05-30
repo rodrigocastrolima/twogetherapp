@@ -21,7 +21,6 @@ import 'package:go_router/go_router.dart'; // For navigation
 
 // --- Add imports for file picker and storage ---
 import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
 import 'dart:io';
 import 'package:twogether/features/services/presentation/widgets/file_upload_widget.dart';
 import 'package:twogether/features/services/presentation/providers/service_submission_provider.dart';
@@ -242,7 +241,7 @@ class _OpportunityDetailFormViewState
 
   void _determineTipoOportunidade() {
     // Check energyType case-insensitively for 'solar'
-    final energyTypeName = widget.submission?.energyType?.name?.toLowerCase();
+    final energyTypeName = widget.submission?.energyType?.name.toLowerCase();
     if (energyTypeName == 'solar') {
       _tipoOportunidadeValue = 'Angariada Solar';
     } else {
@@ -311,7 +310,7 @@ class _OpportunityDetailFormViewState
   }
 
   Future<void> _launchUrl(String urlString) async {
-    // TODO: Verify if urlString is already a download URL or just a path.
+    // Note: Verify if urlString is already a download URL or just a path.
     // If it's just a path, need Firebase Storage logic to get the download URL first.
     // final downloadUrl = await _getDownloadUrl(urlString); // Placeholder
     final Uri url = Uri.parse(
@@ -413,9 +412,11 @@ class _OpportunityDetailFormViewState
               // Remove potential index prefix like "attachment_0_"
               fileName = fileName.replaceFirst(RegExp(r'^attachment_\d+_'), '');
             } catch (e) {
-              print(
-                "Error decoding/parsing filename from $pathForFileName: $e",
-              );
+              if (kDebugMode) {
+                print(
+                  "Error decoding/parsing filename from $pathForFileName: $e",
+                );
+              }
               // Fallback if decoding fails
               fileName = pathForFileName
                   .split('/')
@@ -541,14 +542,14 @@ class _OpportunityDetailFormViewState
                         ),
                         hintText: 'Insira o motivo aqui...',
                         hintStyle: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round())
+                          color: colorScheme.onSurfaceVariant.withAlpha(179)
                         ),
                         filled: true,
-                        fillColor: colorScheme.surfaceVariant,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: colorScheme.outline.withAlpha((255 * 0.2).round())
+                            color: colorScheme.outline.withAlpha(20)
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -584,7 +585,8 @@ class _OpportunityDetailFormViewState
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: isSubmitting ? null : () {
-                      if (dialogFormKey.currentState?.validate() ?? false) {
+                      final isValid = dialogFormKey.currentState?.validate() ?? false;
+                      if (isValid) {
                         Navigator.of(dialogContext).pop(reasonController.text.trim());
                       }
                     },
@@ -701,22 +703,9 @@ class _OpportunityDetailFormViewState
       // print("--- SKIPPED Param Creation for UI testing ---");
       // --- END RE-ENABLE --- //
 
-      // 5. Call the Provider & Remove Dummy Result
+      // 5. Call the Provider
       try {
-        // --- RE-ENABLE the actual call --- //
         final result = await ref.read(createOpportunityProvider(params).future);
-        // --- END RE-ENABLE --- //
-
-        // --- REMOVE Dummy Result --- //
-        /*
-        final result = CreateOppResult(
-          success: true,
-          opportunityId: 'DUMMY_OPP_ID_123', // Placeholder SF Opportunity ID
-          error: null,
-          sessionExpired: false,
-        );
-        */
-        // --- END REMOVE --- //
 
         _handleCreateResult(
           result,
@@ -936,12 +925,12 @@ class _OpportunityDetailFormViewState
       labelText: label,
       labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
       hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withAlpha(179)),
       filled: true,
       fillColor: readOnly ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()) : colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: colorScheme.outline.withAlpha(51)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -949,7 +938,7 @@ class _OpportunityDetailFormViewState
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+        borderSide: BorderSide(color: colorScheme.outline.withAlpha(20)),
       ),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1384,7 +1373,7 @@ class _OpportunityDetailFormViewState
         widget
             .submission
             ?.reviewDetails
-            ?.reviewerId; // TODO: Fetch reviewer name based on ID?
+            ?.reviewerId; // Note: Could fetch reviewer name from ID if needed
 
     String formattedTimestamp = 'Unknown date';
     if (reviewTimestamp != null) {
@@ -1444,64 +1433,6 @@ class _OpportunityDetailFormViewState
     );
   }
   // ---------------------------------------------------- //
-
-  // --- MODIFIED: _buildActionButtons --- //
-  Widget _buildActionButtons(BuildContext context, ThemeData theme) {
-    final colorScheme = theme.colorScheme;
-    return Center(
-      child: Wrap(
-        spacing: 16.0,
-        runSpacing: 8.0,
-        alignment: WrapAlignment.center,
-        children: [
-          // Approve Button
-          ElevatedButton(
-            onPressed: _isSubmitting ? null : _approveSubmission,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-            child:
-                _isSubmitting
-                    ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: colorScheme.onPrimary,
-                      ),
-                    )
-                    : Text('Aprovar'),
-          ),
-          // Reject Button
-          OutlinedButton.icon(
-            icon: const Icon(Icons.cancel_outlined),
-            label: Text('Rejeitar'), // Reject
-            onPressed:
-                _isSubmitting
-                    ? null
-                    : () async {
-                      final reason = await _showRejectionDialog();
-                      if (kDebugMode) {
-                        print('Rejection reason: $reason');
-                      }
-                      if (reason != null && reason.isNotEmpty) {
-                        await _handleRejection(reason);
-                      }
-                    },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.error,
-              side: BorderSide(
-                color: colorScheme.error.withAlpha((255 * 0.7).round()),
-                width: 1.5,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  // ------------------------------------------ //
 
   // --- ADDED: Handle Rejection Logic ---
   Future<void> _handleRejection(String reason) async {
@@ -1666,11 +1597,9 @@ class _OpportunityDetailFormViewState
     final textTheme = theme.textTheme;
 
     final String? downloadUrl = fileData['url'];
-    final String? storagePath = fileData['path'];
     final String? error = fileData['error'];
     final String fileName =
         fileData['fileName'] ?? 'Ficheiro Desconhecido'; // Unknown File
-    final String? contentType = fileData['contentType']; // May be null
 
     // Use a fixed size for the preview container
     const double previewSize = 70.0;
@@ -2269,7 +2198,7 @@ class _OpportunityDetailFormViewState
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+                  border: Border.all(color: Theme.of(context).colorScheme.outline.withAlpha(51)),
                 ),
                 child: ListView.builder(
                   padding: EdgeInsets.zero,
@@ -2340,7 +2269,7 @@ class _OpportunityDetailFormViewState
     } else {
       // For submission mode, check if submission has files
       hasFiles = widget.submission?.documentUrls?.isNotEmpty == true ||
-                 widget.submission?.invoicePhoto?.storagePath?.isNotEmpty == true;
+                 widget.submission?.invoicePhoto?.storagePath.isNotEmpty == true;
     }
     
     return hasOpportunityName && 
@@ -2397,13 +2326,13 @@ class _AppAutocompleteField extends StatelessWidget {
           ),
           hintText: (controller.text.isEmpty) ? '' : hint,
           hintStyle: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+            color: colorScheme.onSurfaceVariant.withAlpha(179),
           ),
           filled: true,
-          fillColor: colorScheme.surfaceVariant,
+          fillColor: colorScheme.surfaceContainerHighest,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+            borderSide: BorderSide(color: colorScheme.outline.withAlpha(51)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -2411,7 +2340,7 @@ class _AppAutocompleteField extends StatelessWidget {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+            borderSide: BorderSide(color: colorScheme.outline.withAlpha(20)),
           ),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

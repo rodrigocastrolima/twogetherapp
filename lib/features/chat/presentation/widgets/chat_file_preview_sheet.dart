@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'package:file_picker/file_picker.dart';
 import '../providers/chat_provider.dart';
 
 class ChatFilePreviewSheet extends ConsumerStatefulWidget {
@@ -132,7 +130,7 @@ class _ChatFilePreviewSheetState extends ConsumerState<ChatFilePreviewSheet> {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(5),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -159,7 +157,7 @@ class _ChatFilePreviewSheetState extends ConsumerState<ChatFilePreviewSheet> {
                           Text(
                             _formatFileSize(widget.fileSize),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              color: theme.colorScheme.onSurface.withAlpha(192),
                             ),
                           ),
                         ],
@@ -178,7 +176,7 @@ class _ChatFilePreviewSheetState extends ConsumerState<ChatFilePreviewSheet> {
                       Icon(
                         _getFileIcon(widget.fileType),
                         size: 64,
-                        color: theme.colorScheme.primary.withOpacity(0.5),
+                        color: theme.colorScheme.primary.withAlpha(128),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -190,7 +188,7 @@ class _ChatFilePreviewSheetState extends ConsumerState<ChatFilePreviewSheet> {
                       Text(
                         _formatFileSize(widget.fileSize),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withAlpha(192),
                         ),
                       ),
                     ],

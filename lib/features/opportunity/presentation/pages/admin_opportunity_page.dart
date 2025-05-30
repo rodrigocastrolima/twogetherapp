@@ -2,36 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart'; // For date formatting
-import 'package:collection/collection.dart'; // For distinct reseller names AND Set equality
-import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage
 import 'package:firebase_auth/firebase_auth.dart'; // <-- Add FirebaseAuth import
 import 'package:flutter/cupertino.dart'; // Import Cupertino widgets
 import 'package:go_router/go_router.dart'; // <-- Import GoRouter
 import 'package:flutter/foundation.dart'; // For kDebugMode, kIsWeb
-import 'dart:convert'; // For base64Encode, if used directly for downloads
-import 'dart:html' as html; // For web downloads, if kIsWeb specific code uses it
-
-// Package imports (ensure these are in pubspec.yaml)
-import 'package:open_file/open_file.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // Project-specific imports (relative paths from this file)
 import '../../../../core/models/service_submission.dart';
 import '../../../../core/models/service_types.dart';
-import '../../../../core/theme/colors.dart'; // Use AppColors for specific cases
 import '../../../../core/theme/ui_styles.dart'; // Use AppStyles for specific decorations/layouts
-import '../../../../core/services/salesforce_auth_service.dart';
-// import '../../../presentation/widgets/logo.dart'; // REMOVED
-// import '../../../presentation/widgets/app_loading_indicator.dart'; // REMOVED
 
 // Feature-specific imports (relative paths from this file)
 import '../../data/models/salesforce_opportunity.dart'; // CORRECTED (was domain/entities/opportunity.dart)
-import '../../data/repositories/opportunity_service.dart' as opportunity_repository_definition;
-import '../../data/services/opportunity_service.dart';
 import '../providers/opportunity_providers.dart';
-import '../widgets/opportunity_filter_sheet.dart';
-import 'admin_opportunity_submission_page.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
 
 // Constants for status - ensure these are used if they represent backend values
@@ -47,9 +30,6 @@ const String defaultFilter = 'Todos';
 final pendingOpportunitiesProvider = StreamProvider.autoDispose<
   List<ServiceSubmission>
 >((ref) {
-  // TODO: Add check here? If user is not admin, return empty stream?
-  // Although Firestore rules *should* handle this.
-
   // Consider adding error handling for the stream itself if needed
   final stream = FirebaseFirestore.instance
       .collection('serviceSubmissions')
@@ -161,8 +141,6 @@ class _OpportunityVerificationPageState
   // --- Tab Controller ---
   late TabController _tabController;
 
-  bool _isFilterOpen = false;
-
   @override
   void initState() {
     super.initState();
@@ -190,59 +168,6 @@ class _OpportunityVerificationPageState
     // Existing initState logic
   }
 
-  // --- Updated Callback for applying filters from the sheet ---
-  void _applyFilters(
-    Set<String>? resellers,
-    Set<ServiceCategory>? serviceTypes,
-    Set<EnergyType>? energyTypes,
-    {Set<String>? fases}
-  ) {
-    setState(() {
-      if (!const SetEquality().equals(_selectedResellers, resellers)) {
-        _selectedResellers = resellers;
-      }
-      if (!const SetEquality().equals(_selectedFases, fases)) {
-        _selectedFases = fases;
-      }
-      if (!const SetEquality().equals(_selectedServiceTypes, serviceTypes)) {
-        _selectedServiceTypes = serviceTypes;
-      }
-      if (!const SetEquality().equals(_selectedEnergyTypes, energyTypes)) {
-        _selectedEnergyTypes = energyTypes;
-      }
-    });
-  }
-  // ---------------------------------------------------------
-
-  // Updated Method to show the filter sheet
-  void _showFilterSheet(BuildContext context, List<String> availableResellers) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      // Use Cupertino dynamic color for background
-      backgroundColor: CupertinoDynamicColor.resolve(
-        CupertinoColors.systemGroupedBackground, // Adapts to light/dark mode
-        context,
-      ),
-      // Remove the dimming effect entirely
-      barrierColor: Colors.transparent, // Set barrier to transparent
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      // Removed explicit theme background color:
-      // backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (BuildContext modalContext) {
-        return OpportunityFilterSheet(
-          initialResellers: _selectedResellers,
-          initialServiceTypes: _selectedServiceTypes,
-          initialEnergyTypes: _selectedEnergyTypes,
-          availableResellers: availableResellers,
-          onApplyFilters: _applyFilters,
-        );
-      },
-    );
-  }
-
   // Place this at the class level, not inside any method
   void _showSalesforceFilterSheet() {
     final theme = Theme.of(context);
@@ -250,12 +175,11 @@ class _OpportunityVerificationPageState
     final opportunities = salesforceOpportunitiesAsync.asData?.value ?? [];
     final uniqueResellers = opportunities.map((o) => o.resellerName).whereType<String>().toSet().toList()..sort();
     final uniqueFases = opportunities.map((o) => o.fase).whereType<String>().toSet().toList()..sort();
-    setState(() => _isFilterOpen = true);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.colorScheme.surface,
-      barrierColor: Colors.black.withOpacity(0.1),
+      barrierColor: Colors.black.withAlpha(25),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -281,7 +205,7 @@ class _OpportunityVerificationPageState
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: uniqueResellers.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.15)),
+                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withAlpha(38)),
                       itemBuilder: (context, i) {
                         final reseller = uniqueResellers[i];
                         return CheckboxListTile(
@@ -316,7 +240,7 @@ class _OpportunityVerificationPageState
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: uniqueFases.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.15)),
+                      separatorBuilder: (_, __) => Divider(height: 1, color: theme.dividerColor.withAlpha(38)),
                       itemBuilder: (context, i) {
                         final fase = uniqueFases[i];
                         return CheckboxListTile(
@@ -367,7 +291,6 @@ class _OpportunityVerificationPageState
                           ),
                           onPressed: () {
                             Navigator.of(context).pop();
-                            setState(() => _isFilterOpen = false);
                           },
                           child: const Text('Aplicar'),
                         ),
@@ -381,7 +304,7 @@ class _OpportunityVerificationPageState
         );
       },
     ).whenComplete(() {
-      if (mounted) setState(() => _isFilterOpen = false);
+      // Callback can be empty since we removed _isFilterOpen
     });
   }
 
@@ -391,19 +314,6 @@ class _OpportunityVerificationPageState
     _tabController.dispose(); // Dispose TabController
     super.dispose();
   }
-
-  // Helper to format date consistently
-  String _formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy HH:mm').format(date.toLocal());
-  }
-
-  // --- Updated Helper to calculate if any filters are active ---
-  bool _areFiltersActive() {
-    return (_selectedResellers != null && _selectedResellers!.isNotEmpty) ||
-        (_selectedServiceTypes != null && _selectedServiceTypes!.isNotEmpty) ||
-        (_selectedEnergyTypes != null && _selectedEnergyTypes!.isNotEmpty);
-  }
-  // ----------------------------------------------------------
 
   Widget _buildCustomTabBar(BuildContext context, ThemeData theme) {
     final tabs = [
@@ -432,7 +342,7 @@ class _OpportunityVerificationPageState
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: selected ? color.withOpacity(0.06) : Colors.transparent,
+                color: selected ? color.withAlpha(15) : Colors.transparent,
                 border: Border.all(
                   color: selected ? color : Colors.transparent,
                   width: 2,
@@ -466,19 +376,8 @@ class _OpportunityVerificationPageState
 
   @override
   Widget build(BuildContext context) {
-    // Watch the Firestore provider here for filter availability
-    final pendingOpportunitiesAsync = ref.watch(pendingOpportunitiesProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    // Extract unique resellers from pending submissions for the filter sheet
-    final List<String> uniqueResellers = pendingOpportunitiesAsync.maybeWhen(
-      data:
-          (submissions) =>
-              submissions.map((s) => s.resellerName).nonNulls.toSet().toList()
-                ..sort(),
-      orElse: () => [], // Return empty list if loading or error
-    );
 
     // --- Determine if the Salesforce Refresh button should be visible --- //
     // Listen to tab changes to rebuild the AppBar actions
@@ -492,7 +391,7 @@ class _OpportunityVerificationPageState
     // --- End Salesforce Refresh Button Visibility Logic --- //
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: null,
       body: SafeArea(
         bottom: false,
@@ -546,7 +445,7 @@ class _OpportunityVerificationPageState
                               label: Text('Filtros', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface)),
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: theme.colorScheme.surface,
-                                side: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+                                side: BorderSide(color: theme.dividerColor.withAlpha(46), width: 1),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -597,15 +496,11 @@ class _OpportunityVerificationPageState
               final resellerMatch =
                   _selectedResellers == null ||
                   _selectedResellers!.isEmpty ||
-                  (_selectedResellers?.contains(submission.resellerName) ??
-                      false);
+                  (_selectedResellers!.contains(submission.resellerName));
               final serviceTypeMatch =
                   _selectedServiceTypes == null ||
                   _selectedServiceTypes!.isEmpty ||
-                  (_selectedServiceTypes?.contains(
-                        submission.serviceCategory,
-                      ) ??
-                      false);
+                  _selectedServiceTypes!.contains(submission.serviceCategory);
               bool energyTypeMatch = true;
               if (_selectedServiceTypes == null ||
                   _selectedServiceTypes!.isEmpty ||
@@ -622,7 +517,7 @@ class _OpportunityVerificationPageState
                   (submission.companyName ?? '').toLowerCase().contains(
                     _searchQuery.toLowerCase(),
                   ) ||
-                  (submission.responsibleName).toLowerCase().contains(
+                  submission.responsibleName.toLowerCase().contains(
                     _searchQuery.toLowerCase(),
                   ) ||
                   (submission.nif ?? '').toLowerCase().contains(
@@ -675,18 +570,18 @@ class _OpportunityVerificationPageState
           // Search match
           final searchMatch = _searchQuery.isEmpty ||
               (opportunity.accountName ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              (opportunity.name).toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              opportunity.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               (opportunity.nifC ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
 
           // Reseller match
           final resellerMatch = _selectedResellers == null ||
               _selectedResellers!.isEmpty ||
-              (_selectedResellers?.contains(opportunity.resellerName ?? '') ?? false);
+              (_selectedResellers!.contains(opportunity.resellerName));
 
           // Fase match
           final faseMatch = _selectedFases == null ||
               _selectedFases!.isEmpty ||
-              (_selectedFases?.contains(opportunity.fase ?? '') ?? false);
+              (_selectedFases!.contains(opportunity.fase));
 
           return searchMatch && resellerMatch && faseMatch;
         }).toList();
@@ -727,13 +622,11 @@ class _OpportunityVerificationPageState
         // Icon logic (reuse from previous implementation)
         return SimpleListItem(
           title: submission.companyName ?? submission.responsibleName,
-          subtitle: 'Revendedor: ${submission.resellerName ?? '-'}',
+          subtitle: 'Revendedor: ${submission.resellerName}',
           trailing: Text(
-            submission.submissionDate != null
-                ? DateFormat('dd/MM/yyyy').format(submission.submissionDate!)
-                : 'N/A',
+            DateFormat('dd/MM/yyyy').format(submission.submissionDate),
             style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                        color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
             ),
           ),
           onTap: () => _navigateToDetail(context, submission),
@@ -756,13 +649,11 @@ class _OpportunityVerificationPageState
         final submission = submissions[index];
         return SimpleListItem(
           title: submission.companyName ?? submission.responsibleName,
-          subtitle: 'Revendedor: ${submission.resellerName ?? '-'}',
+          subtitle: 'Revendedor: ${submission.resellerName}',
           trailing: Text(
-            submission.submissionDate != null
-                ? DateFormat('dd/MM/yyyy').format(submission.submissionDate!)
-                : 'N/A',
+            DateFormat('dd/MM/yyyy').format(submission.submissionDate),
             style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                        color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
             ),
           ),
           onTap: () => _navigateToDetail(context, submission),
@@ -785,13 +676,13 @@ class _OpportunityVerificationPageState
         final opportunity = opportunities[index];
         return SimpleListItem(
           title: opportunity.name,
-          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'} | Fase: ${opportunity.fase ?? '-'}',
+          subtitle: 'Revendedor: ${opportunity.resellerName} | Fase: ${opportunity.fase}',
           trailing: Text(
             opportunity.createdDate != null
                 ? _formatSalesforceDate(opportunity.createdDate!)
                 : 'N/A',
                     style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
             ),
           ),
             onTap: () {
@@ -818,13 +709,13 @@ class _OpportunityVerificationPageState
         final opportunity = opportunities[index];
         return SimpleListItem(
           title: opportunity.name,
-          subtitle: 'Revendedor: ${opportunity.resellerName ?? '-'} | Fase: ${opportunity.fase ?? '-'}',
+          subtitle: 'Revendedor: ${opportunity.resellerName} | Fase: ${opportunity.fase}',
           trailing: Text(
             opportunity.createdDate != null
                 ? _formatSalesforceDate(opportunity.createdDate!)
                 : 'N/A',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
             ),
           ),
             onTap: () {
@@ -853,7 +744,7 @@ class _OpportunityVerificationPageState
           Text(
             'Carregando...',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
             ),
           ),
         ],
@@ -904,7 +795,7 @@ class _OpportunityVerificationPageState
           Icon(
             Icons.folder_off_outlined,
             size: 60,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+            color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
           ),
           const SizedBox(height: 16),
           Text(
@@ -912,7 +803,7 @@ class _OpportunityVerificationPageState
                 ? 'Nenhuma nova submissão encontrada.'
                 : 'É necessário conectar-se ao Salesforce para visualizar as oportunidades ativas.',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(204),
             ),
             textAlign: TextAlign.center,
           ),
@@ -926,160 +817,6 @@ class _OpportunityVerificationPageState
     context.push('/review-this-submission', extra: submission);
   }
 
-  // --- START: Deletion Logic --- Updated
-  Future<void> _deleteFirestoreSubmission(String submissionId) async {
-    final docRef = FirebaseFirestore.instance
-        .collection('serviceSubmissions')
-        .doc(submissionId);
-    String feedbackMessage = 'Submissão eliminada com sucesso.';
-    Color feedbackColor = Colors.green;
-    try {
-      final docSnap = await docRef.get();
-      List<String> pathsToDelete = [];
-      if (docSnap.exists) {
-        final data = docSnap.data() as Map<String, dynamic>?;
-        if (data != null) {
-          if (data.containsKey('documentUrls') &&
-              data['documentUrls'] is List) {
-            /* TODO: Parse paths if needed */
-          }
-          if (data.containsKey('invoicePhoto')) {
-            final invoicePhotoData =
-                data['invoicePhoto'] as Map<String, dynamic>?;
-            final legacyPath = invoicePhotoData?['storagePath'] as String?;
-            if (legacyPath != null &&
-                legacyPath.isNotEmpty &&
-                !pathsToDelete.contains(legacyPath)) {
-              pathsToDelete.add(legacyPath);
-            }
-          }
-        }
-      } else {
-        feedbackMessage = 'Submissão não encontrada.';
-        feedbackColor = Colors.orange; /* Show snackbar */
-        return;
-      }
-      if (pathsToDelete.isNotEmpty) {
-        for (final path in pathsToDelete) {
-          try {
-            final storageRef = FirebaseStorage.instance.ref(path);
-            await storageRef.delete();
-            print('Successfully deleted file from Storage: $path');
-          } on FirebaseException catch (e) {
-            print('Error deleting file from Storage ($path): $e');
-            if (e.code != 'object-not-found') {
-              feedbackMessage =
-                  'Submissão eliminada, but failed to delete some files.';
-              feedbackColor = Colors.orange;
-            }
-          } catch (e) {
-            print('Generic error deleting file from Storage ($path): $e');
-          }
-        }
-      }
-      await docRef.delete();
-    } catch (e) {
-      print('Error during Firestore submission deletion process: $e');
-      feedbackMessage = 'Erro ao eliminar submissão: ${e.toString()}';
-      feedbackColor = Colors.red;
-    } finally {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(feedbackMessage),
-            backgroundColor: feedbackColor,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _deleteSalesforceOpportunity(String opportunityId) async {
-    setState(() {});
-    String feedbackMessage = 'Oportunidade Salesforce eliminada com sucesso.';
-    Color feedbackColor = Colors.green;
-    try {
-      final sfAuthNotifier = ref.read(salesforceAuthProvider.notifier);
-      final String? accessToken = await sfAuthNotifier.getValidAccessToken();
-      final String? instanceUrl = sfAuthNotifier.currentInstanceUrl;
-      if (accessToken == null || instanceUrl == null) {
-        throw Exception("Autenticação Salesforce inválida.");
-      }
-      final service = ref.read(salesforceOpportunityServiceProvider);
-      await service.deleteSalesforceOpportunity(
-        accessToken: accessToken,
-        instanceUrl: instanceUrl,
-        opportunityId: opportunityId,
-      );
-      ref.refresh(salesforceOpportunitiesProvider);
-    } catch (e) {
-      print('Error during Salesforce opportunity deletion process: $e');
-      feedbackMessage = 'Erro ao eliminar Oportunidade: ${e.toString()}';
-      feedbackColor = Colors.red;
-    } finally {
-      setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(feedbackMessage),
-            backgroundColor: feedbackColor,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _showDeleteConfirmationDialog(
-    BuildContext context,
-    String id,
-    String name,
-    ThemeData theme, {
-    required bool isSubmission,
-  }) async {
-    final String itemType =
-        isSubmission ? 'submissão' : 'Oportunidade Salesforce';
-    final String title = 'Confirmar Eliminação';
-    final String content =
-        'Tem a certeza que quer eliminar a $itemType para "$name"? Esta ação não pode ser desfeita.';
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: Text(title),
-          content: SingleChildScrollView(
-            child: ListBody(children: <Widget>[Text(content)]),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancelar'),
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-              ),
-              child: const Text('Eliminar'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                if (isSubmission) {
-                  _deleteFirestoreSubmission(id);
-                } else {
-                  _deleteSalesforceOpportunity(id);
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // --- END: Deletion Logic ---
-
   // --- Helper to format Salesforce date string ---
   String _formatSalesforceDate(String dateString) {
     try {
@@ -1087,7 +824,9 @@ class _OpportunityVerificationPageState
       final dateTime = DateTime.parse(dateString);
       return DateFormat('dd/MM/yyyy').format(dateTime.toLocal());
     } catch (e) {
-      print("Error formatting Salesforce date: $dateString, Error: $e");
+      if (kDebugMode) {
+        print("Error formatting Salesforce date: $dateString, Error: $e");
+      }
       return dateString; // Return original if parsing fails
     }
   }

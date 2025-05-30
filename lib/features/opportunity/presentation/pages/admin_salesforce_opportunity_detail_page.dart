@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // For potential date formatting
 import 'package:go_router/go_router.dart'; // Import GoRouter
 import 'package:file_picker/file_picker.dart'; // Ensure file_picker is imported
 import 'package:flutter/cupertino.dart'; // For CupertinoIcons
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
-// TODO: Add import for file_picker if needed later
-// import 'package:file_picker/file_picker.dart';
 
 import '../../data/models/detailed_salesforce_opportunity.dart';
 import '../../data/models/salesforce_proposal.dart';
 import '../../data/models/salesforce_file.dart'; // <-- Import SalesforceFile
 import '../providers/opportunity_providers.dart';
-import '../../../../presentation/widgets/full_screen_pdf_viewer.dart'; // Correct Relative Path
-import '../../../../presentation/widgets/full_screen_image_viewer.dart'; // Correct Relative Path
 import '../../../../core/services/salesforce_auth_service.dart'; // Import the service which defines the provider
 import '../../../../presentation/widgets/secure_file_viewer.dart'; // Import SecureFileViewer
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
@@ -337,20 +333,6 @@ class _AdminSalesforceOpportunityDetailPageState
     );
   }
 
-  // --- ADDED: Cancel Edit --- //
-  void _cancelEdit() {
-    setState(() {
-      _isEditing = false;
-      // --- Clear file changes first ---
-      _filesToAdd.clear();
-      _filesToDelete.clear();
-      // --- Now restore original data and update controllers/dropdown state, including files ---
-      if (_originalOpportunity != null) {
-        _initializeEditState(_originalOpportunity!); // Reset to original, including files
-      }
-    });
-  }
-
   // --- ADDED: Save Edit --- //
   Future<void> _saveEdit() async {
     if (_isSaving) return;
@@ -393,7 +375,9 @@ class _AdminSalesforceOpportunityDetailPageState
     for (final fieldKey in _editableTextFields) {
       final apiName = _fieldApiNameMapping[fieldKey];
       if (apiName == null) {
-        print("Warning: No API name mapping found for field '$fieldKey'");
+        if (kDebugMode) {
+          print("Warning: No API name mapping found for field '$fieldKey'");
+        }
         continue;
       }
 
@@ -462,7 +446,9 @@ class _AdminSalesforceOpportunityDetailPageState
 
       // --- Process File Deletions --- //
       if (filesToDelete.isNotEmpty) {
-        print("Deleting ${filesToDelete.length} files...");
+        if (kDebugMode) {
+          print("Deleting ${filesToDelete.length} files...");
+        }
         await Future.wait(
           filesToDelete.map((file) async {
             try {
@@ -471,9 +457,13 @@ class _AdminSalesforceOpportunityDetailPageState
                 instanceUrl: instanceUrl,
                 contentDocumentId: file.id,
               );
-              print("Deleted file: ${file.title}");
+              if (kDebugMode) {
+                print("Deleted file: ${file.title}");
+              }
             } catch (e) {
-              print("Error deleting file ${file.title}: $e");
+              if (kDebugMode) {
+                print("Error deleting file ${file.title}: $e");
+              }
             }
           }),
         );
@@ -481,11 +471,15 @@ class _AdminSalesforceOpportunityDetailPageState
 
       // --- Process File Uploads --- //
       if (filesToAdd.isNotEmpty) {
-        print("Uploading ${filesToAdd.length} files...");
+        if (kDebugMode) {
+          print("Uploading ${filesToAdd.length} files...");
+        }
         await Future.wait(
           filesToAdd.map((file) async {
             if (file.bytes == null) {
-              print("Skipping upload for ${file.name}, bytes are missing.");
+              if (kDebugMode) {
+                print("Skipping upload for ${file.name}, bytes are missing.");
+              }
               return;
             }
             try {
@@ -497,14 +491,20 @@ class _AdminSalesforceOpportunityDetailPageState
                 fileBytes: file.bytes!,
               );
               if (contentDocId != null) {
-                print("Uploaded file: ${file.name} (ID: $contentDocId)");
+                if (kDebugMode) {
+                  print("Uploaded file: ${file.name} (ID: $contentDocId)");
+                }
               } else {
-                print(
-                  "Upload failed for file: ${file.name} (Service returned null)",
-                );
+                if (kDebugMode) {
+                  print(
+                    "Upload failed for file: ${file.name} (Service returned null)",
+                  );
+                }
               }
             } catch (e) {
-              print("Error uploading file ${file.name}: $e");
+              if (kDebugMode) {
+                print("Error uploading file ${file.name}: $e");
+              }
             }
           }),
         );
@@ -512,30 +512,37 @@ class _AdminSalesforceOpportunityDetailPageState
 
       // --- Update Opportunity Fields (if changed) --- //
       if (fieldsToUpdate.isNotEmpty) {
-        print(
-          "Updating opportunity fields: $fieldsToUpdate",
-        ); // Log fields being updated
+        if (kDebugMode) {
+          print(
+            "Updating opportunity fields: $fieldsToUpdate",
+          ); // Log fields being updated
+        }
         await opportunityService.updateOpportunity(
           accessToken: accessToken,
           instanceUrl: instanceUrl,
           opportunityId: widget.opportunityId,
           fieldsToUpdate: fieldsToUpdate,
         );
-        print("Opportunity fields updated.");
+        if (kDebugMode) {
+          print("Opportunity fields updated.");
+        }
       } else {
-        print("No opportunity fields to update.");
+        if (kDebugMode) {
+          print("No opportunity fields to update.");
+        }
       }
 
       // Refresh the data and exit edit mode
+      if (!mounted) return;
       await showSuccessDialog(
         context: context,
         message: 'Alterações guardadas com sucesso!',
         onDismissed: () {
-      ref.refresh(opportunityDetailsProvider(widget.opportunityId));
-      setState(() {
-        _isEditing = false;
-        _isSaving = false;
-      });
+          ref.invalidate(opportunityDetailsProvider(widget.opportunityId));
+          setState(() {
+            _isEditing = false;
+            _isSaving = false;
+          });
         },
       );
     } catch (e) {
@@ -1025,7 +1032,7 @@ class _AdminSalesforceOpportunityDetailPageState
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+                color: Theme.of(context).colorScheme.onSurface.withAlpha(217),
             ),
               textAlign: TextAlign.right,
           ),
@@ -1229,7 +1236,7 @@ class _AdminSalesforceOpportunityDetailPageState
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha(20),
                       blurRadius: 2,
                     ),
                   ],
@@ -1258,11 +1265,11 @@ class _AdminSalesforceOpportunityDetailPageState
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha(20),
                       blurRadius: 2,
-              ),
-          ],
-        ),
+                    ),
+                  ],
+                ),
                 child: IconButton(
                   icon: const Icon(Icons.close, size: 14),
                   padding: EdgeInsets.zero,
@@ -1301,7 +1308,9 @@ class _AdminSalesforceOpportunityDetailPageState
         // No snackbar for file picking cancelled
       }
     } catch (e) {
-      print("Error picking files: $e");
+      if (kDebugMode) {
+        print("Error picking files: $e");
+      }
     }
   }
 
@@ -1460,7 +1469,9 @@ class _AdminSalesforceOpportunityDetailPageState
                           primary: theme.colorScheme.primary,
                           surface: theme.colorScheme.surface,
                         ),
-                        dialogBackgroundColor: theme.colorScheme.surface,
+                        dialogTheme: DialogTheme(
+                          backgroundColor: theme.colorScheme.surface,
+                        ),
                         textButtonTheme: TextButtonThemeData(
                           style: TextButton.styleFrom(
                             foregroundColor: theme.colorScheme.primary,
@@ -1476,7 +1487,7 @@ class _AdminSalesforceOpportunityDetailPageState
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(128),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1507,12 +1518,12 @@ class _AdminSalesforceOpportunityDetailPageState
       labelText: label,
       labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
       hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
+      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withAlpha(179)),
       filled: true,
-      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
+      fillColor: readOnly ? colorScheme.surfaceContainerHighest.withAlpha(179) : colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+        borderSide: BorderSide(color: colorScheme.outline.withAlpha(51)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -1520,7 +1531,7 @@ class _AdminSalesforceOpportunityDetailPageState
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+        borderSide: BorderSide(color: colorScheme.outline.withAlpha(20)),
       ),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1580,7 +1591,9 @@ class _AdminSalesforceOpportunityDetailPageState
                     primary: theme.colorScheme.primary,
                     surface: theme.colorScheme.surface,
                   ),
-                  dialogBackgroundColor: theme.colorScheme.surface,
+                  dialogTheme: DialogTheme(
+                    backgroundColor: theme.colorScheme.surface,
+                  ),
                   textButtonTheme: TextButtonThemeData(
                     style: TextButton.styleFrom(
                       foregroundColor: theme.colorScheme.primary,

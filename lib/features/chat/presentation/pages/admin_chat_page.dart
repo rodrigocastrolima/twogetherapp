@@ -3,14 +3,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'dart:async';
 import '../../../../core/theme/ui_styles.dart';
 import '../../domain/models/chat_conversation.dart';
 import '../providers/chat_provider.dart';
 import 'chat_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
 import 'package:go_router/go_router.dart';
@@ -55,7 +53,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   // --- NEW: State for split view selection ---
   Map<String, dynamic>? _selectedReseller;
   ChatConversation? _selectedConversation;
-  String? _previousActiveConversationId;
 
   late final ChatRepository _chatRepo;
 
@@ -107,7 +104,6 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onSurface;
 
     // Watch both conversations and resellers
     final conversationsStream = ref.watch(conversationsProvider);
@@ -322,17 +318,17 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                           
                           final yellow = Color(0xFFFFBE45);
                           return Container(
-                            color: isSelected ? theme.colorScheme.primary.withOpacity(0.08) : null,
+                            color: isSelected ? theme.colorScheme.primary.withAlpha((255 * 0.08).round()) : null,
                             child: SimpleListItem(
                               leading: Container(
                                 width: 40,
                                 height: 40,
                                     decoration: BoxDecoration(
                                   color: hasUnread
-                                      ? yellow.withOpacity(0.15)
+                                      ? yellow.withAlpha((255 * 0.15).round())
                                       : hasConversation
-                                          ? theme.colorScheme.secondaryContainer
-                                          : theme.colorScheme.surfaceVariant,
+                                          ? theme.colorScheme.surface
+                                          : theme.colorScheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -342,8 +338,8 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                     color: hasUnread
                                         ? yellow
                                         : hasConversation
-                                            ? theme.colorScheme.onSecondaryContainer
-                                            : theme.colorScheme.onSurfaceVariant,
+                                            ? theme.colorScheme.onSurface
+                                            : theme.colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -353,7 +349,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   ? Text(
                                       formattedDate,
                                       style: theme.textTheme.labelSmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                        color: theme.colorScheme.onSurface,
                                         fontSize: 12,
                                       ),
                                     )
@@ -413,7 +409,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                 Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 32), // match message container/input bar
                                   child: Container(
-                                    color: theme.colorScheme.background,
+                                    color: theme.colorScheme.surface,
                                     padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -448,7 +444,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                             Text(
                                               _selectedReseller?['email'] ?? '',
                                               style: theme.textTheme.bodySmall?.copyWith(
-                                                color: theme.colorScheme.onSurfaceVariant,
+                                                color: theme.colorScheme.onSurface,
                                                 fontSize: 13,
                                               ),
                                             ),
@@ -463,7 +459,7 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
                                   child: Divider(
                                     height: 1,
                                     thickness: 0.7,
-                                    color: theme.dividerColor.withOpacity(0.12),
+                                    color: theme.dividerColor.withAlpha((255 * 0.12).round()),
                                   ),
                                 ),
                                 const SizedBox(height: 18),
@@ -516,35 +512,29 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
           .collection('conversations')
           .add(conversationData);
       final doc = await docRef.get();
-      final data = doc.data() as Map<String, dynamic>?;
-      if (data != null) {
-        final newConversation = ChatConversation(
-          id: doc.id,
-          resellerId: reseller['id'],
-          resellerName: reseller['name'],
-          lastMessageContent: data['lastMessageContent'],
-          lastMessageTime: data['lastMessageTime'] != null ? (data['lastMessageTime'] as Timestamp).toDate() : null,
-          active: data['active'] ?? false,
-          unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
-        );
-        setState(() {
-          _selectedReseller = reseller;
-          _selectedConversation = newConversation;
-          _previousActiveConversationId = newConversation.id;
-        });
-        await _chatRepo.setUserActiveInConversation(newConversation.id, true);
-        await _chatRepo.markConversationAsRead(newConversation.id, true);
-      }
+      final data = doc.data() as Map<String, dynamic>;
+      final newConversation = ChatConversation(
+        id: doc.id,
+        resellerId: reseller['id'],
+        resellerName: reseller['name'],
+        lastMessageContent: data['lastMessageContent'],
+        lastMessageTime: (data['lastMessageTime'] as Timestamp?)?.toDate(),
+        active: data['active'] ?? false,
+        unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
+      );
+      setState(() {
+        _selectedReseller = reseller;
+        _selectedConversation = newConversation;
+      });
+      await _chatRepo.setUserActiveInConversation(newConversation.id, true);
+      await _chatRepo.markConversationAsRead(newConversation.id, true);
     } else {
       setState(() {
         _selectedReseller = reseller;
         _selectedConversation = conversation;
-        _previousActiveConversationId = conversation?.id;
       });
-      if (conversation != null) {
-        await _chatRepo.setUserActiveInConversation(conversation.id, true);
-        await _chatRepo.markConversationAsRead(conversation.id, true);
-      }
+      await _chatRepo.setUserActiveInConversation(conversation.id, true);
+      await _chatRepo.markConversationAsRead(conversation.id, true);
     }
   }
 
@@ -645,25 +635,23 @@ class _AdminChatPageState extends ConsumerState<AdminChatPage> {
 
       if (snapshot.docs.isNotEmpty) {
         final doc = snapshot.docs.first;
-        final data = doc.data() as Map<String, dynamic>?;
-        if (data != null) {
-          setState(() {
-            _selectedReseller = reseller; // Set the reseller
-            _selectedConversation = ChatConversation(
-              id: doc.id,
-              resellerId: userId,
-              resellerName: data['resellerName'] ?? '',
-              lastMessageContent: data['lastMessageContent'],
-              lastMessageTime: data['lastMessageTime'] != null ? (data['lastMessageTime'] as Timestamp).toDate() : null,
-              active: data['active'] ?? false,
-              unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
-            );
-          });
-          
-          // Also set the conversation as active and mark as read
-          await _chatRepo.setUserActiveInConversation(doc.id, true);
-          await _chatRepo.markConversationAsRead(doc.id, true);
-        }
+        final data = doc.data() as Map<String, dynamic>;
+        setState(() {
+          _selectedReseller = reseller; // Set the reseller
+          _selectedConversation = ChatConversation(
+            id: doc.id,
+            resellerId: userId,
+            resellerName: data['resellerName'] ?? '',
+            lastMessageContent: data['lastMessageContent'],
+            lastMessageTime: (data['lastMessageTime'] as Timestamp?)?.toDate(),
+            active: data['active'] ?? false,
+            unreadCounts: data['unreadCounts'] != null ? Map<String, int>.from(data['unreadCounts']) : {},
+          );
+        });
+        
+        // Also set the conversation as active and mark as read
+        await _chatRepo.setUserActiveInConversation(doc.id, true);
+        await _chatRepo.markConversationAsRead(doc.id, true);
       }
     } catch (e) {
       if (kDebugMode) {

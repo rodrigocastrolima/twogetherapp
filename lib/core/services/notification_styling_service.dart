@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import '../models/notification.dart';
 
 /// Configuration for a notification type including its visual representation
@@ -23,7 +22,7 @@ class NotificationTypeConfig {
 
   /// Get background color with opacity for containers
   Color getBackgroundColor(Brightness brightness, {double opacity = 0.1}) {
-    return getColor(brightness).withOpacity(opacity);
+    return getColor(brightness).withAlpha((255 * opacity).round());
   }
 }
 
@@ -44,9 +43,6 @@ class NotificationStylingService {
   
   static const Color _grayLight = Color(0xFF6B7280);
   static const Color _grayDark = Color(0xFF9CA3AF);
-  
-  static const Color _purpleLight = Color(0xFF8B5CF6);
-  static const Color _purpleDark = Color(0xFFA78BFA);
 
   /// Configuration map for all notification types
   static const Map<NotificationType, NotificationTypeConfig> _configs = {

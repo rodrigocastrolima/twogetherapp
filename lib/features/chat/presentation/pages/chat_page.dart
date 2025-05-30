@@ -7,20 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
-import 'dart:ui';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import '../../domain/models/chat_message.dart';
 import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
-import '../widgets/chat_image_preview_sheet.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/theme.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/rendering.dart';
 
 // Add extension to ChatMessage for cleaner code
 extension ChatMessageExtension on ChatMessage {
@@ -49,10 +44,10 @@ class ChatPage extends ConsumerStatefulWidget {
   });
 
   @override
-  _ChatPageState createState() => _ChatPageState();
+  ChatPageState createState() => ChatPageState();
 }
 
-class _ChatPageState extends ConsumerState<ChatPage> {
+class ChatPageState extends ConsumerState<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
@@ -324,7 +319,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final isOnline = _isBusinessHours();
 
     return Scaffold(
-      backgroundColor: isDark ? theme.colorScheme.background : Colors.transparent,
+      backgroundColor: isDark ? theme.colorScheme.surface : Colors.transparent,
       appBar:
           widget.showAppBar
               ? AppBar(
@@ -339,7 +334,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       backgroundColor:
                           theme.brightness == Brightness.dark
                               ? theme.colorScheme.surface
-                              : theme.colorScheme.primary.withOpacity(0.8),
+                              : theme.colorScheme.primary.withAlpha(25),
                       radius: 20,
                       child: Text(
                         (widget.title?.isNotEmpty == true)
@@ -379,7 +374,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 isOnline
                                     ? [
                                       BoxShadow(
-                                        color: Colors.green.withOpacity(0.4),
+                                        color: Colors.green.withAlpha((255 * 0.4).round()),
                                         blurRadius: 4,
                                         spreadRadius: 1,
                                       ),
@@ -447,7 +442,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withOpacity(0.1),
+                                        color: theme.colorScheme.primary.withAlpha(25),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
@@ -497,8 +492,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               Text(
                                 'Carregando mensagens...',
                                 style: TextStyle(
-                                  color: theme.colorScheme.onBackground.withOpacity(
-                                    0.7,
+                                  color: theme.colorScheme.onSurface.withAlpha(
+                                    (255 * 0.7).round(),
                                   ),
                                   fontSize: 14,
                                 ),
@@ -509,8 +504,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   child: Text(
                                     "Loading conversation: ${widget.conversationId}",
                                     style: TextStyle(
-                                      color: theme.colorScheme.onBackground
-                                          .withOpacity(0.5),
+                                      color: theme.colorScheme.onSurface
+                                          .withAlpha((255 * 0.5).round()),
                                       fontSize: 12,
                                     ),
                                     textAlign: TextAlign.center,
@@ -539,8 +534,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 child: Text(
                                   'Erro ao carregar mensagens: ${error.toString()}',
                                   style: TextStyle(
-                                    color: theme.colorScheme.onBackground.withOpacity(
-                                      0.6,
+                                    color: theme.colorScheme.onSurface.withAlpha(
+                                      (255 * 0.6).round(),
                                     ),
                                   ),
                                   textAlign: TextAlign.center,
@@ -552,8 +547,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   child: Text(
                                     "Conversation ID: ${widget.conversationId}",
                                     style: TextStyle(
-                                      color: theme.colorScheme.onBackground
-                                          .withOpacity(0.5),
+                                      color: theme.colorScheme.onSurface
+                                          .withAlpha((255 * 0.5).round()),
                                       fontSize: 12,
                                     ),
                                     textAlign: TextAlign.center,
@@ -617,7 +612,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
-                color: theme.colorScheme.onBackground,
+                color: theme.colorScheme.onSurface,
               ),
               textAlign: TextAlign.center,
             ),
@@ -629,7 +624,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               'Conecte-se diretamente com nossa equipe de suporte para obter assistência personalizada com sua conta, serviços e quaisquer perguntas que você possa ter.',
               style: TextStyle(
                 fontSize: 14,
-                color: theme.colorScheme.onBackground.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
               ),
               textAlign: TextAlign.center,
             ),
@@ -642,7 +637,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               style: TextStyle(
                 fontSize: 16,
                 fontStyle: FontStyle.italic,
-                color: theme.colorScheme.onBackground.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
               ),
               textAlign: TextAlign.center,
             ),
@@ -676,7 +671,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     } else if (isFromAdmin) {
       senderName = 'Suporte Twogether';
     } else {
-      senderName = message.senderName ?? 'Utilizador';
+      senderName = message.senderName;
     }
 
     // Set bubble colors based on sender and theme
@@ -709,7 +704,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               radius: 16,
               backgroundColor:
                 isFromAdmin
-                  ? theme.colorScheme.primary.withOpacity(0.2)
+                  ? theme.colorScheme.primary.withAlpha((255 * 0.2).round())
                   : theme.colorScheme.secondaryContainer,
               child: Text(
                 senderName.isNotEmpty
@@ -740,7 +735,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                       ),
                     ),
                   ),
@@ -760,7 +755,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       DateFormat('HH:mm').format(message.timestamp),
                       style: TextStyle(
                         fontSize: 10,
-                        color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onBackground.withOpacity(0.5),
+                        color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
                       ),
                     ),
                   ),
@@ -777,10 +772,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     ChatMessage message,
     Color textColor,
   ) {
-    final theme = Theme.of(context);
-    final iphoneBlue = const Color(0xFF0B84FE); // Original iPhone-like blue color
-    final iconGray = const Color(0xFF8E8E93); // iOS gray color for icons
-
     if (message.isImage) {
       // Debug logging for image messages
       if (kDebugMode) {
@@ -794,7 +785,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withAlpha((255 * 0.08).round()),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -911,7 +902,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                           Text(
                             _formatFileSize(message.fileSize!),
                             style: TextStyle(
-                              color: textColor.withOpacity(0.7),
+                              color: textColor.withAlpha((255 * 0.7).round()),
                               fontSize: 14,
                             ),
                           ),
@@ -922,7 +913,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   const SizedBox(width: 8),
                   Icon(
                     Icons.download,
-                    color: textColor.withOpacity(0.7),
+                    color: textColor.withAlpha((255 * 0.7).round()),
                     size: 20,
                   ),
                 ],
@@ -997,7 +988,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         color: buttonColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
                           width: 1,
                         ),
                       ),
@@ -1023,7 +1014,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         color: buttonColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
                           width: 1,
                         ),
                       ),
@@ -1047,7 +1038,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         color: buttonColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
                           width: 1,
                         ),
                       ),
@@ -1072,7 +1063,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         color: buttonColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()),
+                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
                           width: 1,
                         ),
                       ),
@@ -1089,7 +1080,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
                     color: isDark ? AppTheme.darkInput : Colors.white,
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.3).round()), width: 1),
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
                   ),
                   child: Row(
                     children: [
@@ -1169,7 +1160,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         color: isDark ? const Color(0xFF232F3E) : const Color(0xFFF7F7F8),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withOpacity(0.18),
+          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
           width: 1,
         ),
       ),
@@ -1180,8 +1171,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
-              borderRadius: BorderRadius.circular(8),
+              color: theme.colorScheme.primary.withAlpha(25),
+              shape: BoxShape.circle,
             ),
             child: Icon(
               _getFileIcon(_selectedFileType ?? 'application/octet-stream'),
@@ -1207,9 +1198,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 const SizedBox(height: 2),
                 Text(
                   _selectedFileSize != null ? _formatFileSize(_selectedFileSize!) : '',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withOpacity(0.6),
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                    fontSize: 14,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -1219,7 +1212,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             onPressed: _removeAttachment,
             icon: Icon(
               Icons.close,
-              color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withOpacity(0.6),
+              color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.6).round()),
               size: 20,
             ),
             padding: EdgeInsets.zero,
@@ -1244,169 +1237,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         });
       }
     });
-  }
-
-  // Add a check to test the image URL and report any issues
-  void _testImageUrl(String url) {
-    if (kDebugMode) {
-      // Check for common problems in URLs
-      print('DEBUG: Testing image URL: $url');
-
-      if (url.contains(' ')) {
-        print(
-          'WARNING: URL contains spaces which may cause issues. URL should be properly encoded.',
-        );
-      }
-
-      if (url.contains('\\')) {
-        print(
-          'WARNING: URL contains backslashes which may cause issues. URL should use forward slashes.',
-        );
-      }
-
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        print('WARNING: URL doesn\'t start with http:// or https://');
-      }
-
-      // Print URL in pieces to help debug
-      try {
-        final uri = Uri.parse(url);
-        print('DEBUG: URL scheme: ${uri.scheme}');
-        print('DEBUG: URL host: ${uri.host}');
-        print('DEBUG: URL path: ${uri.path}');
-        print('DEBUG: URL query params: ${uri.queryParameters}');
-      } catch (e) {
-        print('ERROR: Failed to parse URL: $e');
-      }
-    }
-  }
-
-  // Add a method to diagnose image loading issues
-  Future<void> _showDebugDialog(String imageUrl) async {
-    if (!kDebugMode) return;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Info Depuração Carregamento Imagem'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'URL:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(imageUrl, style: const TextStyle(fontSize: 12)),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Testes:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      _testImageUrl(imageUrl);
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Run URL Tests'),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(context);
-
-                      // For web, open the URL in a new tab to test it directly
-                      if (kDebugMode) {
-                        print('Trying to test image directly: $imageUrl');
-
-                        // Create a sanitized version of the URL for debugging
-                        final sanitizedUrl = imageUrl.replaceAll(
-                          RegExp(r'[^\w\s\.\:\/\-\=\&\?]'),
-                          '',
-                        );
-                        print('Sanitized URL: $sanitizedUrl');
-                      }
-
-                      // Add a direct image test dialog that doesn't use HtmlElementView
-                      showDialog(
-                        context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text('Firebase Storage URL Issue'),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Firebase Storage URLs often have CORS issues in web browsers that prevent direct loading.',
-                                      style: TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      'Possible solutions:',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '1. Configure Firebase Storage CORS settings',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                    Text(
-                                      '2. Use a server proxy to bypass CORS',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                    Text(
-                                      '3. Switch to use a CachedNetworkImageProvider',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'URL: $imageUrl',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
-                                ),
-                              ],
-                            ),
-                      );
-                    },
-                    child: const Text('Image URL Info'),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-    );
   }
 
   // Helper method to check if current time is within business hours (9am-6pm)
@@ -1496,8 +1326,8 @@ class SafeNetworkImage extends StatefulWidget {
 }
 
 class _SafeNetworkImageState extends State<SafeNetworkImage> {
-  bool _hasError = false;
-  int _retryCount = 0;
+  final bool _hasError = false;
+  final int _retryCount = 0;
   final int _maxRetries = 1; // Keep this at 1 to avoid excessive retries
   late String _processedUrl;
   bool _useBase64 = false;
@@ -1648,42 +1478,6 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
 
       // Since this is async, we need to rebuild the widget
       if (mounted) setState(() {});
-    }
-  }
-
-  void _resetAndRetry() {
-    if (_isCorrupted || _retryCount >= _maxRetries) {
-      // If the image is corrupted or we've exhausted retries, show placeholder
-      setState(() {
-        _showPlaceholder = true;
-      });
-      return;
-    }
-
-    if (_retryCount < _maxRetries) {
-      setState(() {
-        _retryCount++;
-        _hasError = false;
-
-        // If we're on web and have base64 data available, try that instead
-        if (kIsWeb && _base64Data != null && !_useBase64) {
-          _useBase64 = true;
-        } else {
-          // Reset the URL and process it again
-          _isInitialized = false;
-          _processImageData();
-        }
-      });
-
-      if (kDebugMode) {
-        print('Retrying image load (attempt $_retryCount): $_processedUrl');
-        print('Using base64: $_useBase64');
-      }
-    } else {
-      // If we've exhausted retries, show placeholder
-      setState(() {
-        _showPlaceholder = true;
-      });
     }
   }
 
@@ -1875,45 +1669,12 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       child: Center(
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          value:
-              loadingProgress?.expectedTotalBytes != null
-                  ? loadingProgress!.cumulativeBytesLoaded /
-                      loadingProgress!.expectedTotalBytes!
-                  : null,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorDisplay() {
-    return GestureDetector(
-      onTap: _resetAndRetry,
-      child: Container(
-        width: widget.width ?? 100,
-        height: widget.height ?? 100,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: widget.borderRadius,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.broken_image_outlined, color: Colors.red[400], size: 32),
-            const SizedBox(height: 8),
-            const Text(
-              'Image failed to load',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            if (_retryCount < _maxRetries) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Tap to retry ${_retryCount + 1}/$_maxRetries',
-                style: TextStyle(fontSize: 10, color: Colors.blue),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ],
+          value: () {
+            final expectedBytes = loadingProgress?.expectedTotalBytes;
+            return expectedBytes != null
+                ? loadingProgress!.cumulativeBytesLoaded / expectedBytes
+                : null;
+          }(),
         ),
       ),
     );
@@ -2058,9 +1819,11 @@ class _SafeNetworkImageState extends State<SafeNetworkImage> {
       );
 
       if (sanitizedString.length != base64String.length && kDebugMode) {
-        print(
-          'Sanitized base64 string (removed ${base64String.length - sanitizedString.length} invalid characters)',
-        );
+        if (kDebugMode) {
+          print(
+            'Sanitized base64 string (removed ${base64String.length - sanitizedString.length} invalid characters)',
+          );
+        }
       }
 
       // Base64 data must have a length that is a multiple of 4
