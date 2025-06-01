@@ -7,13 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'dart:typed_data'; // For Uint8List
 import 'dart:convert'; // For base64Decode AND jsonEncode/Decode
 
-import '../../../../core/theme/theme.dart';
+
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
-import '../../../features/proposal/data/models/get_reseller_proposal_details_result.dart';
+
 import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart';
-import '../../../features/proposal/data/models/salesforce_proposal_data.dart';
+
 import './submit_proposal_documents_page.dart'; // Import the new page
-import '../../../../core/services/salesforce_auth_service.dart'; // For auth provider
+
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart';
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart';
 import '../../widgets/logo.dart'; // Added for LogoWidget

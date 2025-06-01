@@ -39,16 +39,16 @@ class UserListItem extends StatelessWidget {
     }
   }
 
-  bool get _isEnabled => user.additionalData?['isEnabled'] as bool? ?? true;
+  bool get _isEnabled => user.additionalData['isEnabled'] as bool? ?? true;
   bool get _isFirstLogin => user.isFirstLogin;
   bool get _isEmailVerified => user.isEmailVerified;
   DateTime? get _lastSignInTime =>
-      user.additionalData?['lastSignInTime'] != null
-          ? (user.additionalData!['lastSignInTime'] as Timestamp).toDate()
+      user.additionalData['lastSignInTime'] != null
+          ? (user.additionalData['lastSignInTime'] as Timestamp).toDate()
           : null;
   DateTime? get _creationTime =>
-      user.additionalData?['creationTime'] != null
-          ? (user.additionalData!['creationTime'] as Timestamp).toDate()
+      user.additionalData['creationTime'] != null
+          ? (user.additionalData['creationTime'] as Timestamp).toDate()
           : null;
 
   String _formatDate(DateTime? date) {
@@ -213,7 +213,7 @@ class UserListItem extends StatelessWidget {
                         children: [
                           Chip(
                             label: Text(_getRoleText()),
-                            backgroundColor: _getRoleColor().withOpacity(0.2),
+                            backgroundColor: _getRoleColor().withAlpha((255 * 0.2).round()),
                             labelStyle: TextStyle(
                               color: _getRoleColor(),
                               fontSize: 12,
@@ -228,8 +228,8 @@ class UserListItem extends StatelessWidget {
                             label: Text(_isEnabled ? 'Active' : 'Disabled'),
                             backgroundColor:
                                 _isEnabled
-                                    ? Colors.green.withOpacity(0.2)
-                                    : Colors.red.withOpacity(0.2),
+                                    ? Colors.green.withAlpha((255 * 0.2).round())
+                                    : Colors.red.withAlpha((255 * 0.2).round()),
                             labelStyle: TextStyle(
                               color: _isEnabled ? Colors.green : Colors.red,
                               fontSize: 12,
@@ -243,7 +243,7 @@ class UserListItem extends StatelessWidget {
                           if (_isFirstLogin)
                             Chip(
                               label: const Text('First Login'),
-                              backgroundColor: Colors.orange.withOpacity(0.2),
+                              backgroundColor: Colors.orange.withAlpha((255 * 0.2).round()),
                               labelStyle: TextStyle(
                                 color: Colors.orange.shade800,
                                 fontSize: 12,
@@ -260,8 +260,8 @@ class UserListItem extends StatelessWidget {
                             ),
                             backgroundColor:
                                 _isEmailVerified
-                                    ? Colors.teal.withOpacity(0.2)
-                                    : Colors.grey.withOpacity(0.2),
+                                    ? Colors.teal.withAlpha((255 * 0.2).round())
+                                    : Colors.grey.withAlpha((255 * 0.2).round()),
                             labelStyle: TextStyle(
                               color:
                                   _isEmailVerified

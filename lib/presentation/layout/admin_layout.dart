@@ -1,14 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
-import '../../core/theme/colors.dart';
+
 import '../../core/theme/ui_styles.dart';
-import '../../core/theme/responsive.dart';
-import '../screens/admin/admin_home_page.dart';
-import '../screens/admin/admin_settings_page.dart';
-import '../screens/messages/messages_page.dart';
+
 import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/logo.dart';
@@ -50,7 +46,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     });
   }
 
-  // TODO: Consider calling this method also when route changes (e.g., via didChangeDependencies or a RouteAware mixin)
   void _updateSelectedIndexFromRoute() {
     if (!mounted) return;
     // Use GoRouterState.of(context) to get the current state
@@ -133,7 +128,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? theme.colorScheme.background : theme.colorScheme.surface,
+          isDark ? theme.colorScheme.surface : theme.colorScheme.surface,
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar:
@@ -198,7 +193,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                           actions: [],
                         ))),
       body: Container(
-        decoration: BoxDecoration(color: theme.colorScheme.background),
+        decoration: BoxDecoration(color: theme.colorScheme.surface),
         child: Material(
           color: Colors.transparent,
           child: Stack(
@@ -318,7 +313,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha((255 * 0.05).round()),
                   blurRadius: 10,
                   offset: const Offset(2, 0),
                 ),
@@ -443,8 +438,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                           return LinearGradient(
                             colors: [
                               tulipTreeColor,
-                              tulipTreeColor.withRed(
-                                (tulipTreeColor.red + 15).clamp(0, 255),
+                              tulipTreeColor.withValues(
+                                red: (tulipTreeColor.r + 15 / 255).clamp(0.0, 1.0),
                               ),
                             ],
                             begin: Alignment.topLeft,
@@ -453,19 +448,19 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                         },
                         child: Icon(icon, size: 22),
                       )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 22),
+                    : Icon(icon, color: textColor.withAlpha((255 * 0.7).round()), size: 22),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                      color: isSelected ? tulipTreeColor : textColor.withAlpha((255 * 0.7).round()),
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 15,
                       shadows: isSelected
                           ? [
                               Shadow(
-                                color: tulipTreeColor.withOpacity(0.3),
+                                color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                                 blurRadius: 2.0,
                               ),
                             ]
@@ -482,7 +477,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       borderRadius: BorderRadius.circular(AppStyles.badgeSize / 2),
                       boxShadow: [
                         BoxShadow(
-                          color: tulipTreeColor.withOpacity(0.3),
+                          color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                           blurRadius: 4,
                           spreadRadius: 0,
                         ),
@@ -509,7 +504,6 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     int currentIndex,
     int unreadCount,
   ) {
-    final textColor = isDark ? Colors.white : Colors.black;
     final screenWidth = MediaQuery.of(context).size.width;
     final numTabs = 5; // Changed back to 5 tabs
     final tabWidth = screenWidth / numTabs;
@@ -615,8 +609,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       return LinearGradient(
                         colors: [
                           tulipTreeColor,
-                          tulipTreeColor.withRed(
-                            (tulipTreeColor.red + 15).clamp(0, 255),
+                          tulipTreeColor.withValues(
+                            red: (tulipTreeColor.r + 15 / 255).clamp(0.0, 1.0),
                           ),
                         ],
                         begin: Alignment.topLeft,
@@ -625,7 +619,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                     },
                     child: Icon(icon, size: 24),
                   )
-                : Icon(icon, color: textColor.withOpacity(0.7), size: 24),
+                : Icon(icon, color: textColor.withAlpha((255 * 0.7).round()), size: 24),
             const SizedBox(height: 4),
             Text(
               label,
@@ -633,14 +627,14 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               overflow: TextOverflow.visible,
               maxLines: 1,
               style: TextStyle(
-                color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                color: isSelected ? tulipTreeColor : textColor.withAlpha((255 * 0.7).round()),
                 fontSize: fontSize,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 shadows:
                     isSelected
                         ? [
                           Shadow(
-                            color: tulipTreeColor.withOpacity(0.3),
+                            color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                             blurRadius: 1.5,
                           ),
                         ]

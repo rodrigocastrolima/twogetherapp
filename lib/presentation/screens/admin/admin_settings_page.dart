@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+
 import 'dart:ui';
-import 'package:go_router/go_router.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+
 import '../../../core/theme/theme.dart';
 import '../../../core/providers/theme_provider.dart';
-import '../../../core/theme/ui_styles.dart';
+
 import '../../../app/router/app_router.dart';
-import '../../../features/user_management/presentation/pages/user_management_page.dart';
+
 import '../../../core/services/loading_service.dart';
 import '../../../core/services/salesforce_auth_service.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
@@ -23,14 +21,12 @@ class AdminSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
-  bool _securityAlertsEnabled = true;
 
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
     final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onSurface;
     final salesforceState = ref.watch(salesforceAuthProvider);
     Color statusColor;
     String statusSubtitle;
@@ -145,12 +141,13 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 if (!isConnected) {
                   final loadingService = ref.read(loadingServiceProvider);
                       final salesforceNotifier = ref.read(salesforceAuthProvider.notifier);
-                      loadingService.show(context, message: 'Conectando ao Salesforce...');
+                      final currentContext = context;
+                      loadingService.show(currentContext, message: 'Conectando ao Salesforce...');
                   try {
                     await salesforceNotifier.signIn();
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(currentContext).showSnackBar(
                             SnackBar(content: Text('Falha na conexão com o Salesforce: $e')),
                       );
                     }
@@ -182,7 +179,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   leading: Icon(Icons.logout, color: theme.colorScheme.error, size: 24),
                   title: Text('Terminar Sessão', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.error)),
-                  subtitle: Text('Encerrar a sessão atual', style: TextStyle(color: theme.colorScheme.error.withOpacity(0.7), fontSize: 14)),
+                  subtitle: Text('Encerrar a sessão atual', style: TextStyle(color: theme.colorScheme.error.withAlpha((255 * 0.7).round()), fontSize: 14)),
                   onTap: () => _handleLogout(context, ref),
                   trailing: null,
                 ),
@@ -234,8 +231,11 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   Navigator.of(dialogContext).pop();
 
                   final loadingService = ref.read(loadingServiceProvider);
+                  final currentContext = context;
+                  if (!mounted) return;
+                  
                   loadingService.show(
-                    context,
+                    currentContext,
                     message: 'Signing out...',
                     showLogo: true,
                   );
@@ -249,7 +249,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                   } catch (error) {
                     if (mounted) {
                       loadingService.hide();
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(currentContext).showSnackBar(
                         SnackBar(
                           content: Text('Error signing out: $error'),
                           backgroundColor: AppTheme.destructive,

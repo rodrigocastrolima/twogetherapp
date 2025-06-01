@@ -1,4 +1,4 @@
-import 'dart:io';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -14,21 +14,6 @@ import '../features/salesforce/data/services/salesforce_user_sync_service.dart';
 ///
 /// Usage:
 /// flutter run -d chrome -t lib/scripts/sync_salesforce_user_data.dart
-
-// Configuration for field mapping between Salesforce and Firebase
-const Map<String, String> _defaultFieldMapping = {
-  'Id': 'salesforceId',
-  'Name': 'displayName',
-  'Email': 'email',
-  'IsActive': 'isActive',
-  'Phone': 'phoneNumber',
-  'MobilePhone': 'mobilePhone',
-  'Department': 'department',
-  'Username': 'salesforceUsername',
-  'FirstName': 'firstName',
-  'LastName': 'lastName',
-  'Revendedor_Retail__c': 'revendedorRetail',
-};
 
 void main() async {
   // Initialize Flutter binding and Firebase

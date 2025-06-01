@@ -161,8 +161,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       final userRepo = ref.read(repo.serviceSubmissionRepositoryProvider);
       final userData = await userRepo.getCurrentUserData();
 
-      if (userData == null)
+      if (userData == null) {
         throw Exception('Erro de autenticação do utilizador.');
+      }
 
       final success = await formNotifier.submitServiceRequest(
         resellerId: userData['uid'] ?? '',
@@ -350,7 +351,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           if (index.isEven) {
             final stepIndex = index ~/ 2 + 1;
             final bool isActive = currentStep == stepIndex;
-            final bool isCompleted = currentStep > stepIndex;
             final bool isActiveOrCompleted = currentStep >= stepIndex;
             final double size = isActiveOrCompleted ? 28 : 20;
             final Color fillColor = isActiveOrCompleted
@@ -358,15 +358,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 : colorScheme.surface;
             final Color borderColor = isActiveOrCompleted
                 ? colorScheme.primary
-                : colorScheme.outline.withOpacity(0.4);
+                : colorScheme.outline.withAlpha((255 * 0.4).round());
             final Color textColor = isActiveOrCompleted
                           ? colorScheme.onPrimary
-                : colorScheme.onSurfaceVariant.withOpacity(0.7);
+                : colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round());
             final FontWeight fontWeight = isActive ? FontWeight.bold : FontWeight.w500;
             final List<BoxShadow> boxShadow = isActive
                 ? [
                     BoxShadow(
-                      color: colorScheme.primary.withOpacity(0.10),
+                      color: colorScheme.primary.withAlpha((255 * 0.10).round()),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
               ),
@@ -420,7 +420,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 height: 1.0,
                 color: isActiveOrCompletedLine
                           ? colorScheme.primary
-                    : theme.colorScheme.outline.withOpacity(0.25),
+                    : theme.colorScheme.outline.withAlpha((255 * 0.25).round()),
               ),
             );
           }
@@ -466,7 +466,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                     : Text(
                         'Brevemente...',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
                         ),
                       ),
               ),
@@ -493,7 +493,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             Text('Tipo de Energia', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
             ...EnergyType.values.map((type) {
-              final isSelected = false; // No selection highlight for now
               final icon = _getEnergyTypeIcon(type);
               return _EnergyTypeCard(
                 title: type.displayName,
@@ -554,8 +553,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final notifier = ref.read(serviceSubmissionProvider.notifier);
-
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
@@ -563,231 +560,126 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Detalhes do Cliente', style: textTheme.headlineSmall),
+            Text('Dados da Empresa', style: textTheme.headlineSmall),
             const SizedBox(height: AppConstants.spacing24),
-            if (_selectedClientType == ClientType.commercial) ...[
-              AppInputField(
-                controller: _companyNameController,
-                label: 'Nome da Empresa',
-                hint: 'Insira o nome da empresa',
-                onChanged: (value) => notifier.updateFormFields({'companyName': value}),
-              ),
-              const SizedBox(height: AppConstants.spacing16),
-            ],
+            AppInputField(
+              controller: _companyNameController,
+              label: 'Nome da Empresa',
+              hint: 'Introduza o nome da empresa',
+              onChanged: (value) {
+                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                  'companyName': value,
+                });
+              },
+            ),
+            const SizedBox(height: AppConstants.spacing16),
             AppInputField(
               controller: _responsibleNameController,
               label: 'Nome do Responsável',
-              hint: 'Insira o nome do responsável',
-              onChanged: (value) => notifier.updateFormFields({'responsibleName': value}),
+              hint: 'Introduza o nome do responsável',
+              onChanged: (value) {
+                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                  'responsibleName': value,
+                });
+              },
             ),
             const SizedBox(height: AppConstants.spacing16),
             AppInputField(
               controller: _nifController,
               label: 'NIF',
-              hint: 'Insira o NIF',
+              hint: 'Introduza o NIF da empresa',
               keyboardType: TextInputType.number,
-              onChanged: (value) => notifier.updateFormFields({'nif': value}),
+              onChanged: (value) {
+                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                  'nif': value,
+                });
+              },
             ),
             const SizedBox(height: AppConstants.spacing16),
             AppInputField(
               controller: _emailController,
-              label: 'Email',
-              hint: 'Insira o email de contacto',
+              label: 'E-mail',
+              hint: 'Introduza o e-mail',
               keyboardType: TextInputType.emailAddress,
-              onChanged: (value) => notifier.updateFormFields({'email': value}),
+              onChanged: (value) {
+                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                  'email': value,
+                });
+              },
             ),
             const SizedBox(height: AppConstants.spacing16),
             AppInputField(
               controller: _phoneController,
               label: 'Telefone',
-              hint: 'Insira o número de telefone',
+              hint: 'Introduza o número de telefone',
               keyboardType: TextInputType.phone,
-              onChanged: (value) => notifier.updateFormFields({'phone': value}),
-            ),
-            const SizedBox(height: AppConstants.spacing24),
-
-            // Document upload widget
-            Consumer(
-              builder: (context, ref, child) {
-                // FileUploadWidget now reads the provider state internally
-                return const FileUploadWidget();
+              onChanged: (value) {
+                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                  'phone': value,
+                });
               },
             ),
-
-            if (_errorMessage != null) ...[
-              const SizedBox(height: AppConstants.spacing16),
-              Text(
-                _errorMessage!,
-                style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
-                textAlign: TextAlign.center,
-              ),
-            ],
-
             const SizedBox(height: AppConstants.spacing24),
+            Text('Anexar Documento', style: textTheme.headlineSmall),
+            const SizedBox(height: AppConstants.spacing16),
+            const FileUploadWidget(),
+            const SizedBox(height: AppConstants.spacing32),
+            if (_errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.all(AppConstants.spacing16),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withAlpha((255 * 0.1).round()),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.error),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error, color: colorScheme.error, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppConstants.spacing16),
+            ],
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    ref.watch(isFormValidProvider) && !_isSubmitting
-                        ? _handleSubmit
-                        : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorScheme.primary,
                   foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppConstants.spacing16,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  minimumSize: const Size(double.infinity, 50),
+                  elevation: 0,
                 ),
-                child:
-                    _isSubmitting
-                        ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: colorScheme.onPrimary,
-                            strokeWidth: 2,
-                          ),
-                        )
-                        : Text(
-                          'Submeter Pedido',
-                          style: textTheme.labelLarge?.copyWith(
-                            color: colorScheme.onPrimary,
-                          ),
+                onPressed: _isSubmitting ? null : _handleSubmit,
+                child: _isSubmitting
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: colorScheme.onPrimary,
+                          strokeWidth: 2,
                         ),
+                      )
+                      : Text(
+                        'Submeter Pedido',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onPrimary,
+                        ),
+                      ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectionTile({
-    required String title,
-    required IconData icon,
-    required VoidCallback onTap,
-    bool isDisabled = false,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    final bool isDark = theme.brightness == Brightness.dark;
-
-    final Color effectiveIconColor =
-        isDisabled
-            ? colorScheme.onSurface.withOpacity(0.38)
-            : colorScheme.primary;
-    final Color effectiveTextColor =
-        isDisabled
-            ? colorScheme.onSurface.withOpacity(0.38)
-            : colorScheme.onSurface;
-
-    return Card(
-      elevation: isDark ? 1.0 : 2.0,
-      shadowColor:
-          isDark ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.3),
-      margin: const EdgeInsets.only(bottom: AppConstants.spacing12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppConstants.spacing16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Icon(icon, color: effectiveIconColor, size: 28),
-                ),
-                const SizedBox(width: AppConstants.spacing16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: textTheme.titleMedium?.copyWith(
-                      color: effectiveTextColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (!isDisabled)
-                  Icon(
-                    CupertinoIcons.chevron_right,
-                    color: colorScheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClientCard({
-    required String title,
-    required String imagePath,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-
-    return Card(
-      elevation: 1.0,
-      margin: const EdgeInsets.only(bottom: AppConstants.spacing12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.brightness == Brightness.dark ? const Color(0xFF1C1C1E) : const Color(0xFFF5F5F7),
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppConstants.spacing16),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Image.asset(imagePath, fit: BoxFit.contain),
-                ),
-                const SizedBox(width: AppConstants.spacing16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Icon(
-                  CupertinoIcons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -864,7 +756,7 @@ class ServiceCategoryCard extends StatelessWidget {
                 icon,
                 color: isEnabled
                     ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurface.withOpacity(0.38),
+                    : theme.colorScheme.onSurface.withAlpha((255 * 0.38).round()),
                 size: 28,
               ),
               const SizedBox(width: 20),
@@ -874,7 +766,7 @@ class ServiceCategoryCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: isEnabled
                         ? theme.colorScheme.onSurface
-                        : theme.colorScheme.onSurface.withOpacity(0.38),
+                        : theme.colorScheme.onSurface.withAlpha((255 * 0.38).round()),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -898,7 +790,6 @@ class _EnergyTypeCard extends StatefulWidget {
     required this.title,
     required this.icon,
     this.onTap,
-    super.key,
   });
 
   @override
@@ -929,12 +820,12 @@ class _EnergyTypeCardState extends State<_EnergyTypeCard> {
             duration: const Duration(milliseconds: 120),
             decoration: BoxDecoration(
               color: _isHovering
-                  ? theme.colorScheme.surface.withOpacity(0.97)
+                  ? theme.colorScheme.surface.withAlpha((255 * 0.97).round())
                   : theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(_isHovering ? 0.10 : 0.06),
+                  color: Colors.black.withAlpha(_isHovering ? (255 * 0.10).round() : (255 * 0.06).round()),
                   blurRadius: _isHovering ? 10 : 6,
                   offset: const Offset(0, 2),
                 ),
@@ -974,7 +865,6 @@ class _ClientTypeCard extends StatefulWidget {
     required this.title,
     required this.imagePath,
     this.onTap,
-    super.key,
   });
 
   @override
@@ -1005,12 +895,12 @@ class _ClientTypeCardState extends State<_ClientTypeCard> {
             duration: const Duration(milliseconds: 120),
             decoration: BoxDecoration(
               color: _isHovering
-                  ? theme.colorScheme.surface.withOpacity(0.97)
+                  ? theme.colorScheme.surface.withAlpha((255 * 0.97).round())
                   : theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(_isHovering ? 0.10 : 0.06),
+                  color: Colors.black.withAlpha(_isHovering ? (255 * 0.10).round() : (255 * 0.06).round()),
                   blurRadius: _isHovering ? 10 : 6,
                   offset: const Offset(0, 2),
                 ),

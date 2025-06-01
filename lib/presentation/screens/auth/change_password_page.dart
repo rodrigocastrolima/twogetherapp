@@ -1,17 +1,15 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/theme.dart';
-import '../../../core/theme/ui_styles.dart';
+
 import '../../../app/router/app_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/chat/data/repositories/chat_repository.dart';
 import '../../widgets/success_dialog.dart';
 import '../../widgets/logo.dart';
-import '../../widgets/app_input_field.dart';
+
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
   const ChangePasswordPage({super.key});
@@ -28,7 +26,6 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
   String? _errorMessage;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
-  bool _obscureCurrentPassword = true;
 
   @override
   void initState() {
@@ -112,7 +109,7 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
                           color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
                         ),
                         filled: true,
-                        fillColor: colorScheme.surfaceVariant,
+                        fillColor: colorScheme.surfaceContainerHighest,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
@@ -200,8 +197,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     if (reauthSuccess == true) {
       try {
         final freshUser = FirebaseAuth.instance.currentUser;
-        if (freshUser == null)
+        if (freshUser == null) {
           throw Exception('User became null after re-auth');
+        }
 
         await freshUser.updatePassword(_newPasswordController.text);
 
@@ -252,7 +250,9 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
             await chatRepository.ensureResellerHasConversation(user.uid);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Error handling for chat repository setup - silent fail
+      }
     }
 
     try {
@@ -342,11 +342,6 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final isDark = theme.brightness == Brightness.dark;
-
-    final size = MediaQuery.of(context).size;
-    final isSmallScreen = size.width < 600;
-    final double horizontalPadding = isSmallScreen ? 24.0 : 32.0;
-    final double topPadding = isSmallScreen ? 32.0 : 48.0;
 
     Widget pageContent = Center(
       child: ConstrainedBox(
@@ -501,13 +496,13 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
           ),
           hintText: (controller.text.isEmpty) ? '' : '',
           hintStyle: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+            color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
           ),
           filled: true,
-          fillColor: colorScheme.surfaceVariant,
+          fillColor: colorScheme.surfaceContainerHighest,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+            borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -515,14 +510,14 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+            borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
           ),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           suffixIcon: IconButton(
             icon: Icon(
               obscureText ? Icons.visibility_off : Icons.visibility,
-              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+              color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
               size: 20,
             ),
             onPressed: onToggleObscure,

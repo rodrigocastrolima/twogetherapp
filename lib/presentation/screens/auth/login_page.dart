@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/theme.dart';
-import '../../../presentation/layout/main_layout.dart';
+
 import '../../../app/router/app_router.dart';
 import '../../../core/theme/ui_styles.dart';
 
@@ -77,15 +77,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  void _sendRecoveryEmail() async {
-    _clearError(); // Clear previous errors
+  void _sendPasswordRecoveryEmail() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Por favor, insira seu endereço de email.';
-        });
-      }
+      setState(() {
+        _errorMessage = 'Por favor, insira seu e-mail.';
+      });
       return;
     }
 
@@ -96,7 +93,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       final authNotifier = AppRouter.authNotifier;
-      final success = await authNotifier.requestPasswordReset(email);
+      await authNotifier.requestPasswordReset(email);
       if (mounted) {
         // SnackBar removed, _recoveryEmailSent will trigger the success message in the form
         setState(() {
@@ -177,7 +174,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           Container(
             width: double.infinity,
             height: double.infinity,
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withAlpha((255 * 0.25).round()),
           ),
           SafeArea(
             child: Center(
@@ -233,8 +230,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                           fit: BoxFit.contain,
                                           colorFilter: ColorFilter.mode(
                                             isDarkMode
-                                                ? Colors.white.withOpacity(0.9)
-                                                : Colors.black.withOpacity(0.8),
+                                                ? Colors.white.withAlpha((255 * 0.9).round())
+                                                : Colors.black.withAlpha((255 * 0.8).round()),
                                             BlendMode.srcIn,
                                           ),
                                         ),
@@ -249,7 +246,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                             decoration: BoxDecoration(
-                                              color: Colors.red.withOpacity(0.10), // subtle glassy red
+                                              color: Colors.red.withAlpha((255 * 0.10).round()), // subtle glassy red
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Row(
@@ -301,14 +298,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             child: TextButton(
                               onPressed: _switchToForgotPasswordMode,
                               style: ButtonStyle(
-                                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-                                  if (states.contains(MaterialState.hovered) || states.contains(MaterialState.pressed)) {
-                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withOpacity(0.8);
+                                foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                                  if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
+                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withAlpha((255 * 0.8).round());
                                   }
                                   return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
                                 }),
-                                overlayColor: MaterialStateProperty.all(Colors.transparent),
-                                textStyle: MaterialStateProperty.all(
+                                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                                textStyle: WidgetStateProperty.all(
                                   TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -326,14 +323,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             child: TextButton(
                               onPressed: _switchToLoginMode,
                               style: ButtonStyle(
-                                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-                                  if (states.contains(MaterialState.hovered) || states.contains(MaterialState.pressed)) {
-                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withOpacity(0.8);
+                                foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                                  if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
+                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withAlpha((255 * 0.8).round());
                                   }
                                   return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
                                 }),
-                                overlayColor: MaterialStateProperty.all(Colors.transparent),
-                                textStyle: MaterialStateProperty.all(
+                                overlayColor: WidgetStateProperty.all(Colors.transparent),
+                                textStyle: WidgetStateProperty.all(
                                   TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -367,7 +364,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.87),
+                      color: Colors.white.withAlpha((255 * 0.87).round()),
                       letterSpacing: 0.1,
                     ),
                   ),
@@ -393,12 +390,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : Colors.white.withAlpha(20);
     final Color hintAndIconColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.65)
-            : Colors.black.withOpacity(0.55);
+            ? Colors.white.withAlpha((255 * 0.65).round())
+            : Colors.black.withAlpha((255 * 0.55).round());
     final Color inputTextColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.9)
-            : Colors.black.withOpacity(0.85);
+            ? Colors.white.withAlpha((255 * 0.9).round())
+            : Colors.black.withAlpha((255 * 0.85).round());
     
     final BorderSide inputEnabledBorderSide = BorderSide(
         color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
@@ -431,7 +428,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Email',
             hintStyle: TextStyle(
-              color: hintAndIconColor,
+              color: hintAndIconColor.withAlpha((255 * 0.7).round()),
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -439,7 +436,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               padding: const EdgeInsets.only(left: 14.0, right: 10.0),
               child: Icon(
                 Icons.email_outlined,
-                color: hintAndIconColor,
+                color: hintAndIconColor.withAlpha((255 * 0.7).round()),
                 size: 21,
               ),
             ),
@@ -476,7 +473,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Senha',
             hintStyle: TextStyle(
-              color: hintAndIconColor,
+              color: hintAndIconColor.withAlpha((255 * 0.7).round()),
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -484,7 +481,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               padding: const EdgeInsets.only(left: 14.0, right: 10.0),
               child: Icon(
                 Icons.lock_outline,
-                color: hintAndIconColor,
+                color: hintAndIconColor.withAlpha((255 * 0.7).round()),
                 size: 21,
               ),
             ),
@@ -535,12 +532,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : Colors.white.withAlpha(20);
     final Color hintAndIconColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.65)
-            : Colors.black.withOpacity(0.55);
+            ? Colors.white.withAlpha((255 * 0.65).round())
+            : Colors.black.withAlpha((255 * 0.55).round());
     final Color inputTextColor =
         isDarkMode
-            ? Colors.white.withOpacity(0.9)
-            : Colors.black.withOpacity(0.85);
+            ? Colors.white.withAlpha((255 * 0.9).round())
+            : Colors.black.withAlpha((255 * 0.85).round());
 
     final BorderSide inputEnabledBorderSide = BorderSide(
       color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
@@ -573,7 +570,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             hintText: 'Email',
             hintStyle: TextStyle(
-              color: hintAndIconColor,
+              color: hintAndIconColor.withAlpha((255 * 0.7).round()),
               fontSize: 15,
               fontWeight: FontWeight.w400,
             ),
@@ -581,7 +578,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               padding: const EdgeInsets.only(left: 14.0, right: 10.0),
               child: Icon(
                 Icons.email_outlined,
-                color: hintAndIconColor,
+                color: hintAndIconColor.withAlpha((255 * 0.7).round()),
                 size: 21,
               ),
             ),
@@ -599,7 +596,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           width: double.infinity,
           height: 50,
           child: FilledButton(
-            onPressed: _isSendingRecovery ? null : _sendRecoveryEmail,
+            onPressed: _isSendingRecovery ? null : _sendPasswordRecoveryEmail,
             style: FilledButton.styleFrom(
               backgroundColor: isDarkMode ? AppTheme.darkPrimary : AppTheme.primary,
               foregroundColor: Colors.white,
@@ -609,8 +606,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
               padding: EdgeInsets.symmetric(vertical: 12),
               disabledBackgroundColor: isDarkMode 
-                ? AppTheme.darkPrimary.withOpacity(0.6)
-                : AppTheme.primary.withOpacity(0.6),
+                ? AppTheme.darkPrimary.withAlpha((255 * 0.6).round())
+                : AppTheme.primary.withAlpha((255 * 0.6).round()),
             ),
             child:
                 _isSendingRecovery
@@ -619,7 +616,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.8,
-                        color: Colors.white,
+                        color: Colors.white.withAlpha((255 * 0.92).round()),
                       ),
                     )
                     : Text(
@@ -642,7 +639,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.10), // subtle glassy green
+          color: Colors.green.withAlpha((255 * 0.10).round()), // subtle glassy green
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(

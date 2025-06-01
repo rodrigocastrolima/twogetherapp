@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 // import 'package:fl_chart/fl_chart.dart'; // Removed
 // import 'dart:math'; // Removed
@@ -10,9 +9,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/notification.dart';
 import '../../../core/models/service_submission.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
-import '../../../core/models/enums.dart';
+
 import '../../../features/services/data/repositories/service_submission_repository.dart';
-import '../../widgets/simple_list_item.dart';
+
 import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
 // import '../../../core/theme/ui_styles.dart'; // Removed
 
@@ -59,7 +58,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Center(
               child: Column(
@@ -160,7 +159,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                           icon: Icon(
                             CupertinoIcons.trash,
                             size: 22,
-                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
                           ),
                           tooltip: 'Limpar notificações',
                         );
@@ -231,126 +230,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
     UserNotification notification, {
     required VoidCallback onTap,
   }) {
-    final theme = Theme.of(context);
-    final dateFormatter = DateFormat.yMd('pt_PT').add_jm();
-    final formattedDate = dateFormatter.format(notification.createdAt);
-    final resellerName = notification.metadata['resellerName'] ?? 'Revendedor Desconhecido';
-    String secondarySubtitleText = '?';
-    if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
-      secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
-    } else if (notification.type == NotificationType.newSubmission) {
-      secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
-    } else {
-      secondarySubtitleText = notification.metadata['clientName'] ?? '?';
-    }
-    final isNew = !notification.isRead;
-    IconData itemIcon = CupertinoIcons.doc_plaintext;
-    Color iconColor;
-    switch (notification.type) {
-      case NotificationType.newSubmission:
-        itemIcon = CupertinoIcons.doc_on_doc_fill;
-        iconColor = const Color(0xFF3B82F6);
-        break;
-      case NotificationType.statusChange:
-        itemIcon = CupertinoIcons.arrow_swap;
-        iconColor = const Color(0xFFF59E0B);
-        break;
-      case NotificationType.rejection:
-        itemIcon = CupertinoIcons.xmark_circle_fill;
-        iconColor = const Color(0xFFEF4444);
-        break;
-      case NotificationType.proposalRejected:
-        itemIcon = CupertinoIcons.hand_thumbsdown_fill;
-        iconColor = const Color(0xFFEF4444);
-        break;
-      case NotificationType.proposalAccepted:
-        itemIcon = CupertinoIcons.check_mark_circled_solid;
-        iconColor = const Color(0xFF10B981);
-        break;
-      default:
-        itemIcon = CupertinoIcons.bell_fill;
-        iconColor = const Color(0xFF6B7280);
-    }
-    return Material(
-      color: theme.colorScheme.surface,
-      borderRadius: BorderRadius.circular(14),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: iconColor.withAlpha((255 * (theme.brightness == Brightness.dark ? 0.2 : 0.1)).round()), // Updated withAlpha
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-        child: Icon(itemIcon, size: 20, color: iconColor),
-      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-        notification.title,
-        style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
-          color: theme.colorScheme.onSurface,
-                        fontSize: 14,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$resellerName / $secondarySubtitleText',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-                  ],
-                ),
-              ),
-              Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            formattedDate,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-            ),
-          ),
-          if (isNew) const SizedBox(height: 4),
-          if (isNew)
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                        color: iconColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-            ],
-          ),
-        ),
-      ),
-    );
+     throw UnimplementedError('This method is unused and should be removed');
   }
 
   // --- Admin Notification Tap Handler --- //
@@ -491,46 +371,6 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                 separatorBuilder: (context, index) => const SizedBox(height: 0),
                 itemBuilder: (context, index) {
                   final notification = pageNotifications[index];
-                  // --- Icon and color logic ---
-                  IconData itemIcon = CupertinoIcons.doc_plaintext;
-                  Color iconColor;
-                  switch (notification.type) {
-                    case NotificationType.newSubmission:
-                      itemIcon = CupertinoIcons.doc_on_doc_fill;
-                      iconColor = const Color(0xFF3B82F6);
-                      break;
-                    case NotificationType.statusChange:
-                      itemIcon = CupertinoIcons.arrow_swap;
-                      iconColor = const Color(0xFFF59E0B);
-                      break;
-                    case NotificationType.rejection:
-                      itemIcon = CupertinoIcons.xmark_circle_fill;
-                      iconColor = const Color(0xFFEF4444);
-                      break;
-                    case NotificationType.proposalRejected:
-                      itemIcon = CupertinoIcons.hand_thumbsdown_fill;
-                      iconColor = const Color(0xFFEF4444);
-                      break;
-                    case NotificationType.proposalAccepted:
-                      itemIcon = CupertinoIcons.check_mark_circled_solid;
-                      iconColor = const Color(0xFF10B981);
-                      break;
-                    default:
-                      itemIcon = CupertinoIcons.bell_fill;
-                      iconColor = const Color(0xFF6B7280);
-                  }
-                  final dateFormatter = DateFormat.yMd('pt_PT').add_jm();
-                  final formattedDate = dateFormatter.format(notification.createdAt);
-                  final resellerName = notification.metadata['resellerName'] ?? 'Revendedor Desconhecido';
-                  String secondarySubtitleText = '?';
-                  if (notification.type == NotificationType.proposalAccepted || notification.type == NotificationType.proposalRejected) {
-                    secondarySubtitleText = notification.metadata['proposalName'] ?? '?';
-                  } else if (notification.type == NotificationType.newSubmission) {
-                    secondarySubtitleText = notification.metadata['clientName'] ?? notification.metadata['clientNif'] ?? '?';
-                  } else {
-                    secondarySubtitleText = notification.metadata['clientName'] ?? '?';
-                  }
-                  final isNew = !notification.isRead;
                   return UnifiedNotificationItem(
                     notification: notification,
                     onTap: () => _handleAdminNotificationTap(context, notification, notificationActions),

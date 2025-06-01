@@ -1303,9 +1303,9 @@ class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
                                   });
                                 } finally {
                                   if (mounted) {
-                                    setState(() {
-                                      _isSending = false;
-                                    });
+                                  setState(() {
+                                    _isSending = false;
+                                  });
                                   }
                                 }
                               },

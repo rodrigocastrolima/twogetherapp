@@ -181,7 +181,7 @@ class AppStyles {
   // Consistent card shadow for all cards (matches notification card)
   static List<BoxShadow> get cardShadow => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.2),
+      color: Colors.black.withAlpha((255 * 0.2).round()),
       blurRadius: 6,
       offset: const Offset(0, 3),
     ),
@@ -199,9 +199,9 @@ class AppStyles {
 
   static ButtonStyle glassButtonStyle(BuildContext context) {
     return OutlinedButton.styleFrom(
-      backgroundColor: Colors.white.withOpacity(0.10),
+      backgroundColor: Colors.white.withAlpha((255 * 0.10).round()),
       foregroundColor: Colors.white,
-      side: BorderSide(color: Colors.white.withOpacity(0.25), width: 1),
+      side: BorderSide(color: Colors.white.withAlpha((255 * 0.25).round()), width: 1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -210,15 +210,15 @@ class AppStyles {
       ),
       elevation: 0,
     ).copyWith(
-      overlayColor: MaterialStateProperty.all(Colors.white.withOpacity(0.08)),
+      overlayColor: WidgetStateProperty.all(Colors.white.withAlpha((255 * 0.08).round())),
     );
   }
 
   static BoxDecoration circularIconButtonStyle(BuildContext context, {bool isHighlighted = false, bool isHovering = false}) {
     final theme = Theme.of(context);
-    final baseColor = theme.colorScheme.surface.withOpacity(0.15);
-    final hoverColor = theme.colorScheme.surface.withOpacity(0.3);
-    final highlightColor = theme.colorScheme.primary.withOpacity(0.85);
+    final baseColor = theme.colorScheme.surface.withAlpha((255 * 0.15).round());
+    final hoverColor = theme.colorScheme.surface.withAlpha((255 * 0.3).round());
+    final highlightColor = theme.colorScheme.primary.withAlpha((255 * 0.85).round());
     final color = isHighlighted
         ? highlightColor
         : isHovering
@@ -227,12 +227,12 @@ class AppStyles {
     final borderColor = isHighlighted
         ? theme.colorScheme.primary
         : isHovering
-            ? Colors.white.withOpacity(0.3)
-            : Colors.white.withOpacity(0.1);
+            ? Colors.white.withAlpha((255 * 0.3).round())
+            : Colors.white.withAlpha((255 * 0.1).round());
     final boxShadow = isHighlighted
         ? [
             BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.3),
+              color: theme.colorScheme.primary.withAlpha((255 * 0.3).round()),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -240,14 +240,14 @@ class AppStyles {
         : isHovering
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withAlpha((255 * 0.2).round()),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
               ]
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withAlpha((255 * 0.1).round()),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -265,7 +265,7 @@ class AppStyles {
     return InputDecoration(
       hintText: hintText,
       hintStyle: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+        color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
       ),
       filled: true,
       fillColor: theme.colorScheme.surface,
@@ -278,15 +278,15 @@ class AppStyles {
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+        borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+        borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6), width: 1.5),
+        borderSide: BorderSide(color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()), width: 1.5),
       ),
     );
   }
@@ -329,7 +329,7 @@ extension ChatTheme on ThemeData {
   Color get messageBubbleSent => const Color(0xFF0B84FE); // iPhone blue
   Color get messageBubbleReceived =>
       brightness == Brightness.dark
-          ? colorScheme.surfaceVariant.withOpacity(0.7)
+          ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
           : const Color(0xFFE9E9EB);
   Color get messageBubbleTextSent => Colors.white;
   Color get messageBubbleTextReceived =>

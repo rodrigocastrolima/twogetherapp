@@ -24,9 +24,7 @@ import '../../features/auth/domain/models/app_user.dart';
 import '../../features/user_management/presentation/pages/user_management_page.dart';
 import '../../features/user_management/presentation/pages/user_detail_page.dart';
 import '../../features/settings/presentation/pages/profile_page.dart';
-import '../../presentation/screens/admin/stats/admin_stats_detail_page.dart';
-import '../../core/models/enums.dart';
-import '../../presentation/screens/admin/dev_tools_page.dart';
+
 import '../../core/models/service_submission.dart';
 import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
 import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
@@ -839,31 +837,11 @@ class AppRouter {
                 ),
           ),
           GoRoute(
-            path: '/admin/stats-detail',
-            parentNavigatorKey: _adminShellNavigatorKey,
-            pageBuilder: (context, state) {
-              final extra = state.extra as Map<String, dynamic>?;
-              final timeFilter = extra?['timeFilter'] as TimeFilter?;
-              return NoTransitionPage(
-                child: AdminStatsDetailPage(
-                  timeFilter: timeFilter ?? TimeFilter.monthly,
-                ),
-              );
-            },
-          ),
-          GoRoute(
             path: '/admin/user-management',
             parentNavigatorKey: _adminShellNavigatorKey,
             pageBuilder:
                 (context, state) =>
                     const NoTransitionPage(child: UserManagementPage()),
-          ),
-          GoRoute(
-            path: '/admin/dev-tools',
-            parentNavigatorKey: _adminShellNavigatorKey,
-            pageBuilder:
-                (context, state) =>
-                    const NoTransitionPage(child: DevToolsPage()),
           ),
           GoRoute(
             path: '/admin/settings',

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart'; // Changed to Cupertino
@@ -10,7 +9,7 @@ import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
@@ -19,7 +18,7 @@ import 'package:mime/mime.dart';
 // import 'package:file_saver/file_saver.dart'; // Needed for download action
 
 // Correct the import path to point to /services/
-import 'package:twogether/features/opportunity/data/services/opportunity_service.dart';
+
 // Use correct absolute import path for providers
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart';
 
@@ -45,25 +44,19 @@ class SecureFileViewer extends ConsumerStatefulWidget {
   // Named constructors for convenience
   const SecureFileViewer.fromSalesforce({
     super.key,
-    required String contentVersionId,
-    required String title,
-    String? fileType,
-    bool isResellerContext = false,
-  }) : contentVersionId = contentVersionId,
-       directUrl = null,
-       title = title,
-       fileType = fileType,
-       isResellerContext = isResellerContext;
+    required this.contentVersionId,
+    required this.title,
+    this.fileType,
+    this.isResellerContext = false,
+  }) : directUrl = null;
 
   const SecureFileViewer.fromUrl({
     super.key,
     required String url,
-    required String title,
-    String? fileType,
+    required this.title,
+    this.fileType,
   }) : contentVersionId = null,
        directUrl = url,
-       title = title,
-       fileType = fileType,
        isResellerContext = false;
 
   @override
@@ -73,7 +66,6 @@ class SecureFileViewer extends ConsumerStatefulWidget {
 class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
   bool _isLoading = true;
   String? _error;
-  bool _sessionExpired = false;
 
   // State for loaded data
   Uint8List? _fileBytes;
@@ -83,7 +75,6 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
   final Completer<PDFViewController> _pdfViewController =
       Completer<PDFViewController>();
-  int? _pdfPages = 0;
   int? _pdfCurrentPage = 0;
 
   @override
@@ -96,7 +87,6 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     setState(() {
       _isLoading = true;
       _error = null;
-      _sessionExpired = false;
     });
 
     try {
@@ -162,7 +152,6 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       logger.w('Salesforce file download failed (${widget.isResellerContext ? 'Reseller' : 'Admin'} context)', error: result.error);
       setState(() {
         _error = result.error ?? 'Failed to load file data from Salesforce.';
-        _sessionExpired = result.sessionExpired;
         _isLoading = false;
       });
     }
@@ -213,7 +202,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       // Use extension in temp filename if possible
       final tempFileName =
           _fileExtension != null
-              ? "${widget.title}.${_fileExtension}"
+              ? "${widget.title}.$_fileExtension"
               : widget.title;
       await _saveBytesToTempFile(_fileBytes!, tempFileName);
     }
@@ -255,14 +244,13 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
   }
 
   Future<void> _saveBytesToTempFile(Uint8List bytes, String fileName) async {
-    print('*** _saveBytesToTempFile CALLED. kIsWeb: $kIsWeb ***'); // DEBUG PRINT
+    if (kDebugMode) {
+      logger.d('_saveBytesToTempFile called. kIsWeb: $kIsWeb');
+    }
     if (kIsWeb) {
       // For web, create a blob and download the file
       final blob = html.Blob([bytes]);
       final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
       html.Url.revokeObjectUrl(url);
       return;
     }
@@ -276,29 +264,10 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
         });
   }
 
-  Future<void> _handleFileDownload() async {
-    if (_fileBytes == null) return;
-
-    if (kIsWeb) {
-      // For web, create a blob and download the file
-      final blob = html.Blob([_fileBytes!]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', widget.title)
-        ..click();
-      html.Url.revokeObjectUrl(url);
-    } else {
-      // For mobile platforms, use share_plus
-      await Share.shareXFiles(
-        [XFile.fromData(_fileBytes!, name: widget.title)],
-        text: 'Sharing ${widget.title}',
-      );
-    }
-  }
-
   // --- Action Handlers (Placeholder) ---
   Future<void> _onShare(BuildContext context) async {
     if (_fileBytes == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No file available to share.')),
       );
@@ -357,6 +326,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
     } catch (e) {
       logger.e('Error sharing file', error: e);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sharing file: $e')),
       );
@@ -365,9 +335,10 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
   Future<void> _onDownload(BuildContext context) async {
     if (_fileBytes == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No file data to download.')),
-    );
+      );
       return;
     }
 
@@ -423,6 +394,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
         );
       }
 
+      if (!mounted) return;
+      
       if (result != null && result.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('File saved successfully to Downloads')),
@@ -435,6 +408,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
       } catch (e) {
         logger.e('Error saving file', error: e);
+        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error saving file: $e')),
       );
@@ -443,17 +417,19 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-      '*** SecureFileViewer BUILD: isLoading=$_isLoading, error=$_error, localPath=$_localTempFilePath ***',
-    );
+    if (kDebugMode) {
+      logger.d(
+        'SecureFileViewer BUILD: isLoading=$_isLoading, error=$_error, localPath=$_localTempFilePath',
+      );
+    }
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(widget.title, overflow: TextOverflow.ellipsis),
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.clear, size: 28),
           onPressed: () => Navigator.of(context).pop(),
+          child: const Icon(CupertinoIcons.clear, size: 28),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -464,17 +440,17 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
             if (widget.contentVersionId == null)
             CupertinoButton(
               padding: const EdgeInsets.all(8.0),
-              child: const Icon(CupertinoIcons.share, size: 24),
               onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
                     ? null
                     : () => _onShare(context),
+              child: const Icon(CupertinoIcons.share, size: 24),
           ),
             CupertinoButton(
               padding: const EdgeInsets.all(8.0),
-              child: const Icon(CupertinoIcons.cloud_download, size: 24),
               onPressed: _isLoading || _fileBytes == null
                     ? null
                     : () => _onDownload(context),
+              child: const Icon(CupertinoIcons.cloud_download, size: 24),
           ),
         ],
       ),
@@ -564,7 +540,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
         preventLinkNavigation: false,
         onRender: (pages) {
           setState(() {
-            _pdfPages = pages;
+            // _pdfPages = pages; // Removed unused field
           });
         },
         onError: (error) {
@@ -647,7 +623,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
               ),
           ),
         ],
-        ),
+      ),
       ),
     );
   }

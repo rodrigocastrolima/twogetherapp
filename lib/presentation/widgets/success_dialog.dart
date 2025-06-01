@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../../core/theme/theme.dart'; // For potential theme usage
-import '../../core/theme/ui_styles.dart'; // For potential style usage
+
 
 /// A widget that displays a success indicator (green checkmark) and a message.
 class SuccessIndicator extends StatelessWidget {

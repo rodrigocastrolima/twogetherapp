@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
-import '../../../features/proposal/data/models/salesforce_proposal_ref.dart';
 import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart';
 import 'package:intl/intl.dart';
 import '../../widgets/logo.dart';
@@ -132,17 +131,6 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    // Format CreatedDate for the Opportunity
-    String formattedOpportunityDate = 'N/A';
-    if (widget.opportunity.createdDate != null) {
-      try {
-        final date = DateTime.parse(widget.opportunity.createdDate!);
-        formattedOpportunityDate = DateFormat.yMd('pt_PT').format(date);
-      } catch (e) {
-        formattedOpportunityDate = widget.opportunity.createdDate!;
-      }
-    }
 
     // --- Watch the NEW proposals provider ---
     final proposalsAsync = ref.watch(
@@ -341,91 +329,6 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
     );
   }
 
-  // Header with client name and opportunity phase
-  Widget _buildClientIdentificationHeader(
-    BuildContext context,
-    SalesforceOpportunity opportunity,
-    ThemeData theme,
-    bool isDark,
-  ) {
-    final segmentColor = _getSegmentColor(
-      opportunity.segmentoDeClienteC,
-      theme,
-      isDark,
-    );
-    final iconColor =
-        isDark ? Colors.white : Colors.black; // Simple contrast for now
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: segmentColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha((255 * 0.1).round()),
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(CupertinoIcons.person_fill, color: iconColor, size: 50),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            opportunity.accountName ?? opportunity.name,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Build the main opportunity details section
-  Widget _buildOpportunityDetailsSection(
-    BuildContext context,
-    String formattedOpportunityDate,
-  ) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Detalhes',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildDetailRow(context, 'NIF', widget.opportunity.nifC ?? 'N/A'),
-          _buildDetailRow(
-            context,
-            'Data de Início',
-            widget.opportunity.createdDate != null
-                ? DateFormat(
-                  'dd/MM/yyyy',
-                ).format(DateTime.parse(widget.opportunity.createdDate!))
-                : 'N/A',
-          ),
-        ],
-      ),
-    );
-  }
-
   // Helper to build a detail row with label and value
   Widget _buildDetailRow(BuildContext context, String label, String value) {
     final theme = Theme.of(context);
@@ -494,14 +397,13 @@ class _InlineProposalDetails extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final detailsAsync = ref.watch(resellerProposalDetailsProvider(proposalId));
     // Define actionable statuses
     const actionableStatuses = {'Pendente', 'Enviada'};
+
     final double verticalSpacing = compact ? 8.0 : 16.0;
     final double cardPadding = compact ? 8.0 : 16.0;
     final double fontSize = compact ? 15.0 : 17.0;
-    final double titleFontSize = compact ? 17.0 : 20.0;
 
     return detailsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -579,8 +481,8 @@ class _InlineProposalDetails extends ConsumerWidget {
                               children: [
                                 Text(
                                   cpe.cpeC != null && cpe.cpeC!.isNotEmpty
-                                      ? '${cpe.cpeC}'
-                                      : '${cpe.id.substring(cpe.id.length - 6)}',
+                                      ? cpe.cpeC!
+                                      : cpe.id.substring(cpe.id.length - 6),
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.onSurface,
@@ -669,8 +571,9 @@ class _InlineProposalDetails extends ConsumerWidget {
                       label: const Text('Rejeitar'),
                       onPressed: () async {
                         // --- START: Confirmation Dialog for Reject ---
+                        final currentContext = context;
                         showDialog(
-                          context: context,
+                          context: currentContext,
                           builder: (BuildContext ctx) {
                             return AlertDialog(
                               title: const Text('Confirmar Rejeição'),
@@ -686,7 +589,7 @@ class _InlineProposalDetails extends ConsumerWidget {
                                     Navigator.of(ctx).pop(); // Close dialog
                                     // Show loading indicator
                                     showDialog(
-                                      context: context,
+                                      context: currentContext,
                                       barrierDismissible: false,
                                       builder: (context) => const Center(child: CircularProgressIndicator()),
                                     );
@@ -696,46 +599,52 @@ class _InlineProposalDetails extends ConsumerWidget {
                                       final result = await callable.call<Map<String, dynamic>>({
                                         'proposalId': proposalId,
                                       });
-                                      Navigator.of(context).pop(); // Close loading
-                                      if (result.data['success'] == true) {
-                                        // Create notification
-                                        try {
-                                          final currentUser = ref.read(currentUserProvider);
-                                          final notificationRepo = ref.read(notificationRepositoryProvider);
-                                          await notificationRepo.createProposalRejectedNotification(
-                                            proposalId: proposalId,
-                                            proposalName: proposalName,
-                                            opportunityId: opportunityId,
-                                            clientName: proposal.nifC,
-                                            resellerName: currentUser?.displayName,
-                                            resellerId: currentUser?.uid,
+                                      if (currentContext.mounted) {
+                                        Navigator.of(currentContext).pop(); // Close loading
+                                        if (result.data['success'] == true) {
+                                          // Create notification
+                                          try {
+                                            final currentUser = ref.read(currentUserProvider);
+                                            final notificationRepo = ref.read(notificationRepositoryProvider);
+                                            await notificationRepo.createProposalRejectedNotification(
+                                              proposalId: proposalId,
+                                              proposalName: proposalName,
+                                              opportunityId: opportunityId,
+                                              clientName: proposal.nifC,
+                                              resellerName: currentUser?.displayName,
+                                              resellerId: currentUser?.uid,
+                                            );
+                                          } catch (e) {
+                                            // Silently ignore notification creation errors
+                                          }
+                                          ScaffoldMessenger.of(currentContext).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Proposta rejeitada com sucesso'),
+                                              backgroundColor: Colors.green,
+                                            ),
                                           );
-                                        } catch (e) {}
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Proposta rejeitada com sucesso'),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                        ref.refresh(resellerProposalDetailsProvider(proposalId));
-                                      } else {
-                                        final errorMsg = result.data['error'] ?? 'Falha ao rejeitar a proposta';
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          ref.refresh(resellerProposalDetailsProvider(proposalId));
+                                        } else {
+                                          final errorMsg = result.data['error'] ?? 'Falha ao rejeitar a proposta';
+                                          ScaffoldMessenger.of(currentContext).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Erro: $errorMsg'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (currentContext.mounted) {
+                                        Navigator.of(currentContext).pop(); // Close loading
+                                        String errorMessage = e is FirebaseFunctionsException ? (e.message ?? e.code) : e.toString();
+                                        ScaffoldMessenger.of(currentContext).showSnackBar(
                                           SnackBar(
-                                            content: Text('Erro: $errorMsg'),
+                                            content: Text('Erro ao rejeitar proposta: $errorMessage'),
                                             backgroundColor: Colors.red,
                                           ),
                                         );
                                       }
-                                    } catch (e) {
-                                      Navigator.of(context).pop(); // Close loading
-                                      String errorMessage = e is FirebaseFunctionsException ? (e.message ?? e.code) : e.toString();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Erro ao rejeitar proposta: $errorMessage'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
                                     }
                                   },
                                 ),
@@ -773,9 +682,10 @@ class _InlineProposalDetails extends ConsumerWidget {
                       )),
                       onPressed: () {
                         // --- START: Navigate to Submit Documents Page ---
+                        final currentContext = context;
                         final nif = proposal.nifC;
                         if (nif == null || nif.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(currentContext).showSnackBar(
                             const SnackBar(
                               content: Text('Erro: NIF não encontrado para esta proposta.'),
                               backgroundColor: Colors.red,
@@ -784,7 +694,7 @@ class _InlineProposalDetails extends ConsumerWidget {
                           return;
                         }
                         Navigator.push(
-                          context,
+                          currentContext,
                           PageRouteBuilder(
                             pageBuilder: (context, animation, secondaryAnimation) => SubmitProposalDocumentsPage(
                               proposalId: proposalId,
@@ -890,7 +800,7 @@ class _InlineProposalDetails extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+            color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
             borderRadius: BorderRadius.circular(6.0),
             border: Border.all(
               color: Colors.black.withAlpha((255 * 0.1).round()),

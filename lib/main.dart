@@ -3,21 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_strategy/url_strategy.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'app/router/app_router.dart';
-import 'features/auth/presentation/providers/cloud_functions_provider.dart';
 import 'features/auth/data/services/firebase_functions_service.dart';
 import 'core/providers/shared_preferences_provider.dart';
-import 'package:flutter/services.dart';
 import 'core/theme/theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'features/salesforce/data/repositories/salesforce_repository.dart';
 import 'core/services/salesforce_auth_service.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'core/utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
@@ -27,8 +21,6 @@ import 'features/notifications/presentation/providers/notification_provider.dart
 import 'features/notifications/presentation/widgets/notification_overlay_manager.dart';
 import 'core/theme/ui_styles.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Import intl
-import 'dart:ui' as ui;
-// TODO: To enable Portuguese localization, add flutter_localizations to pubspec.yaml and import it here.
 
 // Define session storage keys (ensure these match usage in SalesforceAuthNotifier)
 const String _tempSalesforceCodeKey = 'temp_sf_code';
@@ -42,11 +34,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If you're going to use other Firebase services in the background, like Firestore,
   // make sure you call `initializeApp` before using other Firebase services.
   // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("Handling a background message: ${message.messageId}");
+  if (kDebugMode) {
+    print("Handling a background message: ${message.messageId}");
+  }
 
-  // TODO: Initialize flutter_local_notifications
-  // TODO: Extract title/body from message.notification or message.data
-  // TODO: Show local notification
+
 
   // Example (needs flutter_local_notifications setup):
   // final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -199,9 +191,11 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> with WidgetsBinding
       User? user,
     ) {
       if (kIsWeb && user != null && !_initialAuthCheckDone) {
-        print(
-          'TwogetherApp State: Initial Firebase auth detected on web. Triggering Salesforce check.',
-        );
+        if (kDebugMode) {
+          print(
+            'TwogetherApp State: Initial Firebase auth detected on web. Triggering Salesforce check.',
+          );
+        }
         _initialAuthCheckDone = true;
         try {
           final salesforceAuthNotifier = ref.read(
@@ -209,9 +203,11 @@ class _TwogetherAppState extends ConsumerState<TwogetherApp> with WidgetsBinding
           );
           salesforceAuthNotifier.checkAndCompleteWebLogin();
         } catch (e) {
-          print(
-            'TwogetherApp State: Error triggering Salesforce check from auth listener: $e',
-          );
+          if (kDebugMode) {
+            print(
+              'TwogetherApp State: Error triggering Salesforce check from auth listener: $e',
+            );
+          }
         }
       } else if (user == null) {
         // Optional: Reset flag if user signs out

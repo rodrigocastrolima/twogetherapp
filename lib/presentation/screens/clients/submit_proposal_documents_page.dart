@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_functions/cloud_functions.dart';

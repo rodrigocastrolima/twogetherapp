@@ -2,29 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/theme.dart';
+
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
-import '../../widgets/logo.dart';
-import 'dart:math';
+
 import '../../../core/theme/ui_styles.dart';
 import '../../../features/notifications/presentation/providers/notification_provider.dart';
 import '../../../core/models/notification.dart';
-import '../../../features/notifications/presentation/services/notification_service.dart';
+
 import 'package:intl/intl.dart';
 import 'dart:async';
-import '../../../features/services/presentation/providers/service_submission_provider.dart';
+
 import '../../../core/constants/constants.dart';
 import '../../../app/router/app_router.dart'; // Import AppRouter to access notifier
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../widgets/onboarding/app_tutorial_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- Need SharedPreferences again
 import '../../../features/notifications/presentation/widgets/rejection_detail_dialog.dart'; // NEW
 import '../../../features/proposal/presentation/providers/proposal_providers.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart'; // Import package
-import '../../widgets/simple_list_item.dart' as widgets;
+
 import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
 import '../../../features/opportunity/presentation/providers/opportunity_providers.dart'; // Add opportunity providers
 import '../../widgets/app_loading_indicator.dart'; // Add loading indicator

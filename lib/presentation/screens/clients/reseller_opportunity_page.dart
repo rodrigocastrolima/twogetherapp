@@ -7,9 +7,7 @@ import '../../../features/opportunity/presentation/providers/opportunity_provide
 import '../../../features/opportunity/data/models/salesforce_opportunity.dart'
     as sfo;
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'reseller_opportunity_details_page.dart';
 import '../../../core/theme/ui_styles.dart';
 import '../../widgets/simple_list_item.dart';
 
@@ -33,23 +31,8 @@ enum OpportunityFilterStatus {
         return 'Pendentes';
       case OpportunityFilterStatus.rejeitados:
         return 'Rejeitados';
-      default:
-        return 'Filtro'; // Fallback
     }
   }
-}
-
-// Define a class to hold status visuals
-class _StatusVisuals {
-  final IconData? icon;
-  final Color iconColor;
-  final Color cardIndicatorColor;
-
-  _StatusVisuals({
-    this.icon,
-    required this.iconColor,
-    required this.cardIndicatorColor,
-  });
 }
 
 class ClientsPage extends ConsumerStatefulWidget {
@@ -65,7 +48,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   OpportunityFilterStatus _selectedFilter = OpportunityFilterStatus.todos;
   bool _isSearchFocused = false;
   final FocusNode _searchFocusNode = FocusNode();
-  final GlobalKey _cardKey = GlobalKey();
 
   @override
   void initState() {
@@ -122,80 +104,11 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         ].contains(proposalStatus);
       case OpportunityFilterStatus.rejeitados:
         return ['Não Aprovada', 'Cancelada'].contains(proposalStatus);
-      default:
-        return false;
     }
-  }
-
-  Widget _buildFilterSegments(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final selectedColor = theme.colorScheme.primary;
-    final unselectedColor = theme.colorScheme.surfaceVariant;
-    final selectedFgColor = theme.colorScheme.onPrimary;
-    final unselectedFgColor = theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: OpportunityFilterStatus.values.map((status) {
-          final bool isSelected = _selectedFilter == status;
-          return Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeInOut,
-              margin: const EdgeInsets.symmetric(horizontal: 2.0),
-              decoration: BoxDecoration(
-                color: isSelected ? selectedColor : unselectedColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    setState(() {
-                      _selectedFilter = status;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0),
-                    child: Center(
-                      child: Text(
-                        status.displayName,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: isSelected ? selectedFgColor : unselectedFgColor,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
   }
 
   // Method to show filter options using CupertinoActionSheet
   void _showFilterOptions(BuildContext context) {
-    final theme = Theme.of(context);
     final cupertinoTheme = CupertinoTheme.of(context);
 
     showCupertinoModalPopup<void>(
@@ -240,38 +153,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
           ),
         );
       },
-    );
-  }
-
-  // Widget to build the filter picker button
-  Widget _buildFilterPicker(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    // Use a subtle color for the button to not compete with search icon
-    final buttonColor =
-        isDark
-            ? AppTheme.darkMutedForeground.withOpacity(0.7)
-            : AppTheme.mutedForeground.withOpacity(0.7);
-
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0), // Minimal padding
-      minSize: 0, // Allow button to be as small as its content
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _selectedFilter.displayName,
-            style: TextStyle(
-              color: buttonColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(CupertinoIcons.chevron_down, color: buttonColor, size: 18),
-        ],
-      ),
-      onPressed: () => _showFilterOptions(context),
     );
   }
 
@@ -366,7 +247,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         screenWidth < 600; // Threshold for mobile/desktop
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         bottom: false,
         top: false,
@@ -428,11 +309,11 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                     verticalOffset: 22, 
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12), 
                     decoration: BoxDecoration(
-                      color: (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceContainerHigh : theme.cardColor).withOpacity(0.98),
+                      color: (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceContainerHigh : theme.cardColor).withAlpha((255 * 0.98).round()),
                       borderRadius: BorderRadius.circular(10), 
                       boxShadow: [
                         BoxShadow(
-                          color: theme.shadowColor.withOpacity(0.08),
+                          color: theme.shadowColor.withAlpha((255 * 0.08).round()),
                           blurRadius: 6,
                           offset: const Offset(0, 4),
                         ),
@@ -696,52 +577,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  // Helper to get visuals for opportunity status
-  _StatusVisuals _getStatusVisuals(String? status, BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    switch (status) {
-      case 'Aceite':
-        return _StatusVisuals(
-          icon: CupertinoIcons.checkmark_seal_fill,
-          iconColor: Colors.green,
-          cardIndicatorColor: Colors.green.withAlpha((255 * 0.1).round()),
-        );
-      case 'Enviada':
-        return _StatusVisuals(
-          icon: CupertinoIcons.exclamationmark_circle_fill,
-          iconColor: Colors.blue,
-          cardIndicatorColor: Colors.blue.withAlpha((255 * 0.1).round()),
-        );
-      case 'Em Aprovação':
-        return _StatusVisuals(
-          icon: CupertinoIcons.doc_text,
-          iconColor: theme.primaryColor,
-          cardIndicatorColor: theme.primaryColor.withAlpha((255 * 0.1).round()),
-        );
-      case 'Não Aprovada':
-      case 'Cancelada':
-        return _StatusVisuals(
-          icon: CupertinoIcons.xmark_seal_fill,
-          iconColor: Colors.red,
-          cardIndicatorColor: Colors.red.withAlpha((255 * 0.1).round()),
-        );
-      case 'Expirada':
-        return _StatusVisuals(
-          icon: CupertinoIcons.clock_fill,
-          iconColor: Colors.orange,
-          cardIndicatorColor: Colors.orange.withAlpha((255 * 0.1).round()),
-        );
-      default:
-        return _StatusVisuals(
-          icon: CupertinoIcons.doc_text,
-          iconColor: theme.colorScheme.onSurfaceVariant,
-          cardIndicatorColor: theme.colorScheme.primary.withAlpha((255 * 0.05).round()),
-        );
-    }
-  }
-
   // Build the custom filter dropdown
   Widget _buildFilterDropdown(BuildContext context) {
     final theme = Theme.of(context);
@@ -766,11 +601,11 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           border: OutlineInputBorder(
             borderRadius: borderRadius,
-            borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+            borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: borderRadius,
-            borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.18), width: 1),
+            borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: borderRadius,
@@ -809,42 +644,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     // Reuse the same implementation as the standard filter dropdown
     // with any adjustments needed for desktop layout
     return _buildFilterDropdown(context);
-  }
-
-  // Get rect of widget using its GlobalKey
-  Rect? _getWidgetRect(GlobalKey key) {
-    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.hasSize) return null;
-    
-    final position = renderBox.localToGlobal(Offset.zero);
-    return Rect.fromLTWH(
-      position.dx,
-      position.dy,
-      renderBox.size.width,
-      renderBox.size.height,
-        );
-    }
-
-  // Navigate to detail page with animation
-  void _navigateToDetailPage(BuildContext context, sfo.SalesforceOpportunity opportunity, GlobalKey cardKey) {
-    // Instead of complex custom route, use GoRouter with extra data
-    // This ensures the details page is shown as a separate route without nesting
-    context.push('/opportunity-details', extra: opportunity);
-  }
-
-  Widget _buildOpportunityCard(
-    BuildContext context,
-    sfo.SalesforceOpportunity opportunity, {
-    Key? key,
-  }) {
-    // Create a unique key for this specific card
-    final cardKey = GlobalKey();
-
-    return _AnimatedOpportunityCard(
-      opportunity: opportunity, 
-      cardKey: cardKey,
-      onTap: (cardKey) => _navigateToDetailPage(context, opportunity, cardKey),
-    );
   }
 }
 
@@ -906,14 +705,12 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
     }
 
     // Create our own simple status visual properties
-    IconData? statusIcon;
+    IconData statusIcon;
     Color statusIconColor = theme.colorScheme.onSurfaceVariant;
     // Basic status icon mapping with fallback
     switch (latestStatus) {
       case 'Aceite':
         statusIcon = CupertinoIcons.checkmark_seal_fill;
-        // Fallback if not available
-        statusIcon ??= Icons.check_circle;
         statusIconColor = Colors.green;
         break;
       case 'Enviada':
@@ -929,7 +726,6 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
       case 'Expirada':
       case 'Aprovada':
         statusIcon = CupertinoIcons.clock_fill;
-        statusIcon ??= Icons.access_time;
         statusIconColor = Colors.orange;
         break;
       default:
@@ -985,7 +781,7 @@ class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard>
                 ),
               ),
               const SizedBox(width: 12),
-              if (statusIcon != null) Icon(statusIcon, color: statusIconColor, size: 24),
+              Icon(statusIcon, color: statusIconColor, size: 24),
             ],
           ),
         ),

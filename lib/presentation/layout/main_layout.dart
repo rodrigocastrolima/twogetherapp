@@ -3,17 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
-import '../../core/utils/constants.dart';
-import '../screens/home/reseller_home_page.dart';
-import '../screens/clients/reseller_opportunity_page.dart';
-import '../screens/messages/messages_page.dart';
-import '../../features/settings/presentation/pages/settings_page.dart';
+
 import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ui_styles.dart';
 import '../widgets/logo.dart';
-import '../../features/auth/domain/models/app_user.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -96,7 +90,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     final bool isHomePage = _selectedIndex == 0;
     final Color effectiveBackgroundColor = isHomePage 
         ? theme.colorScheme.surface // For home page, allows ResellerHomePage to control its specific background layers
-        : theme.colorScheme.background; // For other pages, use the darker background
+        : theme.colorScheme.surface; // For other pages, use the surface background
 
     final bool showNavigation =
         widget.location != '/change-password'; // Renamed for clarity
@@ -112,7 +106,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               : null,
       body: Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.background, // Use background color for consistency
+          color: theme.colorScheme.surface, // Use surface color for consistency
         ), // Ensure full background coverage
         child: Material(
           color: Colors.transparent,
@@ -295,7 +289,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withAlpha((255 * 0.05).round()),
                   blurRadius: 10,
                   offset: const Offset(2, 0),
                 ),
@@ -411,8 +405,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                           return LinearGradient(
                             colors: [
                               tulipTreeColor,
-                              tulipTreeColor.withRed(
-                                (tulipTreeColor.red + 15).clamp(0, 255),
+                              tulipTreeColor.withValues(
+                                red: (tulipTreeColor.r + 15 / 255).clamp(0.0, 1.0),
                               ),
                             ],
                             begin: Alignment.topLeft,
@@ -421,19 +415,19 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         },
                         child: Icon(icon, size: 22),
                       )
-                    : Icon(icon, color: textColor.withOpacity(0.7), size: 22),
+                    : Icon(icon, color: textColor.withAlpha((255 * 0.7).round()), size: 22),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isSelected ? tulipTreeColor : textColor.withOpacity(0.7),
+                      color: isSelected ? tulipTreeColor : textColor.withAlpha((255 * 0.7).round()),
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       fontSize: 15,
                       shadows: isSelected
                           ? [
                               Shadow(
-                                color: tulipTreeColor.withOpacity(0.3),
+                                color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                                 blurRadius: 2.0,
                               ),
                             ]
@@ -450,7 +444,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       borderRadius: BorderRadius.circular(AppStyles.badgeSize / 2),
                       boxShadow: [
                         BoxShadow(
-                          color: tulipTreeColor.withOpacity(0.3),
+                          color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                           blurRadius: 4,
                           spreadRadius: 0,
                         ),
@@ -581,8 +575,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         return LinearGradient(
                           colors: [
                             tulipTreeColor,
-                            tulipTreeColor.withRed(
-                              (tulipTreeColor.red + 15).clamp(0, 255),
+                            tulipTreeColor.withValues(
+                              red: (tulipTreeColor.r + 15 / 255).clamp(0.0, 1.0),
                             ),
                           ],
                           begin: Alignment.topLeft,
@@ -630,9 +624,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     isSelected
                         ? [
                           Shadow(
-                            color: tulipTreeColor.withAlpha(
-                              (255 * 0.3).round(),
-                            ),
+                            color: tulipTreeColor.withAlpha((255 * 0.3).round()),
                             blurRadius: 1.5,
                           ),
                         ]

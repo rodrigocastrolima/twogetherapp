@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 /// A reusable input field widget that uses the exact InputDecoration style from admin_salesforce_proposal_detail_page.dart.
@@ -17,6 +16,7 @@ class AppInputField extends StatelessWidget {
   final TextStyle? labelStyle;
 
   const AppInputField({
+    super.key,
     required this.controller,
     required this.label,
     this.hint,
@@ -28,8 +28,7 @@ class AppInputField extends StatelessWidget {
     this.minLines,
     this.onChanged,
     this.labelStyle,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +36,7 @@ class AppInputField extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    InputDecoration _inputDecoration() {
+    InputDecoration inputDecoration() {
       return InputDecoration(
         labelText: label,
         labelStyle: labelStyle ?? textTheme.bodySmall?.copyWith(
@@ -47,15 +46,15 @@ class AppInputField extends StatelessWidget {
         ),
         hintText: hint,
         hintStyle: textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+          color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
         ),
         filled: true,
         fillColor: readOnly
-            ? colorScheme.surfaceVariant.withOpacity(0.7)
-            : colorScheme.surfaceVariant,
+            ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
+            : colorScheme.surfaceContainerHighest,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+          borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -63,7 +62,7 @@ class AppInputField extends StatelessWidget {
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+          borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
         ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -83,7 +82,7 @@ class AppInputField extends StatelessWidget {
         validator: validator,
         onChanged: onChanged,
         style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface),
-        decoration: _inputDecoration().copyWith(
+        decoration: inputDecoration().copyWith(
           hintText: (controller.text.isEmpty) ? '' : hint,
         ),
       ),
@@ -103,6 +102,7 @@ class AppDateInputField extends StatelessWidget {
   final TextStyle? labelStyle;
 
   const AppDateInputField({
+    super.key,
     required this.label,
     required this.value,
     required this.onChanged,
@@ -112,8 +112,7 @@ class AppDateInputField extends StatelessWidget {
     this.firstDate,
     this.lastDate,
     this.labelStyle,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +124,7 @@ class AppDateInputField extends StatelessWidget {
         DateFormat('dd/MM/yyyy', 'pt_PT').format(value!) : '',
     );
 
-    Future<void> _pickDate() async {
+    Future<void> pickDate() async {
       if (readOnly) return;
       
       final picked = await showDatePicker(
@@ -150,7 +149,7 @@ class AppDateInputField extends StatelessWidget {
                 onPrimary: colorScheme.onPrimary,
                 surface: colorScheme.surface,
                 onSurface: colorScheme.onSurface,
-                surfaceVariant: colorScheme.surfaceVariant,
+                surfaceContainerHighest: colorScheme.surfaceContainerHighest,
                 onSurfaceVariant: colorScheme.onSurfaceVariant,
               ),
               datePickerTheme: DatePickerThemeData(
@@ -181,41 +180,41 @@ class AppDateInputField extends StatelessWidget {
                   color: colorScheme.onSurface,
                   fontWeight: FontWeight.w400,
                 ),
-                dayForegroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return Colors.white;
                   }
-                  if (states.contains(MaterialState.disabled)) {
+                  if (states.contains(WidgetState.disabled)) {
                     return colorScheme.onSurface.withAlpha((255 * 0.3).round());
                   }
                   return colorScheme.onSurface;
                 }),
-                dayBackgroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return colorScheme.primary.withAlpha((255 * 0.8).round());
                   }
-                  if (states.contains(MaterialState.hovered)) {
+                  if (states.contains(WidgetState.hovered)) {
                     return colorScheme.primary.withAlpha((255 * 0.05).round());
                   }
                   return Colors.transparent;
                 }),
-                dayOverlayColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.pressed)) {
+                dayOverlayColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.pressed)) {
                     return colorScheme.primary.withAlpha((255 * 0.1).round());
                   }
-                  if (states.contains(MaterialState.hovered)) {
+                  if (states.contains(WidgetState.hovered)) {
                     return colorScheme.primary.withAlpha((255 * 0.04).round());
                   }
                   return Colors.transparent;
                 }),
-                todayForegroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                todayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return Colors.white;
                   }
                   return colorScheme.primary.withAlpha((255 * 0.9).round());
                 }),
-                todayBackgroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                todayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return colorScheme.primary.withAlpha((255 * 0.8).round());
                   }
                   return Colors.transparent;
@@ -228,26 +227,26 @@ class AppDateInputField extends StatelessWidget {
                   color: colorScheme.onSurface,
                   fontWeight: FontWeight.w400,
                 ),
-                yearForegroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                yearForegroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return Colors.white;
                   }
                   return colorScheme.onSurface;
                 }),
-                yearBackgroundColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.selected)) {
+                yearBackgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
                     return colorScheme.primary.withAlpha((255 * 0.8).round());
                   }
-                  if (states.contains(MaterialState.hovered)) {
+                  if (states.contains(WidgetState.hovered)) {
                     return colorScheme.primary.withAlpha((255 * 0.05).round());
                   }
                   return Colors.transparent;
                 }),
-                yearOverlayColor: MaterialStateProperty.resolveWith((states) {
-                  if (states.contains(MaterialState.pressed)) {
+                yearOverlayColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.pressed)) {
                     return colorScheme.primary.withAlpha((255 * 0.1).round());
                   }
-                  if (states.contains(MaterialState.hovered)) {
+                  if (states.contains(WidgetState.hovered)) {
                     return colorScheme.primary.withAlpha((255 * 0.04).round());
                   }
                   return Colors.transparent;
@@ -255,7 +254,7 @@ class AppDateInputField extends StatelessWidget {
                 dividerColor: colorScheme.outline.withAlpha((255 * 0.08).round()),
                 inputDecorationTheme: InputDecorationTheme(
                   filled: true,
-                  fillColor: colorScheme.surfaceVariant.withAlpha((255 * 0.3).round()),
+                  fillColor: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.1).round())),
@@ -296,7 +295,7 @@ class AppDateInputField extends StatelessWidget {
     return SizedBox(
       height: 56,
       child: GestureDetector(
-        onTap: _pickDate,
+        onTap: pickDate,
         child: AbsorbPointer(
           child: TextFormField(
             controller: controller,
@@ -316,8 +315,8 @@ class AppDateInputField extends StatelessWidget {
               ),
               filled: true,
               fillColor: readOnly
-                  ? colorScheme.surfaceVariant.withAlpha((255 * 0.7).round())
-                  : colorScheme.surfaceVariant,
+                  ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
+                  : colorScheme.surfaceContainerHighest,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
@@ -359,6 +358,7 @@ class AppDropdownField<T> extends StatelessWidget {
   final TextStyle? labelStyle;
 
   const AppDropdownField({
+    super.key,
     required this.label,
     required this.value,
     required this.items,
@@ -367,8 +367,7 @@ class AppDropdownField<T> extends StatelessWidget {
     this.readOnly = false,
     this.validator,
     this.labelStyle,
-    Key? key,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -407,15 +406,15 @@ class AppDropdownField<T> extends StatelessWidget {
               ),
               hintText: hint,
               hintStyle: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
               ),
               filled: true,
               fillColor: readOnly
-                  ? colorScheme.surfaceVariant.withOpacity(0.7)
-                  : colorScheme.surfaceVariant,
+                  ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
+                  : colorScheme.surfaceContainerHighest,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -423,7 +422,7 @@ class AppDropdownField<T> extends StatelessWidget {
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
+                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -431,7 +430,7 @@ class AppDropdownField<T> extends StatelessWidget {
             ),
             style: textTheme.bodySmall,
             icon: const Icon(Icons.arrow_drop_down),
-            dropdownColor: colorScheme.surfaceVariant,
+            dropdownColor: colorScheme.surfaceContainerHighest,
           ),
           const SizedBox(height: 4),
         ],
