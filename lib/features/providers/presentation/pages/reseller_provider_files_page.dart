@@ -1,11 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_file.dart';
-import '../../../../core/theme/theme.dart';
 // Import the viewers
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';

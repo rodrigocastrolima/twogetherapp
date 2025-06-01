@@ -377,7 +377,6 @@ class _OpportunityVerificationPageState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     // --- Determine if the Salesforce Refresh button should be visible --- //
     // Listen to tab changes to rebuild the AppBar actions
@@ -520,7 +519,7 @@ class _OpportunityVerificationPageState
                   submission.responsibleName.toLowerCase().contains(
                     _searchQuery.toLowerCase(),
                   ) ||
-                  (submission.nif ?? '').toLowerCase().contains(
+                  submission.nif.toLowerCase().contains(
                     _searchQuery.toLowerCase(),
                   );
               return resellerMatch &&

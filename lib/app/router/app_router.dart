@@ -30,7 +30,6 @@ import '../../presentation/screens/admin/dev_tools_page.dart';
 import '../../core/models/service_submission.dart';
 import '../../features/opportunity/presentation/pages/admin_salesforce_opportunity_detail_page.dart';
 import '../../features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart';
-import '../../features/proposal/presentation/screens/proposal_detail_page.dart';
 import '../../presentation/widgets/app_loading_indicator.dart';
 
 import 'package:twogether/features/providers/presentation/pages/admin_provider_list_page.dart';
@@ -44,8 +43,6 @@ import 'package:twogether/features/proposal/presentation/pages/proposal_creation
 import 'package:twogether/features/chat/presentation/pages/admin_chat_page.dart';
 import 'package:twogether/features/opportunity/data/models/salesforce_opportunity.dart'
     as data_models;
-import 'package:twogether/features/proposal/data/models/salesforce_proposal.dart'
-    as proposal_models;
 import 'package:twogether/presentation/screens/clients/reseller_proposal_details_page.dart';
 import 'package:twogether/features/providers/domain/models/provider_info.dart';
 import 'package:twogether/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart';
@@ -1137,19 +1134,10 @@ class AppRouter {
         parentNavigatorKey:
             _rootNavigatorKey, // Ensure it uses the root navigator
         pageBuilder: (context, state) {
-          final indexString = state.pathParameters['index']!;
-          final index = int.tryParse(indexString) ?? 0;
-          final proposal = state.extra as proposal_models.SalesforceProposal?;
-
-          if (proposal == null) {
-            return const MaterialPage(
-              child: Scaffold(
-                body: Center(child: Text('Proposal data missing')),
-              ),
-            );
-          }
           return MaterialPage(
-            child: ProposalDetailPage(proposal: proposal, index: index),
+            child: Scaffold(
+              body: Center(child: Text('Deprecated route - ProposalDetailPage removed')),
+            ),
           );
         },
       ),

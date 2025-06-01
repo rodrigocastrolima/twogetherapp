@@ -1,9 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart'; // Reverted to standard import
+import 'package:flutter/foundation.dart'; // Added for kDebugMode
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:carousel_slider/carousel_slider.dart'; // Keep standard import for CarouselSlider and CarouselOptions
+// Keep standard import for CarouselSlider and CarouselOptions
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_info.dart';
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
@@ -16,8 +17,6 @@ class ResellerProviderListPage extends ConsumerStatefulWidget { // Changed to Co
 }
 
 class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListPage> { // New State class
-  int _currentCarouselIndex = 0;
-  final CarouselSliderController _carouselController = CarouselSliderController();
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +124,9 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                 fit: BoxFit.contain,
                 placeholder: (context, url) => const CupertinoActivityIndicator(),
                 errorWidget: (context, url, error) {
-                  print('CachedNetworkImage error for ${provider.name} ($url): $error');
+                  if (kDebugMode) {
+                    print('CachedNetworkImage error for ${provider.name} ($url): $error');
+                  }
                   return Icon(
                     CupertinoIcons.photo,
                     size: 40,

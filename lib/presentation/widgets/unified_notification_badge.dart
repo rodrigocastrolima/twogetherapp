@@ -110,7 +110,7 @@ class UnifiedNotificationBadge extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: badgeColor.withOpacity(0.3),
+              color: badgeColor.withAlpha((255 * 0.3).round()),
               blurRadius: 4,
               spreadRadius: 0,
             ),
@@ -136,7 +136,7 @@ class UnifiedNotificationBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(size / 2),
         boxShadow: [
           BoxShadow(
-            color: badgeColor.withOpacity(0.3),
+            color: badgeColor.withAlpha((255 * 0.3).round()),
             blurRadius: 4,
             spreadRadius: 0,
           ),
@@ -284,7 +284,7 @@ class NavigationItemWithBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final effectiveSelectedColor = selectedColor ?? theme.colorScheme.primary;
     final effectiveUnselectedColor = unselectedColor ?? 
-        theme.colorScheme.onSurface.withOpacity(0.7);
+        theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
     
     final color = isSelected ? effectiveSelectedColor : effectiveUnselectedColor;
     final fontSize = isSelected ? 12.0 : 11.0;

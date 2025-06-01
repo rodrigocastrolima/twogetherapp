@@ -2,17 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/loading_service.dart';
-import '../../../../app/router/app_router.dart';
+
 import 'dart:ui';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/theme.dart';
-import '../../../../core/theme/text_styles.dart';
-import '../../../../core/utils/constants.dart';
-import '../../../../core/theme/ui_styles.dart';
+
 import '../../../../core/providers/theme_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../../presentation/widgets/app_loading_indicator.dart';
+
 import '../../../notifications/presentation/providers/notification_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {

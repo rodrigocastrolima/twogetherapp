@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../presentation/widgets/logo.dart';
 import '../../../../presentation/widgets/app_loading_indicator.dart';
-import '../../../../presentation/widgets/simple_list_item.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart';
 import '../../../../presentation/widgets/success_dialog.dart';
 import '../../../../presentation/widgets/app_input_field.dart';
@@ -203,7 +201,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                 accessToken: accessToken,
                 instanceUrl: instanceUrl,
                 parentId: widget.cpePropostaId,
-                fileName: file.name!,
+                fileName: file.name,
                 fileBytes: file.bytes!,
               );
               if (contentDocId == null && mounted) {
@@ -304,7 +302,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       }
 
       // Refresh the data
-      ref.refresh(cpePropostaDetailProvider(widget.cpePropostaId));
+      final _ = ref.refresh(cpePropostaDetailProvider(widget.cpePropostaId));
       
       // Exit edit mode and show success dialog
       if (mounted) {
@@ -636,8 +634,6 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
 
   Widget _buildFilesSection(BuildContext context, List<dynamic> files) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     final List<dynamic> displayedItems = [
       ...files.where((f) => !_filesToDelete.contains(f)),
       ..._filesToAdd,
@@ -701,10 +697,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
 
   Widget _buildFilePreview(BuildContext context, dynamic item) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     String title;
-    String subtitle = '';
     VoidCallback? onTapAction;
     bool isMarkedForDeletion = false;
     String? fileType;
@@ -716,7 +709,6 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       final file = item;
       fileExtension = (file.extension ?? '').toLowerCase();
       title = file.name;
-      subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
       final iconAsset = FileIconService.getIconAssetPath(fileExtension);
       iconWidget = Image.asset(
         iconAsset,
@@ -726,11 +718,10 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       );
       onTapAction = null;
     } else if (item.runtimeType.toString().contains('ProposalFile') || 
-               (item.runtimeType.toString().contains('File') && !(item is PlatformFile))) {
+               (item.runtimeType.toString().contains('File') && item is! PlatformFile)) {
       // Handle existing files from Salesforce
       fileType = item.fileType?.toLowerCase() ?? '';
       title = item.title ?? '';
-      subtitle = item.fileType?.toUpperCase() ?? '';
       isMarkedForDeletion = _filesToDelete.contains(item);
       final iconAsset = FileIconService.getIconAssetPath(fileType);
       iconWidget = Image.asset(
@@ -762,7 +753,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
       height: 70,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
           color: Colors.black.withAlpha((255 * 0.1).round()),
@@ -785,7 +776,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                     const SizedBox(height: 4),
                     Text(
                       title,
-                      style: textTheme.bodySmall?.copyWith(fontSize: 8),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 8),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -795,7 +786,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
               ),
             ),
           ),
-          if (_isEditing && !isMarkedForDeletion && !(item is PlatformFile))
+          if (_isEditing && !isMarkedForDeletion && item is! PlatformFile)
             Positioned(
               top: 2,
               right: 2,
@@ -805,7 +796,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha((255 * 0.08).round()),
                       blurRadius: 2,
                     ),
                   ],
@@ -814,7 +805,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                   icon: const Icon(Icons.close, size: 14),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  color: colorScheme.error,
+                  color: theme.colorScheme.error,
                   tooltip: 'Remover ficheiro',
                   onPressed: () {
                     setState(() {
@@ -834,7 +825,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha((255 * 0.08).round()),
                       blurRadius: 2,
                     ),
                   ],
@@ -843,7 +834,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                   icon: const Icon(Icons.close, size: 14),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  color: colorScheme.error,
+                  color: theme.colorScheme.error,
                   tooltip: 'Remover ficheiro',
                   onPressed: () {
                     setState(() {

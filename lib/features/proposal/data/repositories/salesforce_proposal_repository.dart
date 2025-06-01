@@ -1,20 +1,11 @@
-import 'dart:convert'; // For jsonDecode
-import 'dart:io'; // For HttpException
-import 'package:http/http.dart' as http; // For API calls
+import 'dart:convert'; // For jsonDecode// For API calls
 import 'package:cloud_functions/cloud_functions.dart'; // Import Cloud Functions
-import 'dart:typed_data'; // For Uint8List
-import 'package:file_picker/file_picker.dart'; // For PlatformFile
+import 'dart:typed_data'; // For Uint8List// For PlatformFile
+import 'package:flutter/foundation.dart'; // For kDebugMode
 
 import '../models/detailed_salesforce_proposal.dart';
-import '../models/cpe_proposal_link.dart'; // Although parsing happens in DetailedSalesforceProposal.fromJson
-import '../../../../features/opportunity/data/models/salesforce_file.dart'; // For file parsing
-import '../models/proposal_file.dart'; // Use proposal file model
 
 class SalesforceProposalRepository {
-  // Base URL construction might be improved later (e.g., constants)
-  // Version should ideally be configurable
-  static const String _apiVersion = 'v58.0';
-
   // Get instance of Cloud Functions
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'us-central1',
@@ -53,9 +44,11 @@ class SalesforceProposalRepository {
         result.data as Map<String, dynamic>,
       );
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException calling getSalesforceProposalDetails: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException calling getSalesforceProposalDetails: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+        );
+      }
       // Handle specific function errors (e.g., unauthenticated, not-found, internal)
       if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
         throw Exception(
@@ -69,7 +62,9 @@ class SalesforceProposalRepository {
       throw Exception('Cloud function error: ${e.message}');
     } catch (e) {
       // Handle any other errors (e.g., casting result.data)
-      print("Error processing Cloud Function result: $e");
+      if (kDebugMode) {
+        print("Error processing Cloud Function result: $e");
+      }
       throw Exception(
         'An unexpected error occurred while fetching proposal details: $e',
       );
@@ -94,11 +89,15 @@ class SalesforceProposalRepository {
 
       await callable.call(data);
       // Assume success if no exception is thrown
-      print("Successfully requested proposal update via Cloud Function.");
+      if (kDebugMode) {
+        print("Successfully requested proposal update via Cloud Function.");
+      }
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException calling updateSalesforceProposal: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException calling updateSalesforceProposal: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+        );
+      }
       if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
         throw Exception('Salesforce session expired. Please re-authenticate.');
       }
@@ -107,7 +106,9 @@ class SalesforceProposalRepository {
         'Cloud function error during proposal update: ${e.message}',
       );
     } catch (e) {
-      print("Error calling update proposal function: $e");
+      if (kDebugMode) {
+        print("Error calling update proposal function: $e");
+      }
       throw Exception(
         'An unexpected error occurred while updating proposal: $e',
       );
@@ -141,9 +142,11 @@ class SalesforceProposalRepository {
       final HttpsCallableResult result = await callable.call(data);
 
       if (result.data?['success'] == true) {
-        print(
-          "Successfully uploaded file via Cloud Function: ${result.data?['contentDocumentId']}",
-        );
+        if (kDebugMode) {
+          print(
+            "Successfully uploaded file via Cloud Function: ${result.data?['contentDocumentId']}",
+          );
+        }
         // Return the ContentDocumentId
         return result.data?['contentDocumentId'] as String?;
       } else {
@@ -152,9 +155,11 @@ class SalesforceProposalRepository {
         );
       }
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException calling uploadSalesforceFile: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException calling uploadSalesforceFile: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+        );
+      }
       if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
         throw Exception('Salesforce session expired. Please re-authenticate.');
       }
@@ -164,7 +169,9 @@ class SalesforceProposalRepository {
       }
       throw Exception('Cloud function error during file upload: ${e.message}');
     } catch (e) {
-      print("Error calling upload file function: $e");
+      if (kDebugMode) {
+        print("Error calling upload file function: $e");
+      }
       throw Exception('An unexpected error occurred while uploading file: $e');
     }
   }
@@ -190,11 +197,15 @@ class SalesforceProposalRepository {
           result.data?['error'] ?? 'Unknown file deletion error from function.',
         );
       }
-      print("Successfully requested file deletion via Cloud Function.");
+      if (kDebugMode) {
+        print("Successfully requested file deletion via Cloud Function.");
+      }
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException calling deleteSalesforceFile: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException calling deleteSalesforceFile: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+        );
+      }
       if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
         throw Exception('Salesforce session expired. Please re-authenticate.');
       }
@@ -208,7 +219,9 @@ class SalesforceProposalRepository {
         'Cloud function error during file deletion: ${e.message}',
       );
     } catch (e) {
-      print("Error calling delete file function: $e");
+      if (kDebugMode) {
+        print("Error calling delete file function: $e");
+      }
       throw Exception('An unexpected error occurred while deleting file: $e');
     }
   }
@@ -239,7 +252,9 @@ class SalesforceProposalRepository {
 
       if (result.data?['success'] == true) {
         final List<dynamic> cpeIds = result.data?['createdCpePropostaIds'] ?? [];
-        print("Successfully created CPEs for proposal via Cloud Function: ${cpeIds.join(', ')}");
+        if (kDebugMode) {
+          print("Successfully created CPEs for proposal via Cloud Function: ${cpeIds.join(', ')}");
+        }
         return cpeIds.cast<String>();
       } else {
         throw Exception(
@@ -247,9 +262,11 @@ class SalesforceProposalRepository {
         );
       }
     } on FirebaseFunctionsException catch (e) {
-      print(
-        "FirebaseFunctionsException calling createCpeForProposal: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
-      );
+      if (kDebugMode) {
+        print(
+          "FirebaseFunctionsException calling createCpeForProposal: Code[${e.code}] Message[${e.message}] Details[${e.details}]",
+        );
+      }
       if (e.code == 'unauthenticated' && e.details?['sessionExpired'] == true) {
         throw Exception('Salesforce session expired. Please re-authenticate.');
       }
@@ -261,7 +278,9 @@ class SalesforceProposalRepository {
       }
       throw Exception('Cloud function error during CPE creation: ${e.message}');
     } catch (e) {
-      print("Error calling create CPE for proposal function: $e");
+      if (kDebugMode) {
+        print("Error calling create CPE for proposal function: $e");
+      }
       throw Exception('An unexpected error occurred while creating CPEs: $e');
     }
   }

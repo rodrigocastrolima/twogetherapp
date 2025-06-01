@@ -9,8 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import '../../domain/models/provider_info.dart';
-import '../../../../core/services/loading_service.dart';
 // Removed snackbar import
 // import 'package:twogether/core/utils/show_snackbar.dart';
 // Import the new message widgets
@@ -219,11 +217,11 @@ class _CreateProviderPageState extends ConsumerState<CreateProviderPage> {
                     Container(
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: theme.colorScheme.outline.withOpacity(0.5),
+                          color: theme.colorScheme.outline.withAlpha((255 * 0.5).round()),
                         ),
                         borderRadius: BorderRadius.circular(8),
-                        color: theme.colorScheme.secondaryContainer.withOpacity(
-                          0.1,
+                        color: theme.colorScheme.secondaryContainer.withAlpha(
+                          (255 * 0.1).round(),
                         ),
                       ),
                       height: 150,

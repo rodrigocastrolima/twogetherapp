@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../opportunity/data/models/salesforce_opportunity.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/dashboard_stats.dart';
-import '../../../../core/models/service_submission.dart';
+
 import '../../../proposal/data/models/salesforce_proposal.dart';
 import '../../../proposal/data/models/salesforce_proposal_ref.dart';
 import '../../../opportunity/data/models/create_opp_models.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../proposal/data/models/salesforce_cpe_proposal_data.dart';
+
 import '../../../proposal/data/models/salesforce_proposal_data.dart';
 import 'dart:convert'; // <-- Add import for jsonEncode/Decode
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,7 +18,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class SalesforceRepository {
   final FirebaseFunctions _functions;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  bool _isConnected = false;
 
   /// Constructor that accepts a FirebaseFunctions instance
   SalesforceRepository({FirebaseFunctions? functions})
@@ -30,13 +29,11 @@ class SalesforceRepository {
   Future<bool> initialize() async {
     try {
       // For now, just return true to simulate successful initialization
-      _isConnected = true;
       return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error initializing Salesforce connection: $e');
       }
-      _isConnected = false;
       return false;
     }
   }
@@ -50,13 +47,11 @@ class SalesforceRepository {
   }) async {
     try {
       // For now, just return true to simulate successful connection
-      _isConnected = true;
       return true;
     } catch (e) {
       if (kDebugMode) {
         print('Error connecting to Salesforce: $e');
       }
-      _isConnected = false;
       return false;
     }
   }
@@ -65,7 +60,6 @@ class SalesforceRepository {
   Future<void> disconnect() async {
     try {
       // For now, just set connected to false
-      _isConnected = false;
     } catch (e) {
       if (kDebugMode) {
         print('Error disconnecting from Salesforce: $e');
@@ -274,9 +268,7 @@ class SalesforceRepository {
       // Check if the error indicates an expired token (adjust code as needed)
       // Common codes: 'unauthenticated', 'permission-denied'. Details might be needed.
       bool needsRefresh = e.code == 'unauthenticated'; 
-      // TODO: Refine this check based on actual error returned by your functions on token expiry.
-      // You might need to inspect e.details or e.message.
-
+      
       if (needsRefresh && retryCount == 0) { // Only attempt refresh once
         if (kDebugMode) {
           print("Potential expired token detected. Attempting refresh...");
@@ -284,7 +276,9 @@ class SalesforceRepository {
         try {
           final refreshToken = await _getRefreshToken();
           if (refreshToken == null) {
-            print("No refresh token found. Cannot refresh. User needs to re-login.");
+            if (kDebugMode) {
+              print("No refresh token found. Cannot refresh. User needs to re-login.");
+            }
             // Re-throw the original error or a specific "LoginRequiredError"
             throw Exception("User re-authentication required (no refresh token)."); 
           }
@@ -320,16 +314,22 @@ class SalesforceRepository {
             return await getResellerOpportunities(resellerSalesforceId, retryCount: retryCount + 1);
           } else {
             // Handle cases where refresh function succeeded but response was unexpected
-             print("Refresh token function returned success but response format was unexpected.");
+            if (kDebugMode) {
+              print("Refresh token function returned success but response format was unexpected.");
+            }
              throw Exception("Token refresh failed (unexpected response). User should re-login.");
           }
 
         } on FirebaseFunctionsException catch (refreshError) {
            // Handle errors during the refresh call itself
-           print("Error calling refreshSalesforceToken function: ${refreshError.code} - ${refreshError.message}");
+           if (kDebugMode) {
+             print("Error calling refreshSalesforceToken function: ${refreshError.code} - ${refreshError.message}");
+           }
            // If refresh specifically fails with unauthenticated/invalid_grant, re-login is needed
            if (refreshError.code == 'unauthenticated' || refreshError.details?['salesforceError'] == 'invalid_grant') {
-               print("Refresh token invalid. User needs to re-login.");
+               if (kDebugMode) {
+                 print("Refresh token invalid. User needs to re-login.");
+               }
                throw Exception("User re-authentication required (invalid refresh token).");
            } else {
                // Throw a general error for other refresh failures
@@ -337,17 +337,23 @@ class SalesforceRepository {
            }
         } catch (refreshError) {
            // Catch any other non-Functions exceptions during refresh/storage
-           print("Unexpected error during token refresh flow: $refreshError");
+           if (kDebugMode) {
+             print("Unexpected error during token refresh flow: $refreshError");
+           }
            throw Exception("An unexpected error occurred during token refresh.");
         }
       } else if (needsRefresh && retryCount > 0) {
          // Already tried refreshing, but failed again - force login
-         print("Call failed again after token refresh attempt. Forcing re-login.");
+         if (kDebugMode) {
+           print("Call failed again after token refresh attempt. Forcing re-login.");
+         }
          throw Exception("User re-authentication required (refresh failed).");
       } else {
         // The error was not related to token expiry, re-throw it
-         print("HttpsError was not related to token expiry. Rethrowing.");
-        throw e; 
+        if (kDebugMode) {
+          print("HttpsError was not related to token expiry. Rethrowing.");
+        }
+        rethrow;
       }
     } catch (e) {
       // Catch any other non-Functions exceptions during the initial call
@@ -405,16 +411,20 @@ class SalesforceRepository {
                       mapJson['Name'] == null ||
                       mapJson['Data_de_Validade__c'] == null ||
                       mapJson['Status__c'] == null) {
-                    print(
-                      '[SalesforceRepository] Proposal record missing required fields (Id, Name, Data_de_Validade__c, Status__c): $mapJson',
-                    );
+                    if (kDebugMode) {
+                      print(
+                        '[SalesforceRepository] Proposal record missing required fields (Id, Name, Data_de_Validade__c, Status__c): $mapJson',
+                      );
+                    }
                     return null; // Skip this record
                   }
                   return SalesforceProposal.fromJson(mapJson);
                 } catch (e) {
-                  print(
-                    '[SalesforceRepository] Error parsing proposal record $json: $e',
-                  );
+                  if (kDebugMode) {
+                    print(
+                      '[SalesforceRepository] Error parsing proposal record $json: $e',
+                    );
+                  }
                   return null; // Skip records that cause parsing errors
                 }
               } else {
@@ -465,25 +475,31 @@ class SalesforceRepository {
     // functions.useFunctionsEmulator('localhost', 5001);
     final callable = functions.httpsCallable('createSalesforceOpportunity');
 
-    print(
-      'Calling createSalesforceOpportunity with params: ${params.toJson()}',
-    ); // Debug log
+    if (kDebugMode) {
+      print(
+        'Calling createSalesforceOpportunity with params: ${params.toJson()}',
+      ); // Debug log
+    }
 
     try {
       // Call the function with parameters converted to JSON
       final HttpsCallableResult result = await callable
           .call<Map<String, dynamic>>(params.toJson());
 
-      print('Cloud Function result data: ${result.data}'); // Debug log
+      if (kDebugMode) {
+        print('Cloud Function result data: ${result.data}'); // Debug log
+      }
 
       // Parse the result using the factory constructor
       return CreateOppResult.fromJson(result.data as Map<String, dynamic>);
     } on FirebaseFunctionsException catch (e, stacktrace) {
       // Handle specific Cloud Function errors
-      print(
-        'FirebaseFunctionsException calling createSalesforceOpportunity: $e',
-      );
-      print('Stacktrace: $stacktrace');
+      if (kDebugMode) {
+        print(
+          'FirebaseFunctionsException calling createSalesforceOpportunity: $e',
+        );
+        print('Stacktrace: $stacktrace');
+      }
       // Check if the error details contain the sessionExpired flag
       bool sessionExpired = false;
       if (e.details is Map<String, dynamic>) {
@@ -498,8 +514,10 @@ class SalesforceRepository {
       );
     } catch (e, stacktrace) {
       // Handle any other unexpected errors during the call
-      print('Generic error calling createSalesforceOpportunity: $e');
-      print('Stacktrace: $stacktrace');
+      if (kDebugMode) {
+        print('Generic error calling createSalesforceOpportunity: $e');
+        print('Stacktrace: $stacktrace');
+      }
       return CreateOppResult(
         success: false,
         error: 'An unexpected error occurred: ${e.toString()}',
@@ -541,18 +559,22 @@ class SalesforceRepository {
                   null || // Keep Name for now if needed internally
               proposalJson['Data_de_Validade__c'] == null ||
               proposalJson['Status__c'] == null) {
-            print(
-              '[SalesforceRepository] Proposal record missing required fields: $proposalJson',
-            );
+            if (kDebugMode) {
+              print(
+                '[SalesforceRepository] Proposal record missing required fields: $proposalJson',
+              );
+            }
             throw Exception(
               'Received invalid proposal data from Cloud Function.',
             );
           }
           return SalesforceProposal.fromJson(proposalJson);
         } catch (e) {
-          print(
-            '[SalesforceRepository] Error parsing single proposal record ${data['proposal']}: $e',
-          );
+          if (kDebugMode) {
+            print(
+              '[SalesforceRepository] Error parsing single proposal record ${data['proposal']}: $e',
+            );
+          }
           throw Exception('Error processing proposal data.');
         }
       } else {
@@ -576,7 +598,7 @@ class SalesforceRepository {
       if (kDebugMode) {
         print('[SalesforceRepository] getProposalDetails General error: $e');
       }
-      // TODO: Implement appropriate error handling if needed
+      
       rethrow; // Rethrow other exceptions
     }
   }
@@ -613,9 +635,11 @@ class SalesforceRepository {
         if (commission is num) {
           return commission.toDouble();
         } else {
-          print(
-            '[SalesforceRepository] Warning: totalCommission received was not a number: $commission (${commission.runtimeType})',
-          );
+          if (kDebugMode) {
+            print(
+              '[SalesforceRepository] Warning: totalCommission received was not a number: $commission (${commission.runtimeType})',
+            );
+          }
           return 0.0; // Return 0 if type is unexpected
         }
       } else if (data['success'] == true && data['totalCommission'] == null) {
@@ -724,9 +748,11 @@ class SalesforceRepository {
                   // Use the new model's fromJson
                   return SalesforceProposalRef.fromJson(mapJson);
                 } catch (e) {
-                  print(
-                    '[SalesforceRepository] Error parsing proposal ref record $json: $e',
-                  );
+                  if (kDebugMode) {
+                    print(
+                      '[SalesforceRepository] Error parsing proposal ref record $json: $e',
+                    );
+                  }
                   return null;
                 }
               } else {
@@ -824,9 +850,11 @@ class SalesforceRepository {
         // The SalesforceProposalData.fromJson factory will handle parsing the nested CPEs
         return SalesforceProposalData.fromJson(typedData);
       } catch (e) {
-        print(
-          '[$runtimeType] Error parsing $functionName result JSON: $e - Data: $data',
-        );
+        if (kDebugMode) {
+          print(
+            '[$runtimeType] Error parsing $functionName result JSON: $e - Data: $data',
+          );
+        }
         throw Exception(
           'Error processing proposal details data from function.',
         );

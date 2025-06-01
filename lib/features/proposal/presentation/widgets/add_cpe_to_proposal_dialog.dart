@@ -1,10 +1,8 @@
-import 'dart:typed_data';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart';
 import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart';
@@ -12,7 +10,6 @@ import '../../../../core/services/salesforce_auth_service.dart';
 import '../../../../presentation/widgets/success_dialog.dart';
 import '../../../../presentation/widgets/app_input_field.dart';
 import '../../../../core/services/file_icon_service.dart';
-// TODO: Add imports for repository and auth if needed for final submission
 
 class AddCpeToProposalDialog extends ConsumerStatefulWidget {
   final String proposalId;
@@ -46,7 +43,7 @@ class _AddCpeToProposalDialogState
 
   // State
   String? _selectedCicloId;
-  List<PlatformFile> _attachedFiles = [];
+  final List<PlatformFile> _attachedFiles = [];
 
   @override
   void initState() {
@@ -83,7 +80,9 @@ class _AddCpeToProposalDialogState
         });
       }
     } catch (e) {
-      print("Error picking files: $e");
+      if (kDebugMode) {
+        print("Error picking files: $e");
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao selecionar ficheiros: ${e.toString()}')),
@@ -160,7 +159,7 @@ class _AddCpeToProposalDialogState
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha((255 * 0.08).round()),
                       blurRadius: 2,
                     ),
                   ],
@@ -242,7 +241,9 @@ class _AddCpeToProposalDialogState
         cpeItems: [cpeItemData],
       );
 
-      print("Successfully created CPE-Proposta IDs: ${createdCpeIds.join(', ')}");
+      if (kDebugMode) {
+        print("Successfully created CPE-Proposta IDs: ${createdCpeIds.join(', ')}");
+      }
 
       if (mounted) {
         // Show success dialog
@@ -256,7 +257,9 @@ class _AddCpeToProposalDialogState
         );
       }
     } catch (e) {
-      print("Error submitting CPE link: $e");
+      if (kDebugMode) {
+        print("Error submitting CPE link: $e");
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

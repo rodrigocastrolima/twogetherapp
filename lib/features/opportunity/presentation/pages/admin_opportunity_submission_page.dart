@@ -585,8 +585,8 @@ class _OpportunityDetailFormViewState
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: isSubmitting ? null : () {
-                      final isValid = dialogFormKey.currentState?.validate() ?? false;
-                      if (isValid) {
+                      final isValid = dialogFormKey.currentState?.validate();
+                      if (isValid == true) {
                         Navigator.of(dialogContext).pop(reasonController.text.trim());
                       }
                     },
@@ -766,7 +766,6 @@ class _OpportunityDetailFormViewState
                 'opportunityType': _tipoOportunidadeValue,
               },
             });
-        // print("--- SKIPPED Firestore update for UI testing --- ");
         // --- END RE-ENABLE --- //
 
         // --- MODIFICATION START: Show Dialog or Fallback ---
@@ -1020,13 +1019,13 @@ class _OpportunityDetailFormViewState
                           controller: _responsibleNameController,
                           label: widget.isManualMode ? 'Nome do Cliente' : 'Nome do Responsável',
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         if (widget.submission?.companyName != null && widget.submission?.companyName!.isNotEmpty == true) ...[
                           AppInputField(
                             controller: _companyNameController,
                             label: 'Nome da Empresa',
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
                         ],
                         if (widget.isManualMode)
                           _buildUserPicker()
@@ -1036,7 +1035,7 @@ class _OpportunityDetailFormViewState
                             label: 'Agente Retail',
                             readOnly: true,
                           ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         // --- All Opportunity Fields (no section title) ---
                         AppInputField(
                           controller: _nameController,
@@ -1045,7 +1044,7 @@ class _OpportunityDetailFormViewState
                               ? 'Nome da Oportunidade é obrigatório'
                               : null,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -1062,7 +1061,7 @@ class _OpportunityDetailFormViewState
                             _buildNifStatusIndicator(),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -1082,7 +1081,7 @@ class _OpportunityDetailFormViewState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -1122,7 +1121,7 @@ class _OpportunityDetailFormViewState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
                             Expanded(
@@ -1150,7 +1149,7 @@ class _OpportunityDetailFormViewState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         AppDateInputField(
                           label: 'Data de Previsão de Fecho',
                           value: _selectedFechoDate,
@@ -1279,77 +1278,78 @@ class _OpportunityDetailFormViewState
                             ),
                           )
                         else
-                          Center(
-                            child: Wrap(
-                              spacing: 16.0,
-                              runSpacing: 8.0,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                SizedBox(
-                                  height: 44,
-                                  child: ElevatedButton.icon(
-                                    icon: Icon(Icons.check_circle_outline, color: colorScheme.onPrimary),
-                                    label: _isSubmitting
-                                        ? SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: colorScheme.onPrimary,
-                                            ),
-                                          )
-                                        : Text('Aprovar', style: textTheme.labelLarge?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 0.5,
-                                            color: colorScheme.onPrimary,
-                                          )),
-                                    onPressed: _isSubmitting ? null : _approveSubmission,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: colorScheme.tertiary,
-                                      foregroundColor: colorScheme.onTertiary,
-                                      minimumSize: const Size(120, 44),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      elevation: 2,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                                  label: const Text('Rejeitar'),
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : () async {
+                                          final reason = await _showRejectionDialog();
+                                          if (kDebugMode) {
+                                            print('Rejection reason: $reason');
+                                          }
+                                          if (reason != null && reason.isNotEmpty) {
+                                            await _handleRejection(reason);
+                                          }
+                                        },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: colorScheme.error,
+                                    side: BorderSide(
+                                      color: colorScheme.error.withAlpha((255 * 0.7).round()),
+                                      width: 1.2,
+                                    ),
+                                    minimumSize: const Size(120, 40),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    textStyle: textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ),
-                                SizedBox(
-                                  height: 44,
-                                  child: OutlinedButton.icon(
-                                    icon: const Icon(Icons.cancel_outlined, size: 18),
-                                    label: const Text('Rejeitar'),
-                                    onPressed: _isSubmitting
-                                        ? null
-                                        : () async {
-                                            final reason = await _showRejectionDialog();
-                                            if (kDebugMode) {
-                                              print('Rejection reason: $reason');
-                                            }
-                                            if (reason != null && reason.isNotEmpty) {
-                                              await _handleRejection(reason);
-                                            }
-                                          },
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: colorScheme.error,
-                                      side: BorderSide(
-                                        color: colorScheme.error.withAlpha((255 * 0.7).round()),
-                                        width: 1.5,
-                                      ),
-                                      minimumSize: const Size(120, 44),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      textStyle: textTheme.labelLarge?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
-                                      ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  icon: Icon(Icons.check_circle_outline, color: colorScheme.tertiary),
+                                  label: _isSubmitting
+                                      ? SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: colorScheme.tertiary,
+                                          ),
+                                        )
+                                      : Text('Aprovar', style: textTheme.labelLarge?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
+                                          color: colorScheme.tertiary,
+                                        )),
+                                  onPressed: _isSubmitting ? null : _approveSubmission,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: colorScheme.tertiary,
+                                    side: BorderSide(
+                                      color: colorScheme.tertiary,
+                                      width: 1.5,
+                                    ),
+                                    minimumSize: const Size(120, 40),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    textStyle: textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                       ],
                     ),

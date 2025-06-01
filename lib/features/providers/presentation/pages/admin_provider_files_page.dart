@@ -2,18 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart'; // For date formatting
 import 'package:file_picker/file_picker.dart'; // Import file_picker
 import 'package:firebase_storage/firebase_storage.dart'; // Import storage
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import firestore
-import 'dart:typed_data'; // Import for Uint8List (web)
 import 'dart:io'; // Import for File (mobile)
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode; // Added kDebugMode
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_file.dart';
-import '../../../../core/theme/theme.dart'; // For AppTheme colors if needed
-import '../../../../core/widgets/message_display.dart'; // For error display
-import '../../../../core/services/loading_service.dart'; // For loading overlay
+import '../../../../core/widgets/message_display.dart'; // For error display // For loading overlay
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
@@ -216,39 +212,11 @@ class _AdminProviderFilesPageState
               )
           : Icon(
                 CupertinoIcons.chevron_forward,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
+                color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()),
                 size: 20,
               ),
       onTap: () => _handleFileTap(context, file),
     );
-  }
-
-  // Move _getFileIcon here (no changes needed)
-  IconData _getFileIcon(String fileType) {
-    switch (fileType.toLowerCase()) {
-      case 'pdf':
-        return CupertinoIcons.doc_text_fill;
-      case 'doc':
-      case 'docx':
-        return CupertinoIcons.doc_richtext;
-      case 'xls':
-      case 'xlsx':
-        return CupertinoIcons.table_fill;
-      case 'ppt':
-      case 'pptx':
-        return CupertinoIcons.tv_music_note_fill; // Placeholder icon
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-      case 'gif':
-      case 'bmp':
-        return CupertinoIcons.photo_fill;
-      case 'zip':
-      case 'rar':
-        return CupertinoIcons.archivebox_fill;
-      default:
-        return CupertinoIcons.doc_fill;
-    }
   }
 
   // Move _showAddFileDialog here (will be modified in next step)
@@ -449,13 +417,12 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
       _isUploading = true;
       _dialogErrorMessage = null;
     });
-    final loadingService = ref.read(loadingServiceProvider);
     try {
       final file = _selectedPlatformFile!;
       final String description = _descriptionController.text.trim();
       final String fileName = file.name;
       final String fileExtension = _getFileExtension(fileName);
-      final int? fileSize = file.size;
+      final int fileSize = file.size;
       final String fileDocId = FirebaseFirestore.instance.collection('providers').doc(widget.providerId).collection('files').doc().id;
       final String storagePath = 'provider_files/${widget.providerId}/$fileDocId/$fileName';
       final Reference storageRef = FirebaseStorage.instance.ref().child(storagePath);
@@ -536,10 +503,10 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
       height: 80,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.7),
+        color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withAlpha((255 * 0.1).round()),
           width: 0.5,
         ),
       ),
@@ -580,7 +547,7 @@ class _AddFileDialogState extends ConsumerState<AddFileDialog> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withAlpha((255 * 0.08).round()),
                       blurRadius: 2,
                     ),
                   ],

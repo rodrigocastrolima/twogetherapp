@@ -294,7 +294,7 @@ class _AdminStatsDetailPageState extends ConsumerState<AdminStatsDetailPage> {
               ),
             ),
             const SizedBox(height: 24),
-            Divider(thickness: 1, color: theme.dividerColor.withOpacity(0.5)),
+            Divider(thickness: 1, color: theme.dividerColor.withAlpha((255 * 0.5).round())),
             const SizedBox(height: 16),
 
             // --- Reseller Breakdown ---
@@ -385,7 +385,7 @@ class _AdminStatsDetailPageState extends ConsumerState<AdminStatsDetailPage> {
                 Icon(
                   icon,
                   size: 20,
-                  color: color.withAlpha((0.8 * 255).round()),
+                  color: color.withAlpha((255 * 0.8).round()),
                 ),
               ],
             ),
@@ -563,7 +563,7 @@ class _AdminStatsDetailPageState extends ConsumerState<AdminStatsDetailPage> {
             dotData: FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: theme.colorScheme.primary.withOpacity(0.2),
+              color: theme.colorScheme.primary.withAlpha((255 * 0.2).round()),
             ),
           ),
         ],
@@ -599,7 +599,7 @@ class _AdminStatsDetailPageState extends ConsumerState<AdminStatsDetailPage> {
             dotData: FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.green.withOpacity(0.2),
+              color: Colors.green.withAlpha((255 * 0.2).round()),
             ),
           ),
         ],

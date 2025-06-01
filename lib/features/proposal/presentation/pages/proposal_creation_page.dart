@@ -1,18 +1,14 @@
 import 'dart:io'; // For File (mobile)
-import 'dart:convert'; // For jsonEncode debug logging
 
 import 'package:cloud_functions/cloud_functions.dart'; // <-- ADDED IMPORT
 import 'package:file_picker/file_picker.dart'; // Import file_picker
-import 'package:firebase_auth/firebase_auth.dart'; // For UID
 import 'package:firebase_storage/firebase_storage.dart'; // For Storage
 import 'package:flutter/foundation.dart'; // For kIsWeb
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart'; // <-- ADDED IMPORT
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:path/path.dart' as p; // For basename
-import 'package:twogether/core/services/salesforce_auth_service.dart'; // For notifier provider
 import 'package:twogether/features/proposal/domain/salesforce_ciclo.dart'; // Import Ciclo model
 import 'package:twogether/features/proposal/presentation/providers/proposal_providers.dart'; // Import provider
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import proposal provider
@@ -22,8 +18,6 @@ import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import 
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
 import '../../../../presentation/widgets/app_input_field.dart'; // Import AppInputField components
 import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
-// import 'package:twogether/l10n/l10n.dart'; // TODO: Re-enable l10n
-// import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // TODO: Re-enable l10n
 
 // --- Helper Class for CPE Input Data --- //
 class _CpeInputData {
@@ -95,7 +89,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
   // --- End Proposal State ---
 
   // --- State for Dynamic CPE List --- //
-  List<_CpeInputData> _cpeItems = [];
+  final List<_CpeInputData> _cpeItems = [];
   // --- End CPE State --- //
 
   // --- NEW: Picklist Options for Solution ---
@@ -171,7 +165,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('At least one CPE block is required.'),
-        ), // TODO: l10n
+        ),
       );
     }
   }
@@ -194,11 +188,14 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
         // User canceled the picker
       }
     } catch (e) {
-      print("Error picking files: $e");
+      if (kDebugMode) {
+        print("Error picking files: $e");
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error picking files: ${e.toString()}'),
-        ), // TODO: l10n
+        ),
       );
     }
   }
@@ -363,6 +360,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
         // --- END: Invalidate Provider for Refresh ---
 
         // Show success dialog
+        if (!mounted) return;
         await showSuccessDialog(
           context: context,
           message: 'Proposta submetida com sucesso!',
@@ -380,6 +378,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
         if (sessionExpired) {
           // Handle session expiry: Show message, potentially log out
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMessage), // Use message from function
@@ -389,6 +388,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
           // Consider calling sfAuthNotifier.logout() or navigating to login
           // context.go('/login');
         } else {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error submitting proposal: $errorMessage'),
@@ -406,6 +406,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
           (e is FirebaseFunctionsException)
               ? (e.message ?? e.code)
               : e.toString();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error during submission process: $errorMessage'),
@@ -601,7 +602,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                     height: 70,
                     clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+                      color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
                       borderRadius: BorderRadius.circular(8.0),
                       border: Border.all(
                         color: colorScheme.outline.withAlpha((255 * 0.1).round()),
@@ -652,7 +653,6 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // final l10n = AppLocalizations.of(context)!; // TODO: Re-enable l10n
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;

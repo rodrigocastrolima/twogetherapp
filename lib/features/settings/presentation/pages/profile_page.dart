@@ -3,17 +3,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:ui';
 import '../../../../core/theme/theme.dart';
-import '../../../../core/theme/text_styles.dart';
-import '../../../../core/utils/constants.dart';
-import '../../../../core/theme/ui_styles.dart';
-import '../../../../app/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../presentation/widgets/logo.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  const ProfilePage({super.key});
 
   @override
   ConsumerState<ProfilePage> createState() => _ProfilePageState();
@@ -23,9 +18,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isLoading = true;
   Map<String, dynamic>? _userData;
   String? _errorMessage;
-  bool _isChangingPassword = false;
-  String? _passwordChangeMessage;
-  bool _passwordChangeSuccess = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -88,69 +80,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    setState(() {
-      _isChangingPassword = true;
-      _passwordChangeMessage = null;
-      _passwordChangeSuccess = false;
-    });
-
     try {
       // Send password reset email to current user's email
       await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
-
-      setState(() {
-        _isChangingPassword = false;
-        _passwordChangeSuccess = true;
-        _passwordChangeMessage =
-            'Email de redefinição de senha enviado para ${user.email}';
-      });
     } catch (e) {
-      setState(() {
-        _isChangingPassword = false;
-        _passwordChangeSuccess = false;
-        _passwordChangeMessage = 'Erro ao enviar email: ${e.toString()}';
-      });
+      // Handle error if needed
     }
-  }
-
-  void _showPasswordChangeDialog() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Alterar Senha'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Um email de redefinição de senha será enviado para seu endereço de email.',
-                  style: TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  user.email ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _changePassword();
-                },
-                child: const Text('Enviar Email'),
-              ),
-            ],
-          ),
-    );
   }
 
   @override
@@ -159,7 +94,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? theme.colorScheme.background : Colors.white,
+      backgroundColor: isDark ? theme.colorScheme.surface : Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -246,7 +181,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+            backgroundColor: theme.colorScheme.primary.withAlpha((255 * 0.2).round()),
             child: Text(
               getField('displayName', getField('email', '?')).isNotEmpty
                   ? getField('displayName', getField('email', '?'))[0].toUpperCase()
@@ -269,7 +204,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           const SizedBox(height: 4),
           Text(
             getField('email'),
-            style: TextStyle(fontSize: 14, color: theme.colorScheme.onBackground.withOpacity(0.7)),
+            style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round())),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -299,7 +234,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Widget _buildProfileContent(ThemeData theme) {
-    final currentUser = FirebaseAuth.instance.currentUser;
     final userData = _userData ?? {};
     final additional = userData['additionalData'] as Map<String, dynamic>? ?? {};
 

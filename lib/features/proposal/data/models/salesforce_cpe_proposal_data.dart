@@ -21,15 +21,6 @@ class SalesforceCPEProposalData {
   });
 
   factory SalesforceCPEProposalData.fromJson(Map<String, dynamic> json) {
-    // Helper to safely parse numbers (double or int)
-    double? parseDouble(dynamic value) {
-      if (value == null) return null;
-      if (value is double) return value;
-      if (value is int) return value.toDouble();
-      if (value is String) return double.tryParse(value.replaceFirst(',', '.'));
-      return null;
-    }
-
     // Parse attached files
     List<SalesforceFileInfo> files = [];
     if (json['attachedFiles'] is List) {
@@ -44,15 +35,19 @@ class SalesforceCPEProposalData {
                         Map<String, dynamic>.from(fileJson);
                     return SalesforceFileInfo.fromJson(typedFileMap);
                   } catch (e) {
-                    print(
-                      'Error parsing attached file item: $e - Item: $fileJson',
-                    );
+                    if (kDebugMode) {
+                      print(
+                        'Error parsing attached file item: $e - Item: $fileJson',
+                      );
+                    }
                     return null;
                   }
                 } else {
-                  print(
-                    'Skipping non-map item in attachedFiles: ${fileJson?.runtimeType}',
-                  );
+                  if (kDebugMode) {
+                    print(
+                      'Skipping non-map item in attachedFiles: ${fileJson?.runtimeType}',
+                    );
+                  }
                   return null;
                 }
                 // --- END ADDED --- //

@@ -625,7 +625,7 @@ class _AdminSalesforceOpportunityDetailPageState
                         // Title in the center with flex
                         Expanded(
                           child: Text(
-                            displayOpportunity.name ?? 'Detalhes da Oportunidade',
+                            displayOpportunity.name,
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.onSurface,
@@ -970,18 +970,14 @@ class _AdminSalesforceOpportunityDetailPageState
     );
   }
 
-  Widget _buildDetailSection(
-    BuildContext context,
-    String title,
-    List<Widget> items,
-  ) {
+  Widget _buildDetailSectionTwoColumn(BuildContext context, String title, List<List<Widget>> columns) {
     final theme = Theme.of(context);
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: theme.dividerColor.withAlpha(25)),
-      ),
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+            ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -997,71 +993,26 @@ class _AdminSalesforceOpportunityDetailPageState
               textAlign: TextAlign.left,
             ),
             const SizedBox(height: 16),
-            ...items,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: columns[0],
+                  ),
+                ),
+                const SizedBox(width: 32),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: columns[1],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Helper widget to display a label and TEXT value, or a TextField if editing
-  Widget _buildDetailItem(
-    String label,
-    String? value, [
-    String? fieldKey,
-    int? maxLines,
-  ]) {
-    final controller =
-        (fieldKey != null &&
-                _editableTextFields.contains(
-                  fieldKey,
-                )) // Check if it's an editable TEXT field
-            ? _controllers[fieldKey]
-            : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0), // Less vertical spacing
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 190, // Fixed width for the label
-            alignment: Alignment.centerRight,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurface.withAlpha(217),
-            ),
-              textAlign: TextAlign.right,
-          ),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child:
-                (_isEditing && controller != null)
-                    ? TextFormField(
-                      controller: controller,
-                      maxLines: maxLines,
-                      minLines: 1,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.all(8.0),
-                        border: OutlineInputBorder(),
-                      ),
-                    )
-                    : Text(
-                      value ?? 'N/A',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 16,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                        textAlign: TextAlign.left,
-                    ),
-          ),
-        ],
       ),
     );
   }
@@ -1135,7 +1086,6 @@ class _AdminSalesforceOpportunityDetailPageState
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
                   String title;
-                  String subtitle = '';
                   VoidCallback? onTapAction;
                   bool isMarkedForDeletion = false;
     String? fileType;
@@ -1146,7 +1096,6 @@ class _AdminSalesforceOpportunityDetailPageState
                     final file = item;
       fileType = file.fileType.toLowerCase();
                     title = file.title;
-                    subtitle = file.fileType.toUpperCase();
                     isMarkedForDeletion = _filesToDelete.contains(file);
       final iconAsset = FileIconService.getIconAssetPath(fileType);
       iconWidget = Image.asset(
@@ -1173,7 +1122,6 @@ class _AdminSalesforceOpportunityDetailPageState
                     final file = item;
       fileExtension = (file.extension ?? '').toLowerCase();
                     title = file.name;
-                    subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
       final iconAsset = FileIconService.getIconAssetPath(fileExtension);
       iconWidget = Image.asset(
         iconAsset,
@@ -1383,234 +1331,4 @@ class _AdminSalesforceOpportunityDetailPageState
       ],
     );
   }
-
-  // --- NEW: Two-column section builder ---
-  Widget _buildDetailSectionTwoColumn(BuildContext context, String title, List<List<Widget>> columns) {
-    final theme = Theme.of(context);
-    return Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: theme.dividerColor.withAlpha(25)),
-            ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                color: theme.colorScheme.primary,
-              ),
-              textAlign: TextAlign.left,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: columns[0],
-                  ),
-                ),
-                const SizedBox(width: 32),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: columns[1],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- NEW: Date picker item builder ---
-  Widget _buildDatePickerItem(String label, String? currentValue, ValueChanged<DateTime?> onDatePicked) {
-    final theme = Theme.of(context);
-    DateTime? parsedDate;
-    if (currentValue != null) {
-      try {
-        parsedDate = DateTime.parse(currentValue);
-      } catch (_) {}
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: parsedDate ?? DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2101),
-                  initialEntryMode: DatePickerEntryMode.calendarOnly,
-                  builder: (context, child) {
-                    final theme = Theme.of(context);
-                    return Theme(
-                      data: theme.copyWith(
-                        colorScheme: theme.colorScheme.copyWith(
-                          primary: theme.colorScheme.primary,
-                          surface: theme.colorScheme.surface,
-                        ),
-                        dialogTheme: DialogTheme(
-                          backgroundColor: theme.colorScheme.surface,
-                        ),
-                        textButtonTheme: TextButtonThemeData(
-                          style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      child: child!,
-                    );
-                  },
-                );
-                onDatePicked(picked);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(128),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  parsedDate != null ? DateFormat('dd/MM/yyyy', 'pt_PT').format(parsedDate) : 'Selecionar data',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-      ),
-    );
-  }
-
-  // --- SHARED INPUT DECORATION (from admin_opportunity_submission_page.dart) ---
-  InputDecoration _inputDecoration({
-    required String label,
-    String? hint,
-    bool readOnly = false,
-    Widget? suffixIcon,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-      hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withAlpha(179)),
-      filled: true,
-      fillColor: readOnly ? colorScheme.surfaceContainerHighest.withAlpha(179) : colorScheme.surfaceContainerHighest,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withAlpha(51)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
-      ),
-      disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withAlpha(20)),
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  // --- REFACTOR: Editable text field builder ---
-  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint, bool readOnly = false, Widget? suffixIcon}) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines ?? 1,
-        minLines: 1,
-        readOnly: readOnly,
-        style: readOnly ? theme.textTheme.bodySmall?.copyWith(color: theme.disabledColor) : theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, hint: hint, readOnly: readOnly, suffixIcon: suffixIcon),
-      ),
-    );
-  }
-
-  // --- REFACTOR: Editable date picker field builder ---
-  Widget _buildEditableDateField(String label, String? value, ValueChanged<DateTime?> onDatePicked) {
-    final theme = Theme.of(context);
-    DateTime? parsedDate;
-    if (value != null) {
-      try {
-        parsedDate = DateTime.parse(value);
-      } catch (_) {}
-    }
-    final controller = TextEditingController(text: parsedDate != null ? DateFormat('dd/MM/yyyy').format(parsedDate) : '');
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        style: theme.textTheme.bodySmall,
-        decoration: _inputDecoration(
-          label: label,
-          hint: 'Selecionar data',
-          suffixIcon: const Icon(Icons.calendar_today),
-        ),
-        readOnly: true,
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: parsedDate ?? DateTime.now(),
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
-            initialEntryMode: DatePickerEntryMode.calendarOnly,
-            builder: (context, child) {
-              final theme = Theme.of(context);
-              return Theme(
-                data: theme.copyWith(
-                  colorScheme: theme.colorScheme.copyWith(
-                    primary: theme.colorScheme.primary,
-                    surface: theme.colorScheme.surface,
-                  ),
-                  dialogTheme: DialogTheme(
-                    backgroundColor: theme.colorScheme.surface,
-                  ),
-                  textButtonTheme: TextButtonThemeData(
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                child: child!,
-              );
-            },
-          );
-          onDatePicked(picked);
-        },
-      ),
-    );
-  }
-
-  void _handleTipoDeOportunidadeChanged(String? value) { if (value != null) _updateEditedOpportunityDropdownField('tipoDeOportunidadeC', value); }
-  void _handleMotivoDaPerdaChanged(String? value) { if (value != null) _updateEditedOpportunityTextField('motivoDaPerda', value); }
-  void _handleFaseCChanged(String? value) { if (value != null) _updateEditedOpportunityDropdownField('faseC', value); }
 }

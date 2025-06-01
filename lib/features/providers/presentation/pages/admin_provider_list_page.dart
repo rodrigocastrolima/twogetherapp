@@ -11,12 +11,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/services/loading_service.dart';
 import '../../../../core/widgets/message_display.dart';
 import '../../../../presentation/widgets/logo.dart';
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
-import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
-import '../../domain/models/provider_file.dart'; // Used in delete logic
+import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog // Used in delete logic
 import '../../domain/models/provider_info.dart';
 import '../providers/provider_providers.dart';
 import '../../../../presentation/widgets/app_input_field.dart';
@@ -623,7 +621,7 @@ class _AddProviderDialogState extends ConsumerState<AddProviderDialog> {
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
+                                    color: Colors.black.withAlpha((255 * 0.15).round()),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   )

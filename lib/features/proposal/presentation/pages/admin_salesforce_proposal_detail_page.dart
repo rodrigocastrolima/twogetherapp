@@ -14,8 +14,6 @@ import '../../data/models/cpe_proposal_link.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart'; // For viewing files
 import '../../../../core/services/salesforce_auth_service.dart'; // For getting credentials on save
 import '../widgets/add_cpe_to_proposal_dialog.dart'; // <-- ADDED IMPORT for dialog
-import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
-import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../presentation/widgets/app_loading_indicator.dart'; // Import AppLoadingIndicator
 import '../../../../presentation/widgets/success_dialog.dart'; // Import SuccessDialog
@@ -153,37 +151,6 @@ class _AdminSalesforceProposalDetailPageState
     final value = _parseDouble(text);
     _updateEditedProposalField('valorInvestimentoSolarC', value);
   }
-
-  // --- Formatting Helpers (remain the same) ---
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'N/A';
-    try {
-      final dateTime = DateTime.parse(dateString);
-      return DateFormat('dd MMM yyyy').format(dateTime.toLocal());
-    } catch (e) {
-      return dateString; // Return original if parsing fails
-    }
-  }
-
-  String _formatBool(bool? value) {
-    if (value == null) return 'N/A';
-    return value ? 'Yes' : 'No';
-  }
-
-  String _formatCurrency(double? value) {
-    if (value == null) return 'N/A';
-    // TODO: Adjust locale and symbol as needed
-    final format = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
-    return format.format(value);
-  }
-
-  String _formatNumber(double? value) {
-    if (value == null) return 'N/A';
-    // TODO: Adjust locale as needed
-    final format = NumberFormat.decimalPattern('pt_PT');
-    return format.format(value);
-  }
-  // --- End Formatting Helpers ---
 
   // --- State Initialization and Update Helpers (Adapted from Opportunity Page) ---
   void _initializeEditState(DetailedSalesforceProposal proposal) {
@@ -339,129 +306,6 @@ class _AdminSalesforceProposalDetailPageState
   }
 
   // --- SHARED INPUT DECORATION (from admin_opportunity_submission_page.dart) ---
-  InputDecoration _inputDecoration({
-    required String label,
-    String? hint,
-    bool readOnly = false,
-    Widget? suffixIcon,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500),
-      hintText: hint,
-      hintStyle: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
-      filled: true,
-      fillColor: readOnly ? colorScheme.surfaceVariant.withOpacity(0.7) : colorScheme.surfaceVariant,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.primary, width: 2),
-      ),
-      disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.08)),
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  // --- REFACTOR: Editable text field builder ---
-  Widget _buildEditableTextField(String label, TextEditingController controller, {int? maxLines, String? hint, bool readOnly = false, Widget? suffixIcon}) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines ?? 1,
-        minLines: 1,
-        readOnly: readOnly,
-        style: readOnly ? theme.textTheme.bodySmall?.copyWith(color: theme.disabledColor) : theme.textTheme.bodySmall,
-        decoration: _inputDecoration(label: label, hint: hint, readOnly: readOnly, suffixIcon: suffixIcon),
-      ),
-    );
-  }
-
-  // --- REFACTOR: Editable dropdown field builder ---
-  Widget _buildEditableDropdownField(String label, String? value, List<String> options, ValueChanged<String?> onChanged) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 56,
-      child: DropdownButtonFormField<String>(
-        value: options.contains(value) ? value : options.first,
-        decoration: _inputDecoration(label: label),
-        items: options.map((String v) {
-          return DropdownMenuItem<String>(
-            value: v,
-            child: Text(v, style: theme.textTheme.bodySmall),
-          );
-        }).toList(),
-        onChanged: onChanged,
-        style: theme.textTheme.bodySmall,
-        isExpanded: true,
-      ),
-    );
-  }
-
-  // --- REFACTOR: Editable date picker field builder ---
-  Widget _buildEditableDateField(String label, String? value, ValueChanged<DateTime?> onDatePicked) {
-    final theme = Theme.of(context);
-    DateTime? parsedDate;
-    if (value != null) {
-      try {
-        parsedDate = DateTime.parse(value);
-      } catch (_) {}
-    }
-    final controller = TextEditingController(text: parsedDate != null ? DateFormat('dd/MM/yyyy').format(parsedDate) : '');
-    return SizedBox(
-      height: 56,
-      child: TextFormField(
-        controller: controller,
-        style: theme.textTheme.bodySmall,
-        decoration: _inputDecoration(
-          label: label,
-          hint: 'Selecionar data',
-          suffixIcon: const Icon(Icons.calendar_today),
-        ),
-        readOnly: true,
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: parsedDate ?? DateTime.now(),
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2101),
-            initialEntryMode: DatePickerEntryMode.calendarOnly,
-            builder: (context, child) {
-              final theme = Theme.of(context);
-              return Theme(
-                data: theme.copyWith(
-                  colorScheme: theme.colorScheme.copyWith(
-                    primary: theme.colorScheme.primary,
-                    surface: theme.colorScheme.surface,
-                  ),
-                  dialogBackgroundColor: theme.colorScheme.surface,
-                  textButtonTheme: TextButtonThemeData(
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                child: child!,
-              );
-            },
-          );
-          onDatePicked(picked);
-        },
-      ),
-    );
-  }
 
   // Update the save method to use success dialog
   Future<void> _saveEdit() async {
@@ -558,7 +402,7 @@ class _AdminSalesforceProposalDetailPageState
                 accessToken: accessToken,
                 instanceUrl: instanceUrl,
                 parentId: widget.proposalId,
-                fileName: file.name!,
+                fileName: file.name,
                 fileBytes: file.bytes!,
               );
               if (contentDocId == null && mounted) {
@@ -709,7 +553,7 @@ class _AdminSalesforceProposalDetailPageState
                         // Title in the center with flex
                         Expanded(
                           child: Text(
-                            displayProposal.name ?? 'Detalhes da Proposta',
+                            displayProposal.name,
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: theme.colorScheme.onSurface,
@@ -814,7 +658,7 @@ class _AdminSalesforceProposalDetailPageState
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          AppInputField(controller: TextEditingController(text: displayProposal.name ?? 'N/A'), label: 'Proposta', readOnly: true),
+                                          AppInputField(controller: TextEditingController(text: displayProposal.name), label: 'Proposta', readOnly: true),
                                           const SizedBox(height: 8),
                             _isEditing
                                             ? AppDropdownField<String>(
@@ -1029,8 +873,6 @@ class _AdminSalesforceProposalDetailPageState
   // --- Files Section Builder (Refactored to match Opportunity Page) ---
   Widget _buildFilesSection(BuildContext context, List<ProposalFile> files) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     final List<dynamic> displayedItems = [
       ...files.where((f) => !_filesToDelete.contains(f)),
       ..._filesToAdd,
@@ -1094,10 +936,7 @@ class _AdminSalesforceProposalDetailPageState
 
   Widget _buildFilePreview(BuildContext context, dynamic item) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
                   String title;
-                  String subtitle = '';
                   VoidCallback? onTapAction;
                   bool isMarkedForDeletion = false;
     String? fileType;
@@ -1108,7 +947,6 @@ class _AdminSalesforceProposalDetailPageState
                     final file = item;
       fileType = file.fileType.toLowerCase();
                     title = file.title;
-                    subtitle = file.fileType.toUpperCase();
                     isMarkedForDeletion = _filesToDelete.contains(file);
                     final iconAsset = FileIconService.getIconAssetPath(fileType);
                     iconWidget = Image.asset(
@@ -1135,7 +973,6 @@ class _AdminSalesforceProposalDetailPageState
                     final file = item;
       fileExtension = (file.extension ?? '').toLowerCase();
                     title = file.name;
-                    subtitle = '${((file.size / 1024 * 100).round() / 100)} KB';
                     final iconAsset = FileIconService.getIconAssetPath(fileExtension);
                     iconWidget = Image.asset(
                       iconAsset,
@@ -1153,7 +990,7 @@ class _AdminSalesforceProposalDetailPageState
       height: 70,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.7).round()),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
           color: Colors.black.withAlpha((255 * 0.1).round()),
@@ -1176,7 +1013,7 @@ class _AdminSalesforceProposalDetailPageState
                     const SizedBox(height: 4),
                     Text(
                         title,
-                      style: textTheme.bodySmall?.copyWith(fontSize: 8),
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 8),
                       maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -1326,81 +1163,7 @@ class _AdminSalesforceProposalDetailPageState
 
   // Fix unused result warnings
   void _refreshData() {
-    ref.refresh(proposalDetailsProvider(widget.proposalId));
-  }
-
-  // Add missing methods
-  Widget _buildDetailItem(
-    String label,
-    dynamic value, {
-    String? fieldKey,
-    bool isNumeric = false,
-    bool isCurrency = false,
-  }) {
-    String displayValue = 'N/A';
-    if (value is String) {
-      displayValue = value;
-    } else if (isCurrency && value is num) {
-      displayValue = _formatCurrency(value.toDouble());
-    } else if (isNumeric && value is num) {
-      displayValue = _formatNumber(value.toDouble());
-    } else if (value != null) {
-      displayValue = value.toString();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              displayValue,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDropdownField(
-    String label,
-    String? value,
-    String fieldKey,
-    List<String> options,
-    String? selectedValue,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              value ?? 'N/A',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
+    final _ = ref.refresh(proposalDetailsProvider(widget.proposalId));
   }
 
   Future<void> _updateContratoInserido(String proposalId) async {
@@ -1461,7 +1224,7 @@ class _AdminSalesforceProposalDetailPageState
           await notificationRepo.createContractInsertionNotification(
             salesforceUserId: currentData.agenteRetailId!,
             proposalId: proposalId,
-            proposalName: currentData.name ?? 'Proposta',
+            proposalName: currentData.name,
             entityName: currentData.entidadeName ?? 'Entidade',
             entityNif: currentData.nifC,
             opportunityId: currentData.oportunidadeId,
@@ -1479,7 +1242,7 @@ class _AdminSalesforceProposalDetailPageState
       }
       
       // Refresh the data from provider
-      ref.refresh(proposalDetailsProvider(widget.proposalId)); // ignore: unused_result
+      final _ = ref.refresh(proposalDetailsProvider(widget.proposalId));
       
       if (mounted) {
         await showSuccessDialog(

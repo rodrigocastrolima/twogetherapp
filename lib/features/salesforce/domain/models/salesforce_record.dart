@@ -1,4 +1,4 @@
-import 'package:json_annotation/json_annotation.dart';
+
 
 /// Base class for all Salesforce records
 class SalesforceRecord {

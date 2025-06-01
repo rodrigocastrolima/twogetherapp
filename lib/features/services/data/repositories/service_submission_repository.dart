@@ -1,6 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
-import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -9,10 +8,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import '../../../../core/models/service_submission.dart';
-import '../../../../core/models/service_types.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import '../../../notifications/data/repositories/notification_repository.dart';
-import '../../../../core/models/notification.dart';
+
 
 // Callback type for notification creation
 typedef NotificationCreationCallback = void Function();
@@ -110,7 +109,7 @@ class ServiceSubmissionRepository {
         withData: kIsWeb, // Request byte data for web platform
       );
 
-      if (result != null && result.files.single != null) {
+      if (result != null && result.files.isNotEmpty) {
         final pickedFile = result.files.single;
         final fileName = pickedFile.name; // Get the original file name
 
@@ -370,10 +369,14 @@ class ServiceSubmissionRepository {
     try {
       final ref = _storage.ref(storagePath);
       final downloadUrl = await ref.getDownloadURL();
-      print("Generated download URL: $downloadUrl");
+      if (kDebugMode) {
+        print("Generated download URL: $downloadUrl");
+      }
       return downloadUrl;
     } catch (e) {
-      print("Error getting download URL: $e");
+      if (kDebugMode) {
+        print("Error getting download URL: $e");
+      }
       throw Exception("Failed to get download URL: $e");
     }
   }
@@ -495,11 +498,13 @@ class ServiceSubmissionRepository {
           );
 
       if (notificationId.isEmpty) {
-        if (kDebugMode)
+        if (kDebugMode) {
           print('WARNING: Notification creation returned empty ID');
+        }
       } else {
-        if (kDebugMode)
+        if (kDebugMode) {
           print('SUCCESSFULLY created notification with ID: $notificationId');
+        }
       }
 
       // Trigger the onNotificationCreated callback if set

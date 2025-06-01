@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../../core/theme/theme.dart';
+
+
 import '../../../../features/auth/domain/models/app_user.dart';
-import '../../../../features/auth/domain/repositories/auth_repository.dart';
+
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/opportunity/data/models/salesforce_opportunity.dart';
 import '../../../../features/salesforce/presentation/providers/salesforce_providers.dart';
@@ -69,10 +67,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   DateTime? _joinedDate;
   DateTime? _birthDate;
 
-  // Additional data (used for non-editable fields or those not having dedicated controllers)
-  Map<String, dynamic> _additionalData = {};
-  bool _isEnabled = true;
-
   // Initialize with widget.user to prevent late initialization error
   late AppUser _localUserCopy = widget.user;
 
@@ -124,14 +118,14 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         if (mounted) {
           final data = userDoc.data()!;
           // Defensive patch: ensure all required fields exist (set to null if missing)
-          data['uid'] ??= userDoc.id;
-          data['email'] ??= null;
-          data['role'] ??= null;
-          data['displayName'] ??= null;
-          data['photoURL'] ??= null;
-          data['salesforceId'] ??= null;
-          data['isFirstLogin'] ??= null;
-          data['isEmailVerified'] ??= null;
+          data['uid'] = userDoc.id;
+          data['email'] = data['email'];
+          data['role'] = data['role'];
+          data['displayName'] = data['displayName'];
+          data['photoURL'] = data['photoURL'];
+          data['salesforceId'] = data['salesforceId'];
+          data['isFirstLogin'] = data['isFirstLogin'];
+          data['isEmailVerified'] = data['isEmailVerified'];
           // Ensure additionalData is always a Map<String, dynamic> with String keys
           if (data['additionalData'] == null) {
             data['additionalData'] = {};
@@ -163,7 +157,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
         }
       }
     } catch (e) {
-      print('Error initializing user data: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -285,44 +278,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     }
   }
 
-  // Toggle user enabled/disabled status
-  Future<void> _toggleUserStatus() async {
-    final newStatus = !_isEnabled;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.setUserEnabled(widget.user.uid, newStatus);
-
-      // Refresh user data after toggling status
-      await _initializeUserData();
-
-      setState(() {
-        _isEnabled = newStatus;
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Utilizador ${newStatus ? "ativado" : "desativado"} com sucesso',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Erro ao atualizar estado do utilizador: ${e.toString()}';
-      });
-    }
-  }
-
   // Reset user password
   Future<void> _resetPassword() async {
     setState(() {
@@ -437,9 +392,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     } else {
       _birthDate = null;
     }
-     _additionalData = Map<String, dynamic>.from(_localUserCopy.additionalData); // Ensure _additionalData is updated (mostly for old code paths)
-    // We manage _isEnabled separately for the toggle status button
-    // _isEnabled = _localUserCopy.additionalData['isEnabled'] ?? true;
   }
 
    // --- ADDED: Cancel Edit --- //
@@ -464,7 +416,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
 
   void _initOpportunitiesFuture() {
     final salesforceId = _getSalesforceId();
-    if (salesforceId != null && salesforceId.isNotEmpty && salesforceId != 'Não vinculado') {
+    if (salesforceId.isNotEmpty && salesforceId != 'Não vinculado') {
       final salesforceRepo = ref.read(salesforceRepositoryProvider);
       _opportunitiesFuture = salesforceRepo.getResellerOpportunities(salesforceId);
     } else {
@@ -615,7 +567,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                                   duration: const Duration(milliseconds: 180),
                                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: selected ? color.withOpacity(0.06) : Colors.transparent,
+                                    color: selected ? color.withAlpha((255 * 0.06).round()) : Colors.transparent,
                                     border: Border.all(
                                       color: selected ? color : Colors.transparent,
                                       width: 2,
@@ -663,7 +615,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   // --- New Method for User Header ---
   Widget _buildUserHeader(BuildContext context, ThemeData theme) {
     // Use _localUserCopy for displaying name and email
-    final currentUser = FirebaseAuth.instance.currentUser; // Get current user for email
     final bool isDark = theme.brightness == Brightness.dark;
 
     // Replicate style from ProfilePage's _buildProfileContent -> Centered Avatar section
@@ -673,7 +624,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
           // Centered avatar
                     CircleAvatar(
             radius: 50,
-            backgroundColor: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1), // Use theme color with opacity
+            backgroundColor: theme.colorScheme.primary.withAlpha((255 * (isDark ? 0.2 : 0.1)).round()), // Use theme color with opacity
                       child: Text(
               _getInitials(), // Use existing _getInitials method
               style: TextStyle(
@@ -708,7 +659,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   _localUserCopy.email, // Use _localUserCopy for email
                   style: theme.textTheme.bodyMedium?.copyWith( // Use bodyMedium as in ProfilePage (approximated) with opacity
                     fontSize: 14, // Explicitly set font size for consistency
-                    color: theme.colorScheme.onSurface.withOpacity(0.7), // Use theme color with opacity
+                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()), // Use theme color with opacity
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 1,
@@ -726,7 +677,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     BuildContext context,
     bool isSmallScreen,
   ) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0), // Adjust padding
       child: SingleChildScrollView(
@@ -738,7 +688,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                           Container(
                 padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1), // Use withOpacity as per lint rules
+                  color: Colors.red.withAlpha((255 * 0.1).round()), // Use withOpacity as per lint rules
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -950,7 +900,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
   }
 
   Widget _buildOpportunitiesTab(BuildContext context) {
-    final String? salesforceId = _getSalesforceId();
+    final String salesforceId = _getSalesforceId();
     final theme = Theme.of(context);
     final salesforceAuthState = ref.watch(salesforceAuthProvider);
 
@@ -964,7 +914,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               Icon(
                 Icons.cloud_off,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
               ),
               const SizedBox(height: 16),
               Text(
@@ -996,7 +946,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
       );
     }
 
-    if (salesforceId == null || salesforceId.isEmpty || salesforceId == 'Não vinculado') {
+    if (salesforceId.isEmpty || salesforceId == 'Não vinculado') {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
@@ -1006,7 +956,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
               Icon(
                 Icons.cloud_off,
                 size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1088,7 +1038,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   Icon(
                     Icons.work_outline,
                     size: 64,
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -1177,75 +1127,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     );
   }
 
-  // --- Helper methods for date formatting and phase color (Keep as is) ---
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/D';
-    DateTime date;
-    if (timestamp is DateTime) {
-      date = timestamp;
-    } else if (timestamp is Timestamp) {
-      date = timestamp.toDate();
-    } else if (timestamp is Map && timestamp['_seconds'] != null) {
-      // Handle potential map representation (less common)
-      date = DateTime.fromMillisecondsSinceEpoch(
-        (timestamp['_seconds'] * 1000) + (timestamp['_nanoseconds'] ?? 0) ~/ 1000000,
-      );
-    } else {
-      return 'Data Inválida';
-    }
-    // Use Portuguese locale format explicitly
-    // Match format from the image: 02 abr, 2025 - 16:01
-    return DateFormat('dd MMM, yyyy - HH:mm', 'pt_PT').format(date);
-  }
-
-  String _formatSalesforceDate(String? dateString) {
-    if (dateString == null) return 'N/D';
-    try {
-      final dateTime = DateTime.parse(dateString);
-      return DateFormat('dd/MM/yyyy').format(dateTime);
-    } catch (e) {
-      return dateString;
-    }
-  }
-
-  Color _getPhaseColor(String? phase) {
-    switch (phase?.toLowerCase()) {
-      case 'closed_won':
-        return Colors.green;
-      case 'proposal_sent':
-      case 'negotiation':
-        return Colors.blue;
-      case 'qualification':
-      case 'needs_analysis':
-        return Colors.orange;
-      case 'closed_lost':
-        return Colors.red;
-      case 'pending_approval':
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _formatCurrency(dynamic amount) {
-    if (amount == null) {
-      return '€0.00';
-    }
-    double numericAmount;
-    if (amount is int) {
-      numericAmount = amount.toDouble();
-    } else if (amount is double) {
-      numericAmount = amount;
-    } else if (amount is String) {
-      numericAmount = double.tryParse(amount) ?? 0.0;
-    } else {
-      return '€0.00';
-    }
-    // Use Portuguese Euro format
-    final formatter = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
-    return formatter.format(numericAmount);
-  }
-
   // --- Helper method to get initials (Keep as is) ---
   String _getInitials() {
     // Use _localUserCopy for initials display
@@ -1263,21 +1144,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
     return name.isNotEmpty ? name[0].toUpperCase() : '?'; // Should not be empty here due to check above
   }
 
-  // --- Helper for robust Salesforce/phone/revendedor fields ---
-  String _getTelefonePrincipal() {
-    final phone = _localUserCopy.additionalData['phoneNumber'];
-    final mobile = _localUserCopy.additionalData['mobilePhone'];
-    if (phone != null && phone.toString().trim().isNotEmpty) return phone;
-    if (mobile != null && mobile.toString().trim().isNotEmpty) return mobile;
-    return 'N/D';
-  }
-  String _getNomeRevendedor() {
-    final reseller = _localUserCopy.additionalData['resellerName'];
-    final retail = _localUserCopy.additionalData['revendedorRetail'];
-    if (reseller != null && reseller.toString().trim().isNotEmpty) return reseller;
-    if (retail != null && retail.toString().trim().isNotEmpty) return retail;
-    return 'N/D';
-  }
   String _getSalesforceId() {
     final topLevel = _localUserCopy.salesforceId;
     final additional = _localUserCopy.additionalData['salesforceId'];
@@ -1312,12 +1178,11 @@ class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -1376,7 +1241,7 @@ class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
                       labelText: 'Título',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: colorScheme.surfaceVariant,
+                      fillColor: colorScheme.surfaceContainerHighest,
                     ),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Insira um título' : null,
                   ),
@@ -1387,7 +1252,7 @@ class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
                       labelText: 'Mensagem',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: colorScheme.surfaceVariant,
+                      fillColor: colorScheme.surfaceContainerHighest,
                     ),
                     minLines: 3,
                     maxLines: 6,
@@ -1425,19 +1290,23 @@ class _NotificationDialogState extends ConsumerState<_NotificationDialog> {
                                     message: _messageController.text.trim(),
                                     type: NotificationType.system,
                                   );
+                                  if (!mounted) return;
                                   setState(() {
                                     _success = 'Notificação enviada!';
                                   });
                                   await Future.delayed(const Duration(seconds: 1));
                                   if (mounted) Navigator.of(context).pop();
                                 } catch (e) {
+                                  if (!mounted) return;
                                   setState(() {
                                     _error = 'Erro ao enviar notificação: $e';
                                   });
                                 } finally {
-                                  setState(() {
-                                    _isSending = false;
-                                  });
+                                  if (mounted) {
+                                    setState(() {
+                                      _isSending = false;
+                                    });
+                                  }
                                 }
                               },
                       ),

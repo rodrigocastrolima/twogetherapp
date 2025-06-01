@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/service_types.dart';
 
 // Callback type definition - Updated for Sets
@@ -63,7 +62,6 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
   Widget build(BuildContext context) {
     // Use Cupertino theme data if available, fallback to Material
     final cupertinoTheme = CupertinoTheme.of(context);
-    final theme = Theme.of(context);
     const allEnergyTypes = EnergyType.values;
     const allServiceCategories = ServiceCategory.values;
 
@@ -196,7 +194,7 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                                 (newSet) => _tempSelectedResellers = newSet,
                               ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                   CupertinoListSection.insetGrouped(
@@ -284,12 +282,12 @@ class _OpportunityFilterSheetState extends State<OpportunityFilterSheet> {
                                       // Make nested items slightly smaller text?
                                       // textStyle: cupertinoTheme.textTheme.textStyle.copyWith(fontSize: 14),
                                     );
-                                  }).toList(),
+                                  }),
                                 ],
                               ),
                             ),
                         ];
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ],

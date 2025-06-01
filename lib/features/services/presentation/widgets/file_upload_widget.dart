@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart'; // Import Cupertino
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,7 +184,7 @@ class FileUploadWidget extends ConsumerWidget {
               minHeight: 150,
             ), // Ensure minimum height
             decoration: BoxDecoration(
-              border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+              border: Border.all(color: theme.dividerColor.withAlpha((255 * 0.5).round())),
               borderRadius: BorderRadius.circular(12),
               color:
                   colorScheme
@@ -221,7 +221,7 @@ class FileUploadWidget extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Text(
                       'Carregue uma foto ou PDF da fatura', // Replaced l10n.fileUploadHint
-                      style: textTheme.bodyMedium?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                       textAlign: TextAlign.center,
@@ -245,7 +245,6 @@ class FileUploadWidget extends ConsumerWidget {
     // final l10n = AppLocalizations.of(context)!; // Remove l10n init
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     final isImage = _isImageFile(file.name);
     final filePath =
         kIsWeb ? null : file.path; // path is only available on mobile
@@ -266,10 +265,10 @@ class FileUploadWidget extends ConsumerWidget {
               height: previewSize,
               clipBehavior: Clip.antiAlias, // Clip the image/icon
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.5),
+                color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.5).round()),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: theme.dividerColor.withOpacity(0.3),
+                  color: theme.dividerColor.withAlpha((255 * 0.3).round()),
                   width: 0.5,
                 ),
               ),
@@ -345,7 +344,7 @@ class FileUploadWidget extends ConsumerWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: colorScheme.errorContainer.withOpacity(0.9),
+                      color: colorScheme.errorContainer.withAlpha((255 * 0.9).round()),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -359,23 +358,6 @@ class FileUploadWidget extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // Helper function to determine file icon - Updated to use FileIconService
-  Widget _getFileIcon(String fileName, {double size = 30}) {
-    final extension = p.extension(fileName);
-    final fileExtension = extension.isEmpty ? '' : extension.substring(1).toLowerCase();
-    
-    return Image.asset(
-      FileIconService.getIconAssetPath(fileExtension),
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => Icon(
-        CupertinoIcons.doc_text_fill,
-        size: size,
       ),
     );
   }
