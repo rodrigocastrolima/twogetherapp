@@ -119,7 +119,7 @@ class AppTutorialScreen extends StatelessWidget {
         bottom: 40.0,
       ), // Padding around/below body, added bottom
       // Use theme background color
-      pageColor: theme.colorScheme.surface,
+      pageColor: theme.scaffoldBackgroundColor,
       // Ensure full screen usage
       fullScreen: true,
       // Reset flex factors, use padding instead
@@ -151,7 +151,7 @@ class AppTutorialScreen extends StatelessWidget {
         right: 16.0,
         bottom: 120.0,
       ),
-      pageColor: theme.colorScheme.surface,
+      pageColor: theme.scaffoldBackgroundColor,
       fullScreen: true,
     );
 
@@ -263,7 +263,7 @@ class AppTutorialScreen extends StatelessWidget {
         ),
       ),
       // Set global background color for the whole intro screen
-      globalBackgroundColor: theme.colorScheme.surface,
+      globalBackgroundColor: theme.scaffoldBackgroundColor,
     );
   }
 }

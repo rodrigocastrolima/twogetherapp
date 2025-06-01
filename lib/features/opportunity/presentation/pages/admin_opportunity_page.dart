@@ -391,7 +391,7 @@ class _OpportunityVerificationPageState
     // --- End Salesforce Refresh Button Visibility Logic --- //
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: null,
       body: SafeArea(
         bottom: false,

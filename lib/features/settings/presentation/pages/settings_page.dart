@@ -65,6 +65,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     context.push('/profile-details');
                   },
                   theme: theme,
+                  iconColor: theme.colorScheme.primary,
                 ),
                 const SizedBox(height: 24),
                 // Group Tema and Notificações in a single card
@@ -221,6 +222,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     VoidCallback? onTap,
     Color? textColor,
     required ThemeData theme,
+    Color? iconColor,
   }) {
     final isError = textColor == theme.colorScheme.error;
     // For single-action cards, return a _SingleActionSettingsTile
@@ -233,6 +235,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         onTap: onTap,
         textColor: textColor,
         theme: theme,
+        iconColor: iconColor,
       );
     }
     // For multi-row cards, return the row widget
@@ -249,7 +252,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
+              Icon(icon, color: iconColor ?? (isError ? theme.colorScheme.error : theme.colorScheme.onSurface), size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -294,6 +297,7 @@ class _SingleActionSettingsTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? textColor;
   final ThemeData theme;
+  final Color? iconColor;
   const _SingleActionSettingsTile({
     required this.icon,
     required this.title,
@@ -302,6 +306,7 @@ class _SingleActionSettingsTile extends StatelessWidget {
     this.onTap,
     this.textColor,
     required this.theme,
+    this.iconColor,
     Key? key,
   }) : super(key: key);
 
@@ -323,7 +328,7 @@ class _SingleActionSettingsTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, color: isError ? theme.colorScheme.error : theme.colorScheme.onSurface, size: 24),
+              Icon(icon, color: iconColor ?? (isError ? theme.colorScheme.error : theme.colorScheme.onSurface), size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

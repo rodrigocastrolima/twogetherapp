@@ -319,7 +319,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
     final isOnline = _isBusinessHours();
 
     return Scaffold(
-      backgroundColor: isDark ? theme.colorScheme.surface : Colors.transparent,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar:
           widget.showAppBar
               ? AppBar(

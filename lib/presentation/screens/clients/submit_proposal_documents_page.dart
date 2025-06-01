@@ -411,6 +411,7 @@ class _SubmitProposalDocumentsPageState
       // Conditionally show AppBar
       appBar: _isLoading ? null : AppBar(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
@@ -438,21 +439,25 @@ class _SubmitProposalDocumentsPageState
                       Padding(
                         padding: const EdgeInsets.only(top: 16, bottom: 24),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Title on the left
                             Text(
                               'Aceitar Proposta',
-                              style: theme.textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.onSurface,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.proposalName,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w500,
+                            const SizedBox(height: 16),
+                            // Proposal name centered
+                            Center(
+                              child: Text(
+                                widget.proposalName,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
@@ -508,6 +513,13 @@ class _SubmitProposalDocumentsPageState
                                         });
                                       },
                                       activeColor: theme.colorScheme.primary,
+                                      inactiveThumbColor: theme.colorScheme.outline,
+                                      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                                        if (states.contains(WidgetState.selected)) {
+                                          return theme.colorScheme.primary;
+                                        }
+                                        return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                                      }),
                                     ),
                                   ],
                                 ),
