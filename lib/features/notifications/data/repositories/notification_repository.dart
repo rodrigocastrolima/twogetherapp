@@ -163,7 +163,7 @@ class NotificationRepository {
   }
 
   // Helper method to get Firebase uid from Salesforce user ID
-  Future<String?> _getFirebaseUidFromSalesforceId(String salesforceId) async {
+  Future<String?> getFirebaseUidFromSalesforceId(String salesforceId) async {
     try {
       if (kDebugMode) {
         print('Looking up Firebase uid for Salesforce ID: $salesforceId');
@@ -499,14 +499,13 @@ class NotificationRepository {
         userId: 'system', // System-level notification for admin/ops review
         title: 'Proposta Aceite e Documentos Submetidos',
         message:
-            'Documentos submetidos para a proposta "$proposalName" (NIF: ${clientNif ?? 'N/D'}) pelo revendedor ${resellerName ?? 'N/D'}.',
+            'Documentos submetidos para a proposta $proposalName pelo revendedor ${resellerName ?? 'N/D'}',
         type: NotificationType.proposalAccepted, // Assuming you have or will add this type
         createdAt: DateTime.now(),
         metadata: {
           'proposalId': proposalId,
           'proposalName': proposalName,
           if (opportunityId != null) 'opportunityId': opportunityId,
-          if (clientNif != null) 'clientNif': clientNif,
           if (resellerName != null) 'resellerName': resellerName,
           if (resellerId != null) 'resellerId': resellerId,
           'status': 'Accepted and Documents Submitted',
@@ -545,7 +544,7 @@ class NotificationRepository {
     }
     try {
       // Look up the Firebase uid from the Salesforce user ID
-      final firebaseUid = await _getFirebaseUidFromSalesforceId(salesforceUserId);
+      final firebaseUid = await getFirebaseUidFromSalesforceId(salesforceUserId);
       
       if (firebaseUid == null) {
         if (kDebugMode) {
@@ -558,7 +557,7 @@ class NotificationRepository {
         id: '', // Will be set by Firestore
         userId: firebaseUid, // Use Firebase uid instead of Salesforce ID
         title: 'Processo Concluído',
-        message: 'O processo para a entidade $entityName foi concluído.',
+        message: 'O processo para o cliente $entityName foi concluído!',
         type: NotificationType.statusChange,
         createdAt: DateTime.now(),
         metadata: {

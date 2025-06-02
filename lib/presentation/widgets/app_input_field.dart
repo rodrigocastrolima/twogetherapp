@@ -432,7 +432,6 @@ class AppDropdownField<T> extends StatelessWidget {
             icon: const Icon(Icons.arrow_drop_down),
             dropdownColor: colorScheme.surfaceContainerHighest,
           ),
-          const SizedBox(height: 4),
         ],
       ),
     );

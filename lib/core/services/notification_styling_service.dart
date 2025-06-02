@@ -71,7 +71,7 @@ class NotificationStylingService {
       displayName: 'Proposta Rejeitada',
     ),
     NotificationType.proposalAccepted: NotificationTypeConfig(
-      icon: CupertinoIcons.check_mark_circled_solid,
+      icon: CupertinoIcons.doc_on_doc_fill,
       lightColor: _greenLight,
       darkColor: _greenDark,
       displayName: 'Proposta Aceite',

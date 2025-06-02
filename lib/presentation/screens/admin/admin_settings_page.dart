@@ -178,7 +178,7 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                 child: ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   leading: Icon(Icons.logout, color: theme.colorScheme.error, size: 24),
-                  title: Text('Terminar Sessão', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.error)),
+                  title: Text('Sair', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.error)),
                   subtitle: Text('Encerrar a sessão atual', style: TextStyle(color: theme.colorScheme.error.withAlpha((255 * 0.7).round()), fontSize: 14)),
                   onTap: () => _handleLogout(context, ref),
                   trailing: null,

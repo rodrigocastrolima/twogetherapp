@@ -646,7 +646,7 @@ class _AdminSalesforceOpportunityDetailPageState
                               IconButton(
                                 icon: Icon(
                                   _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.primary,
                                   size: 28,
                                 ),
                                 tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
@@ -674,7 +674,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                     onPressed: _isSaving ? null : _saveEdit,
                                     tooltip: 'Guardar',
                                     style: IconButton.styleFrom(
-                                      backgroundColor: Colors.white,
+                                      backgroundColor: Colors.transparent,
                                       shape: const CircleBorder(),
                                       padding: const EdgeInsets.all(0),
                                     ),
@@ -706,19 +706,19 @@ class _AdminSalesforceOpportunityDetailPageState
                                     label: 'Oportunidade',
                                     readOnly: true,
                                   ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             AppInputField(
                               controller: TextEditingController(text: displayOpportunity.accountName ?? ''),
                               label: 'Entidade',
                               readOnly: true,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             AppInputField(
                               controller: TextEditingController(text: displayOpportunity.ownerName ?? ''),
                               label: 'Owner',
                               readOnly: true,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Tipo de Oportunidade',
@@ -737,7 +737,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Tipo de Oportunidade',
                                   readOnly: true,
                                 ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             _isEditing
                               ? AppInputField(
                                   controller: _controllers['observacoes']!,
@@ -755,7 +755,7 @@ class _AdminSalesforceOpportunityDetailPageState
                             // Motivo da Perda: only show if Fase is '6 - Conclusão Desistência Cliente'
                             if ((_isEditing && (_selectedFaseC == '6 - Conclusão Desistência Cliente')) ||
                                 (!_isEditing && displayOpportunity.faseC == '6 - Conclusão Desistência Cliente' && (displayOpportunity.motivoDaPerda?.isNotEmpty ?? false))) ...[
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 16 : 8),
                               _isEditing
                                 ? AppDropdownField<String>(
                                     label: 'Motivo da Perda',
@@ -774,6 +774,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                     label: 'Motivo da Perda',
                                     readOnly: true,
                                   ),
+                              SizedBox(height: _isEditing ? 16 : 8),
                             ],
                           ],
                           // RIGHT COLUMN
@@ -784,13 +785,13 @@ class _AdminSalesforceOpportunityDetailPageState
                               label: 'Data de Criação da Oportunidade',
                               readOnly: true,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             AppInputField(
                               controller: _controllers['nifC']!,
                               label: 'NIF',
                               readOnly: true,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Fase',
@@ -809,13 +810,13 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Fase',
                                   readOnly: true,
                                 ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             AppInputField(
                               controller: TextEditingController(text: _formatBool(displayOpportunity.qualificacaoConcluida)),
                               label: 'Qualificação concluída',
                               readOnly: true,
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: 8),
                             if (!_isEditing)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6.0),
@@ -830,7 +831,7 @@ class _AdminSalesforceOpportunityDetailPageState
                 ),
                           ],
               ]),
-              const SizedBox(height: 16),
+              SizedBox(height: _isEditing ? 16 : 8),
                         // --- Section 2: Twogether Retail ---
               _buildDetailSectionTwoColumn(context, 'Twogether Retail', [
                           [
@@ -852,7 +853,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Segmento de Cliente',
                                   readOnly: true,
                                 ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: _isEditing ? 16 : 8),
                             _isEditing
                               ? AppDropdownField<String>(
                                   label: 'Solução',
@@ -871,6 +872,7 @@ class _AdminSalesforceOpportunityDetailPageState
                                   label: 'Solução',
                                   readOnly: true,
                                 ),
+                            SizedBox(height: _isEditing ? 16 : 8),
                           ],
                           [
                             AppInputField(
@@ -880,7 +882,7 @@ class _AdminSalesforceOpportunityDetailPageState
                             ),
                           ],
               ]),
-              const SizedBox(height: 16),
+              SizedBox(height: _isEditing ? 16 : 8),
                         // --- Section 3: Fases ---
               _buildDetailSectionTwoColumn(context, 'Fases', [
                 [
@@ -889,13 +891,13 @@ class _AdminSalesforceOpportunityDetailPageState
                     label: 'Data do Contacto',
                     readOnly: true,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   AppInputField(
                     controller: TextEditingController(text: _formatDate(displayOpportunity.dataProposta)),
                     label: 'Data da Proposta',
                     readOnly: true,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   _isEditing
                     ? AppDateInputField(
                         label: 'Data de Previsão de Fecho',
@@ -910,7 +912,7 @@ class _AdminSalesforceOpportunityDetailPageState
                         label: 'Data de Previsão de Fecho',
                         readOnly: true,
                       ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   AppInputField(
                     controller: TextEditingController(text: displayOpportunity.backOffice ?? ''),
                     label: 'Back Office',
@@ -923,13 +925,13 @@ class _AdminSalesforceOpportunityDetailPageState
                     label: 'Data da Reunião',
                     readOnly: true,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   AppInputField(
                     controller: TextEditingController(text: _formatDate(displayOpportunity.dataFecho)),
                     label: 'Data do Fecho',
                     readOnly: true,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   _isEditing
                     ? AppDateInputField(
                         label: 'Data da última atualização de Fase',
@@ -944,7 +946,7 @@ class _AdminSalesforceOpportunityDetailPageState
                         label: 'Data da última atualização de Fase',
                         readOnly: true,
                       ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: _isEditing ? 16 : 8),
                   AppInputField(
                     controller: TextEditingController(text: displayOpportunity.cicloDoGanhoName ?? ''),
                     label: 'Ciclo do Ganho',
@@ -952,10 +954,10 @@ class _AdminSalesforceOpportunityDetailPageState
                   ),
                 ],
               ]),
-              const SizedBox(height: 24),
+              SizedBox(height: _isEditing ? 16 : 8),
                         // --- Section 4: Files ---
               _buildFilesSection(context, displayOpportunity.files),
-              const SizedBox(height: 24),
+              SizedBox(height: _isEditing ? 16 : 8),
                         // --- Section 5: Proposals ---
               _buildProposalsSection(context, displayOpportunity),
             ],

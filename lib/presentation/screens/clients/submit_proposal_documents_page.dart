@@ -469,9 +469,34 @@ class _SubmitProposalDocumentsPageState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Digital signature section (no card container)
+                              // Contracts section (if not digitally signed)
+                              if (!_isDigitallySigned) ...[
+                                Text(
+                                  'Contratos Assinados',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ...widget.cpeList.map((cpe) {
+                                  String cpeDisplayName = cpe.cpeC ?? 'CPE ...${cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id}';
+                                  return _buildModernFileUploadCard(
+                                    context,
+                                    'Contrato Assinado ($cpeDisplayName)',
+                                    'Ficheiro PDF assinado para este CPE',
+                                    Icons.description_outlined,
+                                    DocumentType.contract,
+                                    _contractFiles[cpe.id],
+                                    cpeProposalId: cpe.id,
+                                  );
+                                }).toList(),
+                                const SizedBox(height: 8),
+                              ],
+
+                              // Digital signature section (no card container) - moved here
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.only(bottom: 32),
                                 child: Row(
                                   children: [
                                     Container(
@@ -523,33 +548,6 @@ class _SubmitProposalDocumentsPageState
                                   ],
                                 ),
                               ),
-
-                              const SizedBox(height: 24),
-
-                              // Contracts section (if not digitally signed)
-                              if (!_isDigitallySigned) ...[
-                                Text(
-                                  'Contratos Assinados',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                ...widget.cpeList.map((cpe) {
-                                  String cpeDisplayName = cpe.cpeC ?? 'CPE ...${cpe.id.length > 6 ? cpe.id.substring(cpe.id.length - 6) : cpe.id}';
-                                  return _buildModernFileUploadCard(
-                                    context,
-                                    'Contrato Assinado ($cpeDisplayName)',
-                                    'Ficheiro PDF assinado para este CPE',
-                                    Icons.description_outlined,
-                                    DocumentType.contract,
-                                    _contractFiles[cpe.id],
-                                    cpeProposalId: cpe.id,
-                                  );
-                                }).toList(),
-                                const SizedBox(height: 32),
-                              ],
 
                               // Required documents section
                               Text(

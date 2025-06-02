@@ -400,23 +400,23 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                IconButton(
-                                  icon: Icon(
-                                    _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                    color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                                    size: 28,
-                                  ),
-                                  tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
-                                  onPressed: _isEditing ? () {
-                                    setState(() {
-                                      _isEditing = false;
-                                    });
-                                  } : () {
-                                    setState(() {
-                                      _isEditing = true;
-                                    });
-                                  },
+                                                              IconButton(
+                                icon: Icon(
+                                  _isEditing ? Icons.close : CupertinoIcons.pencil,
+                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.primary,
+                                  size: 28,
                                 ),
+                                tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
+                                onPressed: _isEditing ? () {
+                                  setState(() {
+                                    _isEditing = false;
+                                  });
+                                } : () {
+                                  setState(() {
+                                    _isEditing = true;
+                                  });
+                                },
+                              ),
                                 if (_isEditing)
                                   const SizedBox(width: 8),
                                 if (_isEditing)
@@ -441,7 +441,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                                       onPressed: _isSaving ? null : _saveChanges,
                                       tooltip: 'Guardar',
                                       style: IconButton.styleFrom(
-                                        backgroundColor: Colors.white,
+                                        backgroundColor: Colors.transparent,
                                         shape: const CircleBorder(),
                                         padding: const EdgeInsets.all(0),
                                       ),
@@ -481,7 +481,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                               _isEditing
                                 ? AppInputField(controller: _controllers['consumoAnualEsperadoKwhC']!, label: 'Consumo anual esperado (KWh)')
                                 : AppInputField(controller: TextEditingController(text: detail.cpe?.consumoAnualEsperadoKwhC?.toString() ?? ''), label: 'Consumo anual esperado (KWh)', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 16 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['fidelizacaoAnosC']!, label: 'Fidelização (Anos)')
                                 : AppInputField(controller: TextEditingController(text: detail.cpe?.fidelizacaoAnosC?.toString() ?? ''), label: 'Fidelização (Anos)', readOnly: true),
@@ -495,6 +495,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                                     onChanged: (v) => setState(() => _selectedSolucao = v),
                                   )
                                 : AppInputField(controller: TextEditingController(text: detail.cpe?.solucaoC ?? ''), label: 'Solução', readOnly: true),
+                              SizedBox(height: _isEditing ? 16 : 8),
                             ],
                           ],
                         ),
@@ -512,30 +513,30 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                                     onChanged: (v) => setState(() => _selectedStatus = v),
                                   )
                                 : AppInputField(controller: TextEditingController(text: detail.statusC ?? ''), label: 'Status', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 16 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['consumoOuPotenciaPicoC']!, label: 'Consumo ou Potência Pico')
                                 : AppInputField(controller: TextEditingController(text: detail.consumoOuPotenciaPicoC?.toString() ?? ''), label: 'Consumo ou Potência Pico', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['fidelizacaoAnosCpeProposta']!, label: 'Fidelização (Anos)')
                                 : AppInputField(controller: TextEditingController(text: detail.fidelizacaoAnosC?.toString() ?? ''), label: 'Fidelização (Anos)', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['margemComercialC']!, label: 'Margem Comercial')
                                 : AppInputField(controller: TextEditingController(text: detail.margemComercialC?.toString() ?? ''), label: 'Margem Comercial', readOnly: true),
                             ],
                             [
                               AppInputField(controller: TextEditingController(text: detail.agenteRetailName ?? ''), label: 'Agente Retail', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['responsavelNegocioRetailC']!, label: 'Responsável de Negócio – Retail')
                                 : AppInputField(controller: TextEditingController(text: detail.responsavelNegocioRetailC ?? ''), label: 'Responsável de Negócio – Retail', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['responsavelNegocioExclusivoC']!, label: 'Responsável de Negócio – Exclusivo')
                                 : AppInputField(controller: TextEditingController(text: detail.responsavelNegocioExclusivoC ?? ''), label: 'Responsável de Negócio – Exclusivo', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['gestorDeRevendaC']!, label: 'Gestor de Revenda')
                                 : AppInputField(controller: TextEditingController(text: detail.gestorDeRevendaC ?? ''), label: 'Gestor de Revenda', readOnly: true),
@@ -549,11 +550,11 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                           [
                             [
                               AppInputField(controller: TextEditingController(text: detail.cicloDeAtivacaoName ?? ''), label: 'Ciclo de Ativação', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['comissaoRetailC']!, label: 'Comissão Retail')
                                 : AppInputField(controller: TextEditingController(text: detail.comissaoRetailC?.toString() ?? ''), label: 'Comissão Retail', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['notaInformativaC']!, label: 'Nota Informativa')
                                 : AppInputField(controller: TextEditingController(text: detail.notaInformativaC ?? ''), label: 'Nota Informativa', readOnly: true),
@@ -566,7 +567,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                                     onChanged: (date) => setState(() => _selectedPagamentoFacturaDate = date),
                                   )
                                 : AppInputField(controller: TextEditingController(text: detail.pagamentoDaFacturaRetailC ?? ''), label: 'Pagamento da Factura Retail', readOnly: true),
-                              const SizedBox(height: 8),
+                              SizedBox(height: _isEditing ? 8 : 8),
                               _isEditing
                                 ? AppInputField(controller: _controllers['facturaRetailC']!, label: 'Factura Retail')
                                 : AppInputField(controller: TextEditingController(text: detail.facturaRetailC ?? ''), label: 'Factura Retail', readOnly: true),
@@ -586,6 +587,7 @@ class _AdminCpePropostaDetailPageState extends ConsumerState<AdminCpePropostaDet
                                   onChanged: (v) => setState(() => _selectedVisitaTecnica = v),
                                 )
                               : AppInputField(controller: TextEditingController(text: detail.visitaTecnicaC ?? ''), label: 'Visita Técnica', readOnly: true),
+                            SizedBox(height: _isEditing ? 16 : 8),
                           ],
                         ),
                         const SizedBox(height: 16),

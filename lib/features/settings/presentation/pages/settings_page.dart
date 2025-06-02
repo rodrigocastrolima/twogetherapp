@@ -117,7 +117,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _buildSettingsTile(
                   icon: Icons.logout,
                   title: 'Sair',
-                  subtitle: 'Encerrar sessão',
+                  subtitle: 'Encerrar a sessão atual',
                   textColor: theme.colorScheme.error,
                   onTap: () => _handleLogout(context),
                   theme: theme,

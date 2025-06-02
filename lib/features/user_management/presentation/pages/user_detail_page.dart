@@ -537,7 +537,7 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                               onPressed: _isLoading ? null : (_isEditing ? _saveUserProfile : _toggleEdit),
                               tooltip: _isEditing ? 'Guardar' : 'Editar',
                               style: IconButton.styleFrom(
-                                backgroundColor: _isEditing ? Colors.white : Colors.transparent,
+                                backgroundColor: Colors.transparent,
                                 shape: _isEditing ? const CircleBorder() : null,
                                 padding: _isEditing ? const EdgeInsets.all(0) : null,
                               ),
@@ -931,14 +931,6 @@ class _UserDetailPageState extends ConsumerState<UserDetailPage>
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.settings),
-                label: const Text('Ir para Definições'),
-                onPressed: () {
-                  context.push('/admin/settings');
-                },
               ),
             ],
           ),

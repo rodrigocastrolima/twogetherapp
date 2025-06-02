@@ -21,6 +21,7 @@ import '../../../../presentation/widgets/simple_list_item.dart'; // Import Simpl
 import '../../../../presentation/widgets/app_input_field.dart'; // Import AppInputField
 import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 import '../../../../features/notifications/data/repositories/notification_repository.dart'; // Import NotificationRepository
+import '../../../../core/models/notification.dart';
 
 // Convert to ConsumerStatefulWidget
 class AdminSalesforceProposalDetailPage extends ConsumerStatefulWidget {
@@ -574,7 +575,7 @@ class _AdminSalesforceProposalDetailPageState
                               IconButton(
                                 icon: Icon(
                                   _isEditing ? Icons.close : CupertinoIcons.pencil,
-                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                                  color: _isEditing ? theme.colorScheme.error : theme.colorScheme.primary,
                                   size: 28,
                                 ),
                                 tooltip: _isEditing ? 'Cancelar Edição' : 'Editar',
@@ -601,11 +602,11 @@ class _AdminSalesforceProposalDetailPageState
                                           ),
                                     onPressed: _isSaving ? null : _saveEdit,
                                     tooltip: 'Guardar',
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      shape: const CircleBorder(),
-                                      padding: const EdgeInsets.all(0),
-                                    ),
+                                                                          style: IconButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        shape: const CircleBorder(),
+                                        padding: const EdgeInsets.all(0),
+                                      ),
                                   ),
                                 ),
                             ],
@@ -628,7 +629,7 @@ class _AdminSalesforceProposalDetailPageState
                             AppInputField(controller: TextEditingController(text: displayProposal.oportunidadeName ?? displayProposal.oportunidadeId ?? 'N/A'), label: 'Oportunidade', readOnly: true),
                           ],
               ]),
-              const SizedBox(height: 16),
+              SizedBox(height: _isEditing ? 16 : 8),
                         // --- Section 2: Informação da Proposta (Double Column in Edit Mode) ---
                         Card(
                           elevation: 1,
@@ -672,7 +673,7 @@ class _AdminSalesforceProposalDetailPageState
                                                 label: 'Status',
                                                 readOnly: true,
                                               ),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: _isEditing ? 16 : 8),
                             _isEditing
                                             ? AppDropdownField<String>(
                                                 label: 'Solução',
@@ -685,9 +686,9 @@ class _AdminSalesforceProposalDetailPageState
                                                 label: 'Solução',
                                                 readOnly: true,
                                               ),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: _isEditing ? 16 : 8),
                                           AppInputField(controller: _controllers['consumoPeriodoContratoKwhC']!, label: 'Consumo para o período do contrato (KWh)', readOnly: false, onChanged: (v) => _updateEditedProposalField('consumoPeriodoContratoKwhC', v)),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           AppInputField(controller: TextEditingController(text: displayProposal.bundleC ?? 'N/A'), label: 'Bundle', readOnly: true),
                                         ],
                                       ),
@@ -698,20 +699,20 @@ class _AdminSalesforceProposalDetailPageState
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           AppInputField(controller: _controllers['valorInvestimentoSolarC']!, label: 'Valor de Investimento Solar', readOnly: false, onChanged: (v) => _updateEditedProposalField('valorInvestimentoSolarC', v)),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           AppInputField(controller: TextEditingController(text: displayProposal.dataValidadeC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataValidadeC!)) : 'N/A'), label: 'Data de Validade', readOnly: true),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           AppInputField(controller: TextEditingController(text: displayProposal.dataInicioContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataInicioContratoC!)) : 'N/A'), label: 'Data de Início do Contrato', readOnly: true),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           AppInputField(controller: TextEditingController(text: displayProposal.dataFimContratoC != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(displayProposal.dataFimContratoC!)) : 'N/A'), label: 'Data de Fim do Contrato', readOnly: true),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           AppInputField(controller: TextEditingController(text: displayProposal.dataCriacaoPropostaC ?? 'N/A'), label: 'Data de Criação da Proposta', readOnly: true),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
+                                SizedBox(height: _isEditing ? 16 : 8),
                                 // Energia and Solar checkboxes at the bottom
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -735,80 +736,157 @@ class _AdminSalesforceProposalDetailPageState
                             ),
                           ),
                         ),
-              const SizedBox(height: 16),
-                        // --- Section: Contrato Inserido (Separate Card) ---
-                        Card(
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: theme.dividerColor.withAlpha(25)),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                  'Contrato Inserido',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 20,
-                                    color: theme.colorScheme.primary,
+              SizedBox(height: _isEditing ? 16 : 8),
+                        // --- Section: Ficheiros ---
+                        _buildFilesSection(context, displayProposal.files),
+                        const SizedBox(height: 24),
+                        // --- Section: Contrato Inserido and Marcar como Expirada (Double Column) ---
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Contrato Inserido Card
+                              Expanded(
+                                child: Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: theme.dividerColor.withAlpha(25)),
                                   ),
-                                  textAlign: TextAlign.left,
-                                    ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                    Text(
-                                      displayProposal.contratoInseridoC == true ? 'Sim' : 'Não',
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        color: displayProposal.contratoInseridoC == true ? Colors.green : Colors.red,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_isEditing)
-                                  Checkbox(
-                                    value: _editedProposal?.contratoInseridoC ?? false,
-                                    onChanged: (val) => _updateEditedProposalField('contratoInseridoC', val),
-                                  )
-                                else if (!(displayProposal.contratoInseridoC == true))
-                                  Switch(
-                                    value: displayProposal.contratoInseridoC == true,
-                                    onChanged: (val) async {
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text('Confirmar'),
-                                          content: const Text('Tem certeza que deseja marcar o contrato como inserido?'),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-                                            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirmar')),
+                                        Text(
+                                          'Contrato Inserido?',
+                                          style: theme.textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 20,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          textAlign: TextAlign.left,
+                                        ),
+                                        SizedBox(height: _isEditing ? 16 : 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              displayProposal.contratoInseridoC == true ? 'Sim' : 'Não',
+                                              style: theme.textTheme.bodyLarge?.copyWith(
+                                                color: displayProposal.contratoInseridoC == true ? Colors.green : Colors.red,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            if (_isEditing)
+                                              Checkbox(
+                                                value: _editedProposal?.contratoInseridoC ?? false,
+                                                onChanged: (val) => _updateEditedProposalField('contratoInseridoC', val),
+                                              )
+                                            else if (!(displayProposal.contratoInseridoC == true))
+                                              Switch(
+                                                value: displayProposal.contratoInseridoC == true,
+                                                activeColor: theme.colorScheme.primary,
+                                                inactiveThumbColor: theme.colorScheme.outline,
+                                                trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                                                  if (states.contains(WidgetState.selected)) {
+                                                    return theme.colorScheme.primary;
+                                                  }
+                                                  return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                                                }),
+                                                onChanged: (val) async {
+                                                  final confirmed = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (ctx) => AlertDialog(
+                                                      title: const Text('Confirmar'),
+                                                      content: const Text('Tem certeza que deseja marcar o contrato como inserido?'),
+                                                      actions: [
+                                                        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+                                                        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Confirmar')),
+                                                      ],
+                                                    ),
+                                                  );
+                                                  if (confirmed == true) {
+                                                    await _updateContratoInserido(displayProposal.id);
+                                                  }
+                                                },
+                                              )
+                                            else
+                                              // Add spacing when no switch is shown to maintain consistent height
+                                              const SizedBox(width: 60, height: 40),
                                           ],
                                         ),
-                                      );
-                                      if (confirmed == true) {
-                                        await _updateContratoInserido(displayProposal.id);
-                                      }
-                                    },
-                                      ),
-                                  ],
+                                      ],
+                                    ),
                                   ),
-                              ],
-                            ),
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              // Marcar como Expirada Card
+                              Expanded(
+                                child: Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: theme.dividerColor.withAlpha(25)),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Proposta Expirada?',
+                                          style: theme.textTheme.titleLarge?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 20,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          textAlign: TextAlign.left,
+                                        ),
+                                        SizedBox(height: _isEditing ? 16 : 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              displayProposal.statusC == 'Expirada' ? 'Expirada' : 'Ativa',
+                                              style: theme.textTheme.bodyLarge?.copyWith(
+                                                color: displayProposal.statusC == 'Expirada' ? Colors.red : Colors.green,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            if (displayProposal.statusC != 'Expirada')
+                                              Switch(
+                                                value: false,
+                                                activeColor: theme.colorScheme.primary,
+                                                inactiveThumbColor: theme.colorScheme.outline,
+                                                trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                                                  if (states.contains(WidgetState.selected)) {
+                                                    return theme.colorScheme.primary;
+                                                  }
+                                                  return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
+                                                }),
+                                                onChanged: (val) async {
+                                                  if (!val) return; // Only allow marking as expired, not un-expiring
+                                                  await _markProposalAsExpired(context, displayProposal);
+                                                },
+                                              )
+                                            else
+                                              // Add spacing when no switch is shown to maintain consistent height
+                                              const SizedBox(width: 60, height: 40),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
-                        // --- Section 3: Files (before CPEs) ---
-              _buildFilesSection(context, displayProposal.files),
-                        const SizedBox(height: 24),
                         // --- Section 4: Related CPEs ---
-                        _buildCpeProposalsSection(context, displayProposal.cpeLinks),
+                        _buildCpeProposalsSection(context, displayProposal.cpeLinks, iconColor: theme.colorScheme.onSurface),
                       ],
                     ),
                   ),
@@ -897,10 +975,19 @@ class _AdminSalesforceProposalDetailPageState
                     fontWeight: FontWeight.w700,
                     fontSize: 20,
                     color: theme.colorScheme.primary,
-                ),
+                  ),
                   textAlign: TextAlign.left,
                 ),
                 Spacer(),
+                if (!_isEditing)
+                  Tooltip(
+                    message: 'Revisão de Documentos',
+                    child: IconButton(
+                      icon: const Icon(Icons.rate_review_outlined, size: 22),
+                      onPressed: () => _showDocumentReviewDialog(context, _originalProposal ?? _editedProposal!),
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
                 if (_isEditing)
                   IconButton(
                     icon: const Icon(Icons.add),
@@ -1068,8 +1155,9 @@ class _AdminSalesforceProposalDetailPageState
   // --- CPE Proposals Section Builder (Static List View) ---
   Widget _buildCpeProposalsSection(
     BuildContext context,
-    List<CpeProposalLink> cpeLinks,
-  ) {
+    List<CpeProposalLink> cpeLinks, {
+    Color? iconColor,
+  }) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1111,7 +1199,7 @@ class _AdminSalesforceProposalDetailPageState
               // Show the CPE-Proposta name/number if available, otherwise fallback to cpeName or short ID
               final displayName = cpeLink.name ?? cpeLink.cpeName ?? 'CPE-Proposta ${cpeLink.id.substring(cpeLink.id.length - 6)}';
               return SimpleListItem(
-                leading: Icon(Icons.link, size: 20, color: theme.colorScheme.secondary),
+                leading: Icon(Icons.link, size: 20, color: iconColor ?? theme.colorScheme.secondary),
                 title: displayName,
                 onTap: () => context.push('/admin/cpe-proposta/${cpeLink.id}'),
               );
@@ -1242,7 +1330,7 @@ class _AdminSalesforceProposalDetailPageState
       }
       
       // Refresh the data from provider
-      final _ = ref.refresh(proposalDetailsProvider(widget.proposalId));
+      _refreshData();
       
       if (mounted) {
         await showSuccessDialog(
@@ -1260,5 +1348,389 @@ class _AdminSalesforceProposalDetailPageState
         );
       }
     }
+  }
+
+  Widget _buildDocumentReviewAndExpirationSection(BuildContext context, DetailedSalesforceProposal proposal) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.rate_review_outlined),
+          label: const Text('Revisão de Documentos'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          onPressed: () => _showDocumentReviewDialog(context, proposal),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.hourglass_disabled_outlined),
+          label: const Text('Marcar como Expirada'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.error,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          onPressed: () => _showMarkAsExpiredDialog(context, proposal),
+        ),
+      ],
+    );
+  }
+
+  void _showDocumentReviewDialog(BuildContext context, DetailedSalesforceProposal proposal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _DocumentReviewDialog(
+        proposal: proposal,
+        onSend: (Map<String, bool> docStates, String motivo) async {
+          final notAccepted = docStates.entries.where((e) => !e.value).map((e) => e.key).toList();
+          String message;
+          if (notAccepted.isEmpty) {
+            message = 'Todos os documentos do cliente ${proposal.entidadeName ?? proposal.entidadeId ?? 'N/D'} foram aceites.';
+          } else {
+            final docNames = notAccepted.map((doc) {
+              switch (doc) {
+                case 'identificacao': return 'Documento de Identificação';
+                case 'residencia': return 'Prova de Residência';
+                case 'certidao': return 'Certidão Permanente';
+                default: return doc;
+              }
+            }).join(', ');
+            final motivoText = motivo.isNotEmpty ? ' Motivo: $motivo' : '';
+            message = 'Os documentos do cliente ${proposal.entidadeName ?? proposal.entidadeId ?? 'N/D'} precisam de correção: $docNames.$motivoText';
+          }
+          // Send notification to user (reseller)
+          try {
+            final notificationRepo = NotificationRepository();
+            // Look up Firebase UID from Salesforce ID
+            final firebaseUid = await notificationRepo.getFirebaseUidFromSalesforceId(proposal.agenteRetailId ?? '');
+            if (firebaseUid == null) throw Exception('Não foi possível encontrar o utilizador associado à proposta.');
+            
+            await notificationRepo.createNotification(
+              userId: firebaseUid,
+              title: 'Revisão de Documentos',
+              message: message,
+              type: NotificationType.statusChange,
+              metadata: {
+                'proposalId': proposal.id,
+                'opportunityId': proposal.oportunidadeId,
+                'processType': 'document_review',
+              },
+            );
+            
+            if (!mounted) return;
+            Navigator.of(context).pop();
+            await showSuccessDialog(
+              context: context,
+              message: 'Notificação enviada com sucesso!',
+              onDismissed: () {},
+            );
+          } catch (e) {
+            if (!mounted) return;
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erro ao enviar notificação: $e'), backgroundColor: Theme.of(context).colorScheme.error),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showMarkAsExpiredDialog(BuildContext context, DetailedSalesforceProposal proposal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmar Expiração'),
+        content: const Text('Tem certeza que deseja marcar esta proposta como expirada?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await _markProposalAsExpired(context, proposal);
+            },
+            child: const Text('Confirmar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markProposalAsExpired(BuildContext context, DetailedSalesforceProposal proposal) async {
+    try {
+      // Call Salesforce update function
+      final authNotifier = ref.read(salesforceAuthProvider.notifier);
+      final authState = ref.read(salesforceAuthProvider);
+      if (authState != SalesforceAuthState.authenticated) {
+        throw Exception('Não autenticado com o Salesforce.');
+      }
+      final String? accessToken = await authNotifier.getValidAccessToken();
+      final String? instanceUrl = authNotifier.currentInstanceUrl;
+      if (accessToken == null || instanceUrl == null) {
+        throw Exception('Não foi possível obter as credenciais do Salesforce.');
+      }
+      final proposalService = ref.read(salesforceProposalServiceProvider);
+      await proposalService.updateProposal(
+        accessToken: accessToken,
+        instanceUrl: instanceUrl,
+        proposalId: proposal.id,
+        fieldsToUpdate: {'Status__c': 'Expirada'},
+      );
+      // Send notification to user
+      final notificationRepo = NotificationRepository();
+      final firebaseUid = await notificationRepo.getFirebaseUidFromSalesforceId(proposal.agenteRetailId ?? '');
+      if (firebaseUid == null) throw Exception('Não foi possível encontrar o utilizador associado à proposta.');
+                await notificationRepo.createNotification(
+            userId: firebaseUid,
+            title: 'Proposta Expirada',
+            message: 'A proposta do cliente ${proposal.entidadeName ?? proposal.entidadeId ?? 'N/D'} foi marcada como expirada.',
+            type: NotificationType.statusChange,
+            metadata: {
+              'proposalId': proposal.id,
+              'opportunityId': proposal.oportunidadeId,
+              'processType': 'proposal_expired',
+            },
+          );
+      
+      // Refresh the data from provider
+      _refreshData();
+      
+      if (!mounted) return;
+      await showSuccessDialog(
+        context: context,
+        message: 'Proposta marcada como expirada e notificação enviada!',
+        onDismissed: () {
+          // Optional: Any additional action after success dialog
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao marcar como expirada: $e'), backgroundColor: Theme.of(context).colorScheme.error),
+      );
+    }
+  }
+}
+
+// Move these classes to the top-level, before or after the main widget class
+class _DocumentReviewDialog extends StatefulWidget {
+  final DetailedSalesforceProposal proposal;
+  final Future<void> Function(Map<String, bool> docStates, String motivo) onSend;
+  const _DocumentReviewDialog({required this.proposal, required this.onSend});
+
+  @override
+  State<_DocumentReviewDialog> createState() => _DocumentReviewDialogState();
+}
+
+class _DocumentReviewDialogState extends State<_DocumentReviewDialog> {
+  final Map<String, bool?> _docStates = {
+    'identificacao': null,
+    'residencia': null,
+    'certidao': null,
+  };
+  final TextEditingController _motivoController = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _motivoController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    
+    // Check if any document is marked as "Não" to show motivo section
+    final hasRejectedDocs = _docStates.values.any((value) => value == false);
+    
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      titlePadding: const EdgeInsets.all(0),
+      title: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 60, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Revisão de Documentos',
+                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          if (!_sending)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: Icon(
+                  CupertinoIcons.xmark, 
+                  color: colorScheme.onSurface.withAlpha(150),
+                  size: 22,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Fechar',
+                splashRadius: 20,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+              ),
+            ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Documentos estão corretos?',
+                style: textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildRadioRow('Documento de Identificação', 'identificacao'),
+              const SizedBox(height: 20),
+              _buildRadioRow('Prova de Residência', 'residencia'),
+              const SizedBox(height: 20),
+              _buildRadioRow('Certidão Permanente', 'certidao'),
+              if (hasRejectedDocs) ...[
+                const SizedBox(height: 28),
+                Text(
+                  'Motivo (opcional):',
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AppInputField(
+                  controller: _motivoController,
+                  label: '',
+                  hint: 'Descreva o motivo ou comentário sobre a documentação...',
+                  maxLines: 3,
+                  minLines: 2,
+                  readOnly: false,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        ElevatedButton(
+          onPressed: _sending || _docStates.values.any((v) => v == null)
+              ? null
+              : () async {
+                  setState(() => _sending = true);
+                  final docStates = _docStates.map((k, v) => MapEntry(k, v ?? false));
+                  await widget.onSend(docStates, _motivoController.text.trim());
+                  setState(() => _sending = false);
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: colorScheme.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: _sending 
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 18, 
+                      height: 18, 
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Enviando...'),
+                  ],
+                )
+              : const Text('Enviar Notificação'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRadioRow(String label, String key) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.5).round()),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline.withAlpha((255 * 0.1).round())),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Row(
+            children: [
+              Radio<bool>(
+                value: true,
+                groupValue: _docStates[key],
+                onChanged: (val) => setState(() => _docStates[key] = val),
+                activeColor: colorScheme.primary,
+              ),
+              Text(
+                'Sim',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Radio<bool>(
+                value: false,
+                groupValue: _docStates[key],
+                onChanged: (val) => setState(() => _docStates[key] = val),
+                activeColor: colorScheme.primary,
+              ),
+              Text(
+                'Não',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

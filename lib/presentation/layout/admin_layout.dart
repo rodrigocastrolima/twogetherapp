@@ -127,8 +127,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         .maybeWhen(data: (count) => count, orElse: () => 0);
 
     return Scaffold(
-      backgroundColor:
-          isDark ? theme.colorScheme.surface : theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar:
@@ -193,7 +192,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                           actions: [],
                         ))),
       body: Container(
-        decoration: BoxDecoration(color: theme.colorScheme.surface),
+        decoration: BoxDecoration(color: theme.scaffoldBackgroundColor),
         child: Material(
           color: Colors.transparent,
           child: Stack(
@@ -247,7 +246,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
         child:
             _isTransitioning
                 ? Container(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: Theme.of(context).scaffoldBackgroundColor,
                 ) // Show barrier during transition
                 : KeyedSubtree(
                   key: pageKey,

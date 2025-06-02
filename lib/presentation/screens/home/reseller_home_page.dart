@@ -744,9 +744,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // Navigate based on notification type and metadata
     switch (notification.type) {
       case NotificationType.statusChange:
-        // Check if this is a contract insertion notification
+        // Check if this is a contract insertion, proposal expired, or document review notification
         final processType = notification.metadata['processType'] as String?;
-        if (processType == 'contract_insertion') {
+        if (processType == 'contract_insertion' || processType == 'proposal_expired' || processType == 'document_review') {
           final opportunityId = notification.metadata['opportunityId'] as String?;
           if (opportunityId != null) {
             // Show loading overlay over entire app

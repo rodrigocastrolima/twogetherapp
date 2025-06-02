@@ -247,7 +247,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         screenWidth < 600; // Threshold for mobile/desktop
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         top: false,

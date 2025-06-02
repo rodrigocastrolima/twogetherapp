@@ -40,6 +40,17 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // Form validation state
+  bool get _isFormValid {
+    final hasFile = ref.read(serviceSubmissionProvider).selectedFiles.isNotEmpty;
+    return _companyNameController.text.trim().isNotEmpty &&
+           _responsibleNameController.text.trim().isNotEmpty &&
+           _nifController.text.trim().isNotEmpty &&
+           _emailController.text.trim().isNotEmpty &&
+           _phoneController.text.trim().isNotEmpty &&
+           hasFile;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -165,9 +176,17 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         throw Exception('Erro de autenticação do utilizador.');
       }
 
+      // Validate form before submission
+      if (!_isFormValid) {
+        setState(() {
+          _errorMessage = 'Por favor, preencha todos os campos obrigatórios e anexe um documento.';
+        });
+        return;
+      }
+
       final success = await formNotifier.submitServiceRequest(
         resellerId: userData['uid'] ?? '',
-        resellerName: userData['displayName'] ?? userData['email'] ?? 'Unknown',
+        resellerName: userData['displayName'] ?? userData['email'] ?? 'Desconhecido',
       );
 
       if (success && mounted) {
@@ -284,6 +303,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             setState(() {
               _errorMessage = null;
             });
+          }
+        });
+      }
+      
+      // Also trigger rebuild when files change for validation
+      if (previous?.selectedFiles.length != next.selectedFiles.length) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {});
           }
         });
       }
@@ -570,6 +598,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'companyName': value,
                 });
+                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
@@ -581,6 +610,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'responsibleName': value,
                 });
+                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
@@ -593,6 +623,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'nif': value,
                 });
+                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
@@ -605,6 +636,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'email': value,
                 });
+                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
@@ -617,6 +649,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'phone': value,
                 });
+                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing24),
@@ -653,15 +686,15 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
+                  backgroundColor: _isFormValid ? colorScheme.primary : colorScheme.onSurface.withAlpha((255 * 0.12).round()),
+                  foregroundColor: _isFormValid ? colorScheme.onPrimary : colorScheme.onSurface.withAlpha((255 * 0.38).round()),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 0,
                 ),
-                onPressed: _isSubmitting ? null : _handleSubmit,
+                onPressed: (_isSubmitting || !_isFormValid) ? null : _handleSubmit,
                 child: _isSubmitting
                     ? SizedBox(
                         height: 20,
@@ -674,7 +707,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
                       : Text(
                         'Submeter Pedido',
                         style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onPrimary,
+                          color: _isFormValid ? colorScheme.onPrimary : colorScheme.onSurface.withAlpha((255 * 0.38).round()),
                         ),
                       ),
               ),

@@ -14,6 +14,7 @@ import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/notifications/data/repositories/notification_repository.dart';
 import './submit_proposal_documents_page.dart';
 import '../../widgets/secure_file_viewer.dart';
+import '../../widgets/success_dialog.dart';
 
 // Helper function to determine color based on customer segment
 Color _getSegmentColor(String? segment, ThemeData theme, bool isDark) {
@@ -535,20 +536,11 @@ class _InlineProposalDetails extends ConsumerWidget {
                                 // Add file previews if files exist
                                 if (cpe.attachedFiles.isNotEmpty) ...[
                                   const SizedBox(height: 8),
-                                  Text(
-                                    'Ficheiros:',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: fontSize,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
                                   Wrap(
-                                    spacing: 4.0,
-                                    runSpacing: 4.0,
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
                                     children: cpe.attachedFiles.map((fileInfo) {
-                                      return _buildFilePreview(context, fileInfo);
+                                      return _buildFilePreview(context, fileInfo, iconSize: 32);
                                     }).toList(),
                                   ),
                                 ],
@@ -617,11 +609,10 @@ class _InlineProposalDetails extends ConsumerWidget {
                                           } catch (e) {
                                             // Silently ignore notification creation errors
                                           }
-                                          ScaffoldMessenger.of(currentContext).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Proposta rejeitada com sucesso'),
-                                              backgroundColor: Colors.green,
-                                            ),
+                                          await showSuccessDialog(
+                                            context: currentContext,
+                                            message: 'Proposta rejeitada com sucesso',
+                                            onDismissed: () {},
                                           );
                                           ref.refresh(resellerProposalDetailsProvider(proposalId));
                                         } else {
@@ -774,7 +765,7 @@ class _InlineProposalDetails extends ConsumerWidget {
     );
   }
 
-  Widget _buildFilePreview(BuildContext context, SalesforceFileInfo fileInfo) {
+  Widget _buildFilePreview(BuildContext context, SalesforceFileInfo fileInfo, {double iconSize = 20}) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
@@ -783,13 +774,13 @@ class _InlineProposalDetails extends ConsumerWidget {
     Widget iconWidget;
     
     if (fileName.endsWith('.pdf')) {
-      iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: 20);
+      iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: iconSize);
     } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
                fileName.endsWith('.png') || fileName.endsWith('.gif') ||
                fileName.endsWith('.webp') || fileName.endsWith('.bmp')) {
-      iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: 20);
+      iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: iconSize);
     } else {
-      iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: 20);
+      iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: iconSize);
     }
 
     return GestureDetector(
@@ -797,8 +788,8 @@ class _InlineProposalDetails extends ConsumerWidget {
       child: Tooltip(
         message: fileInfo.title,
         child: Container(
-          width: 40,
-          height: 40,
+          width: iconSize + 12,
+          height: iconSize + 12,
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
             borderRadius: BorderRadius.circular(6.0),

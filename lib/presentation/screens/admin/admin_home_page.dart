@@ -58,7 +58,7 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
               child: Column(
@@ -112,62 +112,14 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
                   // --- Notificações ---
               Padding(
                 padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                  Text(
-                    'Notificações',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final notificationActions = ref.read(notificationActionsProvider);
-                        return IconButton(
-                          onPressed: () async {
-                            final shouldClear = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Limpar Notificações'),
-                                content: const Text('Tem a certeza que pretende eliminar todas as notificações?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
-                                    child: const Text('Cancelar'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(true),
-                                    child: Text(
-                                      'Limpar',
-                                      style: TextStyle(color: theme.colorScheme.error),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (shouldClear == true && context.mounted) {
-                              // Delete all notifications
-                              final notifications = ref.read(refreshableAdminSubmissionsProvider).value ?? [];
-                              for (final notification in notifications) {
-                                await notificationActions.deleteNotification(notification.id);
-                              }
-                            }
-                          },
-                          icon: Icon(
-                            CupertinoIcons.trash,
-                            size: 22,
-                            color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-                          ),
-                          tooltip: 'Limpar notificações',
-                        );
-                      },
-                    ),
-                  ],
-                    ),
+                child: Text(
+                  'Notificações',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
+                ),
+              ),
                   const SizedBox(height: 20),
               Expanded(
                 child: Padding(
@@ -271,8 +223,18 @@ class _AdminHomePageState extends ConsumerState<AdminHomePage> {
         }
         break;
       case NotificationType.proposalRejected:
-        snackBarMessage = 'Rejeição de Proposta: ${notification.metadata['proposalName'] ?? 'N/A'}';
-        showSnackBar = true;
+      case NotificationType.proposalAccepted:
+        final proposalId = notification.metadata['proposalId'] as String?;
+        if (proposalId != null && proposalId.isNotEmpty) {
+          context.push('/admin/proposal/$proposalId');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Não foi possível abrir a proposta: ID em falta.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         break;
       default:
         snackBarMessage = 'Tipo de notificação não tratado: ${notification.type}';

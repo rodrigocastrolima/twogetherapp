@@ -89,8 +89,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     // Determine the effective background color based on the selected index
     final bool isHomePage = _selectedIndex == 0;
     final Color effectiveBackgroundColor = isHomePage 
-        ? theme.colorScheme.surface // For home page, allows ResellerHomePage to control its specific background layers
-        : theme.colorScheme.surface; // For other pages, use the surface background
+        ? theme.scaffoldBackgroundColor // For home page, allows ResellerHomePage to control its specific background layers
+        : theme.scaffoldBackgroundColor; // For other pages, use the scaffold background
 
     final bool showNavigation =
         widget.location != '/change-password'; // Renamed for clarity
@@ -106,7 +106,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               : null,
       body: Container(
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface, // Use surface color for consistency
+          color: theme.scaffoldBackgroundColor, // Use scaffold background color for consistency
         ), // Ensure full background coverage
         child: Material(
           color: Colors.transparent,

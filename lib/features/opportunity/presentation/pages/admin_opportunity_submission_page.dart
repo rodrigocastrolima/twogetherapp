@@ -12,8 +12,11 @@ import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
 import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 
 import 'package:twogether/core/models/service_submission.dart'; // Using package path
+import 'package:twogether/core/models/service_types.dart'; // Import ClientType and other enums
+import 'package:twogether/core/models/notification.dart'; // Import UserNotification and NotificationType
 import 'package:twogether/presentation/widgets/full_screen_image_viewer.dart'; // Using package path
 import 'package:twogether/presentation/widgets/full_screen_pdf_viewer.dart'; // Using package path
+import 'package:twogether/presentation/widgets/success_dialog.dart'; // Import success dialog
 import 'package:twogether/core/services/salesforce_auth_service.dart'; // Import SF Auth Service
 import 'package:twogether/features/opportunity/data/models/create_opp_models.dart'; // Import models
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart'; // Import provider
@@ -1500,18 +1503,21 @@ class _OpportunityDetailFormViewState
       // ---------------------------------------------------
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Submissão rejeitada com sucesso.',
-            ), // Submission rejected successfully.
-            backgroundColor: Colors.orange,
-          ),
+        await showSuccessDialog(
+          context: context,
+          message: 'Submissão rejeitada com sucesso.',
+          onDismissed: () {
+            // Navigation happens AFTER the dialog is dismissed
+            if (mounted) {
+              // Check mounted again inside callback
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/admin'); // Fallback navigation
+              }
+            }
+          },
         );
-        // Optionally navigate back
-        if (Navigator.canPop(context)) {
-          Navigator.of(context).pop();
-        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -1548,29 +1554,43 @@ class _OpportunityDetailFormViewState
               .collection('notifications')
               .doc(); // Auto-generate ID
 
-      final notificationData = {
-        'id': notificationRef.id,
-        'userId': resellerId, // Target the reseller
-        'title': 'Oportunidade Rejeitada', // Opportunity Rejected
-        'body':
-            'A sua submissão foi rejeitada. Motivo: $reason', // Your submission was rejected. Reason: ...
-        'createdAt': FieldValue.serverTimestamp(),
-        'isRead': false,
-        'type':
-            'rejection', // Use the correct string for NotificationType.rejection
-        'relatedId': submissionId, // Link to the submission
-        'relatedDataType':
-            'serviceSubmission', // Specify the type of related data
-        'icon': 'warning', // Optional: suggest an icon name
-        'metadata': {
+      // Determine the correct entity name based on client type
+      String entityName = '';
+      if (widget.submission?.clientType == ClientType.commercial) {
+        // For commercial clients, prefer company name, fallback to responsible name
+        entityName = widget.submission?.companyName?.isNotEmpty == true 
+            ? widget.submission!.companyName!
+            : widget.submission?.responsibleName ?? '';
+      } else {
+        // For residential clients, use responsible name
+        entityName = widget.submission?.responsibleName ?? '';
+      }
+      
+      // Fallback if still empty
+      if (entityName.isEmpty) {
+        entityName = 'Cliente Desconhecido';
+      }
+
+      // Create notification using the UserNotification model for consistency
+      final notification = UserNotification(
+        id: '', // Will be set by Firestore
+        userId: resellerId, // Target the reseller
+        title: 'Oportunidade Rejeitada', // Opportunity Rejected
+        message: 'A proposta para o cliente $entityName foi rejeitada.', // The proposal for client [Entity] was rejected.
+        type: NotificationType.rejection,
+        createdAt: DateTime.now(),
+        isRead: false,
+        metadata: {
           'submissionId': submissionId,
           'rejectionReason': reason,
-          'clientName':
-              widget.submission?.companyName ?? widget.submission?.responsibleName ?? '',
+          'clientName': entityName,
+          'clientType': widget.submission?.clientType?.name,
+          'companyName': widget.submission?.companyName,
+          'responsibleName': widget.submission?.responsibleName,
         },
-      };
+      );
 
-      await notificationRef.set(notificationData);
+      await notificationRef.set(notification.toFirestore());
       // Use kDebugMode check for print
       if (kDebugMode) {
         print(

@@ -550,7 +550,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             isWide
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +566,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                       ...rightColumn,
                     ],
                   ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -718,7 +718,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                           color: theme.colorScheme.primary,
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 8),
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
@@ -772,7 +772,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 8),
                               // --- Section 2: Informação da Proposta ---
                               Card(
                                 elevation: 1,
@@ -793,7 +793,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                           color: theme.colorScheme.primary,
                                         ),
                                       ),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 8),
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
@@ -828,7 +828,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                                   },
                                                   hint: 'Selecione uma solução',
                                                 ),
-                                                const SizedBox(height: 8),
+                                                const SizedBox(height: 16),
                                                 AppInputField(
                                                   controller: _creationDateController,
                                                   label: 'Data de Criação',
@@ -883,7 +883,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 16),
+                                      const SizedBox(height: 8),
                                       // Checkboxes at the bottom
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
@@ -907,7 +907,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 8),
                               // --- Section 3: CPE Details ---
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -923,7 +923,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
                               ListView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),

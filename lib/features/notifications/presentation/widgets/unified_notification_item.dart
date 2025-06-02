@@ -64,6 +64,16 @@ class UnifiedNotificationItem extends StatelessWidget {
             itemIcon = CupertinoIcons.checkmark_circle_fill;
             iconColor = const Color(0xFF10B981); // Green color for completion
             iconBgColor = const Color(0x1A10B981);
+          } else if (notification.title == 'Proposta Expirada') {
+            // Specific styling for expired proposals
+            itemIcon = CupertinoIcons.clock_fill;
+            iconColor = const Color(0xFFF59E0B); // Orange color
+            iconBgColor = const Color(0x1AF59E0B);
+          } else if (notification.title == 'Revisão de Documentos') {
+            // Specific styling for document review
+            itemIcon = CupertinoIcons.doc_text_fill;
+            iconColor = const Color(0xFF6B7280); // Grey color
+            iconBgColor = const Color(0x146B7280);
           } else {
             itemIcon = CupertinoIcons.arrow_swap;
             iconColor = const Color(0xFFF59E0B);
@@ -71,17 +81,17 @@ class UnifiedNotificationItem extends StatelessWidget {
           }
           break;
         case NotificationType.rejection:
-          itemIcon = CupertinoIcons.xmark_circle_fill;
+          itemIcon = CupertinoIcons.hand_thumbsdown_fill;
           iconColor = const Color(0xFFEF4444);
-          iconBgColor = const Color(0x1AFFEF4444);
+          iconBgColor = const Color(0x0FEF4444); // 6% opacity for a subtler background
           break;
         case NotificationType.proposalRejected:
           itemIcon = CupertinoIcons.hand_thumbsdown_fill;
           iconColor = const Color(0xFFEF4444);
-          iconBgColor = const Color(0x1AFFEF4444);
+          iconBgColor = const Color(0x0FEF4444); // 6% opacity for a subtler background
           break;
         case NotificationType.proposalAccepted:
-          itemIcon = CupertinoIcons.check_mark_circled_solid;
+          itemIcon = CupertinoIcons.doc_on_doc_fill;
           iconColor = const Color(0xFF10B981);
           iconBgColor = const Color(0x1A10B981);
           break;
