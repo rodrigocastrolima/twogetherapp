@@ -1,0 +1,65 @@
+graph TD
+    subgraph Client["Client Tier"]
+        A["Web Admin<br/>Interface"] 
+        B["Mobile Reseller<br/>Interface"]
+        C["Agent<br/>Integration"]
+        ClientSpacer1[" "]
+        ClientSpacer2[" "]
+    end
+    
+    subgraph Backend["Backend Tier"]
+        D["Firebase Auth"]
+        E["Cloud Firestore"]
+        F["Firebase Storage"] 
+        G["Cloud Functions"]
+        H["Firebase Messaging"]
+        
+        subgraph Auth["Authentication"]
+            I["OAuth 2.0<br/>Admin"]
+            J["JWT Proxy<br/>Reseller"]
+        end
+    end
+    
+    subgraph External["External Tier"]
+        K["Salesforce<br/>REST API"]
+        L["CRM Objects<br/>& Files"]
+    end
+    
+    %% Connections - Clean Hierarchy
+    A --> D
+    B --> D
+    C -.-> G
+    
+    D --> E
+    G --> H
+    G --> F
+    
+    G --> I
+    G --> J
+    I --> K
+    J --> K
+    K --> L
+    
+    %% Professional Academic Grayscale Styling
+    style A fill:#f8f9fa,stroke:#343a40,stroke-width:2px
+    style B fill:#f8f9fa,stroke:#343a40,stroke-width:2px
+    style C fill:#ffffff,stroke:#6c757d,stroke-width:2px,stroke-dasharray:4 4
+    style D fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style E fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style F fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style G fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style H fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style I fill:#dee2e6,stroke:#212529,stroke-width:2px
+    style J fill:#dee2e6,stroke:#212529,stroke-width:2px
+    style K fill:#ced4da,stroke:#212529,stroke-width:2px
+    style L fill:#ced4da,stroke:#212529,stroke-width:2px
+    
+    %% Container Styling
+    style Client fill:#f8f9fa,stroke:#495057,stroke-width:2px
+    style Backend fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style External fill:#dee2e6,stroke:#495057,stroke-width:2px
+    style Auth fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    
+    %% Hide spacer nodes
+    style ClientSpacer1 fill:transparent,stroke:transparent
+    style ClientSpacer2 fill:transparent,stroke:transparent
