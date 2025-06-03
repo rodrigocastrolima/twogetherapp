@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG to PNG Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .download-button {
+            background: #0175C2;
+            color: white;
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .download-button:hover {
+            background: #0056a3;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+        }
+        .preview {
+            display: inline-block;
+            text-align: center;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Twogether Logo Converter</h1>
+        <p>This tool will convert your SVG logo to PNG files in the required sizes for your web app.</p>
+        
+        <div id="previews"></div>
+        <div id="downloads"></div>
+        
+        <script>
+            const sizes = [
+                { name: 'favicon', width: 32, height: 32 },
+                { name: 'Icon-192', width: 192, height: 192 },
+                { name: 'Icon-512', width: 512, height: 512 },
+                { name: 'Icon-maskable-192', width: 192, height: 192 },
+                { name: 'Icon-maskable-512', width: 512, height: 512 }
+            ];
+
+            async function loadSVG() {
+                try {
+                    const response = await fetch('logo.svg');
+                    const svgText = await response.text();
+                    return svgText;
+                } catch (error) {
+                    console.error('Error loading SVG:', error);
+                    return null;
+                }
+            }
+
+            function createPNGFromSVG(svgText, width, height, name) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+                    const url = URL.createObjectURL(svgBlob);
+                    
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Fill with white background for favicon and regular icons
+                        if (!name.includes('maskable')) {
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, width, height);
+                        }
+                        
+                        // Calculate aspect ratio and scale
+                        const aspectRatio = img.width / img.height;
+                        let drawWidth = width;
+                        let drawHeight = height;
+                        let offsetX = 0;
+                        let offsetY = 0;
+                        
+                        if (aspectRatio > 1) {
+                            // Image is wider than tall
+                            drawHeight = width / aspectRatio;
+                            offsetY = (height - drawHeight) / 2;
+                        } else {
+                            // Image is taller than wide
+                            drawWidth = height * aspectRatio;
+                            offsetX = (width - drawWidth) / 2;
+                        }
+                        
+                        // Add padding for better appearance
+                        const padding = width * 0.1;
+                        drawWidth -= padding * 2;
+                        drawHeight -= padding * 2;
+                        offsetX += padding;
+                        offsetY += padding;
+                        
+                        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                        
+                        // Create preview
+                        const preview = document.createElement('div');
+                        preview.className = 'preview';
+                        const previewCanvas = canvas.cloneNode();
+                        const previewCtx = previewCanvas.getContext('2d');
+                        previewCtx.drawImage(canvas, 0, 0);
+                        preview.appendChild(previewCanvas);
+                        preview.innerHTML += `<br><strong>${name}.png</strong><br>${width}x${height}`;
+                        document.getElementById('previews').appendChild(preview);
+                        
+                        // Create download link
+                        canvas.toBlob((blob) => {
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = `${name}.png`;
+                            link.className = 'download-button';
+                            link.textContent = `Download ${name}.png`;
+                            document.getElementById('downloads').appendChild(link);
+                            resolve();
+                        });
+                        
+                        URL.revokeObjectURL(url);
+                    };
+                    
+                    img.src = url;
+                });
+            }
+
+            async function convertAll() {
+                const svgText = await loadSVG();
+                if (!svgText) {
+                    document.body.innerHTML = '<h1>Error: Could not load logo.svg</h1><p>Make sure the logo.svg file exists in the same directory as this HTML file.</p>';
+                    return;
+                }
+
+                for (const size of sizes) {
+                    await createPNGFromSVG(svgText, size.width, size.height, size.name);
+                }
+                
+                document.getElementById('downloads').innerHTML += '<br><p><strong>Instructions:</strong><br>1. Download all the PNG files above<br>2. Replace the existing files in the web/ and web/icons/ directories<br>3. Deploy your app again</p>';
+            }
+
+            // Start conversion when page loads
+            convertAll();
+        </script>
+    </div>
+</body>
+</html> 

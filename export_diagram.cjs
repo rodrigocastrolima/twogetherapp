@@ -6,7 +6,7 @@ const { promisify } = require('util');
 const execPromise = promisify(exec);
 
 // Configuration
-const INPUT_FILE = 'docs/authentication_flow_diagram.md';
+const INPUT_FILE = 'docs/service_submission_flow_diagram.md';
 const OUTPUT_DIR = 'docs';
 const TEMP_DIR = 'temp_diagrams';
 
@@ -36,8 +36,8 @@ const extractAndExportDiagram = async () => {
         console.log('Found Mermaid diagram, extracting...');
         
         // Create temporary .mmd file
-        const tempFile = path.join(TEMP_DIR, 'authentication_flow.mmd');
-        const outputFile = path.join(OUTPUT_DIR, 'authentication_flow_diagram.pdf');
+        const tempFile = path.join(TEMP_DIR, 'service_submission_flow.mmd');
+        const outputFile = path.join(OUTPUT_DIR, 'service_submission_flow_diagram.pdf');
         
         console.log(`Writing diagram to temporary file: ${tempFile}`);
         fs.writeFileSync(tempFile, diagramContent);
@@ -55,7 +55,7 @@ const extractAndExportDiagram = async () => {
         console.log(`✅ Successfully generated: ${outputFile}`);
         
         // Also save the standalone .mmd file for reference
-        const standaloneMmdFile = path.join(OUTPUT_DIR, 'authentication_flow_diagram.mmd');
+        const standaloneMmdFile = path.join(OUTPUT_DIR, 'service_submission_flow_diagram.mmd');
         fs.copyFileSync(tempFile, standaloneMmdFile);
         console.log(`📄 Saved standalone diagram file: ${standaloneMmdFile}`);
         
