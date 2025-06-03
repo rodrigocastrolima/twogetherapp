@@ -3,83 +3,55 @@
 ## Figure 4.1: Three-Tier System Architecture
 
 ```mermaid
-graph TB
-    subgraph Client["Client Tier - Presentation Layer"]
-        A["Flutter Web Application<br/>Desktop Admin Interface"]
-        B["Flutter Mobile Application<br/>Reseller Interface"]
-        C["Shared Widget Library<br/>Responsive Components"]
-        D["Future Agent Interface<br/>Autonomous Operations"]
-    end
+graph TD
+    %% Client Tier
+    A["Web Admin<br/>Interface"] 
+    B["Mobile Reseller<br/>Interface"]
+    C["Future Agent<br/>Interface"]
     
-    subgraph Backend["Backend Tier - Service Orchestration Layer"]
-        subgraph Firebase["Firebase Platform"]
-            E["Firebase Authentication<br/>User Login & Token<br/>Management"]
-            F["Cloud Firestore<br/>Real-time Document Store<br/>Communication & Workflows"]
-            G["Firebase Storage<br/>Document Uploads<br/>Proposals & Verification"]
-            H["Cloud Functions<br/>Business Logic<br/>API Orchestration"]
-            I["Firebase Messaging<br/>Push Notifications"]
-            J["Firebase Analytics<br/>Usage Monitoring"]
-        end
-    end
+    %% Firebase Backend Services  
+    D["Firebase Auth"]
+    E["Cloud Firestore"]
+    F["Firebase Storage"] 
+    G["Cloud Functions"]
+    H["Firebase Messaging"]
     
-    subgraph External["External Tier - System Integrations"]
-        subgraph Salesforce["Salesforce CRM - System of Record"]
-            K["Salesforce REST API<br/>Commercial Data<br/>Management"]
-            L["Salesforce Objects<br/>Opportunities, Accounts<br/>Proposals"]
-            M["Salesforce Files API<br/>Document Management"]
-        end
-    end
+    %% Authentication Layer
+    I["OAuth 2.0<br/>Admin Access"]
+    J["JWT Proxy<br/>Reseller Access"]
     
-    subgraph Auth["Authentication Layers"]
-        P["OAuth 2.0<br/>Admin Access"]
-        Q["JWT Proxy Functions<br/>Reseller Access"]
-    end
+    %% Salesforce CRM
+    K["Salesforce<br/>REST API"]
+    L["CRM Objects<br/>& Files"]
     
-    %% Client to Backend Connections
-    A --> E
-    A --> F
-    A --> G
-    A --> H
-    B --> E
-    B --> F
-    B --> G
-    B --> H
-    C --> A
-    C --> B
-    D -.-> H
+    %% Connections - Clean Hierarchy
+    A --> D
+    B --> D
+    C -.-> G
     
-    %% Backend Internal Connections
-    E --> F
-    H --> I
-    H --> J
+    D --> E
+    G --> H
+    G --> F
     
-    %% Backend to External Connections
-    H --> P
-    H --> Q
-    P --> K
-    Q --> K
-    H --> M
-    
-    %% Salesforce Internal Connections
+    G --> I
+    G --> J
+    I --> K
+    J --> K
     K --> L
-    K --> M
     
-    %% Professional Styling for Thesis
-    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
-    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
-    style C fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    style D fill:#f5f5f5,stroke:#616161,stroke-width:2px,stroke-dasharray:5 5,color:#000
-    style E fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style F fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style G fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style H fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style I fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style J fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style K fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
-    style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
-    style M fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
-    style P fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
-    style Q fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+    %% Clean Professional Styling
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style C fill:#f5f5f5,stroke:#757575,stroke-width:2px,stroke-dasharray:4 4
+    style D fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style E fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style F fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style G fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style H fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style I fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style J fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style K fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 ```
 
 ## Architecture Principles Implementation
