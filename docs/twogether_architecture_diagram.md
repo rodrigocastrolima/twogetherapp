@@ -4,28 +4,33 @@
 
 ```mermaid
 graph TD
-    subgraph Client["Client Tier - Presentation Layer"]
+    subgraph Client["Client Tier"]
         A["Web Admin<br/>Interface"] 
         B["Mobile Reseller<br/>Interface"]
         C["Future Agent<br/>Interface"]
+        ClientSpacer1[" "]
+        ClientSpacer2[" "]
     end
     
-    subgraph Backend["Backend Tier - Service Orchestration Layer"]
+    subgraph Backend["Backend Tier"]
         D["Firebase Auth"]
         E["Cloud Firestore"]
         F["Firebase Storage"] 
         G["Cloud Functions"]
         H["Firebase Messaging"]
         
-        subgraph Auth["Authentication Layer"]
-            I["OAuth 2.0<br/>Admin Access"]
-            J["JWT Proxy<br/>Reseller Access"]
+        subgraph Auth["Authentication"]
+            I["OAuth 2.0<br/>Admin"]
+            J["JWT Proxy<br/>Reseller"]
         end
     end
     
-    subgraph External["External Tier - System Integrations"]
+    subgraph External["External Tier"]
         K["Salesforce<br/>REST API"]
         L["CRM Objects<br/>& Files"]
+        ExtSpacer1[" "]
+        ExtSpacer2[" "]
+        ExtSpacer3[" "]
     end
     
     %% Connections - Clean Hierarchy
@@ -56,6 +61,13 @@ graph TD
     style J fill:#ffebee,stroke:#d32f2f,stroke-width:2px
     style K fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
     style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    
+    %% Hide spacer nodes
+    style ClientSpacer1 fill:transparent,stroke:transparent
+    style ClientSpacer2 fill:transparent,stroke:transparent
+    style ExtSpacer1 fill:transparent,stroke:transparent
+    style ExtSpacer2 fill:transparent,stroke:transparent
+    style ExtSpacer3 fill:transparent,stroke:transparent
 ```
 
 ## Architecture Principles Implementation
