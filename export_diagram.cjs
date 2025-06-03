@@ -36,8 +36,8 @@ const extractAndExportDiagram = async () => {
         console.log('Found Mermaid diagram, extracting...');
         
         // Create temporary .mmd file
-        const tempFile = path.join(TEMP_DIR, 'twogether_architecture.mmd');
-        const outputFile = path.join(OUTPUT_DIR, 'twogether_architecture_diagram.pdf');
+        const tempFile = path.join(TEMP_DIR, 'authentication_flow.mmd');
+        const outputFile = path.join(OUTPUT_DIR, 'authentication_flow_diagram.pdf');
         
         console.log(`Writing diagram to temporary file: ${tempFile}`);
         fs.writeFileSync(tempFile, diagramContent);
@@ -55,7 +55,7 @@ const extractAndExportDiagram = async () => {
         console.log(`✅ Successfully generated: ${outputFile}`);
         
         // Also save the standalone .mmd file for reference
-        const standaloneMmdFile = path.join(OUTPUT_DIR, 'twogether_architecture_diagram.mmd');
+        const standaloneMmdFile = path.join(OUTPUT_DIR, 'authentication_flow_diagram.mmd');
         fs.copyFileSync(tempFile, standaloneMmdFile);
         console.log(`📄 Saved standalone diagram file: ${standaloneMmdFile}`);
         

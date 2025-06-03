@@ -4,97 +4,57 @@ This diagram illustrates the complete authentication and user management flow in
 
 ```mermaid
 flowchart TD
-    Start([User Attempts Access]) --> CheckAuth{Authenticated?}
+    A[User Access] --> B{Authenticated?}
+    B -->|No| C[Login Page]
+    C --> D[Enter Credentials]
+    D --> E[Firebase Auth]
+    E --> F{First Login?}
     
-    %% Not Authenticated Path
-    CheckAuth -->|No| LoginPage[Login Page]
-    LoginPage --> EnterCredentials[Enter Email/Password]
-    EnterCredentials --> FirebaseAuth[Firebase Authentication]
-    FirebaseAuth --> AuthSuccess{Auth Success?}
-    AuthSuccess -->|No| AuthError[Show Error Message]
-    AuthError --> LoginPage
+    F -->|Yes| G[Change Password]
+    G --> H[Mark Complete]
+    H --> I{Check Role}
     
-    %% Successful Authentication
-    AuthSuccess -->|Yes| GetUserData[Fetch User Data from Firestore]
-    GetUserData --> CheckUserExists{User Document Exists?}
-    CheckUserExists -->|No| CreateUserDoc[Create Basic User Document]
-    CreateUserDoc --> CheckFirstLogin
-    CheckUserExists -->|Yes| CheckFirstLogin{First Login?}
+    F -->|No| I{Check Role}
     
-    %% First Login Flow
-    CheckFirstLogin -->|Yes| PasswordChangePage[Change Password Page]
-    PasswordChangePage --> NewPassword[Enter New Password]
-    NewPassword --> ValidatePassword{Password Valid?}
-    ValidatePassword -->|No| PasswordError[Show Password Error]
-    PasswordError --> NewPassword
-    ValidatePassword -->|Yes| UpdatePassword[Update Firebase Password]
-    UpdatePassword --> CompleteFirstLogin[Mark First Login Complete]
-    CompleteFirstLogin --> CheckRole
+    I -->|Admin| J[Admin Dashboard]
+    I -->|Reseller| K{Has Salesforce ID?}
+    I -->|Unknown| L[Access Denied]
     
-    %% Regular Login Flow
-    CheckFirstLogin -->|No| CheckRole{Check User Role}
+    K -->|Yes| M[Reseller Dashboard]
+    K -->|No| N[Contact Admin]
     
-    %% Role-Based Routing
-    CheckRole -->|Admin| SetupAdminSession[Setup Admin Session]
-    CheckRole -->|Reseller| CheckSalesforceId{Has Salesforce ID?}
-    CheckRole -->|Unknown| AccessDenied[Access Denied]
-    
-    %% Admin Flow
-    SetupAdminSession --> AdminDashboard[Admin Dashboard]
-    AdminDashboard --> AdminFeatures[Admin Features Available:<br/>• User Management<br/>• Opportunity Review<br/>• Proposal Management<br/>• System Settings]
-    
-    %% Reseller Flow with Salesforce Validation
-    CheckSalesforceId -->|No| SalesforceError[Error: Missing Salesforce ID]
-    CheckSalesforceId -->|Yes| SetupResellerSession[Setup Reseller Session]
-    SetupResellerSession --> CreateConversation[Ensure Default Conversation Exists]
-    CreateConversation --> ResellerDashboard[Reseller Dashboard]
-    ResellerDashboard --> ResellerFeatures[Reseller Features Available:<br/>• View Opportunities<br/>• Submit Proposals<br/>• Chat with Admin<br/>• Profile Settings]
-    
-    %% User Creation Process (Admin Only)
-    subgraph UserCreation["👨‍💼 User Creation Process"]
-        AdminCreateUser[Admin Initiates User Creation]
-        AdminCreateUser --> ValidateSalesforceId[Validate Salesforce ID]
-        ValidateSalesforceId --> SalesforceValid{Valid SF ID?}
-        SalesforceValid -->|No| SalesforceValidationError[Show Validation Error]
-        SalesforceValid -->|Yes| CallCloudFunction[Call createUserWithFirestore Function]
-        CallCloudFunction --> CreateFirebaseUser[Create Firebase Auth User]
-        CreateFirebaseUser --> SetTempPassword[Set Temporary Password: 'twogether2025']
-        SetTempPassword --> CreateFirestoreDoc[Create Firestore Document]
-        CreateFirestoreDoc --> SetFirstLoginFlag[Set isFirstLogin: true]
-        SetFirstLoginFlag --> SyncSalesforceData[Sync Additional Salesforce Data]
-        SyncSalesforceData --> UserCreated[User Account Created]
-        UserCreated --> NotifyNewUser[Notify User of Account Creation]
+    %% User Creation (Simplified)
+    subgraph UC[User Creation]
+        O[Admin Creates User]
+        P[Validate Salesforce ID]
+        Q[Create Account]
+        R[Set Temp Password]
     end
     
-    %% Session Management
-    subgraph SessionMgmt["🔐 Session Management"]
-        TokenRefresh[Auto Token Refresh]
-        SecureStorage[Encrypted Local Storage]
-        FirestoreRules[Firestore Security Rules]
-        RoleValidation[Role-Based Access Control]
-        SessionExpiry[Session Expiry Handling]
-    end
+    O --> P --> Q --> R
     
-    %% Error Handling
-    SalesforceError --> ContactAdmin[Contact Administrator]
-    AccessDenied --> LoginPage
+    %% Styling - Professional Grayscale
+    style A fill:#f8f9fa,stroke:#495057,stroke-width:2px
+    style J fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style M fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style UC fill:#dee2e6,stroke:#495057,stroke-width:2px
+    style L fill:#ced4da,stroke:#343a40,stroke-width:2px
+    style N fill:#ced4da,stroke:#343a40,stroke-width:2px
     
-    %% Styling
-    classDef startEnd fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef decision fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    classDef error fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef admin fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef reseller fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    classDef salesforce fill:#fff8e1,stroke:#f57f17,stroke-width:2px
+    style B fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style F fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style I fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style K fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
     
-    class Start,UserCreated startEnd
-    class LoginPage,GetUserData,UpdatePassword,SetupAdminSession,SetupResellerSession,CreateConversation process
-    class CheckAuth,AuthSuccess,CheckUserExists,CheckFirstLogin,CheckRole,ValidatePassword,CheckSalesforceId,SalesforceValid decision
-    class AuthError,PasswordError,SalesforceError,AccessDenied,ContactAdmin error
-    class AdminDashboard,AdminFeatures admin
-    class ResellerDashboard,ResellerFeatures reseller
-    class ValidateSalesforceId,SyncSalesforceData,SalesforceValidationError salesforce
+    style C fill:#ffffff,stroke:#212529,stroke-width:1px
+    style D fill:#ffffff,stroke:#212529,stroke-width:1px
+    style E fill:#ffffff,stroke:#212529,stroke-width:1px
+    style G fill:#ffffff,stroke:#212529,stroke-width:1px
+    style H fill:#ffffff,stroke:#212529,stroke-width:1px
+    style O fill:#ffffff,stroke:#212529,stroke-width:1px
+    style P fill:#ffffff,stroke:#212529,stroke-width:1px
+    style Q fill:#ffffff,stroke:#212529,stroke-width:1px
+    style R fill:#ffffff,stroke:#212529,stroke-width:1px
 ```
 
 ## Key Authentication Features
