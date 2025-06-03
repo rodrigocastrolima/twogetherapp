@@ -4,37 +4,35 @@
 
 ```mermaid
 graph TB
-    subgraph "Client Tier - Presentation Layer"
-        A[Flutter Web Application<br/>Desktop Admin Interface]
-        B[Flutter Mobile Application<br/>Reseller Interface]
-        C[Shared Widget Library<br/>Responsive Components]
-        D[Future Agent Interface<br/>Autonomous Operations]
+    subgraph Client["Client Tier - Presentation Layer"]
+        A["Flutter Web Application<br/>Desktop Admin Interface"]
+        B["Flutter Mobile Application<br/>Reseller Interface"]
+        C["Shared Widget Library<br/>Responsive Components"]
+        D["Future Agent Interface<br/>Autonomous Operations"]
     end
     
-    subgraph "Backend Tier - Service Orchestration Layer"
-        subgraph "Firebase Platform"
-            E[Firebase Authentication<br/>User Login & Token Management]
-            F[Cloud Firestore<br/>Real-time Document Store<br/>Communication & Workflows]
-            G[Firebase Storage<br/>Document Uploads<br/>Proposals & Verification]
-            H[Cloud Functions<br/>Business Logic<br/>API Orchestration]
-            I[Firebase Messaging<br/>Push Notifications]
-            J[Firebase Analytics<br/>Usage Monitoring]
+    subgraph Backend["Backend Tier - Service Orchestration Layer"]
+        subgraph Firebase["Firebase Platform"]
+            E["Firebase Authentication<br/>User Login & Token<br/>Management"]
+            F["Cloud Firestore<br/>Real-time Document Store<br/>Communication & Workflows"]
+            G["Firebase Storage<br/>Document Uploads<br/>Proposals & Verification"]
+            H["Cloud Functions<br/>Business Logic<br/>API Orchestration"]
+            I["Firebase Messaging<br/>Push Notifications"]
+            J["Firebase Analytics<br/>Usage Monitoring"]
         end
     end
     
-    subgraph "External Tier - System Integrations"
-        subgraph "Salesforce CRM - System of Record"
-            K[Salesforce REST API<br/>Commercial Data Management]
-            L[Salesforce Objects<br/>Opportunities, Accounts, Proposals]
-            M[Salesforce Files API<br/>Document Management]
+    subgraph External["External Tier - System Integrations"]
+        subgraph Salesforce["Salesforce CRM - System of Record"]
+            K["Salesforce REST API<br/>Commercial Data<br/>Management"]
+            L["Salesforce Objects<br/>Opportunities, Accounts<br/>Proposals"]
+            M["Salesforce Files API<br/>Document Management"]
         end
-        
-        N[Third-party Analytics<br/>Business Intelligence]
     end
     
-    subgraph "Authentication Layers"
-        P[OAuth 2.0<br/>Admin Access]
-        Q[JWT Proxy Functions<br/>Reseller Access]
+    subgraph Auth["Authentication Layers"]
+        P["OAuth 2.0<br/>Admin Access"]
+        Q["JWT Proxy Functions<br/>Reseller Access"]
     end
     
     %% Client to Backend Connections
@@ -61,36 +59,27 @@ graph TB
     P --> K
     Q --> K
     H --> M
-    %% Salesforce Internal
+    
+    %% Salesforce Internal Connections
     K --> L
     K --> M
     
-    %% Analytics Flow
-    F --> N
-    J --> N
-    
-    %% Styling
-    style A fill:#e1f5fe
-    style B fill:#e1f5fe
-    style C fill:#f3e5f5
-    style D fill:#f9f9f9,stroke:#ccc,stroke-dasharray: 5 5
-    style E fill:#fff3e0
-    style F fill:#fff3e0
-    style G fill:#fff3e0
-    style H fill:#fff3e0
-    style I fill:#fff3e0
-    style J fill:#fff3e0
-    style K fill:#e8f5e8
-    style L fill:#e8f5e8
-    style M fill:#e8f5e8
-    style P fill:#ffebee
-    style Q fill:#ffebee
-    
-    classDef clientTier fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef backendTier fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef externalTier fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef authLayer fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef future fill:#f9f9f9,stroke:#757575,stroke-width:2px,stroke-dasharray: 5 5
+    %% Professional Styling for Thesis
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    style C fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    style D fill:#f5f5f5,stroke:#616161,stroke-width:2px,stroke-dasharray:5 5,color:#000
+    style E fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style F fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style G fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style H fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style I fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style J fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style K fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    style M fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    style P fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+    style Q fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
 ```
 
 ## Architecture Principles Implementation
