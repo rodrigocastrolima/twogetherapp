@@ -28,9 +28,6 @@ graph TD
     subgraph External["External Tier"]
         K["Salesforce<br/>REST API"]
         L["CRM Objects<br/>& Files"]
-        ExtSpacer1[" "]
-        ExtSpacer2[" "]
-        ExtSpacer3[" "]
     end
     
     %% Connections - Clean Hierarchy
@@ -48,26 +45,23 @@ graph TD
     J --> K
     K --> L
     
-    %% Clean Professional Styling
-    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    style C fill:#f5f5f5,stroke:#757575,stroke-width:2px,stroke-dasharray:4 4
-    style D fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style E fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style F fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style G fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style H fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style I fill:#ffebee,stroke:#d32f2f,stroke-width:2px
-    style J fill:#ffebee,stroke:#d32f2f,stroke-width:2px
-    style K fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    style L fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    %% Professional Academic Grayscale Styling
+    style A fill:#f8f9fa,stroke:#343a40,stroke-width:2px
+    style B fill:#f8f9fa,stroke:#343a40,stroke-width:2px
+    style C fill:#ffffff,stroke:#6c757d,stroke-width:2px,stroke-dasharray:4 4
+    style D fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style E fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style F fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style G fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style H fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style I fill:#dee2e6,stroke:#212529,stroke-width:2px
+    style J fill:#dee2e6,stroke:#212529,stroke-width:2px
+    style K fill:#ced4da,stroke:#212529,stroke-width:2px
+    style L fill:#ced4da,stroke:#212529,stroke-width:2px
     
     %% Hide spacer nodes
     style ClientSpacer1 fill:transparent,stroke:transparent
     style ClientSpacer2 fill:transparent,stroke:transparent
-    style ExtSpacer1 fill:transparent,stroke:transparent
-    style ExtSpacer2 fill:transparent,stroke:transparent
-    style ExtSpacer3 fill:transparent,stroke:transparent
 ```
 
 ## Architecture Principles Implementation
