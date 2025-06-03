@@ -4,25 +4,29 @@
 
 ```mermaid
 graph TD
-    %% Client Tier
-    A["Web Admin<br/>Interface"] 
-    B["Mobile Reseller<br/>Interface"]
-    C["Future Agent<br/>Interface"]
+    subgraph Client["Client Tier - Presentation Layer"]
+        A["Web Admin<br/>Interface"] 
+        B["Mobile Reseller<br/>Interface"]
+        C["Future Agent<br/>Interface"]
+    end
     
-    %% Firebase Backend Services  
-    D["Firebase Auth"]
-    E["Cloud Firestore"]
-    F["Firebase Storage"] 
-    G["Cloud Functions"]
-    H["Firebase Messaging"]
+    subgraph Backend["Backend Tier - Service Orchestration Layer"]
+        D["Firebase Auth"]
+        E["Cloud Firestore"]
+        F["Firebase Storage"] 
+        G["Cloud Functions"]
+        H["Firebase Messaging"]
+        
+        subgraph Auth["Authentication Layer"]
+            I["OAuth 2.0<br/>Admin Access"]
+            J["JWT Proxy<br/>Reseller Access"]
+        end
+    end
     
-    %% Authentication Layer
-    I["OAuth 2.0<br/>Admin Access"]
-    J["JWT Proxy<br/>Reseller Access"]
-    
-    %% Salesforce CRM
-    K["Salesforce<br/>REST API"]
-    L["CRM Objects<br/>& Files"]
+    subgraph External["External Tier - System Integrations"]
+        K["Salesforce<br/>REST API"]
+        L["CRM Objects<br/>& Files"]
+    end
     
     %% Connections - Clean Hierarchy
     A --> D
