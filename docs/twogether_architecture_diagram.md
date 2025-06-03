@@ -29,8 +29,7 @@ graph TB
             M[Salesforce Files API<br/>Document Management]
         end
         
-        N[Email Services<br/>Notifications]
-        O[Third-party Analytics<br/>Business Intelligence]
+        N[Third-party Analytics<br/>Business Intelligence]
     end
     
     subgraph "Authentication Layers"
@@ -62,15 +61,13 @@ graph TB
     P --> K
     Q --> K
     H --> M
-    H --> N
-    
     %% Salesforce Internal
     K --> L
     K --> M
     
     %% Analytics Flow
-    F --> O
-    J --> O
+    F --> N
+    J --> N
     
     %% Styling
     style A fill:#e1f5fe
