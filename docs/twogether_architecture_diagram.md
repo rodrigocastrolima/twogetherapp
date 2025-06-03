@@ -7,7 +7,7 @@ graph TD
     subgraph Client["Client Tier"]
         A["Web Admin<br/>Interface"] 
         B["Mobile Reseller<br/>Interface"]
-        C["Future Agent<br/>Interface"]
+        C["Agent<br/>Integration"]
         ClientSpacer1[" "]
         ClientSpacer2[" "]
     end
@@ -58,6 +58,12 @@ graph TD
     style J fill:#dee2e6,stroke:#212529,stroke-width:2px
     style K fill:#ced4da,stroke:#212529,stroke-width:2px
     style L fill:#ced4da,stroke:#212529,stroke-width:2px
+    
+    %% Container Styling
+    style Client fill:#f8f9fa,stroke:#495057,stroke-width:2px
+    style Backend fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style External fill:#dee2e6,stroke:#495057,stroke-width:2px
+    style Auth fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
     
     %% Hide spacer nodes
     style ClientSpacer1 fill:transparent,stroke:transparent
