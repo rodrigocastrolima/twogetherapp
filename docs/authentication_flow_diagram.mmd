@@ -1,0 +1,52 @@
+flowchart TD
+    A[User Access] --> B{Authenticated?}
+    B -->|No| C[Login Page]
+    C --> D[Enter Credentials]
+    D --> E[Firebase Auth]
+    E --> F{First Login?}
+    
+    F -->|Yes| G[Change Password]
+    G --> H[Mark Complete]
+    H --> I{Check Role}
+    
+    F -->|No| I{Check Role}
+    
+    I -->|Admin| J[Admin Dashboard]
+    I -->|Reseller| K{Has Salesforce ID?}
+    I -->|Unknown| L[Access Denied]
+    
+    K -->|Yes| M[Reseller Dashboard]
+    K -->|No| N[Contact Admin]
+    
+    %% User Creation (Simplified)
+    subgraph UC[User Creation]
+        O[Admin Creates User]
+        P[Validate Salesforce ID]
+        Q[Create Account]
+        R[Set Temp Password]
+    end
+    
+    O --> P --> Q --> R
+    
+    %% Styling - Professional Grayscale
+    style A fill:#f8f9fa,stroke:#495057,stroke-width:2px
+    style J fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style M fill:#e9ecef,stroke:#495057,stroke-width:2px
+    style UC fill:#dee2e6,stroke:#495057,stroke-width:2px
+    style L fill:#ced4da,stroke:#343a40,stroke-width:2px
+    style N fill:#ced4da,stroke:#343a40,stroke-width:2px
+    
+    style B fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style F fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style I fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    style K fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    
+    style C fill:#ffffff,stroke:#212529,stroke-width:1px
+    style D fill:#ffffff,stroke:#212529,stroke-width:1px
+    style E fill:#ffffff,stroke:#212529,stroke-width:1px
+    style G fill:#ffffff,stroke:#212529,stroke-width:1px
+    style H fill:#ffffff,stroke:#212529,stroke-width:1px
+    style O fill:#ffffff,stroke:#212529,stroke-width:1px
+    style P fill:#ffffff,stroke:#212529,stroke-width:1px
+    style Q fill:#ffffff,stroke:#212529,stroke-width:1px
+    style R fill:#ffffff,stroke:#212529,stroke-width:1px
