@@ -32,11 +32,13 @@ class ProposalCommission {
   final String proposalId;
   final String opportunityName;
   final double commission;
+  final String? createdDate;
 
   ProposalCommission({
     required this.proposalId,
     required this.opportunityName,
     required this.commission,
+    this.createdDate,
   });
 
   factory ProposalCommission.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class ProposalCommission {
       proposalId: json['id'] as String? ?? '',
       opportunityName: json['opportunityName'] as String? ?? '',
       commission: (json['totalCommission'] as num? ?? 0).toDouble(),
+      createdDate: json['createdDate'] as String?,
     );
   }
 } 

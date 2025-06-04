@@ -93,7 +93,8 @@ export const getResellerDashboardStats = onCall(
           Id,
           Name,
           Oportunidade__r.Id,
-          Oportunidade__r.Nome_Entidade__c
+          Oportunidade__r.Nome_Entidade__c,
+          Data_de_Cria_o_da_Proposta__c
         FROM Proposta__c
         WHERE Id IN ('${proposalIds.join("','")}')
       `;
@@ -128,6 +129,7 @@ export const getResellerDashboardStats = onCall(
           name: details?.Name,
           opportunityName: details?.Oportunidade__r.Nome_Entidade__c || opportunityNames.get(details?.Oportunidade__r.Id),
           totalCommission: rec.totalCommission || 0,
+          createdDate: details?.Data_de_Cria_o_da_Proposta__c || null,
         };
       });
 

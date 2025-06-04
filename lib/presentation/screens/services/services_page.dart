@@ -14,7 +14,9 @@ import '../../widgets/logo.dart'; // Import the LogoWidget
 import '../../widgets/app_input_field.dart';
 
 class ServicesPage extends ConsumerStatefulWidget {
-  const ServicesPage({super.key});
+  final String? quickAction;
+  
+  const ServicesPage({super.key, this.quickAction});
 
   @override
   ConsumerState<ServicesPage> createState() => ServicesPageState();
@@ -71,6 +73,74 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    // Handle quick action if provided
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.quickAction != null) {
+        _handleQuickAction(widget.quickAction!);
+      }
+    });
+
+    // Handle quick actions
+    if (widget.quickAction != null) {
+      // Pre-fill selections based on quick action
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        switch (widget.quickAction) {
+          case 'edp-solar':
+            setState(() {
+              _selectedEnergyType = EnergyType.solar;
+              _selectedClientType = ClientType.residential;
+              _selectedProvider = service_types.Provider.edp;
+              currentStep = 3;
+            });
+            ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+              'energyType': EnergyType.solar.name,
+              'clientType': ClientType.residential.name,
+              'provider': service_types.Provider.edp.name,
+            });
+            break;
+          case 'edp-comercial':
+            setState(() {
+              _selectedEnergyType = EnergyType.solar;
+              _selectedClientType = ClientType.commercial;
+              _selectedProvider = service_types.Provider.edp;
+              currentStep = 3;
+            });
+            ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+              'energyType': EnergyType.solar.name,
+              'clientType': ClientType.commercial.name,
+              'provider': service_types.Provider.edp.name,
+            });
+            break;
+          case 'repsol-residencial':
+            setState(() {
+              _selectedEnergyType = EnergyType.electricityGas;
+              _selectedClientType = ClientType.residential;
+              _selectedProvider = service_types.Provider.repsol;
+              currentStep = 3;
+            });
+            ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+              'energyType': EnergyType.electricityGas.name,
+              'clientType': ClientType.residential.name,
+              'provider': service_types.Provider.repsol.name,
+            });
+            break;
+        }
+      });
+    }
+  }
+
+  String _getPageTitle() {
+    switch (widget.quickAction) {
+      case 'edp-solar':
+        return 'EDP - Energia Solar';
+      case 'edp-comercial':
+        return 'EDP - Energia Comercial';
+      case 'repsol-residencial':
+        return 'Repsol - Energia Residencial';
+      default:
+        return 'Serviços';
+    }
   }
 
   @override
@@ -159,6 +229,54 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     // only the local controllers. Provider state is managed via updateFormFields.
   }
 
+  void _handleQuickAction(String quickAction) {
+    switch (quickAction) {
+      case 'edp-solar':
+        _skipToForm(
+          energyType: EnergyType.solar,
+          clientType: ClientType.commercial,
+          provider: service_types.Provider.edp,
+        );
+        break;
+      case 'edp-comercial':
+        _skipToForm(
+          energyType: EnergyType.electricityGas,
+          clientType: ClientType.commercial,
+          provider: service_types.Provider.edp,
+        );
+        break;
+      case 'repsol-residencial':
+        _skipToForm(
+          energyType: EnergyType.electricityGas,
+          clientType: ClientType.residential,
+          provider: service_types.Provider.repsol,
+        );
+        break;
+    }
+  }
+
+  void _skipToForm({
+    required EnergyType energyType,
+    required ClientType clientType,
+    required service_types.Provider provider,
+  }) {
+    setState(() {
+      currentStep = 3; // Jump directly to form step
+      _selectedEnergyType = energyType;
+      _selectedClientType = clientType;
+      _selectedProvider = provider;
+    });
+
+    // Pre-populate provider state
+    final formNotifier = ref.read(serviceSubmissionProvider.notifier);
+    formNotifier.updateFormFields({
+      'serviceCategory': ServiceCategory.energy.name,
+      'energyType': energyType.name,
+      'clientType': clientType.name,
+      'provider': provider.name,
+    });
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
 
@@ -229,6 +347,16 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   }
 
   void handleBackPress() {
+    // If we're in quick action mode and at the form step, go back to home
+    if (widget.quickAction != null && currentStep == 3) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
+      return;
+    }
+
     if (currentStep > 0) {
       setState(() {
         currentStep--;
@@ -341,7 +469,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
-          'Serviços',
+          _getPageTitle(),
                   style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
@@ -349,10 +477,11 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         ),
       ),
               // Step indicator (show after step 0)
-              if (currentStep > 0) ...[
-                const SizedBox(height: 24),
-                _buildStepIndicator(),
-              ],
+              if (widget.quickAction == null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                  child: _buildStepIndicator(),
+                ),
               const SizedBox(height: 24),
               Expanded(
                 child: _buildCurrentStep(),

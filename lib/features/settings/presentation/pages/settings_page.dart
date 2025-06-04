@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../notifications/presentation/providers/notification_provider.dart';
+import 'legal_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -112,6 +113,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 24),
+                // Legal Documents Section (Portuguese, with hover effect and router navigation)
+                _LegalDocumentCard(
+                  icon: Icons.gavel_rounded,
+                  title: 'Termos e Condições',
+                  onTap: () => context.push('/legal/terms'),
+                  theme: theme,
+                ),
+                const SizedBox(height: 12),
+                _LegalDocumentCard(
+                  icon: Icons.privacy_tip_rounded,
+                  title: 'Política de Privacidade',
+                  onTap: () => context.push('/legal/privacy'),
+                  theme: theme,
                 ),
                 const SizedBox(height: 24),
                 _buildSettingsTile(
@@ -355,6 +371,79 @@ class _SingleActionSettingsTile extends StatelessWidget {
                 trailing!,
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegalDocumentCard extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final ThemeData theme;
+  const _LegalDocumentCard({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    required this.theme,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  State<_LegalDocumentCard> createState() => _LegalDocumentCardState();
+}
+
+class _LegalDocumentCardState extends State<_LegalDocumentCard> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Material(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              color: _isHovering
+                  ? theme.colorScheme.surface.withAlpha((255 * 0.97).round())
+                  : theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(_isHovering ? (255 * 0.10).round() : (255 * 0.06).round()),
+                  blurRadius: _isHovering ? 10 : 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: Row(
+              children: [
+                Icon(widget.icon, color: theme.colorScheme.primary, size: 28),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
+              ],
+            ),
           ),
         ),
       ),

@@ -230,26 +230,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     );
 
     if (isHomePage) {
-      return Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: MediaQuery.of(context).size.height * 0.35,
-            child: Image.asset(
-              'assets/images/homepage.jpg',
-              fit: BoxFit.fitWidth,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey,
-                ); // Fallback for image load error
-              },
-            ),
-          ),
-          content, // The SafeArea wrapped content
-        ],
-      );
+      return content; // Just the SafeArea wrapped content, no background image
     } else {
       return content; // Just the SafeArea wrapped content
     }

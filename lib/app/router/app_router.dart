@@ -46,6 +46,7 @@ import 'package:twogether/features/providers/domain/models/provider_info.dart';
 import 'package:twogether/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart';
 import '../../features/user_management/presentation/pages/user_create_page.dart';
 import 'package:twogether/debug/minimal_debug_extra_page.dart'; // Import the new page
+import '../../features/settings/presentation/pages/legal_page.dart';
 
 // *** USE this Global Navigator Key consistently ***
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -1002,7 +1003,9 @@ class AppRouter {
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) {
           return _SlideTransition(
-            child: ServicesPage(),
+            child: ServicesPage(
+              quickAction: state.uri.queryParameters['quickAction'],
+            ),
           );
         },
       ),
@@ -1272,6 +1275,26 @@ class AppRouter {
             );
           }
         },
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _SlideTransition(
+          child: const LegalPage(
+            title: 'Termos e Condições',
+            content: 'Conteúdo dos Termos e Condições vai aqui.',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/legal/privacy',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _SlideTransition(
+          child: const LegalPage(
+            title: 'Política de Privacidade',
+            content: 'Conteúdo da Política de Privacidade vai aqui.',
+          ),
+        ),
       ),
     ],
     // Optional: Add error page handling

@@ -26,6 +26,7 @@ import '../../../features/proposal/presentation/providers/proposal_providers.dar
 import '../../../features/notifications/presentation/widgets/unified_notification_item.dart';
 import '../../../features/opportunity/presentation/providers/opportunity_providers.dart'; // Add opportunity providers
 import '../../widgets/app_loading_indicator.dart'; // Add loading indicator
+import '../../../features/salesforce/presentation/providers/salesforce_providers.dart';
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -36,14 +37,16 @@ const double _topRightPadding = 20.0; // Horizontal padding from header
 
 // Place this at the top-level, outside of _ResellerHomePageState
 class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final VoidCallback onTap;
+  final String? imageAsset;
 
   const _QuickActionCard({
-    required this.icon,
+    this.icon,
     required this.label,
     required this.onTap,
+    this.imageAsset,
   });
 
   @override
@@ -57,12 +60,21 @@ class _QuickActionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          width: 170,
+          width: 180, // Fixed width for all cards
+          height: 140, // Optional: fixed height for consistency
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 36, color: theme.colorScheme.primary),
+              if (imageAsset != null)
+                Image.asset(
+                  imageAsset!,
+                  height: 36,
+                  fit: BoxFit.contain,
+                )
+              else if (icon != null)
+                Icon(icon, size: 36, color: theme.colorScheme.primary),
               const SizedBox(height: 12),
               Text(
                 label,
@@ -290,211 +302,209 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
     final theme = Theme.of(context);
-    final authNotifier = ref.watch(authNotifierProvider);
-    final bool isFirstLogin = authNotifier.isFirstLogin;
-    final bool passwordHasBeenChanged =
-        authNotifier
-            .initialPasswordChanged; // Still needed for password reminder
-    final bool currentShouldAnimateHelpIcon = _isAppActive && isFirstLogin && !_hasSeenHintLocally;
-
-    if (currentShouldAnimateHelpIcon && !_helpIconAnimationController.isAnimating) {
-      _helpIconAnimationController.repeat(reverse: true);
-    } else if (!currentShouldAnimateHelpIcon && _helpIconAnimationController.isAnimating) {
-      _helpIconAnimationController.stop();
-      _helpIconAnimationController.value = 0.0;
+    final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+    final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
+    // Status calculation logic (copied from dashboard_page.dart)
+    Map<String, int> _calculateStatusCounts(List opportunities) {
+      int active = 0;
+      int actionNeeded = 0;
+      int pending = 0;
+      int rejected = 0;
+      for (final opportunity in opportunities) {
+        String proposalStatus = '';
+        if (opportunity.propostasR?.records != null && opportunity.propostasR!.records.isNotEmpty) {
+          proposalStatus = opportunity.propostasR!.records.first.statusC ?? '';
+        }
+        if (proposalStatus == 'Aceite') {
+          active++;
+        } else if (["Enviada", "Em Aprovação"].contains(proposalStatus)) {
+          actionNeeded++;
+        } else if (["Aprovada", "Expirada", "Criação", "Em Análise"].contains(proposalStatus)) {
+          pending++;
+        } else if (["Não Aprovada", "Cancelada"].contains(proposalStatus)) {
+          rejected++;
+        }
+      }
+      return {
+        'active': active,
+        'actionNeeded': actionNeeded,
+        'pending': pending,
+        'rejected': rejected,
+      };
     }
-
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    // final bool isWideScreen = screenWidth > 900;
-
-    // --- Build method uses Stack structure similar to old code ---
     return Scaffold(
-      backgroundColor:
-          Colors.transparent, // Make Scaffold background transparent
-      // Explicitly wrap body in a transparent Material widget
-      body: Material(
-        type: MaterialType.transparency,
-        child: RefreshIndicator(
-          key: _refreshIndicatorKey, // Assign key
-          displacement: 40,
-          onRefresh: _onRefresh,
-          backgroundColor: Colors.transparent, // Explicitly set background
-          color: theme.colorScheme.primary, // Color of the spinner
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // --- Top Section Container (Transparent again, relies on MainLayout) ---
-                Container(
-                  height:
-                      screenSize.height * 0.33, // Match background image height
-                  width: double.infinity,
-                  // REMOVED explicit BoxDecoration with image
-                  color: Colors.transparent,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Stack(
-                      // Stack for icons and commission box
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        bottom: false,
+        top: false,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 24),
+              // Header Row (Profile Icon, Action Icons)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ref.watch(authStateChangesProvider).when(
+                      data: (user) => _buildProfileIcon(
+                        context,
+                        theme,
+                        user?.displayName,
+                        user?.email,
+                      ),
+                      loading: () => _buildProfileIconPlaceholder(context, theme),
+                      error: (_, __) => _buildProfileIcon(context, theme, null, null),
+                    ),
+                    Row(
                       children: [
-                        Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            // --- Header Row (Profile Icon, Action Icons) ---
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20.0,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  // Profile Icon
-                                  ref
-                                      .watch(authStateChangesProvider)
-                                      .when(
-                                        data:
-                                            (user) => _buildProfileIcon(
-                                              context,
-                                              theme,
-                                              user?.displayName,
-                                              user?.email,
-                                            ),
-                                        loading:
-                                            () => _buildProfileIconPlaceholder(
-                                              context,
-                                              theme,
-                                            ),
-                                        error:
-                                            (_, __) => _buildProfileIcon(
-                                              context,
-                                              theme,
-                                              null,
-                                              null,
-                                            ), // Fallback
-                                      ),
-                                  // Action Icons
-                                  Row(
-                                    children: [
-                                      Consumer(
-                                        builder: (context, ref, _) {
-                                          final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
-                                          final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
-                                          
-                                          return _CircleIconButton(
-                                            icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
-                                            onTap: () async {
-                                              await notificationSettings.toggle();
-                                            },
-                                            isHighlighted: false,
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(
-                                        width: 8,
-                                      ), // Adjusted from 10 to 8 if search is removed
-                                      ScaleTransition(
-                                        scale:
-                                            _helpIconAnimation, // This is for the hint pulse
-                                        child: _CircleIconButton(
-                                          // Changed to stateful version
-                                          icon: CupertinoIcons.question_circle,
-                                          isHighlighted:
-                                              currentShouldAnimateHelpIcon, // For hint pulse border/bg
-                                          onTap:
-                                              () => _handleHelpIconTap(
-                                                context,
-                                                currentShouldAnimateHelpIcon, // Pass currentShouldAnimate
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
+                            final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
+                            return _CircleIconButton(
+                              icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
+                              onTap: () async {
+                                await notificationSettings.toggle();
+                              },
+                              isHighlighted: false,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ScaleTransition(
+                          scale: _helpIconAnimation,
+                          child: _CircleIconButton(
+                            icon: CupertinoIcons.question_circle,
+                            isHighlighted: _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
+                            onTap: () => _handleHelpIconTap(
+                              context,
+                              _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
                             ),
-                            // Commission Box (Centered within Expanded)
-                            Expanded(
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  // Ensure _buildCommissionBox is the direct child here
-                                  child: _buildCommissionBox(),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  'Início',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    letterSpacing: -0.5,
+                  ),
+                  textAlign: TextAlign.left,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Commission Earnings Box
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: dashboardStatsAsync.when(
+                  data: (stats) => _buildCommissionBox(stats.totalCommission),
+                  loading: () => _buildCommissionBox(null, isLoading: true),
+                  error: (e, _) => _buildCommissionBox(null, isError: true),
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Client Status Cards
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: opportunitiesAsync.when(
+                  data: (opps) {
+                    final statusCounts = _calculateStatusCounts(opps);
+                    return Row(
+                      children: [
+                        Expanded(child: _buildStatusCard(context, label: 'Ativos', count: statusCounts['active']!, icon: CupertinoIcons.checkmark_seal_fill, color: Colors.green)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildStatusCard(context, label: 'Ação Necessária', count: statusCounts['actionNeeded']!, icon: CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildStatusCard(context, label: 'Pendentes', count: statusCounts['pending']!, icon: CupertinoIcons.clock_fill, color: Colors.orange)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildStatusCard(context, label: 'Rejeitados', count: statusCounts['rejected']!, icon: CupertinoIcons.xmark_seal_fill, color: Colors.red)),
+                      ],
+                    );
+                  },
+                  loading: () => Row(children: List.generate(4, (i) => Expanded(child: _buildStatusCard(context, label: '', count: 0, icon: CupertinoIcons.circle, color: Colors.grey.shade300)))),
+                  error: (e, _) => Row(children: List.generate(4, (i) => Expanded(child: _buildStatusCard(context, label: 'Erro', count: 0, icon: Icons.error, color: Colors.red)))),
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Quick Actions
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Text(
+                  'Ações Rápidas',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-                // --- Bottom Content Area (Opaque Background) ---
-                Container(
-                  width: double.infinity,
-                  color: theme.colorScheme.background,
-                  padding: const EdgeInsets.only(top: 20, bottom: 60),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Quick Actions Section ---
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                        child: Text(
-                          'Ações Rápidas',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                        child: Wrap(
-                          spacing: 24,
-                          runSpacing: 16,
-                          children: [
-                            _QuickActionCard(
-                              icon: CupertinoIcons.add_circled_solid,
-                              label: 'Novo Serviço',
-                              onTap: () => context.push('/services'),
-                            ),
-                            _QuickActionCard(
-                              icon: CupertinoIcons.cloud_download,
-                              label: 'Dropbox',
-                              onTap: () => context.push('/providers'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      // --- Notifications Section ---
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                        child: Text(
-                          'Notificações',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: _buildNotificationsSection(),
-                      ),
-                    ],
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 16,
+                  children: [
+                    _QuickActionCard(
+                      icon: CupertinoIcons.add_circled_solid,
+                      label: 'Novo Serviço',
+                      onTap: () => context.push('/services'),
+                    ),
+                    _QuickActionCard(
+                      icon: CupertinoIcons.cloud_download,
+                      label: 'Dropbox',
+                      onTap: () => context.push('/providers'),
+                    ),
+                    _QuickActionCard(
+                      imageAsset: 'assets/images/edp_logo_br.png',
+                      label: 'Energia Solar',
+                      onTap: () => context.push('/services?quickAction=edp-solar'),
+                    ),
+                    _QuickActionCard(
+                      imageAsset: 'assets/images/edp_logo_br.png',
+                      label: 'Energia Comercial',
+                      onTap: () => context.push('/services?quickAction=edp-comercial'),
+                    ),
+                    _QuickActionCard(
+                      imageAsset: 'assets/images/repsol_logo_br.png',
+                      label: 'Energia Residencial',
+                      onTap: () => context.push('/services?quickAction=repsol-residencial'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Notifications
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Text(
+                  'Notificações',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: _buildNotificationsSection(),
+              ),
+            ],
           ),
         ),
       ),
@@ -827,127 +837,159 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     }
   }
 
-  Widget _buildCommissionBox() {
+  // --- Commission Earnings Box with Blur/Glass Effect ---
+  Widget _buildCommissionBox(double? value, {bool isLoading = false, bool isError = false}) {
     final theme = Theme.of(context);
-    final commissionAsync = ref.watch(resellerTotalCommissionProvider);
-
-    return Material(
-      color: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: Container(
-            decoration: AppStyles.glassCard(context),
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+    String displayValue;
+    if (isLoading) {
+      displayValue = '...';
+    } else if (isError) {
+      displayValue = 'Erro';
+    } else if (!_isEarningsVisible) {
+      displayValue = '••••••';
+    } else {
+      displayValue = value != null ? '€ ${value.toStringAsFixed(2)}' : '€ 0.00';
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: AppStyles.standardBlur,
+        child: Container(
+          width: double.infinity,
+          decoration: AppStyles.glassCard(context),
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ShaderMask(
-                    shaderCallback: (bounds) {
-                      return LinearGradient(
-                        colors: [
-                          Colors.white.withOpacity(0.9),
-                          Colors.white,
-                          Colors.white.withOpacity(0.9),
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ).createShader(bounds);
-                    },
-                    child: Text(
-                      'Ganhos de Comissão',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.9),
-                        letterSpacing: 0.5,
-                      ),
+                  Text(
+                    'Comissão Total',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _isEarningsVisible = !_isEarningsVisible;
-                      });
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        commissionAsync.when(
-                          data: (commissionValue) {
-                          final currencyFormat = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
-                          final formattedCommission = currencyFormat.format(commissionValue);
-                            return _isEarningsVisible
-                              ? Row(children: [Text(formattedCommission, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black.withOpacity(0.2), blurRadius: 3, offset: const Offset(0, 1))])), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))] )
-                                : _buildHiddenAmountRow(theme);
-                          },
-                        loading: () => _isEarningsVisible ? Row(children: [Text('--,-- €', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
-                        error: (error, stack) => _isEarningsVisible ? Row(children: [Text('N/A', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.7))), const SizedBox(width: 10), Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle), child: Icon(CupertinoIcons.eye_fill, size: 18, color: Colors.white.withOpacity(0.9)))]) : _buildHiddenAmountRow(theme),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        displayValue,
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: Icon(_isEarningsVisible ? Icons.visibility : Icons.visibility_off, color: theme.colorScheme.onSurfaceVariant),
+                        onPressed: () {
+                          setState(() {
+                            _isEarningsVisible = !_isEarningsVisible;
+                          });
+                        },
+                        tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
                       ),
                     ],
                   ),
-                ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                  height: 40,
-                  child: OutlinedButton(
-                      onPressed: () => context.push('/dashboard'),
-                    style: AppStyles.glassButtonStyle(context),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                        Text('Ver Detalhes'),
-                          const SizedBox(width: 4),
-                        Icon(CupertinoIcons.chevron_right, size: 12, color: Colors.white),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
-            ),
+              ),
+              IconButton(
+                icon: Icon(Icons.chevron_right, color: theme.colorScheme.primary, size: 36),
+                onPressed: () {
+                  // TODO: Navigate to details page
+                },
+                tooltip: 'Ver detalhes',
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // Helper to build the hidden amount row consistently
-  Widget _buildHiddenAmountRow(ThemeData theme) {
-    return Row(
+  Widget _buildCenteredStat(BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    return Column(
       children: [
-        Container(
-          width: 140,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
+        Icon(
+          icon,
+          size: 48,
+          color: color,
         ),
-        const SizedBox(width: 8),
+        const SizedBox(height: 12),
         Text(
-          '€',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
+          value,
+          style: theme.textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
           ),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(width: 10),
-        // Eye icon toggle
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            shape: BoxShape.circle,
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
           ),
-          child: Icon(
-            CupertinoIcons.eye_slash_fill,
-            size: 18,
-            color: Colors.white.withOpacity(0.9),
-          ),
+          textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+
+  Widget _buildStatusCard(BuildContext context, {
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            count.toString(),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

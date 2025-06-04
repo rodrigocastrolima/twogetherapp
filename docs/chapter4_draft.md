@@ -329,6 +329,22 @@ graph LR
     L --> P
 ```
 
+### 4.3.2 Opportunity and Proposal Management
+
+The Opportunity and Proposal Management module governs the core workflow by which administrative users convert approved service submissions into formal Salesforce opportunities and attach detailed commercial proposals. This module is exclusively accessed by back-office personnel through a dedicated dashboard and serves as the system's central point of contact with the Salesforce CRM.
+
+Following the approval of a service submission, the administrator accesses the opportunity creation interface. This form includes mandatory Salesforce-compatible fields, such as client classification, retail agent associated with the submission and sales metadata. The system performs a real-time lookup of the client's NIF in Salesforce to determine whether an account already exists. If a match is found, the new opportunity is linked to the existing account; if not, a new account is automatically created via a secure Cloud Function. Upon completion of the form, the opportunity is generated using the createSalesforceOpportunity function. The Salesforce-generated Opportunity ID is then stored in Firestore and associated with the originating submission for traceability.
+
+Each opportunity can include one or more attached proposals. These proposals are created separately from the opportunity, through a dedicated administrative workflow. Proposal creation supports the inclusion of detailed metadata such as pricing estimates, proposal validity dates, service selections and associated documentation. Each proposal is also linked to one or more CPE records. These CPE entries store technical and commercial data such as consumption profiles, fidelization periods and NIF association, enabling comprehensive quotation management.
+
+Proposal status tracking is integral to the module's workflow. Each proposal is assigned one of several predetermined statuses (Enviada, Em Aprovação, Aceite, Não Aprovada, or Cancelada) that reflect its stage in the sales lifecycle. Status updates are mirrored in Firestore via post-response updates from Cloud Functions, ensuring near real-time synchronization between the administrative interface and Salesforce.
+
+A critical feature of this module is the comprehensive editability of all CRM records after their initial creation. Opportunities, proposals, and CPE records can be modified directly through the administrative interface, with changes propagated to Salesforce via dedicated Cloud Functions (updateSalesforceOpportunity, updateSalesforceProposal). This bidirectional synchronization architecture transforms TwogetherApp into a fully functional proxy for the organization's internal CRM, enabling administrative users to manage the complete sales lifecycle without requiring direct Salesforce access. Changes made within Salesforce are also reflected back in the application through periodic data synchronization, ensuring data consistency across both systems.
+
+The administrative dashboard offers a consolidated view of all opportunities and proposals. It supports advanced filtering by reseller ID, energy type, client type, and Salesforce status. A real-time search bar enables keyword queries across opportunity names, account names, and NIF values. The interface also allows for seamless navigation between linked submissions, opportunities, and proposals, streamlining the workflow for both sales and compliance tracking. Document management is fully integrated, supporting file uploads, deletions, and downloads directly through the Salesforce Content Document API.
+
+In sum, this module transforms field-collected client data into actionable CRM records while providing a complete proxy interface to Salesforce functionality. The bidirectional data synchronization ensures that TwogetherApp serves as both a data collection platform and a comprehensive CRM management tool, maintaining auditability, integration consistency, and business rule enforcement throughout the sales process. Figure 4.X provides a visual overview of the proposal creation interface used by administrators.
+
 **STEP 3 DONE**
 
 ## 4.4 Integration Layer (CRM Synchronisation)
