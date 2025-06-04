@@ -5,18 +5,18 @@ This diagram illustrates the service submission workflow from reseller initiatio
 ```mermaid
 flowchart LR
     A[Reseller Submits<br/>Service Request] --> B[Multi-Step Form<br/>Service Category<br/>Client Details<br/>Documents]
-    B --> C[Store in Firestore<br/>Status: pending_review]
+    B --> C[Store in Firestore]
     C --> D[Admin Reviews<br/>Submission]
     
     D --> E{Admin Decision}
     E -->|Approve| F[Complete Additional<br/>Salesforce Fields]
-    E -->|Reject| G[Update Status<br/>rejected]
+    E -->|Reject| K[Notify Reseller<br/>Rejection]
     
-    F --> H[Create Salesforce<br/>Opportunity]
-    H --> I[Update Status<br/>approved]
+    subgraph SF["Salesforce CRM"]
+        F --> H[Create Salesforce<br/>Opportunity]
+    end
     
-    I --> J[Notify Reseller<br/>Success]
-    G --> K[Notify Reseller<br/>Rejection]
+    H --> J[Notify Reseller<br/>Success]
     
     %% Styling - Professional Grayscale
     style A fill:#f8f9fa,stroke:#495057,stroke-width:2px
@@ -25,12 +25,12 @@ flowchart LR
     style D fill:#e9ecef,stroke:#495057,stroke-width:2px
     style F fill:#e9ecef,stroke:#495057,stroke-width:2px
     style H fill:#dee2e6,stroke:#495057,stroke-width:2px
-    style I fill:#dee2e6,stroke:#495057,stroke-width:2px
-    style G fill:#ced4da,stroke:#343a40,stroke-width:2px
     style J fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
     style K fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
-    
     style E fill:#f1f3f4,stroke:#6c757d,stroke-width:1px
+    
+    %% Salesforce container styling
+    style SF fill:#f8f9fa,stroke:#343a40,stroke-width:3px,stroke-dasharray: 5 5
 ```
 
 ## Key Workflow Features
