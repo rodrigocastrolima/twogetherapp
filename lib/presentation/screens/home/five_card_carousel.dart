@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 
 class FiveCardCarousel extends StatefulWidget {
   final List<Widget> items;
-  final double height;
+  final double size;
   final double centerScale;
   final double sideScale;
   final double sideOpacity;
+  final double spacing;
 
   const FiveCardCarousel({
     Key? key,
     required this.items,
-    this.height = 140,
+    this.size = 120,
     this.centerScale = 1.0,
-    this.sideScale = 0.8,
-    this.sideOpacity = 0.6,
+    this.sideScale = 0.85,
+    this.sideOpacity = 0.7,
+    this.spacing = 28.0,
   }) : super(key: key);
 
   @override
@@ -21,19 +23,15 @@ class FiveCardCarousel extends StatefulWidget {
 }
 
 class _FiveCardCarouselState extends State<FiveCardCarousel> {
-  static const int _infiniteScrollCount = 10000;
-  late final int _initialPage;
   late PageController _controller;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    _initialPage = _infiniteScrollCount ~/ 2;
-    _currentPage = _initialPage;
     _controller = PageController(
-      initialPage: _initialPage,
-      viewportFraction: 0.25, // 4 cards fit, but we scale for 5-peek effect
+      initialPage: _currentPage,
+      viewportFraction: (widget.size + widget.spacing) / MediaQueryData.fromWindow(WidgetsBinding.instance.window).size.width,
     );
   }
 
@@ -46,22 +44,34 @@ class _FiveCardCarouselState extends State<FiveCardCarousel> {
   @override
   Widget build(BuildContext context) {
     final itemCount = widget.items.length;
+    final double cardSize = widget.size;
+    final double cardSpacing = widget.spacing;
+    final double viewportFraction = (cardSize + cardSpacing) / MediaQuery.of(context).size.width;
+    if (_controller.viewportFraction != viewportFraction) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller = PageController(
+          initialPage: _currentPage,
+          viewportFraction: viewportFraction,
+        );
+        setState(() {});
+      });
+    }
     return SizedBox(
-      height: widget.height,
+      height: cardSize,
       child: PageView.builder(
         controller: _controller,
-        itemCount: _infiniteScrollCount,
+        itemCount: itemCount,
         onPageChanged: (index) {
           setState(() {
             _currentPage = index;
           });
         },
+        physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
-          final realIndex = index % itemCount;
           double delta = (_controller.hasClients ? (_controller.page ?? _controller.initialPage).toDouble() : _controller.initialPage.toDouble()) - index.toDouble();
-          double scale = widget.centerScale - (delta.abs() * (widget.centerScale - widget.sideScale) / 2);
+          double scale = widget.centerScale - (delta.abs() * (widget.centerScale - widget.sideScale));
           scale = scale.clamp(widget.sideScale, widget.centerScale).toDouble();
-          double opacity = 1.0 - (delta.abs() * (1.0 - widget.sideOpacity) / 2);
+          double opacity = 1.0 - (delta.abs() * (1.0 - widget.sideOpacity));
           opacity = opacity.clamp(widget.sideOpacity, 1.0).toDouble();
 
           return Center(
@@ -69,9 +79,13 @@ class _FiveCardCarouselState extends State<FiveCardCarousel> {
               opacity: opacity,
               child: Transform.scale(
                 scale: scale,
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.5,
-                  child: widget.items[realIndex],
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: cardSpacing / 2),
+                  child: SizedBox(
+                    width: cardSize,
+                    height: cardSize,
+                    child: widget.items[index],
+                  ),
                 ),
               ),
             ),

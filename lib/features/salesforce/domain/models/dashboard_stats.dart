@@ -12,7 +12,7 @@ class DashboardStats {
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
     List<dynamic> proposalsJson = json['proposals'] as List<dynamic>? ?? [];
     List<ProposalCommission> parsedProposals = proposalsJson
-        .map((p) => ProposalCommission.fromJson(p as Map<String, dynamic>))
+        .map((p) => ProposalCommission.fromJson(Map<String, dynamic>.from(p as Map)))
         .toList();
 
     double calculatedTotalCommission = parsedProposals.fold(

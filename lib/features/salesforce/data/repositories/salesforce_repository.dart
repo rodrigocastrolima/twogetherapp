@@ -951,7 +951,7 @@ class SalesforceRepository {
       }
 
       if (data['success'] == true) {
-        return DashboardStats.fromJson(data);
+        return DashboardStats.fromJson(Map<String, dynamic>.from(data));
       } else {
         throw Exception(data['error'] ?? 'Failed to fetch dashboard stats');
       }

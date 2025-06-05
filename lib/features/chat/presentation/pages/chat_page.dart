@@ -315,85 +315,9 @@ class ChatPageState extends ConsumerState<ChatPage> {
       }
     }
 
-    // Check if support is online (between 9am and 6pm)
-    final isOnline = _isBusinessHours();
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar:
-          widget.showAppBar
-              ? AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // User avatar with circle
-                    CircleAvatar(
-                      backgroundColor:
-                          theme.brightness == Brightness.dark
-                              ? theme.colorScheme.surface
-                              : theme.colorScheme.primary.withAlpha(25),
-                      radius: 20,
-                      child: Text(
-                        (widget.title?.isNotEmpty == true)
-                            ? widget.title![0].toUpperCase()
-                            : 'S', // Fallback initial
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color:
-                              theme.brightness == Brightness.dark
-                                  ? theme.colorScheme.onSurface
-                                  : Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // User name with online indicator
-                    Row(
-                      children: [
-                        // Name
-                        Text(
-                          widget.title ?? 'Suporte',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Simple online indicator
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: isOnline ? Colors.green : Colors.grey,
-                            shape: BoxShape.circle,
-                            boxShadow:
-                                isOnline
-                                    ? [
-                                      BoxShadow(
-                                        color: Colors.green.withAlpha((255 * 0.4).round()),
-                                        blurRadius: 4,
-                                        spreadRadius: 1,
-                                      ),
-                                    ]
-                                    : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                centerTitle: true,
-                // Left-aligned back button
-                leading: IconButton(
-                  icon: const Icon(CupertinoIcons.back),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              )
-              : null,
+      appBar: widget.showAppBar ? null : null,
       body: SafeArea(
         bottom: true,
         top: false,
@@ -401,20 +325,21 @@ class ChatPageState extends ConsumerState<ChatPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!(widget.isAdminView && !widget.showAppBar)) ...[
-              const SizedBox(height: 24),
+              // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Text(
                   'Mensagens',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
-                    letterSpacing: -0.5,
+                    fontSize: _getResponsiveFontSize(context, 24),
                   ),
-                  textAlign: TextAlign.left,
                 ),
               ),
-              const SizedBox(height: 24),
+              // Responsive spacing after title - 24px for mobile, 32px for desktop
+              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 24 : 32),
             ],
             Expanded(
               child: Padding(
@@ -575,10 +500,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
               ),
             ),
             // Input area - always visible, outside the chat container
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0), // Add spacing above input
-              child: _buildMessageInput(),
-            ),
+            _buildMessageInput(),
           ],
         ),
       ),
@@ -962,11 +884,12 @@ class ChatPageState extends ConsumerState<ChatPage> {
         : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
     
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Column(
         children: [
           // Attachment preview (if any)
           if (_selectedFile != null) _buildAttachmentPreview(),
+          SizedBox(height: 8),
           // Main input row
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -998,78 +921,96 @@ class ChatPageState extends ConsumerState<ChatPage> {
                 ),
                 const SizedBox(width: 12),
               ] else ...[
-                // On mobile, show camera and gallery buttons
-                Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.camera),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
-                          width: 1,
+                // On mobile, show single plus button with popup menu
+                PopupMenuButton<String>(
+                  offset: const Offset(-8, -160), // Position above the button
+                  enabled: !_isImageLoading,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: buttonColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(CupertinoIcons.plus, size: 20, color: buttonIconColor),
+                  ),
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      value: 'camera',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Icon(CupertinoIcons.camera, size: 18, color: theme.colorScheme.onSurface),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Tirar Foto', 
+                                style: TextStyle(color: theme.colorScheme.onSurface),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Icon(Icons.camera_alt_outlined, size: 20, color: buttonIconColor),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: _isImageLoading ? null : () => _getImageFromSource(ImageSource.gallery),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
-                          width: 1,
+                    PopupMenuItem<String>(
+                      value: 'gallery',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Icon(CupertinoIcons.photo, size: 18, color: theme.colorScheme.onSurface),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Escolher da Galeria', 
+                                style: TextStyle(color: theme.colorScheme.onSurface),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Icon(Icons.photo_outlined, size: 20, color: buttonIconColor),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Add file picker for files on mobile
-                Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: _pickFile,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
-                          width: 1,
+                    PopupMenuItem<String>(
+                      value: 'file',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Icon(CupertinoIcons.doc, size: 18, color: theme.colorScheme.onSurface),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Anexar Arquivo', 
+                                style: TextStyle(color: theme.colorScheme.onSurface),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Icon(Icons.attach_file, size: 20, color: buttonIconColor),
                     ),
-                  ),
+                  ],
+                  onSelected: (String value) {
+                    switch (value) {
+                      case 'camera':
+                        _getImageFromSource(ImageSource.camera);
+                        break;
+                      case 'gallery':
+                        _getImageFromSource(ImageSource.gallery);
+                        break;
+                      case 'file':
+                        _pickFile();
+                        break;
+                    }
+                  },
                 ),
                 const SizedBox(width: 12),
               ],
@@ -1246,6 +1187,12 @@ class ChatPageState extends ConsumerState<ChatPage> {
     return hour >= 9 && hour < 18; // 9am to 6pm
   }
 
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   Future<void> _pickFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -1303,6 +1250,8 @@ class ChatPageState extends ConsumerState<ChatPage> {
       _isAttachmentImage = false;
     });
   }
+
+
 }
 
 class SafeNetworkImage extends StatefulWidget {

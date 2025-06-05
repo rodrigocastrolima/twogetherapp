@@ -21,31 +21,41 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentTheme = ref.watch(themeProvider);
     final themeNotifier = ref.watch(themeProvider.notifier);
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 600;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+          SizedBox(height: isSmallScreen ? 0 : 24),
           // --- Title ---
           Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Text(
               'Definições',
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
                 color: theme.colorScheme.onSurface,
-                letterSpacing: -0.5,
+                fontSize: _getResponsiveFontSize(context, 24),
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          // Responsive spacing after title - 24px for mobile, 32px for desktop
+          SizedBox(height: isSmallScreen ? 24 : 32),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
@@ -115,19 +125,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Legal Documents Section (Portuguese, with hover effect and router navigation)
-                _LegalDocumentCard(
+                // Legal Documents Section (Portuguese, consistent styling)
+                _buildSettingsTile(
                   icon: Icons.gavel_rounded,
                   title: 'Termos e Condições',
+                  subtitle: 'Ver termos e condições',
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                  ),
                   onTap: () => context.push('/legal/terms'),
                   theme: theme,
+                  iconColor: theme.colorScheme.primary,
                 ),
                 const SizedBox(height: 12),
-                _LegalDocumentCard(
+                _buildSettingsTile(
                   icon: Icons.privacy_tip_rounded,
                   title: 'Política de Privacidade',
+                  subtitle: 'Ver política de privacidade',
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                  ),
                   onTap: () => context.push('/legal/privacy'),
                   theme: theme,
+                  iconColor: theme.colorScheme.primary,
                 ),
                 const SizedBox(height: 24),
                 _buildSettingsTile(
@@ -378,75 +400,4 @@ class _SingleActionSettingsTile extends StatelessWidget {
   }
 }
 
-class _LegalDocumentCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-  final ThemeData theme;
-  const _LegalDocumentCard({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    required this.theme,
-    Key? key,
-  }) : super(key: key);
 
-  @override
-  State<_LegalDocumentCard> createState() => _LegalDocumentCardState();
-}
-
-class _LegalDocumentCardState extends State<_LegalDocumentCard> {
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = widget.theme;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: Material(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        elevation: 2,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              color: _isHovering
-                  ? theme.colorScheme.surface.withAlpha((255 * 0.97).round())
-                  : theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(_isHovering ? (255 * 0.10).round() : (255 * 0.06).round()),
-                  blurRadius: _isHovering ? 10 : 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-            child: Row(
-              children: [
-                Icon(widget.icon, color: theme.colorScheme.primary, size: 28),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Text(
-                    widget.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

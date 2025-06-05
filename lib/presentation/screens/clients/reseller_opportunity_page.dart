@@ -73,6 +73,12 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     super.dispose();
   }
 
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   String _getProposalStatusForFilter(sfo.SalesforceOpportunity opportunity) {
     if (opportunity.propostasR?.records != null &&
         opportunity.propostasR!.records.isNotEmpty) {
@@ -168,37 +174,77 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
               children: <Widget>[
                 _buildLegendRow(
                   context,
-                  const Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.check_circle, color: Colors.green[700], size: 16),
+                  ),
+                  'Ativo:',
+                  'Cliente com proposta aceite e ativa.',
+                ),
+                const SizedBox(height: 12),
+                _buildLegendRow(
+                  context,
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.pending_actions, color: Colors.blue[700], size: 16),
+                  ),
                   'Ação Necessária:',
                   'Requer a sua atenção para dar seguimento ao processo.',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildLegendRow(
                   context,
-                  const Icon(CupertinoIcons.clock_fill, color: Colors.orange),
-                  'A Aguardar:',
-                  'A Twogether está a tratar desta oportunidade ou o prazo expirou. Por favor, aguarde ou verifique.',
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.orange[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.schedule, color: Colors.orange[700], size: 16),
+                  ),
+                  'Pendente:',
+                  'Processo em andamento ou aguardando aprovação.',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildLegendRow(
                   context,
-                  const Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green),
-                  'Concluído:',
-                  'O processo desta oportunidade foi finalizado com sucesso.',
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.cancel, color: Colors.red[700], size: 16),
+                  ),
+                  'Rejeitado:',
+                  'Proposta não foi aprovada ou foi cancelada.',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildLegendRow(
                   context,
-                  const Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red),
-                  'Cancelada/Rejeitada:',
-                  'Esta oportunidade foi cancelada ou não foi aprovada.',
-                ),
-                const SizedBox(height: 8),
-                _buildLegendRow(
-                  context,
-                  Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.3).round()),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.description, color: theme.colorScheme.onSurfaceVariant, size: 16),
+                  ),
                   'Outro:',
-                  'Oportunidade em estado inicial ou outro.',
+                  'Estado inicial ou em processo de análise.',
                 ),
               ],
             ),
@@ -216,7 +262,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildLegendRow(BuildContext context, Icon icon, String title, String subtitle) {
+  Widget _buildLegendRow(BuildContext context, Widget icon, String title, String subtitle) {
     final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,19 +300,20 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 24),
+            // Only add spacing for desktop, not mobile (matches home page pattern)
+            if (!isSmallScreen) const SizedBox(height: 24),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     'Clientes',
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
-                      letterSpacing: -0.5,
+                      fontSize: _getResponsiveFontSize(context, 24),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -274,35 +321,35 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                     richMessage: TextSpan(
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
-                        fontSize: 15, // Increased font size
+                        fontSize: 14,
                       ),
                       children: <InlineSpan>[
-                        const TextSpan(text: 'Legenda dos Ícones:\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // Title font size
+                        const TextSpan(text: 'Estados dos Clientes:\n\n', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
-                          child: Icon(CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue, size: 20), // Increased icon size
+                          child: Icon(Icons.check_circle, color: Colors.green[700], size: 18),
                         ),
-                        const TextSpan(text: ' Ação Necessária: Requer a sua atenção.\n'),
+                        const TextSpan(text: ' Ativo: Cliente com proposta aceite\n'),
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
-                          child: Icon(CupertinoIcons.clock_fill, color: Colors.orange, size: 20), // Increased icon size
+                          child: Icon(Icons.pending_actions, color: Colors.blue[700], size: 18),
                         ),
-                        const TextSpan(text: ' A Aguardar: Aguarde a Twogether ou verifique.\n'),
+                        const TextSpan(text: ' Ação Necessária: Requer a sua atenção\n'),
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
-                          child: Icon(CupertinoIcons.checkmark_seal_fill, color: Colors.green, size: 20), // Increased icon size
+                          child: Icon(Icons.schedule, color: Colors.orange[700], size: 18),
                         ),
-                        const TextSpan(text: ' Concluído: Processo finalizado com sucesso.\n'),
+                        const TextSpan(text: ' Pendente: Em processamento\n'),
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
-                          child: Icon(CupertinoIcons.xmark_seal_fill, color: Colors.red, size: 20), // Increased icon size
+                          child: Icon(Icons.cancel, color: Colors.red[700], size: 18),
                         ),
-                        const TextSpan(text: ' Cancelada/Rejeitada: Oportunidade não aprovada.\n'),
+                        const TextSpan(text: ' Rejeitado: Proposta não aprovada\n'),
                         WidgetSpan(
                           alignment: PlaceholderAlignment.middle,
-                          child: Icon(CupertinoIcons.doc_text, color: theme.colorScheme.onSurfaceVariant, size: 20), // Increased icon size
+                          child: Icon(Icons.description, color: theme.colorScheme.onSurfaceVariant, size: 18),
                         ),
-                        const TextSpan(text: ' Outro: Estado inicial ou diferente.'),
+                        const TextSpan(text: ' Outro: Estado inicial ou em análise'),
                       ],
                     ),
                     preferBelow: false,
@@ -335,24 +382,19 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: isSmallScreen ? 24 : 32),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child:
                   isSmallScreen
                       ? Row(
                           children: [
                             Expanded(child: _buildSearchBar(context)),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 160,
-                              child: _buildFilterDropdown(context),
-                            ),
+                            const SizedBox(width: 12),
+                            _buildFilterIconButton(context),
                           ],
                         )
-                      : Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Row(
+                      : Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
@@ -364,9 +406,9 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                                 child: _buildDesktopFilterDropdown(context),
                               ),
                             ],
-                          ),
-                        ),
+                                                      ),
             ),
+            const SizedBox(height: 24),
             Expanded(
               child: opportunitiesAsync.when(
                 data: (opportunities) {
@@ -414,31 +456,37 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                               opportunity.propostasR!.records.isNotEmpty) {
                             latestStatus = opportunity.propostasR!.records.first.statusC;
                           }
-                          IconData? statusIcon;
-                          Color statusIconColor = theme.colorScheme.onSurfaceVariant;
+                          IconData statusIcon;
+                          Color statusIconColor;
+                          Color statusBackgroundColor;
                           switch (latestStatus) {
                             case 'Aceite':
-                              statusIcon = CupertinoIcons.checkmark_seal_fill;
-                              statusIconColor = Colors.green;
+                              statusIcon = Icons.check_circle;
+                              statusIconColor = Colors.green[700]!;
+                              statusBackgroundColor = Colors.green[50]!;
                               break;
                             case 'Enviada':
                             case 'Em Aprovação':
-                              statusIcon = CupertinoIcons.exclamationmark_circle_fill;
-                              statusIconColor = Colors.blue;
+                              statusIcon = Icons.pending_actions;
+                              statusIconColor = Colors.blue[700]!;
+                              statusBackgroundColor = Colors.blue[50]!;
                               break;
                             case 'Não Aprovada':
                             case 'Cancelada':
-                              statusIcon = CupertinoIcons.xmark_seal_fill;
-                              statusIconColor = Colors.red;
+                              statusIcon = Icons.cancel;
+                              statusIconColor = Colors.red[700]!;
+                              statusBackgroundColor = Colors.red[50]!;
                               break;
                             case 'Expirada':
                             case 'Aprovada':
-                              statusIcon = CupertinoIcons.clock_fill;
-                              statusIconColor = Colors.orange;
+                              statusIcon = Icons.schedule;
+                              statusIconColor = Colors.orange[700]!;
+                              statusBackgroundColor = Colors.orange[50]!;
                               break;
                             default:
-                              statusIcon = CupertinoIcons.doc_text;
+                              statusIcon = Icons.description;
                               statusIconColor = theme.colorScheme.onSurfaceVariant;
+                              statusBackgroundColor = theme.colorScheme.surfaceVariant.withAlpha((255 * 0.3).round());
                           }
                           String displayDate = '';
                           if (opportunity.createdDate != null) {
@@ -457,7 +505,19 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                               verticalOffset: 50.0,
                               child: FadeInAnimation(
                                 child: SimpleListItem(
-                                  leading: Icon(statusIcon, color: statusIconColor, size: 28),
+                                  leading: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: statusBackgroundColor,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      statusIcon, 
+                                      color: statusIconColor, 
+                                      size: 20,
+                                    ),
+                                  ),
                                   title: cardName,
                                   subtitle: displayDate,
                                   onTap: () {
@@ -644,6 +704,65 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     // Reuse the same implementation as the standard filter dropdown
     // with any adjustments needed for desktop layout
     return _buildFilterDropdown(context);
+  }
+
+  // Build the mobile filter icon button
+  Widget _buildFilterIconButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return PopupMenuButton<OpportunityFilterStatus>(
+      icon: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.dividerColor.withAlpha((255 * 0.18).round()),
+            width: 1,
+          ),
+        ),
+        child: Icon(
+          Icons.filter_list,
+          size: 20,
+          color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+        ),
+      ),
+      offset: const Offset(-120, 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (OpportunityFilterStatus status) {
+        setState(() {
+          _selectedFilter = status;
+        });
+      },
+      itemBuilder: (BuildContext context) => OpportunityFilterStatus.values.map((status) {
+        final isSelected = _selectedFilter == status;
+        return PopupMenuItem<OpportunityFilterStatus>(
+          value: status,
+          child: Row(
+            children: [
+              if (isSelected)
+                Icon(
+                  Icons.check,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                )
+              else
+                const SizedBox(width: 18),
+              const SizedBox(width: 12),
+              Text(
+                status.displayName,
+                style: TextStyle(
+                  color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 

@@ -8,6 +8,11 @@ import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/ui_styles.dart';
 import '../widgets/logo.dart';
+import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/notifications/presentation/providers/notification_provider.dart';
+import '../../core/constants/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/onboarding/app_tutorial_screen.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -25,14 +30,30 @@ class MainLayout extends ConsumerStatefulWidget {
   ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends ConsumerState<MainLayout> {
+class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isTransitioning = false;
+  bool _hasSeenHintLocally = false;
+  bool _isAppActive = true;
+  late AnimationController _helpIconAnimationController;
+  late Animation<double> _helpIconAnimation;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.currentIndex;
+    
+    // Initialize animation controller for help icon
+    _helpIconAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _helpIconAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(
+        parent: _helpIconAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
   }
 
   @override
@@ -45,6 +66,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         _isTransitioning = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _helpIconAnimationController.dispose();
+    super.dispose();
   }
 
   void _handleNavigation(int index) {
@@ -101,7 +128,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           true, // Keep for homepage transparent app bar effect
       extendBody: true, // Keep for homepage transparent app bar effect
       appBar:
-          (isSmallScreen && _selectedIndex != 0 && showNavigation)
+          (isSmallScreen && showNavigation)
               ? _buildMobileAppBar(context, theme)
               : null,
       body: Container(
@@ -133,7 +160,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     BuildContext context,
     ThemeData theme,
   ) {
-    final isOnline = _isBusinessHours();
+    final isHomePage = _selectedIndex == 0;
+    
     return PreferredSize(
       preferredSize: const Size.fromHeight(56.0),
       child: ClipRect(
@@ -145,50 +173,57 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
             toolbarHeight: 56.0,
-            leading: _selectedIndex == 2 ? null : null,
-            title: _selectedIndex == 2
-                ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                      Text(
-                                'Suporte Twogether',
-                                style: TextStyle(
-                          fontSize: 17,
-                                  fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                      const SizedBox(width: 8),
-                              Container(
-                        width: 10,
-                        height: 10,
-                                decoration: BoxDecoration(
-                                  color: isOnline ? Colors.green : Colors.grey,
-                                  shape: BoxShape.circle,
-                          boxShadow: isOnline
-                                          ? [
-                                            BoxShadow(
-                                    color: Colors.green.withAlpha((255 * 0.4).round()),
-                                    blurRadius: 4,
-                                              spreadRadius: 1,
-                                            ),
-                                          ]
-                                          : null,
-                                ),
-                              ),
-                            ],
-                    )
-                    : Container(
-                      height: 56.0,
-                      alignment: Alignment.center,
-                      child: LogoWidget(
-                        height: 40,
-                      darkMode: theme.brightness == Brightness.dark,
+            leading: isHomePage 
+                ? Container(
+                    width: 56, // Override AppBar's default leading width
+                    padding: const EdgeInsets.only(left: 24), // 24px padding on the left
+                    child: Center(
+                      child: ref.watch(authStateChangesProvider).when(
+                        data: (user) => _buildMaterialProfileIcon(
+                          context,
+                          theme,
+                          user?.displayName,
+                          user?.email,
+                        ),
+                        loading: () => _buildMaterialProfileIconPlaceholder(context, theme),
+                        error: (_, __) => _buildMaterialProfileIcon(context, theme, null, null),
                       ),
                     ),
+                  )
+                : null,
+            leadingWidth: isHomePage ? 64 : null, // Override AppBar's default leading width
+            title: LogoWidget(
+                height: 60, // Match secondary pages
+                darkMode: theme.brightness == Brightness.dark,
+              ),
             centerTitle: true,
-            actions: const [],
+            actions: isHomePage 
+                ? [
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
+                        final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
+                        return _buildSolidIconButton(
+                          context,
+                          icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
+                          onTap: () async {
+                            await notificationSettings.toggle();
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSolidIconButton(
+                      context,
+                      icon: CupertinoIcons.lightbulb, // Changed from question_circle
+                      onTap: () => _handleHelpIconTap(
+                        context,
+                        false,
+                      ),
+                    ),
+                    const SizedBox(width: 24), // 24px padding on the right
+                  ]
+                : const [],
           ),
         ),
       ),
@@ -624,4 +659,136 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     // Example: Business hours 9 AM to 6 PM (18:00)
     return hour >= 9 && hour < 18;
   }
+
+  // Helper method to get user initials
+  String _getUserInitials(String? name, String? email) {
+    if (name != null && name.isNotEmpty) {
+      final nameParts = name.trim().split(' ');
+      if (nameParts.length > 1) {
+        // If there are multiple parts, use first letter of first and last name
+        return '${nameParts.first[0]}${nameParts.last[0]}'.toUpperCase();
+      } else if (nameParts.isNotEmpty) {
+        // If there's only one part, use the first letter
+        return nameParts.first[0].toUpperCase();
+      }
+    }
+
+    // Fallback to email
+    if (email != null && email.isNotEmpty) {
+      return email[0].toUpperCase();
+    }
+
+    // Default
+    return 'TW';
+  }
+
+
+
+  // --- Helper for Material Profile Icon ---
+  Widget _buildMaterialProfileIcon(
+    BuildContext context,
+    ThemeData theme,
+    String? displayName,
+    String? email,
+  ) {
+    return _buildSolidIconButton(
+      context,
+      icon: CupertinoIcons.person,
+      onTap: () => context.push('/profile-details'),
+    );
+  }
+
+  // --- Helper for Material Profile Icon Placeholder ---
+  Widget _buildMaterialProfileIconPlaceholder(BuildContext context, ThemeData theme) {
+    return _buildSolidIconButton(
+      context,
+      icon: CupertinoIcons.person,
+      onTap: () {}, // No action while loading
+    );
+  }
+
+  // --- Helper for Help Icon Tap Logic ---
+  Future<void> _handleHelpIconTap(
+    BuildContext context,
+    bool wasAnimating, // Renamed from shouldAnimate to reflect its state when tapped
+  ) async {
+    if (wasAnimating) { // Use the passed parameter
+      _helpIconAnimationController.stop();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(AppConstants.kHasSeenHelpIconHint, true);
+      if (mounted) {
+        setState(() {
+          _hasSeenHintLocally = true;
+        });
+      }
+    }
+
+    if (context.mounted) {
+      showGeneralDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierLabel: 'Tutorial',
+        barrierColor: Colors.black.withAlpha((255 * 0.5).round()),
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (ctx, anim1, anim2) => const AppTutorialScreen(),
+        transitionBuilder: (ctx, anim1, anim2, child) {
+          return FadeTransition(opacity: anim1, child: child);
+        },
+      );
+    }
+  }
+}
+
+
+
+// Helper method to build solid icon button with consistent sizing and tap effect
+Widget _buildSolidIconButton(
+  BuildContext context, {
+  IconData? icon,
+  Widget? child,
+  required VoidCallback onTap,
+  bool isHighlighted = false,
+}) {
+  final theme = Theme.of(context);
+  final isDark = theme.brightness == Brightness.dark;
+  
+  return Container(
+    width: 40,  // Consistent size for all buttons
+    height: 40, // Consistent size for all buttons
+    decoration: BoxDecoration(
+      color: isHighlighted 
+          ? theme.colorScheme.primary
+          : theme.colorScheme.surface,
+      shape: BoxShape.circle,
+      border: Border.all(
+        color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
+        width: 0.5,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isDark 
+              ? Colors.black.withAlpha((255 * 0.3).round())
+              : Colors.black.withAlpha((255 * 0.1).round()),
+          blurRadius: 2,
+          offset: const Offset(0, 1),
+        ),
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Center(
+          child: child ?? Icon(
+            icon,
+            size: 20,
+            color: isHighlighted 
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
+    ),
+  );
 }

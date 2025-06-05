@@ -130,14 +130,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   bool _isAppActive = true; // Add this flag
   // ---------------------
 
-  // --- Hover States for Icons ---
-  bool _isProfileHovering = false;
-  // For Notification and Help icons, hover state will be managed within _buildCircleIconButton
-  // or we might need to pass hover callbacks if preferred.
-  // For now, let's aim to make _buildCircleIconButton stateful if it's simple enough,
-  // or pass hover state down.
-  // Let's make _buildCircleIconButton a StatefulWidget to manage its own hover.
-  // --------------------------
+  // --- Removed hover states since we're using Material cards now ---
 
   // +++ NEW: Animation State for Commission Box Glow +++
   late AnimationController _glowController;
@@ -333,27 +326,50 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     ];
   }
 
-  // Helper method to build responsive quick actions (carousel on mobile, wrap on desktop)
+  // Helper method to build responsive quick actions (grid layout showing all buttons)
   Widget _buildQuickActionsResponsive() {
     final isMobile = _isMobileScreen(context);
-    final quickActionCards = _buildQuickActionCards();
+    
     if (isMobile) {
-      // Use custom FiveCardCarousel for 5-card peeking effect
-      return FiveCardCarousel(
-        items: quickActionCards.map((card) => Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: card,
-        )).toList(),
-        height: 140,
-        centerScale: 1.0,
-        sideScale: 0.8,
-        sideOpacity: 0.6,
+      // Mobile: Show all 5 buttons in a clean grid layout (like banking app)
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Wrap(
+          spacing: 8.0,
+          runSpacing: 12.0,
+          alignment: WrapAlignment.spaceEvenly,
+          children: [
+            _buildCompactQuickActionButton(
+              icon: CupertinoIcons.add_circled_solid,
+              label: 'Novo Serviço',
+              onTap: () => context.push('/services'),
+            ),
+            _buildCompactQuickActionButton(
+              icon: CupertinoIcons.cloud_download,
+              label: 'Dropbox',
+              onTap: () => context.push('/providers'),
+            ),
+            _buildCompactQuickActionButton(
+              imageAsset: 'assets/images/edp_logo_br.png',
+              label: 'Energia Solar',
+              onTap: () => context.push('/services?quickAction=edp-solar'),
+            ),
+            _buildCompactQuickActionButton(
+              imageAsset: 'assets/images/edp_logo_br.png',
+              label: 'Energia Comercial',
+              onTap: () => context.push('/services?quickAction=edp-comercial'),
+            ),
+            _buildCompactQuickActionButton(
+              imageAsset: 'assets/images/repsol_logo_br.png',
+              label: 'Energia Residencial',
+              onTap: () => context.push('/services?quickAction=repsol-residencial'),
+            ),
+          ],
+        ),
       );
     } else {
-      // Desktop: Keep existing Wrap layout (more space available)
+      // Desktop: Keep existing layout with cards
+      final quickActionCards = _buildQuickActionCards();
       return Padding(
         padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
         child: Wrap(
@@ -369,6 +385,82 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         ),
       );
     }
+  }
+
+  // Helper method to build compact quick action buttons (exact same style as app bar)
+  Widget _buildCompactQuickActionButton({
+    IconData? icon,
+    String? imageAsset,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return SizedBox(
+      width: 65, // Smaller width to fit 5 buttons
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Exact same styling as app bar buttons with tap effect
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
+                width: 0.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark 
+                      ? Colors.black.withAlpha((255 * 0.3).round())
+                      : Colors.black.withAlpha((255 * 0.1).round()),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(25),
+                onTap: onTap,
+                child: Center(
+                  child: imageAsset != null
+                      ? Image.asset(
+                          imageAsset,
+                          height: 24,
+                          width: 24,
+                          fit: BoxFit.contain,
+                        )
+                      : Icon(
+                          icon,
+                          size: 24,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Label text
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
   }
 
   // Helper method to show the auto-dismissing dialog
@@ -400,38 +492,13 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isMobile = _isMobileScreen(context);
     final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
     final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
-    // Status calculation logic (copied from dashboard_page.dart)
-    Map<String, int> _calculateStatusCounts(List opportunities) {
-      int active = 0;
-      int actionNeeded = 0;
-      int pending = 0;
-      int rejected = 0;
-      for (final opportunity in opportunities) {
-        String proposalStatus = '';
-        if (opportunity.propostasR?.records != null && opportunity.propostasR!.records.isNotEmpty) {
-          proposalStatus = opportunity.propostasR!.records.first.statusC ?? '';
-        }
-        if (proposalStatus == 'Aceite') {
-          active++;
-        } else if (["Enviada", "Em Aprovação"].contains(proposalStatus)) {
-          actionNeeded++;
-        } else if (["Aprovada", "Expirada", "Criação", "Em Análise"].contains(proposalStatus)) {
-          pending++;
-        } else if (["Não Aprovada", "Cancelada"].contains(proposalStatus)) {
-          rejected++;
-        }
-      }
-      return {
-        'active': active,
-        'actionNeeded': actionNeeded,
-        'pending': pending,
-        'rejected': rejected,
-      };
-    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       body: SafeArea(
         bottom: false,
         top: false,
@@ -441,70 +508,72 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
-              // Header Row (Profile Icon, Action Icons)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ref.watch(authStateChangesProvider).when(
-                      data: (user) => _buildProfileIcon(
-                        context,
-                        theme,
-                        user?.displayName,
-                        user?.email,
-                      ),
-                      loading: () => _buildProfileIconPlaceholder(context, theme),
-                      error: (_, __) => _buildProfileIcon(context, theme, null, null),
-                    ),
-                    Row(
-                      children: [
-                        Consumer(
-                          builder: (context, ref, _) {
-                            final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
-                            final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
-                            return _CircleIconButton(
-                              icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
-                              onTap: () async {
-                                await notificationSettings.toggle();
-                              },
-                              isHighlighted: false,
-                            );
-                          },
+              if (!isMobile) ...[
+                const SizedBox(height: 24),
+                // Header Row (Profile Icon, Action Icons)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ref.watch(authStateChangesProvider).when(
+                        data: (user) => _buildProfileIcon(
+                          context,
+                          theme,
+                          user?.displayName,
+                          user?.email,
                         ),
-                        const SizedBox(width: 8),
-                        ScaleTransition(
-                          scale: _helpIconAnimation,
-                          child: _CircleIconButton(
-                            icon: CupertinoIcons.question_circle,
-                            isHighlighted: _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
-                            onTap: () => _handleHelpIconTap(
-                              context,
-                              _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
+                        loading: () => _buildProfileIconPlaceholder(context, theme),
+                        error: (_, __) => _buildProfileIcon(context, theme, null, null),
+                      ),
+                      Row(
+                        children: [
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
+                              final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
+                              return _buildMaterialIconButton(
+                                icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
+                                onTap: () async {
+                                  await notificationSettings.toggle();
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ScaleTransition(
+                            scale: _helpIconAnimation,
+                            child: _buildMaterialIconButton(
+                              icon: CupertinoIcons.lightbulb,
+                              onTap: () => _handleHelpIconTap(
+                                context,
+                                _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
+                              ),
+                              isHighlighted: _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Text(
-                  'Início',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                    letterSpacing: -0.5,
+                        ],
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.left,
                 ),
-              ),
-                            const SizedBox(height: 12),
+                const SizedBox(height: 32),
+              ],
+              // Title (for desktop)
+              if (!isMobile)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    'Início',
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                      letterSpacing: -0.5,
+                    ),
+                    textAlign: TextAlign.left,
+                  ),
+                ),
+              if (!isMobile) const SizedBox(height: 12),
               // Unified Dashboard Card (Commission + Status)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -512,7 +581,6 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   builder: (context, ref, _) {
                     final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
                     final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
-                    
                     return dashboardStatsAsync.when(
                       data: (stats) {
                         return opportunitiesAsync.when(
@@ -546,35 +614,35 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   },
                 ),
               ),
-                            SizedBox(height: _isMobileScreen(context) ? 24 : 40),
+              SizedBox(height: _isMobileScreen(context) ? 24 : 40),
               // Quick Actions
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                        child: Text(
-                          'Ações Rápidas',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                            fontSize: _getResponsiveFontSize(context, 24),
-                          ),
-                        ),
-                      ),
-                                            SizedBox(height: _getResponsiveSpacing(context) + 4),
-                      _buildQuickActionsResponsive(),
-                                    SizedBox(height: _isMobileScreen(context) ? 24 : 40),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Text(
+                  'Ações Rápidas',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: _getResponsiveFontSize(context, 24),
+                  ),
+                ),
+              ),
+              SizedBox(height: _getResponsiveSpacing(context) + 4),
+              _buildQuickActionsResponsive(),
+              SizedBox(height: _isMobileScreen(context) ? 24 : 40),
               // Notifications
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                        child: Text(
-                          'Notificações',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                            fontSize: _getResponsiveFontSize(context, 24),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: _getResponsiveSpacing(context) + 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                child: Text(
+                  'Notificações',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: _getResponsiveFontSize(context, 24),
+                  ),
+                ),
+              ),
+              SizedBox(height: _getResponsiveSpacing(context) + 4),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: _buildNotificationsSection(),
@@ -593,34 +661,49 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     String? displayName,
     String? email,
   ) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isProfileHovering = true),
-      onExit: (_) => setState(() => _isProfileHovering = false),
-      child: Transform.scale(
-        scale: _isProfileHovering ? 1.15 : 1.0,
-        child: GestureDetector(
-          onTap: () => context.push('/profile-details'),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: AppStyles.circularIconButtonStyle(
-              context,
-              isHovering: _isProfileHovering,
-              isHighlighted: false,
-            ),
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: Center(
-                child: Text(
-                  _getUserInitials(displayName, email),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+    return _buildMaterialIconButton(
+      onTap: () => context.push('/profile-details'),
+      child: Text(
+        _getUserInitials(displayName, email),
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  // --- Helper for Material Icon Button ---
+  Widget _buildMaterialIconButton({
+    IconData? icon,
+    Widget? child,
+    required VoidCallback onTap,
+    bool isHighlighted = false,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: isHighlighted 
+          ? theme.colorScheme.primary.withAlpha((255 * 0.9).round())
+          : theme.colorScheme.surface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          padding: const EdgeInsets.all(8),
+          child: child ?? Icon(
+            icon,
+            size: 20,
+            color: isHighlighted 
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.primary,
           ),
         ),
       ),
@@ -629,25 +712,14 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
   // --- Helper for Profile Icon Placeholder ---
   Widget _buildProfileIconPlaceholder(BuildContext context, ThemeData theme) {
-    // Placeholder doesn't need hover effects as it's temporary
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.2),
-        shape: BoxShape.circle,
-      ),
-      child: const SizedBox(
-        width: 22,
-        height: 22,
-        child: Center(
-          child: SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
-          ),
+    return _buildMaterialIconButton(
+      onTap: () {}, // No action while loading
+      child: SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          color: theme.colorScheme.primary,
+          strokeWidth: 2,
         ),
       ),
     );
@@ -686,57 +758,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     }
   }
 
-  // --- Circle Icon Button remains the same ---
-  Widget _buildCircleIconButton({
-    Key? key,
-    required IconData icon,
-    required VoidCallback onTap,
-    bool isHighlighted = false,
-  }) {
-    final theme = Theme.of(context);
-    // Define colors based on state
-    final bgColor =
-        isHighlighted
-            ? theme.colorScheme.primary.withOpacity(0.85)
-            : theme.colorScheme.surface.withOpacity(0.15);
-    final iconColor =
-        isHighlighted ? theme.colorScheme.onPrimary : Colors.white;
-    final borderColor =
-        isHighlighted
-            ? theme.colorScheme.primary
-            : Colors.white.withOpacity(0.1);
 
-    return GestureDetector(
-      key: key,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10.0), // Use constant if defined
-        decoration: BoxDecoration(
-          color: bgColor, // Use dynamic background color
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color:
-                  isHighlighted
-                      ? theme.colorScheme.primary.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: borderColor,
-            width: 0.5,
-          ), // Use dynamic border color
-        ),
-        child: Icon(
-          icon,
-          color: iconColor,
-          size: 22.0,
-        ), // Use dynamic icon color & constant size
-      ),
-    );
-  }
 
   Widget _buildNotificationsSection() {
     final theme = Theme.of(context);
@@ -923,9 +945,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
       displayValue = '...';
     } else if (isError) {
       displayValue = 'Erro';
-    } else if (!_isEarningsVisible) {
-      displayValue = '••••••';
     } else {
+      // Always show the real value, we'll handle hiding with visual effects
       displayValue = commissionValue != null ? '€ ${commissionValue.toStringAsFixed(2)}' : '€ 0.00';
     }
 
@@ -937,72 +958,90 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
           width: double.infinity,
           decoration: AppStyles.glassCard(context),
           padding: EdgeInsets.symmetric(vertical: isMobile ? 20 : 28, horizontal: 24),
-          child: Column(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Commission Section (Top)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // Commission Section (Left Side)
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Comissão Total',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                        fontSize: _getResponsiveFontSize(context, 14),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: spacing / 2),
+                    // Commission value with blur effect
+                    Stack(
                       children: [
                         Text(
-                          'Comissão Total',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                            fontSize: _getResponsiveFontSize(context, 16),
+                          displayValue,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                            fontSize: _getResponsiveFontSize(context, 24),
                           ),
                         ),
-                        SizedBox(height: spacing / 2),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                displayValue,
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                  fontSize: _getResponsiveFontSize(context, 28),
+                        if (!_isEarningsVisible)
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surface.withAlpha((255 * 0.6).round()),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            IconButton(
-                              icon: Icon(
-                                _isEarningsVisible ? Icons.visibility : Icons.visibility_off, 
-                                color: theme.colorScheme.onSurfaceVariant,
-                                size: isMobile ? 20 : 24,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isEarningsVisible = !_isEarningsVisible;
-                                });
-                              },
-                              tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
-                            ),
-                          ],
-                        ),
+                          ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.chevron_right, 
-                      color: theme.colorScheme.primary, 
-                      size: isMobile ? 28 : 36,
+                    SizedBox(height: 8),
+                    IconButton(
+                      icon: Icon(
+                        _isEarningsVisible ? Icons.visibility : Icons.visibility_off, 
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: isMobile ? 18 : 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isEarningsVisible = !_isEarningsVisible;
+                        });
+                      },
+                      tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
                     ),
-                    onPressed: () {
-                      // TODO: Navigate to details page
-                    },
-                    tooltip: 'Ver detalhes',
-                  ),
-                ],
+                  ],
+                ),
               ),
-              SizedBox(height: spacing + 8),
-              // Status Section (Bottom)
-              _buildStatusGrid(statusCounts, isMobile, spacing),
+              SizedBox(width: spacing),
+              // Status Section (Right Side - 2x2 Grid)
+              Expanded(
+                flex: 1,
+                child: Column(
+                  children: [
+                    Text(
+                      'Estado dos Clientes',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                        fontSize: _getResponsiveFontSize(context, 14),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: spacing / 2),
+                    _buildStatus2x2Grid(statusCounts, isMobile, spacing),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -1010,7 +1049,63 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  // --- Status Grid for Dashboard Card ---
+  // --- Status Grid for Dashboard Card (2x2 Layout) ---
+  Widget _buildStatus2x2Grid(Map<String, int> statusCounts, bool isMobile, double spacing) {
+    final statusItems = [
+      _buildCompactStatusItem(
+        label: 'Ativos',
+        count: statusCounts['active'] ?? 0,
+        color: Colors.green,
+        icon: CupertinoIcons.checkmark_seal_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Ação Necessária',
+        count: statusCounts['actionNeeded'] ?? 0,
+        color: Colors.blue,
+        icon: CupertinoIcons.exclamationmark_circle_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Pendentes',
+        count: statusCounts['pending'] ?? 0,
+        color: Colors.orange,
+        icon: CupertinoIcons.clock_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Rejeitados',
+        count: statusCounts['rejected'] ?? 0,
+        color: Colors.red,
+        icon: CupertinoIcons.xmark_seal_fill,
+        isMobile: isMobile,
+      ),
+    ];
+
+    return Column(
+      children: [
+        // First row (Ativos, Ação Necessária)
+        Row(
+          children: [
+            Expanded(child: statusItems[0]),
+            SizedBox(width: spacing / 2),
+            Expanded(child: statusItems[1]),
+          ],
+        ),
+        SizedBox(height: spacing / 2),
+        // Second row (Pendentes, Rejeitados)
+        Row(
+          children: [
+            Expanded(child: statusItems[2]),
+            SizedBox(width: spacing / 2),
+            Expanded(child: statusItems[3]),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- Status Grid for Dashboard Card (Old 1x4 Layout - kept for compatibility) ---
   Widget _buildStatusGrid(Map<String, int> statusCounts, bool isMobile, double spacing) {
     final theme = Theme.of(context);
     
@@ -1045,38 +1140,15 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
       ),
     ];
 
-    if (isMobile) {
-      // 2x2 grid on mobile
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: statusItems[0]),
-              SizedBox(width: spacing),
-              Expanded(child: statusItems[1]),
-            ],
-          ),
-          SizedBox(height: spacing),
-          Row(
-            children: [
-              Expanded(child: statusItems[2]),
-              SizedBox(width: spacing),
-              Expanded(child: statusItems[3]),
-            ],
-          ),
+    // Always show all 4 in one row
+    return Row(
+      children: [
+        for (int i = 0; i < statusItems.length; i++) ...[
+          Expanded(child: statusItems[i]),
+          if (i < statusItems.length - 1) SizedBox(width: spacing / 2), // Smaller spacing between cards
         ],
-      );
-    } else {
-      // 1x4 row on desktop
-      return Row(
-        children: [
-          for (int i = 0; i < statusItems.length; i++) ...[
-            Expanded(child: statusItems[i]),
-            if (i < statusItems.length - 1) SizedBox(width: spacing),
-          ],
-        ],
-      );
-    }
+      ],
+    );
   }
 
   // --- Compact Status Item for Dashboard Card ---
@@ -1089,55 +1161,36 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   }) {
     final theme = Theme.of(context);
     
-    return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? 8 : 12,
-        horizontal: isMobile ? 6 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: color.withAlpha((255 * 0.08).round()),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withAlpha((255 * 0.2).round()),
-          width: 0.5,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: color,
+          size: isMobile ? 20 : 24,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: isMobile ? 16 : 18,
+        SizedBox(height: isMobile ? 6 : 8),
+        Text(
+          count.toString(),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+            fontSize: isMobile ? 16 : 18,
           ),
-          SizedBox(width: isMobile ? 4 : 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  count.toString(),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                    fontSize: isMobile ? 14 : 16,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: isMobile ? 10 : 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontSize: isMobile ? 10 : 11,
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -1177,7 +1230,34 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  
+  // Status calculation logic (copied from dashboard_page.dart)
+  Map<String, int> _calculateStatusCounts(List opportunities) {
+    int active = 0;
+    int actionNeeded = 0;
+    int pending = 0;
+    int rejected = 0;
+    for (final opportunity in opportunities) {
+      String proposalStatus = '';
+      if (opportunity.propostasR?.records != null && opportunity.propostasR!.records.isNotEmpty) {
+        proposalStatus = opportunity.propostasR!.records.first.statusC ?? '';
+      }
+      if (proposalStatus == 'Aceite') {
+        active++;
+      } else if (["Enviada", "Em Aprovação"].contains(proposalStatus)) {
+        actionNeeded++;
+      } else if (["Aprovada", "Expirada", "Criação", "Em Análise"].contains(proposalStatus)) {
+        pending++;
+      } else if (["Não Aprovada", "Cancelada"].contains(proposalStatus)) {
+        rejected++;
+      }
+    }
+    return {
+      'active': active,
+      'actionNeeded': actionNeeded,
+      'pending': pending,
+      'rejected': rejected,
+    };
+  }
 }
 
 // Auto-Dismiss Dialog Content Widget
@@ -1236,54 +1316,4 @@ class _AutoDismissDialogContentState extends State<_AutoDismissDialogContent> {
   }
 }
 
-// Create a StatefulWidget for _CircleIconButton to manage its own hover state
-class _CircleIconButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isHighlighted; // For existing highlight (e.g. tutorial hint)
 
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-    this.isHighlighted = false,
-  });
-
-  @override
-  _CircleIconButtonState createState() => _CircleIconButtonState();
-}
-
-class _CircleIconButtonState extends State<_CircleIconButton> {
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool actuallyHighlighted = widget.isHighlighted;
-    final double scale = _isHovering ? 1.15 : 1.0;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: Transform.scale(
-        scale: scale,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Container(
-            padding: const EdgeInsets.all(10.0),
-            decoration: AppStyles.circularIconButtonStyle(
-              context,
-              isHovering: _isHovering,
-              isHighlighted: actuallyHighlighted,
-            ),
-            child: Icon(widget.icon,
-                color: actuallyHighlighted
-                    ? theme.colorScheme.onPrimary
-                    : Colors.white,
-                size: 22.0),
-          ),
-        ),
-      ),
-    );
-  }
-}

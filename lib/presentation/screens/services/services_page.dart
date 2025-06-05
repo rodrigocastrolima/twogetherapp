@@ -12,6 +12,7 @@ import '../../../features/services/data/repositories/service_submission_reposito
 import '../../widgets/success_dialog.dart'; // Import the success dialog
 import '../../widgets/logo.dart'; // Import the LogoWidget
 import '../../widgets/app_input_field.dart';
+import '../../widgets/standard_app_bar.dart';
 
 class ServicesPage extends ConsumerStatefulWidget {
   final String? quickAction;
@@ -447,17 +448,9 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: colorScheme.onSurface),
-          onPressed: handleBackPress,
-          tooltip: '',
-        ),
-        title: LogoWidget(height: 60, darkMode: theme.brightness == Brightness.dark),
-        centerTitle: true,
+      appBar: StandardAppBar(
+        showBackButton: true,
+        onBackPressed: handleBackPress,
       ),
       body: Center(
         child: ConstrainedBox(
