@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import 'dart:ui';
@@ -28,6 +29,8 @@ import '../../../features/opportunity/presentation/providers/opportunity_provide
 import '../../widgets/app_loading_indicator.dart'; // Add loading indicator
 import '../../../features/salesforce/presentation/providers/salesforce_providers.dart';
 
+import 'five_card_carousel.dart';
+
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
 const double _iconSize = 22.0; // From _buildCircleIconButton
@@ -52,6 +55,8 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    
     return Material(
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
@@ -60,9 +65,9 @@ class _QuickActionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          width: 180, // Fixed width for all cards
-          height: 140, // Optional: fixed height for consistency
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+          width: 160, // Fixed width for carousel consistency
+          height: 120, // Fixed height for carousel consistency
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -70,20 +75,26 @@ class _QuickActionCard extends StatelessWidget {
               if (imageAsset != null)
                 Image.asset(
                   imageAsset!,
-                  height: 36,
+                  height: 32,
                   fit: BoxFit.contain,
                 )
               else if (icon != null)
-                Icon(icon, size: 36, color: theme.colorScheme.primary),
-              const SizedBox(height: 12),
+              Icon(
+                icon, 
+                size: 32, 
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(height: 8),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: theme.colorScheme.onSurface,
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -141,6 +152,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   late AnimationController _fireflyFlashController;
   late Animation<double> _fireflyFlashAnimation;
   // +++ END NEW +++
+
+  int _quickActionCarouselIndex = 0;
 
   @override
   void initState() {
@@ -272,6 +285,90 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
 
     // Default
     return 'TW';
+  }
+
+  // Helper methods for responsive values (excluding padding which stays at 24.0)
+  double _getResponsiveSpacing(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? 12.0 : 16.0;
+  }
+
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
+  bool _isMobileScreen(BuildContext context) {
+    return MediaQuery.of(context).size.width < 600;
+  }
+
+  // Helper method to build quick action cards
+  List<Widget> _buildQuickActionCards() {
+    return [
+      _QuickActionCard(
+        icon: CupertinoIcons.add_circled_solid,
+        label: 'Novo Serviço',
+        onTap: () => context.push('/services'),
+      ),
+      _QuickActionCard(
+        icon: CupertinoIcons.cloud_download,
+        label: 'Dropbox',
+        onTap: () => context.push('/providers'),
+      ),
+      _QuickActionCard(
+        imageAsset: 'assets/images/edp_logo_br.png',
+        label: 'Energia Solar',
+        onTap: () => context.push('/services?quickAction=edp-solar'),
+      ),
+      _QuickActionCard(
+        imageAsset: 'assets/images/edp_logo_br.png',
+        label: 'Energia Comercial',
+        onTap: () => context.push('/services?quickAction=edp-comercial'),
+      ),
+      _QuickActionCard(
+        imageAsset: 'assets/images/repsol_logo_br.png',
+        label: 'Energia Residencial',
+        onTap: () => context.push('/services?quickAction=repsol-residencial'),
+      ),
+    ];
+  }
+
+  // Helper method to build responsive quick actions (carousel on mobile, wrap on desktop)
+  Widget _buildQuickActionsResponsive() {
+    final isMobile = _isMobileScreen(context);
+    final quickActionCards = _buildQuickActionCards();
+    if (isMobile) {
+      // Use custom FiveCardCarousel for 5-card peeking effect
+      return FiveCardCarousel(
+        items: quickActionCards.map((card) => Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: card,
+        )).toList(),
+        height: 140,
+        centerScale: 1.0,
+        sideScale: 0.8,
+        sideOpacity: 0.6,
+      );
+    } else {
+      // Desktop: Keep existing Wrap layout (more space available)
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+        child: Wrap(
+          spacing: 24,
+          runSpacing: 16,
+          children: quickActionCards.map((card) => Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: card,
+          )).toList(),
+        ),
+      );
+    }
   }
 
   // Helper method to show the auto-dismissing dialog
@@ -407,99 +504,77 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   textAlign: TextAlign.left,
                 ),
               ),
-              const SizedBox(height: 12),
-              // Commission Earnings Box
+                            const SizedBox(height: 12),
+              // Unified Dashboard Card (Commission + Status)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: dashboardStatsAsync.when(
-                  data: (stats) => _buildCommissionBox(stats.totalCommission),
-                  loading: () => _buildCommissionBox(null, isLoading: true),
-                  error: (e, _) => _buildCommissionBox(null, isError: true),
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Client Status Cards
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: opportunitiesAsync.when(
-                  data: (opps) {
-                    final statusCounts = _calculateStatusCounts(opps);
-                    return Row(
-                      children: [
-                        Expanded(child: _buildStatusCard(context, label: 'Ativos', count: statusCounts['active']!, icon: CupertinoIcons.checkmark_seal_fill, color: Colors.green)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatusCard(context, label: 'Ação Necessária', count: statusCounts['actionNeeded']!, icon: CupertinoIcons.exclamationmark_circle_fill, color: Colors.blue)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatusCard(context, label: 'Pendentes', count: statusCounts['pending']!, icon: CupertinoIcons.clock_fill, color: Colors.orange)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildStatusCard(context, label: 'Rejeitados', count: statusCounts['rejected']!, icon: CupertinoIcons.xmark_seal_fill, color: Colors.red)),
-                      ],
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+                    final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
+                    
+                    return dashboardStatsAsync.when(
+                      data: (stats) {
+                        return opportunitiesAsync.when(
+                          data: (opps) {
+                            final statusCounts = _calculateStatusCounts(opps);
+                            return _buildDashboardCard(stats.totalCommission, statusCounts);
+                          },
+                          loading: () => _buildDashboardCard(
+                            stats.totalCommission, 
+                            {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
+                            isLoading: true,
+                          ),
+                          error: (e, _) => _buildDashboardCard(
+                            stats.totalCommission, 
+                            {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
+                            isError: true,
+                          ),
+                        );
+                      },
+                      loading: () => _buildDashboardCard(
+                        null, 
+                        {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
+                        isLoading: true,
+                      ),
+                      error: (e, _) => _buildDashboardCard(
+                        null, 
+                        {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
+                        isError: true,
+                      ),
                     );
                   },
-                  loading: () => Row(children: List.generate(4, (i) => Expanded(child: _buildStatusCard(context, label: '', count: 0, icon: CupertinoIcons.circle, color: Colors.grey.shade300)))),
-                  error: (e, _) => Row(children: List.generate(4, (i) => Expanded(child: _buildStatusCard(context, label: 'Erro', count: 0, icon: Icons.error, color: Colors.red)))),
                 ),
               ),
-              const SizedBox(height: 40),
+                            SizedBox(height: _isMobileScreen(context) ? 24 : 40),
               // Quick Actions
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                child: Text(
-                  'Ações Rápidas',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                child: Wrap(
-                  spacing: 24,
-                  runSpacing: 16,
-                  children: [
-                    _QuickActionCard(
-                      icon: CupertinoIcons.add_circled_solid,
-                      label: 'Novo Serviço',
-                      onTap: () => context.push('/services'),
-                    ),
-                    _QuickActionCard(
-                      icon: CupertinoIcons.cloud_download,
-                      label: 'Dropbox',
-                      onTap: () => context.push('/providers'),
-                    ),
-                    _QuickActionCard(
-                      imageAsset: 'assets/images/edp_logo_br.png',
-                      label: 'Energia Solar',
-                      onTap: () => context.push('/services?quickAction=edp-solar'),
-                    ),
-                    _QuickActionCard(
-                      imageAsset: 'assets/images/edp_logo_br.png',
-                      label: 'Energia Comercial',
-                      onTap: () => context.push('/services?quickAction=edp-comercial'),
-                    ),
-                    _QuickActionCard(
-                      imageAsset: 'assets/images/repsol_logo_br.png',
-                      label: 'Energia Residencial',
-                      onTap: () => context.push('/services?quickAction=repsol-residencial'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                        child: Text(
+                          'Ações Rápidas',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                            fontSize: _getResponsiveFontSize(context, 24),
+                          ),
+                        ),
+                      ),
+                                            SizedBox(height: _getResponsiveSpacing(context) + 4),
+                      _buildQuickActionsResponsive(),
+                                    SizedBox(height: _isMobileScreen(context) ? 24 : 40),
               // Notifications
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
-                child: Text(
-                  'Notificações',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
+                        child: Text(
+                          'Notificações',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                            fontSize: _getResponsiveFontSize(context, 24),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: _getResponsiveSpacing(context) + 4),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: _buildNotificationsSection(),
@@ -837,9 +912,12 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     }
   }
 
-  // --- Commission Earnings Box with Blur/Glass Effect ---
-  Widget _buildCommissionBox(double? value, {bool isLoading = false, bool isError = false}) {
+    // --- Unified Dashboard Card combining Commission + Status ---
+  Widget _buildDashboardCard(double? commissionValue, Map<String, int> statusCounts, {bool isLoading = false, bool isError = false}) {
     final theme = Theme.of(context);
+    final isMobile = _isMobileScreen(context);
+    final spacing = _getResponsiveSpacing(context);
+    
     String displayValue;
     if (isLoading) {
       displayValue = '...';
@@ -848,8 +926,9 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     } else if (!_isEarningsVisible) {
       displayValue = '••••••';
     } else {
-      displayValue = value != null ? '€ ${value.toStringAsFixed(2)}' : '€ 0.00';
+      displayValue = commissionValue != null ? '€ ${commissionValue.toStringAsFixed(2)}' : '€ 0.00';
     }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -857,54 +936,207 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         child: Container(
           width: double.infinity,
           decoration: AppStyles.glassCard(context),
-          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: EdgeInsets.symmetric(vertical: isMobile ? 20 : 28, horizontal: 24),
+          child: Column(
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Commission Section (Top)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Comissão Total',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Comissão Total',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                            fontSize: _getResponsiveFontSize(context, 16),
+                          ),
+                        ),
+                        SizedBox(height: spacing / 2),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                displayValue,
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: _getResponsiveFontSize(context, 28),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              icon: Icon(
+                                _isEarningsVisible ? Icons.visibility : Icons.visibility_off, 
+                                color: theme.colorScheme.onSurfaceVariant,
+                                size: isMobile ? 20 : 24,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isEarningsVisible = !_isEarningsVisible;
+                                });
+                              },
+                              tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        displayValue,
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: Icon(_isEarningsVisible ? Icons.visibility : Icons.visibility_off, color: theme.colorScheme.onSurfaceVariant),
-                        onPressed: () {
-                          setState(() {
-                            _isEarningsVisible = !_isEarningsVisible;
-                          });
-                        },
-                        tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
-                      ),
-                    ],
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_right, 
+                      color: theme.colorScheme.primary, 
+                      size: isMobile ? 28 : 36,
+                    ),
+                    onPressed: () {
+                      // TODO: Navigate to details page
+                    },
+                    tooltip: 'Ver detalhes',
                   ),
                 ],
               ),
-              IconButton(
-                icon: Icon(Icons.chevron_right, color: theme.colorScheme.primary, size: 36),
-                onPressed: () {
-                  // TODO: Navigate to details page
-                },
-                tooltip: 'Ver detalhes',
-              ),
+              SizedBox(height: spacing + 8),
+              // Status Section (Bottom)
+              _buildStatusGrid(statusCounts, isMobile, spacing),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // --- Status Grid for Dashboard Card ---
+  Widget _buildStatusGrid(Map<String, int> statusCounts, bool isMobile, double spacing) {
+    final theme = Theme.of(context);
+    
+    final List<Widget> statusItems = [
+      _buildCompactStatusItem(
+        label: 'Ativos',
+        count: statusCounts['active'] ?? 0,
+        color: Colors.green,
+        icon: CupertinoIcons.checkmark_seal_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Ação Necessária',
+        count: statusCounts['actionNeeded'] ?? 0,
+        color: Colors.blue,
+        icon: CupertinoIcons.exclamationmark_circle_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Pendentes',
+        count: statusCounts['pending'] ?? 0,
+        color: Colors.orange,
+        icon: CupertinoIcons.clock_fill,
+        isMobile: isMobile,
+      ),
+      _buildCompactStatusItem(
+        label: 'Rejeitados',
+        count: statusCounts['rejected'] ?? 0,
+        color: Colors.red,
+        icon: CupertinoIcons.xmark_seal_fill,
+        isMobile: isMobile,
+      ),
+    ];
+
+    if (isMobile) {
+      // 2x2 grid on mobile
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: statusItems[0]),
+              SizedBox(width: spacing),
+              Expanded(child: statusItems[1]),
+            ],
+          ),
+          SizedBox(height: spacing),
+          Row(
+            children: [
+              Expanded(child: statusItems[2]),
+              SizedBox(width: spacing),
+              Expanded(child: statusItems[3]),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // 1x4 row on desktop
+      return Row(
+        children: [
+          for (int i = 0; i < statusItems.length; i++) ...[
+            Expanded(child: statusItems[i]),
+            if (i < statusItems.length - 1) SizedBox(width: spacing),
+          ],
+        ],
+      );
+    }
+  }
+
+  // --- Compact Status Item for Dashboard Card ---
+  Widget _buildCompactStatusItem({
+    required String label,
+    required int count,
+    required Color color,
+    required IconData icon,
+    required bool isMobile,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: isMobile ? 8 : 12,
+        horizontal: isMobile ? 6 : 8,
+      ),
+      decoration: BoxDecoration(
+        color: color.withAlpha((255 * 0.08).round()),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withAlpha((255 * 0.2).round()),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: isMobile ? 16 : 18,
+          ),
+          SizedBox(width: isMobile ? 4 : 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count.toString(),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: isMobile ? 14 : 16,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: isMobile ? 10 : 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -945,53 +1177,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  Widget _buildStatusCard(BuildContext context, {
-    required String label,
-    required int count,
-    required IconData icon,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 24,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            count.toString(),
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
+  
 }
 
 // Auto-Dismiss Dialog Content Widget

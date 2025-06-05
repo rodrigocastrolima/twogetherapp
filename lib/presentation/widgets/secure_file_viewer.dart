@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart'; // Changed to Cupertino
-import 'package:flutter/material.dart'; // Still need for ScaffoldMessenger, PDFView, Image, etc.
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:file_saver/file_saver.dart';
 import 'package:mime/mime.dart';
-// import 'package:file_saver/file_saver.dart'; // Needed for download action
 
-// Correct the import path to point to /services/
+// Conditional imports for web functionality
+import 'secure_file_viewer_stub.dart'
+  if (dart.library.html) 'secure_file_viewer_web.dart';
 
 // Use correct absolute import path for providers
 import 'package:twogether/features/opportunity/presentation/providers/opportunity_providers.dart';
@@ -249,9 +249,9 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     }
     if (kIsWeb) {
       // For web, create a blob and download the file
-      final blob = html.Blob([bytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      html.Url.revokeObjectUrl(url);
+      if (kDebugMode) {
+        logger.d('Web platform detected, creating blob for download');
+      }
       return;
     }
 
@@ -342,8 +342,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       return;
     }
 
-      try {
-        // Determine file extension
+    try {
+      // Determine file extension
       String fileExtension = '';
       if (_fileExtension?.isNotEmpty == true) {
         fileExtension = _fileExtension!.replaceAll('.', ''); // Remove dot for file_saver
@@ -369,48 +369,32 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
 
       // Sanitize filename (remove extension if already present)
       String sanitizedTitle = widget.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-      // Remove existing extension from title to avoid duplication
+      if (sanitizedTitle.toLowerCase().endsWith('.$fileExtension')) {
+        sanitizedTitle = sanitizedTitle.substring(0, sanitizedTitle.length - fileExtension.length - 1);
+      }
+
+      // Add extension if not present
       if (fileExtension.isNotEmpty) {
-        final extensionPattern = RegExp(r'\.' + RegExp.escape(fileExtension) + r'$', caseSensitive: false);
-        sanitizedTitle = sanitizedTitle.replaceAll(extensionPattern, '');
+        sanitizedTitle = '$sanitizedTitle.$fileExtension';
       }
 
-      // Use file_saver to save the file
-      final String? result;
-      if (_contentType != null) {
-        result = await FileSaver.instance.saveFile(
-          name: sanitizedTitle,
-          bytes: _fileBytes!,
-          ext: fileExtension.isNotEmpty ? fileExtension : 'bin', // Provide fallback
-          mimeType: MimeType.custom,
-          customMimeType: _contentType!,
-        );
+      if (kIsWeb) {
+        // Use the web-specific download function
+        downloadFile(_fileBytes!, sanitizedTitle, _contentType ?? 'application/octet-stream');
       } else {
-        result = await FileSaver.instance.saveFile(
+        // Use file_saver for mobile platforms
+        await FileSaver.instance.saveFile(
           name: sanitizedTitle,
           bytes: _fileBytes!,
-          ext: fileExtension.isNotEmpty ? fileExtension : 'bin', // Provide fallback
           mimeType: MimeType.other,
+          ext: fileExtension,
         );
       }
-
+    } catch (e) {
+      logger.e('Error downloading file', error: e);
       if (!mounted) return;
-      
-      if (result != null && result.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File saved successfully to Downloads')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File saved successfully')),
-        );
-      }
-
-      } catch (e) {
-        logger.e('Error saving file', error: e);
-        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving file: $e')),
+        SnackBar(content: Text('Error downloading file: $e')),
       );
     }
   }
@@ -506,15 +490,15 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     // --- Display Content based on Determined Type ---
     if (usePdfViewer && _fileBytes != null) {
       if (kIsWeb) {
-        // For web, use browser's built-in PDF viewer (opens in new tab)
-        // Defer navigation to avoid setState during build
+        // For web, use the web-specific openBlob function
         WidgetsBinding.instance.addPostFrameCallback((_) {
-        final blob = html.Blob([_fileBytes!], 'application/pdf'); 
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        html.window.open(url, '_blank');
-        if (Navigator.canPop(context)) { 
-          Navigator.of(context).pop();
-        }
+          if (kDebugMode) {
+            logger.d('Web platform detected, opening PDF in new tab');
+          }
+          openBlob(_fileBytes!, _contentType ?? 'application/pdf');
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+          }
         });
         return const Center(
           child: Column(
@@ -525,41 +509,41 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
               Text('Opening PDF in new tab...'),
             ],
           ),
-        ); 
+        );
       } else {
         // For mobile, use PDFView
-      return PDFView(
-        filePath: _localTempFilePath,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: true,
-        pageFling: true,
-        pageSnap: true,
-        defaultPage: _pdfCurrentPage ?? 0,
-        fitPolicy: FitPolicy.BOTH,
-        preventLinkNavigation: false,
-        onRender: (pages) {
-          setState(() {
-            // _pdfPages = pages; // Removed unused field
-          });
-        },
-        onError: (error) {
-          logger.e("PDFView Error", error: error);
-        },
-        onPageError: (page, error) {
-          logger.e("PDFView Page Error", error: {'page': page, 'error': error});
-        },
-        onViewCreated: (PDFViewController pdfViewController) {
-          if (!_pdfViewController.isCompleted) {
-            _pdfViewController.complete(pdfViewController);
-          }
-        },
-        onPageChanged: (int? page, int? total) {
-          setState(() {
-            _pdfCurrentPage = page;
-          });
-        },
-      );
+        return PDFView(
+          filePath: _localTempFilePath,
+          enableSwipe: true,
+          swipeHorizontal: false,
+          autoSpacing: true,
+          pageFling: true,
+          pageSnap: true,
+          defaultPage: _pdfCurrentPage ?? 0,
+          fitPolicy: FitPolicy.BOTH,
+          preventLinkNavigation: false,
+          onRender: (pages) {
+            setState(() {
+              // _pdfPages = pages; // Removed unused field
+            });
+          },
+          onError: (error) {
+            logger.e("PDFView Error", error: error);
+          },
+          onPageError: (page, error) {
+            logger.e("PDFView Page Error", error: {'page': page, 'error': error});
+          },
+          onViewCreated: (PDFViewController pdfViewController) {
+            if (!_pdfViewController.isCompleted) {
+              _pdfViewController.complete(pdfViewController);
+            }
+          },
+          onPageChanged: (int? page, int? total) {
+            setState(() {
+              _pdfCurrentPage = page;
+            });
+          },
+        );
       }
     } else if (useImageViewer && _fileBytes != null) {
       // Use Image.memory for images

@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.html) 'package:twogether/core/utils/html_file_stub.dart' as io_file;
-import 'dart:html' as html show window, Url, Blob, AnchorElement;
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
@@ -12,6 +11,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
+
+// Conditional imports for web functionality
+import 'secure_file_viewer_stub.dart'
+  if (dart.library.html) 'secure_file_viewer_web.dart';
 
 class FullScreenPdfViewer extends StatefulWidget {
   final String? pdfUrl;
@@ -56,9 +59,8 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
     if (kIsWeb) {
       if (widget.pdfBytes != null) {
         try {
-          final blob = html.Blob([widget.pdfBytes!], 'application/pdf');
-          final url = html.Url.createObjectUrlFromBlob(blob);
-          html.window.open(url, '_blank');
+          if (kDebugMode) print("Opening PDF blob on web");
+          openBlob(widget.pdfBytes!, 'application/pdf');
           if (mounted) Navigator.of(context).pop(); 
           return;
         } catch (e) {
@@ -105,7 +107,7 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
       final fileName = widget.pdfName ?? const Uuid().v4();
       final dir = await getTemporaryDirectory();
       final safeFileName = fileName.endsWith('.pdf') ? fileName : '$fileName.pdf';
-      final file = io_file.File('${dir.path}/$safeFileName');
+      final file = File('${dir.path}/$safeFileName');
 
       if (widget.pdfBytes != null) {
         await file.writeAsBytes(widget.pdfBytes!, flush: true);
