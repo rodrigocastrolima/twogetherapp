@@ -8,6 +8,7 @@ import '../../../features/proposal/data/models/salesforce_cpe_proposal_data.dart
 import 'package:intl/intl.dart';
 import '../../widgets/logo.dart';
 import '../../widgets/simple_list_item.dart';
+import '../../widgets/standard_app_bar.dart';
 import '../../../../core/theme/theme.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
@@ -47,12 +48,10 @@ Color _getSegmentColor(String? segment, ThemeData theme, bool isDark) {
 class _ProposalStatusVisuals {
   final IconData iconData;
   final Color iconColor;
-  final bool isInteractive;
 
   _ProposalStatusVisuals({
     required this.iconData,
     required this.iconColor,
-    this.isInteractive = true,
   });
 }
 
@@ -61,51 +60,44 @@ _ProposalStatusVisuals _getProposalStatusVisuals(
   String? status,
   ThemeData theme,
 ) {
-  final bool isDark = theme.brightness == Brightness.dark;
   switch (status) {
     case 'Aceite':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.checkmark_seal_fill,
-        iconColor: Colors.green,
-        isInteractive: true,
+        iconData: Icons.check_circle,
+        iconColor: Colors.green[700]!,
       );
-    case 'Enviada': // Specific case for Enviada
+    case 'Enviada':
+    case 'Em Aprovação':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.exclamationmark_circle_fill, // Changed to exclamation mark
-        iconColor: CupertinoColors.activeBlue, 
-        isInteractive: true,
+        iconData: Icons.pending_actions,
+        iconColor: Colors.blue[700]!,
       );
     case 'Cancelada':
     case 'Não Aprovada':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.xmark_seal_fill,
-        iconColor: Colors.red,
-        isInteractive: false, // Changed to false to prevent interaction
+        iconData: Icons.cancel,
+        iconColor: Colors.red[700]!,
       );
     case 'Expirada':
+    case 'Aprovada':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.clock_fill,
-        iconColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-        isInteractive: false,
+        iconData: Icons.schedule,
+        iconColor: Colors.orange[700]!,
       );
     case 'Pendente':
-    case 'Em Aprovação':
-    case 'Aprovada':
     case 'Pricing Finalizado':
     case 'A Aguardar Pricing':
     case 'Risco Crédito Revisto':
     case 'Criação':
     case '--Nenhum --':
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.doc_text,
+        iconData: Icons.description,
         iconColor: theme.colorScheme.onSurfaceVariant,
-        isInteractive: true,
       );
     default:
       return _ProposalStatusVisuals(
-        iconData: CupertinoIcons.question_circle,
+        iconData: Icons.description,
         iconColor: theme.colorScheme.onSurfaceVariant,
-        isInteractive: true,
       );
   }
 }
@@ -141,27 +133,18 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            CupertinoIcons.chevron_left,
-            color: theme.colorScheme.onSurface,
-          ),
-          onPressed: () => context.pop(),
-        ),
-        title: LogoWidget(height: 60, darkMode: isDark),
-        centerTitle: true,
+      appBar: const StandardAppBar(
+        showBackButton: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 // --- Centered Header ---
                 Padding(
                   padding: const EdgeInsets.only(top: 16, bottom: 8),
@@ -264,22 +247,20 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
                           leading: Icon(statusVisuals.iconData, color: statusVisuals.iconColor, size: 24),
                           title: titleText,
                           subtitle: subtitleText,
-                          trailing: statusVisuals.isInteractive
-                              ? Icon(CupertinoIcons.chevron_right, size: 16, color: isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground)
-                              : null,
-                          onTap: statusVisuals.isInteractive
-                              ? () {
-                                  setState(() {
-                                    if (_selectedProposalId == proposal.id) {
-                                      _selectedProposalId = null;
-                                      _selectedProposalName = null;
-                                    } else {
-                                      _selectedProposalId = proposal.id;
-                                      _selectedProposalName = proposal.name;
-                                    }
-                                  });
-                                }
-                              : null,
+                          trailing: Center(
+                            child: Icon(CupertinoIcons.chevron_right, size: 16, color: isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              if (_selectedProposalId == proposal.id) {
+                                _selectedProposalId = null;
+                                _selectedProposalName = null;
+                              } else {
+                                _selectedProposalId = proposal.id;
+                                _selectedProposalName = proposal.name;
+                              }
+                            });
+                          },
                           padding: const EdgeInsets.symmetric(vertical: 4),
                         ),
                       );
@@ -318,13 +299,14 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
                     return Column(children: proposalWidgets);
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, stackTrace) => Center(
-                    child: Text('Erro ao carregar propostas: $error'),
-                  ),
-                ),
-              ],
-                  ),
+              error: (error, stackTrace) => Center(
+                child: Text('Erro ao carregar propostas: $error'),
+              ),
             ),
+          ],
+        ),
+            ),
+          ),
         ),
       ),
     );
@@ -434,49 +416,97 @@ class _InlineProposalDetails extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Total Commission and Data Validade on the same line
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Text('Total Comissão:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
-                    const SizedBox(width: 8),
-                    Text(_formatCurrency(totalCommission), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary, fontSize: fontSize)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Text('Data de Validade:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: fontSize)),
-                    const SizedBox(width: 6),
-                    Text(_formatDate(proposal.expiryDate), style: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize)),
-                  ],
-                ),
-              ],
+            // Total Commission and Data Validade - responsive layout
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 360;
+                
+                if (isNarrow) {
+                  // Stack vertically on narrow screens
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Total Comissão:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(_formatCurrency(totalCommission), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary, fontSize: fontSize)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text('Data de Validade:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: fontSize)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(_formatDate(proposal.expiryDate), style: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                } else {
+                  // Side by side on wider screens
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Row(
+                          children: [
+                            Text('Total Comissão:', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(_formatCurrency(totalCommission), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary, fontSize: fontSize)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text('Data de Validade:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500, fontSize: fontSize)),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(_formatDate(proposal.expiryDate), style: theme.textTheme.bodyMedium?.copyWith(fontSize: fontSize)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
             SizedBox(height: verticalSpacing),
-            Text('CPEs', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: fontSize)),
+            
             if (cpeList.isEmpty)
               Padding(
                 padding: EdgeInsets.symmetric(vertical: verticalSpacing),
                 child: Center(child: Text('Nenhum contrato associado.', style: TextStyle(fontSize: fontSize))),
               )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final cpe in cpeList)
-                      Container(
-                        width: 260,
-                        margin: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
-                        child: Material(
-                          elevation: 2,
-                          borderRadius: BorderRadius.circular(14),
-                          color: theme.colorScheme.surface,
-                          clipBehavior: Clip.antiAlias,
-                          child: Padding(
-                            padding: EdgeInsets.all(cardPadding),
+                          else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 500;
+                  
+                  if (isMobile) {
+                    // Stack CPE cards vertically on mobile
+                    return Column(
+                      children: [
+                        for (final cpe in cpeList)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12, top: 4),
+                            child: Material(
+                              elevation: 2,
+                              borderRadius: BorderRadius.circular(14),
+                              color: theme.colorScheme.surface,
+                              clipBehavior: Clip.antiAlias,
+                              child: Padding(
+                                padding: EdgeInsets.all(cardPadding),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -549,8 +579,102 @@ class _InlineProposalDetails extends ConsumerWidget {
                           ),
                         ),
                       ),
-                  ],
-                ),
+                  ] 
+                );
+                  } else {
+                    // Horizontal scroll for wider screens
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final cpe in cpeList)
+                            Container(
+                              width: 260,
+                              margin: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
+                              child: Material(
+                                elevation: 2,
+                                borderRadius: BorderRadius.circular(14),
+                                color: theme.colorScheme.surface,
+                                clipBehavior: Clip.antiAlias,
+                                child: Padding(
+                                  padding: EdgeInsets.all(cardPadding),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        cpe.cpeC != null && cpe.cpeC!.isNotEmpty
+                                            ? cpe.cpeC!
+                                            : cpe.id.substring(cpe.id.length - 6),
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.onSurface,
+                                          fontSize: fontSize,
+                                        ),
+                                      ),
+                                      SizedBox(height: 6),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(
+                                              width: 80,
+                                              child: Text(
+                                                'Comissão:',
+                                                style: theme.textTheme.bodyMedium?.copyWith(
+                                                  color: theme.colorScheme.onSurfaceVariant,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: fontSize,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                _formatCurrency(cpe.commissionRetail),
+                                                style: theme.textTheme.titleSmall?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: theme.colorScheme.primary,
+                                                  fontSize: fontSize,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      _buildDetailRow(
+                                        context,
+                                        'Potência',
+                                        cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
+                                        fontSize,
+                                      ),
+                                      _buildDetailRow(
+                                        context,
+                                        'Fidelização',
+                                        _formatYears(cpe.loyaltyYears),
+                                        fontSize,
+                                      ),
+                                      // Add file previews if files exist
+                                      if (cpe.attachedFiles.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8.0,
+                                          runSpacing: 8.0,
+                                          children: cpe.attachedFiles.map((fileInfo) {
+                                            return _buildFilePreview(context, fileInfo, iconSize: 32);
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }
+                },
               ),
             if (showActionButtons) ...[
               SizedBox(height: verticalSpacing),

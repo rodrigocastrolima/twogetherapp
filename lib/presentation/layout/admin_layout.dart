@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
+import '../../core/theme/app_colors.dart';
 
 import '../../core/theme/ui_styles.dart';
 
@@ -306,8 +307,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
               color: sidebarBackgroundColorWithOpacity,
               border: Border(
                 right: BorderSide(
-                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 0.5,
+                  color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                  width: 1.0,
                 ),
               ),
               boxShadow: [
@@ -523,10 +524,8 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
                       : Colors.white.withAlpha((255 * 0.8).round()),
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(
-                    context,
-                  ).dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 0.5,
+                  color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                  width: 1.0,
                 ),
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/theme.dart';
+import '../../core/theme/app_colors.dart';
 
 import '../../features/chat/presentation/providers/chat_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -33,10 +34,7 @@ class MainLayout extends ConsumerStatefulWidget {
 class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isTransitioning = false;
-  bool _hasSeenHintLocally = false;
-  bool _isAppActive = true;
   late AnimationController _helpIconAnimationController;
-  late Animation<double> _helpIconAnimation;
 
   @override
   void initState() {
@@ -47,12 +45,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
     _helpIconAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
-    );
-    _helpIconAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(
-        parent: _helpIconAnimationController,
-        curve: Curves.easeInOut,
-      ),
     );
   }
 
@@ -299,8 +291,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
               color: sidebarBackgroundColorWithOpacity,
               border: Border(
                 right: BorderSide(
-                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 0.5,
+                  color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                  width: 1.0,
                 ),
               ),
               boxShadow: [
@@ -514,8 +506,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
                       ), // Adjusted alpha
               border: Border(
                 top: BorderSide(
-                  color: theme.dividerColor.withAlpha((255 * 0.1).round()),
-                  width: 0.5,
+                  color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                  width: 1.0,
                 ),
               ),
             ),
@@ -653,34 +645,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
     );
   }
 
-  bool _isBusinessHours() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    // Example: Business hours 9 AM to 6 PM (18:00)
-    return hour >= 9 && hour < 18;
-  }
 
-  // Helper method to get user initials
-  String _getUserInitials(String? name, String? email) {
-    if (name != null && name.isNotEmpty) {
-      final nameParts = name.trim().split(' ');
-      if (nameParts.length > 1) {
-        // If there are multiple parts, use first letter of first and last name
-        return '${nameParts.first[0]}${nameParts.last[0]}'.toUpperCase();
-      } else if (nameParts.isNotEmpty) {
-        // If there's only one part, use the first letter
-        return nameParts.first[0].toUpperCase();
-      }
-    }
-
-    // Fallback to email
-    if (email != null && email.isNotEmpty) {
-      return email[0].toUpperCase();
-    }
-
-    // Default
-    return 'TW';
-  }
 
 
 
@@ -716,11 +681,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
       _helpIconAnimationController.stop();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(AppConstants.kHasSeenHelpIconHint, true);
-      if (mounted) {
-        setState(() {
-          _hasSeenHintLocally = true;
-        });
-      }
+      // Animation stopped, help hint dismissed
     }
 
     if (context.mounted) {

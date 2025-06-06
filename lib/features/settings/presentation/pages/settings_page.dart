@@ -89,14 +89,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         subtitle: Text(getThemeName(), style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                         trailing: Switch(
                           value: currentTheme == ThemeMode.dark,
-                          activeColor: theme.colorScheme.primary,
-                          inactiveThumbColor: theme.colorScheme.outline,
-                          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return theme.colorScheme.primary;
-                            }
-                            return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
-                          }),
                           onChanged: (bool value) {
                             themeNotifier.setTheme(value ? ThemeMode.dark : ThemeMode.light);
                           },
@@ -108,14 +100,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         subtitle: Text(ref.watch(pushNotificationSettingsProvider) ? 'Ativadas' : 'Desativadas', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                         trailing: Switch(
                           value: ref.watch(pushNotificationSettingsProvider),
-                          activeColor: theme.colorScheme.primary,
-                          inactiveThumbColor: theme.colorScheme.outline,
-                          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return theme.colorScheme.primary;
-                            }
-                            return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
-                          }),
                           onChanged: (bool value) {
                             ref.read(pushNotificationSettingsProvider.notifier).setEnabled(value);
                           },

@@ -7,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 // Keep standard import for CarouselSlider and CarouselOptions
 import '../providers/provider_providers.dart';
 import '../../domain/models/provider_info.dart';
-import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget
+import '../../../../presentation/widgets/standard_app_bar.dart';
 
 class ResellerProviderListPage extends ConsumerStatefulWidget { // Changed to ConsumerStatefulWidget
   const ResellerProviderListPage({super.key});
@@ -18,21 +18,19 @@ class ResellerProviderListPage extends ConsumerStatefulWidget { // Changed to Co
 
 class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListPage> { // New State class
 
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   @override
   Widget build(BuildContext context) {
     final providersAsyncValue = ref.watch(providersStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: Theme.of(context).colorScheme.onSurface),
-          onPressed: () => context.pop(),
-        ),
-        title: LogoWidget(height: 60, darkMode: Theme.of(context).brightness == Brightness.dark),
-        centerTitle: true, 
-        elevation: 0, 
-        backgroundColor: Colors.transparent, 
-        scrolledUnderElevation: 0.0, 
+      appBar: const StandardAppBar(
+        showBackButton: true,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -51,37 +49,61 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+                        SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
                         Padding(
-                          padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
                           child: Text(
                             'Dropbox',
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: theme.colorScheme.onSurface,
+                              fontSize: _getResponsiveFontSize(context, 24),
                             ),
-                            textAlign: TextAlign.left,
                           ),
                         ),
+                        // Responsive spacing after title - 16px for mobile, 24px for desktop
+                        SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
                         Expanded(
-                          child: GridView.builder(
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              mainAxisSpacing: 24,
-                              crossAxisSpacing: 24,
-                              childAspectRatio: 1,
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-            itemCount: providers.length,
-            itemBuilder: (context, index) {
-              final provider = providers[index];
-                              return _buildProviderSquare(context, provider, theme);
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              // Calculate responsive grid layout
+                              final screenWidth = MediaQuery.of(context).size.width;
+                              int crossAxisCount;
+                              double childAspectRatio;
+                              
+                              if (screenWidth < 600) {
+                                crossAxisCount = 2; // Mobile: 2 columns
+                                childAspectRatio = 0.75; // Adjusted for smaller card + external title
+                              } else if (screenWidth < 900) {
+                                crossAxisCount = 3; // Tablet: 3 columns
+                                childAspectRatio = 0.8;
+                              } else {
+                                crossAxisCount = 4; // Desktop: 4 columns
+                                childAspectRatio = 0.85;
+                              }
+                              
+                              return GridView.builder(
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisSpacing: 16,
+                                  crossAxisSpacing: 16,
+                                  childAspectRatio: childAspectRatio,
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                                itemCount: providers.length,
+                                itemBuilder: (context, index) {
+                                  final provider = providers[index];
+                                  return _buildProviderSquare(context, provider, theme);
+                                },
+                              );
                             },
                           ),
                         ),
-                ],
+                      ],
                     ),
                   ),
-          );
+                );
         },
         loading: () => const Center(child: CupertinoActivityIndicator()),
               error: (error, stack) => Center(
@@ -99,28 +121,36 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
 
   Widget _buildProviderSquare(BuildContext context, ProviderInfo provider, ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    return Material(
-      color: theme.colorScheme.surface,
-      elevation: 4,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          context.push('/providers/${provider.id}', extra: provider);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    
+    // Responsive sizing
+    final imageSize = isMobile ? 50.0 : 70.0;
+    final paddingSize = isMobile ? 16.0 : 20.0;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Card with just the image
+        Material(
+          color: theme.colorScheme.surface,
+          elevation: 4,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
             borderRadius: BorderRadius.circular(20),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CachedNetworkImage(
+            onTap: () {
+              context.push('/providers/${provider.id}', extra: provider);
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: EdgeInsets.all(paddingSize),
+              child: CachedNetworkImage(
                 imageUrl: provider.imageUrl,
-                width: 80,
-                height: 80,
+                width: imageSize,
+                height: imageSize,
                 fit: BoxFit.contain,
                 placeholder: (context, url) => const CupertinoActivityIndicator(),
                 errorWidget: (context, url, error) {
@@ -129,26 +159,28 @@ class _ResellerProviderListPageState extends ConsumerState<ResellerProviderListP
                   }
                   return Icon(
                     CupertinoIcons.photo,
-                    size: 40,
+                    size: isMobile ? 30 : 40,
                     color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
                   );
                 },
               ),
-              const SizedBox(height: 18),
-              Text(
-                provider.name,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.black87 : Colors.black87,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ],
-              ),
+            ),
+          ),
         ),
-      ),
+        // Provider name outside the card
+        const SizedBox(height: 12),
+        Text(
+          provider.name,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+            fontSize: isMobile ? 14 : 16,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }

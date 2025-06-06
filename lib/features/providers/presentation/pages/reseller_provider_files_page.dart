@@ -7,11 +7,11 @@ import '../../domain/models/provider_file.dart';
 // Import the viewers
 import '../../../../presentation/widgets/full_screen_image_viewer.dart';
 import '../../../../presentation/widgets/full_screen_pdf_viewer.dart';
-import '../../../../presentation/widgets/logo.dart'; // Import LogoWidget for AppBar
+import '../../../../presentation/widgets/standard_app_bar.dart';
 import '../../../../presentation/widgets/simple_list_item.dart';
 import '../../../../core/services/file_icon_service.dart';
 
-class ResellerProviderFilesPage extends ConsumerWidget {
+class ResellerProviderFilesPage extends ConsumerStatefulWidget {
   final String providerId;
   final String providerName;
 
@@ -20,6 +20,18 @@ class ResellerProviderFilesPage extends ConsumerWidget {
     required this.providerId,
     required this.providerName,
   });
+
+  @override
+  ConsumerState<ResellerProviderFilesPage> createState() => _ResellerProviderFilesPageState();
+}
+
+class _ResellerProviderFilesPageState extends ConsumerState<ResellerProviderFilesPage> {
+  
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
 
   // --- File Tap Handler ---
   Future<void> _handleFileTap(BuildContext context, ProviderFile file) async {
@@ -46,42 +58,37 @@ class ResellerProviderFilesPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final filesAsyncValue = ref.watch(providerFilesStreamProvider(providerId));
+  Widget build(BuildContext context) {
+    final filesAsyncValue = ref.watch(providerFilesStreamProvider(widget.providerId));
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark; // For LogoWidget in AppBar
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(CupertinoIcons.chevron_left, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: LogoWidget(height: 60, darkMode: isDark),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0.0,
+      appBar: const StandardAppBar(
+        showBackButton: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
-                child: Text(
-                  providerName, // Display the provider name
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.left,
+      body: SafeArea(
+        bottom: false,
+        top: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                widget.providerName,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                  fontSize: _getResponsiveFontSize(context, 24),
                 ),
               ),
-              Expanded(
-                child: filesAsyncValue.when(
+            ),
+            // Responsive spacing after title - 16px for mobile, 24px for desktop
+            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
+            Expanded(
+              child: filesAsyncValue.when(
         data: (files) {
           if (files.isEmpty) {
             return const Center(
@@ -89,7 +96,7 @@ class ResellerProviderFilesPage extends ConsumerWidget {
             );
           }
           return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
             itemCount: files.length,
             itemBuilder: (context, index) {
               final file = files[index];
@@ -104,11 +111,10 @@ class ResellerProviderFilesPage extends ConsumerWidget {
                       child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center),
                     ),
                   ),
-                ),
-                ),
-            ],
               ),
             ),
+          ],
+        ),
       ),
     );
   }

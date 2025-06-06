@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/theme/colors.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../core/theme/ui_styles.dart';
 import '../../core/theme/theme.dart';
@@ -250,7 +250,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                             child: DropdownButton<String>(
                               value: role,
                               isExpanded: true,
-                              dropdownColor: AppColors.blackAlpha70,
+                              dropdownColor: AppColors.withOpacity(AppColors.logoBlack, 0.7),
                               style: AppTextStyles.body1.copyWith(
                                 color: Colors.white,
                               ),
@@ -286,7 +286,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                           subtitle: Text(
                             'Users with inactive accounts cannot login',
                             style: AppTextStyles.caption.copyWith(
-                              color: AppColors.whiteAlpha70,
+                              color: AppColors.withOpacity(AppColors.logoWhite, 0.7),
                             ),
                           ),
                           value: isActive,
@@ -316,7 +316,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                               child: Text(
                                 'Cancel',
                                 style: AppTextStyles.button.copyWith(
-                                  color: AppColors.whiteAlpha90,
+                                  color: AppColors.withOpacity(AppColors.logoWhite, 0.9),
                                 ),
                               ),
                             ),
@@ -324,7 +324,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                             ElevatedButton(
                               onPressed: _saveUser,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.amber,
+                                backgroundColor: const Color(0xFFFFBE45), // tulip tree color
                                 foregroundColor: Colors.black,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -382,7 +382,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               border: InputBorder.none,
-              prefixIcon: Icon(icon, color: AppColors.whiteAlpha70, size: 20),
+              prefixIcon: Icon(icon, color: AppColors.withOpacity(AppColors.logoWhite, 0.7), size: 20),
             ),
           ),
         ),

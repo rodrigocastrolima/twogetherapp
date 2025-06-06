@@ -14,6 +14,7 @@ import '../../../../core/theme/ui_styles.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
 import '../../../../core/theme/theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -339,7 +340,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                 ),
               ),
               // Responsive spacing after title - 24px for mobile, 32px for desktop
-              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 24 : 32),
+              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
             ],
             Expanded(
               child: Padding(
@@ -350,8 +351,12 @@ class ChatPageState extends ConsumerState<ChatPage> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF232F3E) : const Color(0xFFF7F7F8),
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                            width: 1,
+                          ),
                         ),
                         margin: EdgeInsets.zero, // Remove horizontal margin here
                         child: messagesStream.when(
@@ -601,12 +606,14 @@ class ChatPageState extends ConsumerState<ChatPage> {
     final bubbleColor = isImage
         ? Colors.transparent
         : isFromMe
-            ? (isDark ? AppTheme.darkPrimary : theme.messageBubbleSent)
-            : (isDark ? theme.colorScheme.surface : theme.messageBubbleReceived);
+            ? const Color(0xFF007AFF) // Apple blue for sent messages
+            : (isDark ? const Color(0xFF3A3A3A) : const Color(0xFFF0F0F0)); // Dark gray for dark mode, light gray for light mode
 
-    final textColor = isFromMe
-        ? (isDark ? AppTheme.darkPrimaryForeground : theme.messageBubbleTextSent)
-        : (isDark ? theme.colorScheme.onSurface : theme.messageBubbleTextReceived);
+    final textColor = isImage
+        ? Colors.transparent
+        : isFromMe
+            ? Colors.white // White text on blue background
+            : AppColors.foreground(isDark ? Brightness.dark : Brightness.light);
 
     // Set padding based on message type
     final contentPadding =
@@ -662,13 +669,18 @@ class ChatPageState extends ConsumerState<ChatPage> {
                     ),
                   ),
                 ],
-                Container(
-                  decoration: BoxDecoration(
-                    color: bubbleColor,
-                    borderRadius: BorderRadius.circular(16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.7, // 70% of screen width max
                   ),
-                  padding: contentPadding,
-                  child: _buildMessageContent(context, message, textColor),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: contentPadding,
+                    child: _buildMessageContent(context, message, textColor),
+                  ),
                 ),
                 if (showTime)
                   Padding(
@@ -677,7 +689,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                       DateFormat('HH:mm').format(message.timestamp),
                       style: TextStyle(
                         fontSize: 10,
-                        color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
+                        color: AppColors.foregroundMuted(isDark ? Brightness.dark : Brightness.light),
                       ),
                     ),
                   ),
@@ -875,13 +887,9 @@ class ChatPageState extends ConsumerState<ChatPage> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    // Define button colors - use gray instead of primary blue
-    final buttonColor = isDark 
-        ? AppTheme.darkMuted.withAlpha((255 * 0.8).round())
-        : theme.colorScheme.surface.withAlpha((255 * 0.9).round());
-    final buttonIconColor = isDark 
-        ? AppTheme.darkMutedForeground 
-        : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round());
+    // Define button colors - match input field
+    final buttonColor = AppColors.input(isDark ? Brightness.dark : Brightness.light);
+    final buttonIconColor = AppColors.foregroundVariant(isDark ? Brightness.dark : Brightness.light);
     
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -901,17 +909,15 @@ class ChatPageState extends ConsumerState<ChatPage> {
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
                     onTap: _pickFile,
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: buttonColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
+                          color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
                           width: 1,
                         ),
                       ),
@@ -922,95 +928,86 @@ class ChatPageState extends ConsumerState<ChatPage> {
                 const SizedBox(width: 12),
               ] else ...[
                 // On mobile, show single plus button with popup menu
-                PopupMenuButton<String>(
-                  offset: const Offset(-8, -160), // Position above the button
-                  enabled: !_isImageLoading,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: buttonColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(CupertinoIcons.plus, size: 20, color: buttonIconColor),
+                                Theme(
+                  data: Theme.of(context).copyWith(
+                    splashFactory: NoSplash.splashFactory,
+                    highlightColor: Colors.transparent,
+                    splashColor: Colors.transparent,
                   ),
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    PopupMenuItem<String>(
-                      value: 'camera',
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Icon(CupertinoIcons.camera, size: 18, color: theme.colorScheme.onSurface),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Tirar Foto', 
-                                style: TextStyle(color: theme.colorScheme.onSurface),
-                              ),
-                            ),
-                          ],
+                  child: PopupMenuButton<String>(
+                    offset: const Offset(-8, -160), // Position above the button
+                    enabled: !_isImageLoading,
+                    elevation: 8,
+                    color: isDark ? const Color(0xFF3A3A3A) : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: buttonColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
+                          width: 1,
                         ),
                       ),
+                      child: Icon(CupertinoIcons.plus, size: 20, color: buttonIconColor),
                     ),
-                    PopupMenuItem<String>(
-                      value: 'gallery',
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Icon(CupertinoIcons.photo, size: 18, color: theme.colorScheme.onSurface),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Escolher da Galeria', 
-                                style: TextStyle(color: theme.colorScheme.onSurface),
-                              ),
-                            ),
-                          ],
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        value: 'camera',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.camera, size: 18, color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light)),
+                              const SizedBox(width: 12),
+                              Text('Tirar Foto', style: TextStyle(color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light))),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    PopupMenuItem<String>(
-                      value: 'file',
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Icon(CupertinoIcons.doc, size: 18, color: theme.colorScheme.onSurface),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Anexar Arquivo', 
-                                style: TextStyle(color: theme.colorScheme.onSurface),
-                              ),
-                            ),
-                          ],
+                      PopupMenuItem<String>(
+                        value: 'gallery',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.photo, size: 18, color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light)),
+                              const SizedBox(width: 12),
+                              Text('Escolher da Galeria', style: TextStyle(color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light))),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                  onSelected: (String value) {
-                    switch (value) {
-                      case 'camera':
-                        _getImageFromSource(ImageSource.camera);
-                        break;
-                      case 'gallery':
-                        _getImageFromSource(ImageSource.gallery);
-                        break;
-                      case 'file':
-                        _pickFile();
-                        break;
-                    }
-                  },
+                      PopupMenuItem<String>(
+                        value: 'file',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.doc, size: 18, color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light)),
+                              const SizedBox(width: 12),
+                              Text('Anexar Arquivo', style: TextStyle(color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    onSelected: (String value) {
+                      switch (value) {
+                        case 'camera':
+                          _getImageFromSource(ImageSource.camera);
+                          break;
+                        case 'gallery':
+                          _getImageFromSource(ImageSource.gallery);
+                          break;
+                        case 'file':
+                          _pickFile();
+                          break;
+                      }
+                    },
+                  ),
                 ),
                 const SizedBox(width: 12),
               ],
@@ -1020,8 +1017,8 @@ class ChatPageState extends ConsumerState<ChatPage> {
                   height: 44,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
-                    color: isDark ? AppTheme.darkInput : Colors.white,
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
+                    color: AppColors.input(isDark ? Brightness.dark : Brightness.light),
+                    border: Border.all(color: AppColors.border(isDark ? Brightness.dark : Brightness.light), width: 1),
                   ),
                   child: Row(
                     children: [
@@ -1030,7 +1027,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                           child: Theme(
                             data: theme.copyWith(
                               textSelectionTheme: TextSelectionThemeData(
-                                cursorColor: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                                cursorColor: AppColors.foreground(isDark ? Brightness.dark : Brightness.light),
                                 selectionColor: Colors.transparent,
                                 selectionHandleColor: Colors.transparent,
                               ),
@@ -1039,12 +1036,12 @@ class ChatPageState extends ConsumerState<ChatPage> {
                               controller: _messageController,
                               focusNode: _focusNode,
                               textCapitalization: TextCapitalization.sentences,
-                              style: theme.textTheme.bodyMedium?.copyWith(color: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface),
+                              style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light)),
                               decoration: InputDecoration(
                                 hintText: _selectedFile != null 
                                     ? 'Adicionar mensagem...' 
                                     : (widget.isAdminView ? 'Mensagem' : 'Envie uma mensagem'),
-                                hintStyle: theme.textTheme.bodyMedium?.copyWith(color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round())),
+                                hintStyle: theme.textTheme.bodyMedium?.copyWith(color: AppColors.foregroundMuted(isDark ? Brightness.dark : Brightness.light)),
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
@@ -1060,7 +1057,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                               ),
                               textInputAction: TextInputAction.send,
                               onSubmitted: (_) => _sendMessage(),
-                              cursorColor: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                              cursorColor: AppColors.foreground(isDark ? Brightness.dark : Brightness.light),
                             ),
                           ),
                         ),
@@ -1072,8 +1069,8 @@ class ChatPageState extends ConsumerState<ChatPage> {
                         icon: Icon(
                           Icons.send_rounded,
                           color: (_hasText || _selectedFile != null)
-                              ? (isDark ? AppTheme.darkPrimary : theme.colorScheme.primary)
-                              : (isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.5).round())),
+                              ? AppColors.primary(isDark ? Brightness.dark : Brightness.light)
+                              : AppColors.foregroundMuted(isDark ? Brightness.dark : Brightness.light),
                           size: 22,
                         ),
                         splashRadius: 22,
@@ -1098,10 +1095,10 @@ class ChatPageState extends ConsumerState<ChatPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF232F3E) : const Color(0xFFF7F7F8),
+        color: AppColors.surface(isDark ? Brightness.dark : Brightness.light),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? AppTheme.darkBorder : theme.dividerColor.withAlpha((255 * 0.18).round()),
+          color: AppColors.border(isDark ? Brightness.dark : Brightness.light),
           width: 1,
         ),
       ),
@@ -1131,7 +1128,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                   _selectedFileName ?? 'Unknown file',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: isDark ? AppTheme.darkForeground : theme.colorScheme.onSurface,
+                    color: AppColors.foreground(isDark ? Brightness.dark : Brightness.light),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1140,7 +1137,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                 Text(
                   _selectedFileSize != null ? _formatFileSize(_selectedFileSize!) : '',
                   style: TextStyle(
-                    color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                    color: AppColors.foregroundMuted(isDark ? Brightness.dark : Brightness.light),
                     fontSize: 14,
                   ),
                   textAlign: TextAlign.center,
@@ -1153,7 +1150,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
             onPressed: _removeAttachment,
             icon: Icon(
               Icons.close,
-              color: isDark ? AppTheme.darkMutedForeground : theme.colorScheme.onSurface.withAlpha((255 * 0.6).round()),
+              color: AppColors.foregroundMuted(isDark ? Brightness.dark : Brightness.light),
               size: 20,
             ),
             padding: EdgeInsets.zero,

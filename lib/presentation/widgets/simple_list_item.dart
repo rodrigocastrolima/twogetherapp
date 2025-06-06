@@ -13,6 +13,7 @@ class SimpleListItem extends StatefulWidget {
   final bool isUnread;
   final EdgeInsetsGeometry? padding;
   final TextStyle? titleStyle;
+  final bool dynamicTitleSize;
 
   const SimpleListItem({
     Key? key,
@@ -24,6 +25,7 @@ class SimpleListItem extends StatefulWidget {
     this.isUnread = false,
     this.padding,
     this.titleStyle,
+    this.dynamicTitleSize = false,
   }) : super(key: key);
 
   @override
@@ -32,6 +34,49 @@ class SimpleListItem extends StatefulWidget {
 
 class _SimpleListItemState extends State<SimpleListItem> {
   bool _isHovering = false;
+
+  Widget _buildDynamicTitle(ThemeData theme, Color textColor) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double fontSize = 16.0; // Start with base font size
+        double minFontSize = 12.0; // Minimum readable size
+        
+        TextStyle style = widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.w500,
+          color: textColor,
+          fontFamily: theme.textTheme.bodyLarge?.fontFamily,
+          fontSize: fontSize,
+        ) ?? TextStyle(fontSize: fontSize, color: textColor);
+        
+        // Create text painter to measure text
+        TextPainter textPainter = TextPainter(
+          text: TextSpan(text: widget.title, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        );
+        
+        // Reduce font size until text fits or minimum size is reached
+        while (fontSize >= minFontSize) {
+          style = style.copyWith(fontSize: fontSize);
+          textPainter.text = TextSpan(text: widget.title, style: style);
+          textPainter.layout(maxWidth: constraints.maxWidth);
+          
+          if (textPainter.didExceedMaxLines || textPainter.width > constraints.maxWidth) {
+            fontSize -= 0.5;
+          } else {
+            break;
+          }
+        }
+        
+        return Text(
+          widget.title,
+          style: style,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,67 +121,130 @@ class _SimpleListItemState extends State<SimpleListItem> {
           padding: rowPadding,
           child: Stack(
             children: [
-              Column(
-            children: [
-              const SizedBox(height: verticalContentSpacing),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
-                child: Row(
-                  crossAxisAlignment: widget.subtitle != null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+              // Different layout based on whether subtitle exists and is not empty
+              if (widget.subtitle != null && widget.subtitle!.isNotEmpty)
+                // Layout with subtitle - title at top
+                Column(
                   children: [
-                    if (widget.leading != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 16),
-                        child: widget.leading!,
-                      ),
-                    Expanded(
-                      child: Column(
+                    const SizedBox(height: verticalContentSpacing),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                              Text(
-                                  widget.title,
-                                  style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: textColor,
-                                    fontFamily: theme.textTheme.bodyLarge?.fontFamily,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                          ),
-                          if (widget.subtitle != null)
+                          if (widget.leading != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 6.0),
-                              child: Text(
-                                widget.subtitle!,
-                                style: subtitleStyle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              padding: const EdgeInsets.only(right: 16),
+                              child: widget.leading!,
+                            ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (widget.dynamicTitleSize)
+                                  SizedBox(
+                                    height: 20, // Fixed height to maintain consistent card sizes
+                                    child: _buildDynamicTitle(theme, textColor),
+                                  )
+                                else
+                                  Text(
+                                    widget.title,
+                                    style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                      color: textColor,
+                                      fontFamily: theme.textTheme.bodyLarge?.fontFamily,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6.0),
+                                  child: Text(
+                                    widget.subtitle!,
+                                    style: subtitleStyle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (widget.trailing != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16),
+                              child: widget.trailing!,
                             ),
                         ],
                       ),
                     ),
-                    if (widget.trailing != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: widget.trailing!,
-                      ),
+                    const SizedBox(height: verticalContentSpacing),
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: theme.dividerColor.withOpacity(0.10),
+                      indent: 0,
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: verticalContentSpacing),
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: theme.dividerColor.withOpacity(0.10),
-                indent: 0,
+                )
+              else
+                // Layout without subtitle - centered content
+                SizedBox(
+                  height: 56, // Fixed height for consistency
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: horizontalContentPadding),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (widget.leading != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: widget.leading!,
+                                ),
+                              Expanded(
+                                child: widget.dynamicTitleSize
+                                  ? Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: SizedBox(
+                                        height: 20,
+                                        child: _buildDynamicTitle(theme, textColor),
+                                      ),
+                                    )
+                                  : Text(
+                                      widget.title,
+                                      style: widget.titleStyle ?? theme.textTheme.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        color: textColor,
+                                        fontFamily: theme.textTheme.bodyLarge?.fontFamily,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                              ),
+                              if (widget.trailing != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 16),
+                                  child: widget.trailing!,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        color: theme.dividerColor.withOpacity(0.10),
+                        indent: 0,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
               // NOVO Badge positioned aligned with subtitle text
-              if (widget.isUnread && widget.subtitle != null)
+              if (widget.isUnread && widget.subtitle != null && widget.subtitle!.isNotEmpty)
                 Positioned(
-                  top: verticalContentSpacing + 6.0 + 18, // verticalContentSpacing + subtitle top padding + line height
+                  top: verticalContentSpacing + 6.0 + 16, // verticalContentSpacing + subtitle top padding + line height
                   right: horizontalContentPadding,
                   child: Text(
                     'NOVO',

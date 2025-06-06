@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'theme.dart';
+import 'app_colors.dart';
 
 /// Common UI styles shared across the application
+/// Now using the unified AppColors system with mirrored themes
 class AppStyles {
-  // Background gradients
+  // Background gradients (simplified to use logo colors)
   static LinearGradient mainGradient(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return brightness == Brightness.light
-        ? const LinearGradient(
+        ? LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          stops: [0.0, 1.0],
-          colors: [AppTheme.lightGradientStart, AppTheme.lightGradientEnd],
+          stops: const [0.0, 1.0],
+          colors: [
+            AppColors.surfaceVariant(brightness),
+            AppColors.background(brightness),
+          ],
         )
-        : const LinearGradient(
+        : LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          stops: [0.0, 1.0],
-          colors: [AppTheme.darkGradientStart, AppTheme.darkGradientEnd],
+          stops: const [0.0, 1.0],
+          colors: [
+            AppColors.background(brightness),
+            AppColors.surfaceVariant(brightness),
+          ],
         );
   }
 
@@ -27,14 +34,14 @@ class AppStyles {
       ImageFilter.blur(sigmaX: 10, sigmaY: 10);
   static ImageFilter get strongBlur => ImageFilter.blur(sigmaX: 15, sigmaY: 15);
 
-  // Container styles
+  // Container styles using new color system
   static BoxDecoration glassCard(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: isDark ? Colors.white.withAlpha(10) : Colors.white.withAlpha(20),
+      color: AppColors.withOpacity(AppColors.surface(brightness), 0.8),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: isDark ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+        color: AppColors.border(brightness),
         width: 0.5,
       ),
     );
@@ -44,51 +51,34 @@ class AppStyles {
     required bool isHighlighted,
     required BuildContext context,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color:
-          isHighlighted
-              ? (isDark
-                  ? Colors.white.withAlpha(15)
-                  : Colors.white.withAlpha(30))
-              : (isDark
-                  ? Colors.white.withAlpha(10)
-                  : Colors.white.withAlpha(20)),
+      color: isHighlighted
+          ? AppColors.withOpacity(AppColors.primaryAccent(brightness), 0.1)
+          : AppColors.withOpacity(AppColors.surface(brightness), 0.8),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color:
-            isHighlighted
-                ? Colors.amber.withAlpha(isDark ? 100 : 128)
-                : (isDark
-                    ? Colors.white.withAlpha(15)
-                    : Colors.white.withAlpha(26)),
+        color: isHighlighted
+            ? AppColors.primaryAccent(brightness)
+            : AppColors.border(brightness),
         width: isHighlighted ? 1.0 : 0.5,
       ),
     );
   }
 
   static BoxDecoration sidebarDecoration(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color:
-          isDark
-              ? Colors.black.withAlpha((255 * 0.3).round())
-              : Colors.white.withAlpha((255 * 0.3).round()),
+      color: AppColors.withOpacity(AppColors.surface(brightness), 0.95),
       border: Border(
         right: BorderSide(
-          color:
-              isDark
-                  ? Colors.white.withAlpha((255 * 0.05).round())
-                  : Colors.black.withAlpha((255 * 0.1).round()),
+          color: AppColors.border(brightness),
           width: 1,
         ),
       ),
       boxShadow: [
         BoxShadow(
-          color:
-              isDark
-                  ? Colors.black.withAlpha((255 * 0.2).round())
-                  : Colors.black.withAlpha((255 * 0.05).round()),
+          color: AppColors.withOpacity(AppColors.foreground(brightness), 0.05),
           blurRadius: 10,
           offset: const Offset(0, 0),
         ),
@@ -100,17 +90,18 @@ class AppStyles {
   static BoxDecoration get notificationBadge =>
       const BoxDecoration(color: Colors.red, shape: BoxShape.circle);
 
-  static BoxDecoration adminNotificationBadge(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  static BoxDecoration primaryBadge(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: isDark ? AppTheme.darkPrimary : AppTheme.primary,
+      color: AppColors.primary(brightness),
       shape: BoxShape.circle,
     );
   }
 
   static TextStyle badgeTextStyle(BuildContext context) {
-    return const TextStyle(
-      color: Colors.white,
+    final brightness = Theme.of(context).brightness;
+    return TextStyle(
+      color: AppColors.onPrimary(brightness),
       fontSize: 10,
       fontWeight: FontWeight.bold,
     );
@@ -118,12 +109,12 @@ class AppStyles {
 
   // Button styles
   static BoxDecoration circularButton(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: isDark ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+      color: AppColors.surface(brightness),
       borderRadius: BorderRadius.circular(18),
       border: Border.all(
-        color: isDark ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+        color: AppColors.border(brightness),
         width: 0.5,
       ),
     );
@@ -131,24 +122,53 @@ class AppStyles {
 
   // Input field styles
   static BoxDecoration inputField(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: isDark ? Colors.white.withAlpha(10) : Colors.white.withAlpha(20),
+      color: AppColors.input(brightness),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: isDark ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+        color: AppColors.border(brightness),
       ),
+    );
+  }
+
+  // Input decoration using new color system
+  static InputDecoration searchInputDecoration(BuildContext context, String hintText) {
+    final brightness = Theme.of(context).brightness;
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(
+        color: AppColors.foregroundMuted(brightness),
+        fontSize: 14,
+      ),
+      prefixIcon: Icon(
+        Icons.search,
+        color: AppColors.foregroundMuted(brightness),
+        size: 20,
+      ),
+      filled: true,
+      fillColor: AppColors.input(brightness),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.border(brightness)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.border(brightness)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.primary(brightness), width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
   // Item decorations
   static BoxDecoration activeItemHighlight(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color:
-          isDark
-              ? Colors.white.withAlpha((255 * 0.05).round())
-              : Colors.black.withAlpha((255 * 0.05).round()),
+      color: AppColors.withOpacity(AppColors.primary(brightness), 0.1),
       borderRadius: BorderRadius.circular(8),
     );
   }
@@ -167,41 +187,48 @@ class AppStyles {
 
   /// Container styles for input fields
   static BoxDecoration inputContainer(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: isDark ? Colors.white.withAlpha(10) : Colors.white.withAlpha(20),
+      color: AppColors.input(brightness),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: isDark ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
+        color: AppColors.border(brightness),
         width: 0.5,
       ),
     );
   }
 
-  // Consistent card shadow for all cards (matches notification card)
-  static List<BoxShadow> get cardShadow => [
-    BoxShadow(
-      color: Colors.black.withAlpha((255 * 0.2).round()),
-      blurRadius: 6,
-      offset: const Offset(0, 3),
-    ),
-  ];
+  // Consistent card shadow for all cards
+  static List<BoxShadow> cardShadow(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return [
+      BoxShadow(
+        color: AppColors.withOpacity(AppColors.foreground(brightness), 0.1),
+        blurRadius: 6,
+        offset: const Offset(0, 3),
+      ),
+    ];
+  }
 
   // Reusable solid card style for app-wide use
   static BoxDecoration solidCard(BuildContext context) {
-    final theme = Theme.of(context);
+    final brightness = Theme.of(context).brightness;
     return BoxDecoration(
-      color: theme.colorScheme.surface,
+      color: AppColors.surface(brightness),
       borderRadius: BorderRadius.circular(14),
-      boxShadow: cardShadow,
+      boxShadow: cardShadow(context),
     );
   }
 
   static ButtonStyle glassButtonStyle(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return OutlinedButton.styleFrom(
-      backgroundColor: Colors.white.withAlpha((255 * 0.10).round()),
-      foregroundColor: Colors.white,
-      side: BorderSide(color: Colors.white.withAlpha((255 * 0.25).round()), width: 1),
+      backgroundColor: AppColors.withOpacity(AppColors.surface(brightness), 0.8),
+      foregroundColor: AppColors.foreground(brightness),
+      side: BorderSide(
+        color: AppColors.border(brightness),
+        width: 1,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -210,89 +237,14 @@ class AppStyles {
       ),
       elevation: 0,
     ).copyWith(
-      overlayColor: WidgetStateProperty.all(Colors.white.withAlpha((255 * 0.08).round())),
-    );
-  }
-
-  static BoxDecoration circularIconButtonStyle(BuildContext context, {bool isHighlighted = false, bool isHovering = false}) {
-    final theme = Theme.of(context);
-    final baseColor = theme.colorScheme.surface.withAlpha((255 * 0.15).round());
-    final hoverColor = theme.colorScheme.surface.withAlpha((255 * 0.3).round());
-    final highlightColor = theme.colorScheme.primary.withAlpha((255 * 0.85).round());
-    final color = isHighlighted
-        ? highlightColor
-        : isHovering
-            ? hoverColor
-            : baseColor;
-    final borderColor = isHighlighted
-        ? theme.colorScheme.primary
-        : isHovering
-            ? Colors.white.withAlpha((255 * 0.3).round())
-            : Colors.white.withAlpha((255 * 0.1).round());
-    final boxShadow = isHighlighted
-        ? [
-            BoxShadow(
-              color: theme.colorScheme.primary.withAlpha((255 * 0.3).round()),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ]
-        : isHovering
-            ? [
-                BoxShadow(
-                  color: Colors.black.withAlpha((255 * 0.2).round()),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withAlpha((255 * 0.1).round()),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ];
-    return BoxDecoration(
-      color: color,
-      shape: BoxShape.circle,
-      border: Border.all(color: borderColor, width: 0.5),
-      boxShadow: boxShadow,
-    );
-  }
-
-  static InputDecoration searchInputDecoration(BuildContext context, String hintText) {
-    final theme = Theme.of(context);
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
-      ),
-      filled: true,
-      fillColor: theme.colorScheme.surface,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-      prefixIcon: Icon(
-        Icons.search,
-        size: 20,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.dividerColor.withAlpha((255 * 0.18).round()), width: 1),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()), width: 1.5),
+      overlayColor: WidgetStateProperty.all(
+        AppColors.withOpacity(AppColors.primary(brightness), 0.08),
       ),
     );
   }
 }
 
-/// Custom ScrollBehavior that removes scrollbars
+/// Scrollbar behavior that removes scrollbars
 class NoScrollbarBehavior extends ScrollBehavior {
   const NoScrollbarBehavior();
 
@@ -325,15 +277,10 @@ class NoScrollbarBehavior extends ScrollBehavior {
   }
 }
 
+/// Chat theme extension using new color system
 extension ChatTheme on ThemeData {
-  Color get messageBubbleSent => const Color(0xFF0B84FE); // iPhone blue
-  Color get messageBubbleReceived =>
-      brightness == Brightness.dark
-          ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
-          : const Color(0xFFE9E9EB);
-  Color get messageBubbleTextSent => Colors.white;
-  Color get messageBubbleTextReceived =>
-      brightness == Brightness.dark
-          ? colorScheme.onSurfaceVariant
-          : colorScheme.onSurface;
+  Color get messageBubbleSent => AppColors.primaryAccent(brightness);
+  Color get messageBubbleReceived => AppColors.surfaceVariant(brightness);
+  Color get messageBubbleTextSent => AppColors.logoWhite;
+  Color get messageBubbleTextReceived => AppColors.foreground(brightness);
 }

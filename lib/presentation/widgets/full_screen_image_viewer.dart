@@ -71,8 +71,21 @@ class FullScreenImageViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool urlActionsEnabled = imageUrl != null;
+    final theme = Theme.of(context);
+    
     return CupertinoPageScaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       navigationBar: CupertinoNavigationBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        middle: imageName != null 
+          ? Text(
+              imageName!,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           child: const Icon(CupertinoIcons.clear, size: 28),

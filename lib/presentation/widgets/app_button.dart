@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/colors.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/text_styles.dart';
 import '../../core/theme/theme.dart';
 
@@ -95,7 +95,7 @@ class AppButton extends StatelessWidget {
   Color _getBackgroundColor() {
     switch (type) {
       case AppButtonType.primary:
-        return AppColors.amber;
+        return const Color(0xFFFFBE45); // Use tulip tree color for primary
       case AppButtonType.secondary:
         return AppTheme.primary;
       case AppButtonType.tertiary:

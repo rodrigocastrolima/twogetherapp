@@ -26,7 +26,7 @@ enum OpportunityFilterStatus {
       case OpportunityFilterStatus.ativos:
         return 'Ativos';
       case OpportunityFilterStatus.acaoNecessaria:
-        return 'Ação Necessária'; // Kept longer name as it fits button
+        return 'Ação Necessária';
       case OpportunityFilterStatus.pendentes:
         return 'Pendentes';
       case OpportunityFilterStatus.rejeitados:
@@ -46,8 +46,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   OpportunityFilterStatus _selectedFilter = OpportunityFilterStatus.todos;
-  bool _isSearchFocused = false;
-  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -57,19 +55,11 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         _searchQuery = _searchController.text.toLowerCase();
       });
     });
-    _searchFocusNode.addListener(() {
-      if (!_searchFocusNode.hasFocus && _isSearchFocused) {
-        setState(() {
-          _isSearchFocused = false;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -82,10 +72,9 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
   String _getProposalStatusForFilter(sfo.SalesforceOpportunity opportunity) {
     if (opportunity.propostasR?.records != null &&
         opportunity.propostasR!.records.isNotEmpty) {
-      return opportunity.propostasR!.records.first.statusC ??
-          ''; // Default to empty if status is null
+      return opportunity.propostasR!.records.first.statusC ?? '';
     }
-    return ''; // Default if no proposals or records
+    return '';
   }
 
   bool _matchesFilter(
@@ -113,55 +102,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     }
   }
 
-  // Method to show filter options using CupertinoActionSheet
-  void _showFilterOptions(BuildContext context) {
-    final cupertinoTheme = CupertinoTheme.of(context);
-
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (BuildContext modalContext) {
-        return CupertinoActionSheet(
-          title: const Text('Selecionar Filtro'),
-          actions:
-              OpportunityFilterStatus.values.map((status) {
-                return CupertinoActionSheetAction(
-                  child: Text(
-                    status.displayName,
-                    style: cupertinoTheme.textTheme.actionTextStyle.copyWith(
-                      color:
-                          _selectedFilter == status
-                              ? cupertinoTheme.primaryColor
-                              : null, // Default color if not selected
-                      fontWeight:
-                          _selectedFilter == status
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                    ),
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _selectedFilter = status;
-                    });
-                    Navigator.pop(modalContext);
-                  },
-                );
-              }).toList(),
-          cancelButton: CupertinoActionSheetAction(
-            child: Text(
-              'Cancelar',
-              style: cupertinoTheme.textTheme.actionTextStyle.copyWith(
-                color: CupertinoColors.systemRed, // Standard cancel color
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(modalContext);
-            },
-          ),
-        );
-      },
-    );
-  }
-
   void _showIconLegendDialog(BuildContext context) {
     final theme = Theme.of(context);
     showDialog(
@@ -174,89 +114,41 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
               children: <Widget>[
                 _buildLegendRow(
                   context,
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.check_circle, color: Colors.green[700], size: 16),
-                  ),
-                  'Ativo:',
+                  Icon(Icons.check_circle, color: Colors.green[700], size: 24),
+                  'Ativo',
                   'Cliente com proposta aceite e ativa.',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _buildLegendRow(
                   context,
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.pending_actions, color: Colors.blue[700], size: 16),
-                  ),
-                  'Ação Necessária:',
+                  Icon(Icons.pending_actions, color: Colors.blue[700], size: 24),
+                  'Ação Necessária',
                   'Requer a sua atenção para dar seguimento ao processo.',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _buildLegendRow(
                   context,
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.schedule, color: Colors.orange[700], size: 16),
-                  ),
-                  'Pendente:',
+                  Icon(Icons.schedule, color: Colors.orange[700], size: 24),
+                  'Pendente',
                   'Processo em andamento ou aguardando aprovação.',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _buildLegendRow(
                   context,
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.cancel, color: Colors.red[700], size: 16),
-                  ),
-                  'Rejeitado:',
+                  Icon(Icons.cancel, color: Colors.red[700], size: 24),
+                  'Rejeitado',
                   'Proposta não foi aprovada ou foi cancelada.',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 _buildLegendRow(
                   context,
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant.withAlpha((255 * 0.3).round()),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.description, color: theme.colorScheme.onSurfaceVariant, size: 16),
-                  ),
-                  'Outro:',
+                  Icon(Icons.description, color: theme.colorScheme.onSurfaceVariant, size: 24),
+                  'Outro',
                   'Estado inicial ou em processo de análise.',
                 ),
               ],
             ),
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Fechar'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
         );
       },
     );
@@ -268,14 +160,25 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         icon,
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: theme.textTheme.bodyMedium),
+              Text(
+                title, 
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle, 
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),
@@ -289,8 +192,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     final isDark = theme.brightness == Brightness.dark;
     final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool isSmallScreen =
-        screenWidth < 600; // Threshold for mobile/desktop
+    final bool isSmallScreen = screenWidth < 600;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -300,7 +202,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Only add spacing for desktop, not mobile (matches home page pattern)
             if (!isSmallScreen) const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -382,33 +283,32 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 ],
               ),
             ),
-            SizedBox(height: isSmallScreen ? 24 : 32),
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child:
-                  isSmallScreen
-                      ? Row(
-                          children: [
-                            Expanded(child: _buildSearchBar(context)),
-                            const SizedBox(width: 12),
-                            _buildFilterIconButton(context),
-                          ],
-                        )
-                      : Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: _buildDesktopSearchBar(context),
-                              ),
-                              const SizedBox(width: 16),
-                              SizedBox(
-                                width: 200.0,
-                                child: _buildDesktopFilterDropdown(context),
-                              ),
-                            ],
-                                                      ),
+              child: isSmallScreen
+                  ? Row(
+                      children: [
+                        Expanded(child: _buildSearchBar(context)),
+                        const SizedBox(width: 12),
+                        _buildFilterIconButton(context),
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: _buildSearchBar(context),
+                        ),
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 200.0,
+                          child: _buildFilterDropdown(context),
+                        ),
+                      ],
+                    ),
             ),
-            const SizedBox(height: 24),
+            
             Expanded(
               child: opportunitiesAsync.when(
                 data: (opportunities) {
@@ -458,35 +358,29 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                           }
                           IconData statusIcon;
                           Color statusIconColor;
-                          Color statusBackgroundColor;
                           switch (latestStatus) {
                             case 'Aceite':
                               statusIcon = Icons.check_circle;
                               statusIconColor = Colors.green[700]!;
-                              statusBackgroundColor = Colors.green[50]!;
                               break;
                             case 'Enviada':
                             case 'Em Aprovação':
                               statusIcon = Icons.pending_actions;
                               statusIconColor = Colors.blue[700]!;
-                              statusBackgroundColor = Colors.blue[50]!;
                               break;
                             case 'Não Aprovada':
                             case 'Cancelada':
                               statusIcon = Icons.cancel;
                               statusIconColor = Colors.red[700]!;
-                              statusBackgroundColor = Colors.red[50]!;
                               break;
                             case 'Expirada':
                             case 'Aprovada':
                               statusIcon = Icons.schedule;
                               statusIconColor = Colors.orange[700]!;
-                              statusBackgroundColor = Colors.orange[50]!;
                               break;
                             default:
                               statusIcon = Icons.description;
                               statusIconColor = theme.colorScheme.onSurfaceVariant;
-                              statusBackgroundColor = theme.colorScheme.surfaceVariant.withAlpha((255 * 0.3).round());
                           }
                           String displayDate = '';
                           if (opportunity.createdDate != null) {
@@ -505,21 +399,14 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                               verticalOffset: 50.0,
                               child: FadeInAnimation(
                                 child: SimpleListItem(
-                                  leading: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: statusBackgroundColor,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Icon(
-                                      statusIcon, 
-                                      color: statusIconColor, 
-                                      size: 20,
-                                    ),
+                                  leading: Icon(
+                                    statusIcon, 
+                                    color: statusIconColor, 
+                                    size: 24,
                                   ),
                                   title: cardName,
                                   subtitle: displayDate,
+                                  dynamicTitleSize: true,
                                   onTap: () {
                                     context.push('/opportunity-details', extra: opportunity);
                                   },
@@ -533,23 +420,20 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                   );
                 },
                 loading: () => _buildLoadingIndicator(context, isDark),
-                error:
-                    (error, stackTrace) =>
-                        _buildErrorState(context, error, isDark),
+                error: (error, stackTrace) => _buildErrorState(context, error, isDark),
               ),
             ),
           ],
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(context, isDark),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
   }
 
   Widget _buildSearchBar(BuildContext context) {
     final theme = Theme.of(context);
     final textColor = theme.brightness == Brightness.dark ? AppTheme.darkForeground : AppTheme.foreground;
-    final borderRadius = BorderRadius.circular(12.0);
     return SizedBox(
       height: 40,
       child: TextField(
@@ -563,14 +447,9 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  Widget _buildDesktopSearchBar(BuildContext context) {
-    return _buildSearchBar(context);
-  }
-
   Widget _buildEmptyState(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
+    final textColor = isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
 
     const String message = 'Sem Clientes Ativos';
 
@@ -626,10 +505,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
       shape: const CircleBorder(),
       child: Icon(
         CupertinoIcons.add,
-        color:
-            isDark
-                ? AppTheme.darkPrimaryForeground
-                : AppTheme.primaryForeground,
+        color: isDark ? AppTheme.darkPrimaryForeground : AppTheme.primaryForeground,
       ),
       onPressed: () {
         context.push('/services');
@@ -637,7 +513,6 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  // Build the custom filter dropdown
   Widget _buildFilterDropdown(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -699,211 +574,64 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
     );
   }
 
-  // Build the desktop filter dropdown
-  Widget _buildDesktopFilterDropdown(BuildContext context) {
-    // Reuse the same implementation as the standard filter dropdown
-    // with any adjustments needed for desktop layout
-    return _buildFilterDropdown(context);
-  }
-
-  // Build the mobile filter icon button
   Widget _buildFilterIconButton(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     
-    return PopupMenuButton<OpportunityFilterStatus>(
-      icon: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.dividerColor.withAlpha((255 * 0.18).round()),
-            width: 1,
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: PopupMenuButton<OpportunityFilterStatus>(
+        padding: EdgeInsets.zero,
+        icon: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outline,
+              width: 1,
+            ),
+          ),
+          child: Icon(
+            Icons.filter_list,
+            size: 20,
+            color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
           ),
         ),
-        child: Icon(
-          Icons.filter_list,
-          size: 20,
-          color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
-        ),
-      ),
-      offset: const Offset(-120, 40),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: (OpportunityFilterStatus status) {
-        setState(() {
-          _selectedFilter = status;
-        });
-      },
-      itemBuilder: (BuildContext context) => OpportunityFilterStatus.values.map((status) {
-        final isSelected = _selectedFilter == status;
-        return PopupMenuItem<OpportunityFilterStatus>(
-          value: status,
-          child: Row(
-            children: [
-              if (isSelected)
-                Icon(
-                  Icons.check,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                )
-              else
-                const SizedBox(width: 18),
-              const SizedBox(width: 12),
-              Text(
-                status.displayName,
-                style: TextStyle(
-                  color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        offset: const Offset(0, 45),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onSelected: (OpportunityFilterStatus status) {
+          setState(() {
+            _selectedFilter = status;
+          });
+        },
+        itemBuilder: (BuildContext context) => OpportunityFilterStatus.values.map((status) {
+          final isSelected = _selectedFilter == status;
+          return PopupMenuItem<OpportunityFilterStatus>(
+            value: status,
+            child: Row(
+              children: [
+                if (isSelected)
+                  Icon(
+                    Icons.check,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  )
+                else
+                  const SizedBox(width: 18),
+                const SizedBox(width: 12),
+                Text(
+                  status.displayName,
+                  style: TextStyle(
+                    color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// Separate card widget with animation
-class _AnimatedOpportunityCard extends StatefulWidget {
-  final sfo.SalesforceOpportunity opportunity;
-  final GlobalKey cardKey;
-  final Function(GlobalKey) onTap;
-
-  const _AnimatedOpportunityCard({
-    required this.opportunity,
-    required this.cardKey,
-    required this.onTap,
-  });
-
-  @override
-  State<_AnimatedOpportunityCard> createState() => _AnimatedOpportunityCardState();
-}
-
-class _AnimatedOpportunityCardState extends State<_AnimatedOpportunityCard> 
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.97).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-  }
-  
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? AppTheme.darkForeground : AppTheme.foreground;
-    final mutedTextColor =
-        isDark ? AppTheme.darkMutedForeground : AppTheme.mutedForeground;
-
-    String? latestStatus;
-    if (widget.opportunity.propostasR?.records != null &&
-        widget.opportunity.propostasR!.records.isNotEmpty) {
-      latestStatus = widget.opportunity.propostasR!.records.first.statusC;
-    }
-
-    // Create our own simple status visual properties
-    IconData statusIcon;
-    Color statusIconColor = theme.colorScheme.onSurfaceVariant;
-    // Basic status icon mapping with fallback
-    switch (latestStatus) {
-      case 'Aceite':
-        statusIcon = CupertinoIcons.checkmark_seal_fill;
-        statusIconColor = Colors.green;
-        break;
-      case 'Enviada':
-      case 'Em Aprovação':
-        statusIcon = CupertinoIcons.exclamationmark_circle_fill;
-        statusIconColor = Colors.blue;
-        break;
-      case 'Não Aprovada':
-      case 'Cancelada':
-        statusIcon = CupertinoIcons.xmark_seal_fill;
-        statusIconColor = Colors.red;
-        break;
-      case 'Expirada':
-      case 'Aprovada':
-        statusIcon = CupertinoIcons.clock_fill;
-        statusIconColor = Colors.orange;
-        break;
-      default:
-        statusIcon = CupertinoIcons.doc_text;
-        statusIconColor = theme.colorScheme.onSurfaceVariant;
-    }
-
-    String displayDate = '';
-    if (widget.opportunity.createdDate != null) {
-      try {
-        final dateTime = DateTime.parse(widget.opportunity.createdDate!);
-        displayDate = DateFormat('dd/MM/yy', 'pt_PT').format(dateTime);
-      } catch (e) {
-        displayDate = '';
-      }
-    }
-
-    final cardName = widget.opportunity.accountName ?? widget.opportunity.name;
-
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        );
-      },
-      child: SizedBox(
-        height: 64.0,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            // Navigate to details page
-            context.push('/opportunity-details', extra: widget.opportunity);
-          },
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(cardName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: textColor), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (displayDate.isNotEmpty) ...[const SizedBox(height: 4), Text(displayDate, style: TextStyle(fontSize: 13, color: mutedTextColor))],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Icon(statusIcon, color: statusIconColor, size: 24),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

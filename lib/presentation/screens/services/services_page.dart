@@ -31,6 +31,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   service_types.Provider? _selectedProvider;
   bool _isSubmitting = false;
   String? _errorMessage;
+  String? _showingMessageFor;
 
   // Form controllers
   late final TextEditingController _companyNameController;
@@ -142,6 +143,26 @@ class ServicesPageState extends ConsumerState<ServicesPage>
       default:
         return 'Serviços';
     }
+  }
+
+  double _getResponsiveSpacing() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return screenWidth < 600 ? 0 : 24;
+  }
+
+  void _showFeatureComingSoonDialog(BuildContext context, String categoryName) {
+    setState(() {
+      _showingMessageFor = categoryName;
+    });
+    
+    // Hide the message after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showingMessageFor = null;
+        });
+      }
+    });
   }
 
   @override
@@ -458,24 +479,28 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 32),
+              SafeArea(
+                child: SizedBox(height: _getResponsiveSpacing()),
+              ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Text(
-          _getPageTitle(),
+                  _getPageTitle(),
                   style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
-          ),
-        ),
-      ),
-              // Step indicator (show after step 0)
-              if (widget.quickAction == null)
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Step indicator (show from step 1 onwards, not on quick actions)
+              if (widget.quickAction == null && currentStep > 0) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
                   child: _buildStepIndicator(),
                 ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
+              ],
               Expanded(
                 child: _buildCurrentStep(),
               ),
@@ -601,24 +626,53 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final (i, category) in ServiceCategory.values.indexed) ...[
-              ServiceCategoryCard(
-                title: category.displayName,
-                icon: _getCategoryIcon(category),
-                enabled: category.isAvailable,
-                onTap: category.isAvailable ? () => _handleCategorySelection(category) : null,
-                trailing: category.isAvailable
-                    ? Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20)
-                    : Text(
-                        'Brevemente...',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ServiceCategoryCard(
+                    title: category.displayName,
+                    icon: _getCategoryIcon(category),
+                    enabled: category.isAvailable,
+                    onTap: category.isAvailable 
+                        ? () => _handleCategorySelection(category)
+                        : () => _showFeatureComingSoonDialog(context, category.displayName),
+                    trailing: category.isAvailable
+                        ? Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20)
+                        : null,
+                  ),
+                  if (_showingMessageFor == category.displayName)
+                    Positioned(
+                      top: -40,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.inverseSurface,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha((255 * 0.2).round()),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'Funcionalidade em desenvolvimento',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onInverseSurface,
+                          ),
                         ),
                       ),
+                    ),
+                ],
               ),
               if (i != ServiceCategory.values.length - 1)
                 const SizedBox(height: 16),
@@ -636,7 +690,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -674,7 +728,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -706,7 +760,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     return ScrollConfiguration(
       behavior: const NoScrollbarBehavior(),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConstants.spacing16),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -902,7 +956,7 @@ class ServiceCategoryCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: isEnabled ? onTap : null,
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

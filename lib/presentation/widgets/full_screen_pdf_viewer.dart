@@ -217,9 +217,19 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
     final bool downloadEnabled = widget.pdfUrl != null;
     final bool shareEnabled = localPath != null || widget.pdfUrl != null;
 
+    final theme = Theme.of(context);
+    
     return CupertinoPageScaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.pdfName ?? 'PDF Viewer', overflow: TextOverflow.ellipsis),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        middle: Text(
+          widget.pdfName ?? 'PDF Viewer',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           child: const Icon(CupertinoIcons.clear, size: 28),
