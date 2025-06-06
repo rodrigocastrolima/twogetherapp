@@ -14,6 +14,7 @@ import '../../features/notifications/presentation/providers/notification_provide
 import '../../core/constants/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/onboarding/app_tutorial_screen.dart';
+import '../widgets/notification_dropdown.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   final Widget child;
@@ -191,20 +192,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
             centerTitle: true,
             actions: isHomePage 
                 ? [
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
-                        final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
-                        return _buildSolidIconButton(
-                          context,
-                          icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
-                          onTap: () async {
-                            await notificationSettings.toggle();
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
+                    // Tutorial button FIRST (left)
                     _buildSolidIconButton(
                       context,
                       icon: CupertinoIcons.question_circle,
@@ -212,6 +200,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
                         context,
                         false,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Notification bell SECOND (right)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final unreadCount = ref.watch(unreadNotificationsCountProvider);
+                        
+                        return _buildNotificationBell(
+                          context,
+                          unreadCount: unreadCount.value ?? 0,
+                        );
+                      },
                     ),
                     const SizedBox(width: 24), // 24px padding on the right
                   ]
@@ -697,6 +697,85 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
         },
       );
     }
+  }
+
+  // --- Helper for Notification Bell with Dropdown ---
+  Widget _buildNotificationBell(BuildContext context, {required int unreadCount}) {
+    return _buildSolidIconButton(
+      context,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            CupertinoIcons.bell_fill,
+            size: 24,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          if (unreadCount > 0)
+            Positioned(
+              top: -5,
+              right: -8,
+              child: Container(
+                width: AppStyles.badgeSize,
+                height: AppStyles.badgeSize,
+                decoration: AppStyles.notificationBadge,
+                alignment: Alignment.center,
+                child: Text(
+                  unreadCount.toString(),
+                  style: AppStyles.badgeTextStyle(context),
+                ),
+              ),
+            ),
+        ],
+      ),
+      onTap: () => _showNotificationDropdown(context),
+    );
+  }
+
+  // --- Show Notification Dropdown ---
+  void _showNotificationDropdown(BuildContext context) {
+    // Calculate dropdown position relative to screen, not the render box
+    final screenSize = MediaQuery.of(context).size;
+    
+    // Calculate dropdown position
+    final dropdownWidth = 350.0;
+    final dropdownMaxHeight = 400.0;
+    
+    // Position dropdown at top right, closer to bell icon
+    final right = 24.0; // Same padding as AppBar actions
+    final top = 50.0; // AppBar height (56) + 4px spacing - closer to bell
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Stack(
+          children: [
+            // Transparent barrier that closes dropdown when tapped
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(dialogContext).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            // Dropdown positioned
+            Positioned(
+              top: top,
+              right: right,
+              child: Material(
+                color: Colors.transparent,
+                child: NotificationDropdown(
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                  width: dropdownWidth,
+                  maxHeight: dropdownMaxHeight,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

@@ -300,9 +300,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               style: ButtonStyle(
                                 foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
                                   if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
-                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withAlpha((255 * 0.8).round());
+                                    return isDarkMode 
+                                        ? Colors.white.withAlpha((255 * 0.9).round())
+                                        : AppTheme.primary.withAlpha((255 * 0.8).round());
                                   }
-                                  return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
+                                  return isDarkMode 
+                                      ? Colors.white.withAlpha((255 * 0.85).round())
+                                      : AppTheme.primary;
                                 }),
                                 overlayColor: WidgetStateProperty.all(Colors.transparent),
                                 textStyle: WidgetStateProperty.all(
@@ -325,9 +329,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               style: ButtonStyle(
                                 foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
                                   if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
-                                    return (isDarkMode ? AppTheme.darkPrimary : AppTheme.primary).withAlpha((255 * 0.8).round());
+                                    return isDarkMode 
+                                        ? Colors.white.withAlpha((255 * 0.9).round())
+                                        : AppTheme.primary.withAlpha((255 * 0.8).round());
                                   }
-                                  return isDarkMode ? AppTheme.darkPrimary : AppTheme.primary;
+                                  return isDarkMode 
+                                      ? Colors.white.withAlpha((255 * 0.85).round())
+                                      : AppTheme.primary;
                                 }),
                                 overlayColor: WidgetStateProperty.all(Colors.transparent),
                                 textStyle: WidgetStateProperty.all(
@@ -386,8 +394,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildLoginForm(BuildContext context, bool isDarkMode) {
     final Color fieldFillColor =
         isDarkMode
-            ? Colors.white.withAlpha(10)
-            : Colors.white.withAlpha(20);
+            ? Colors.white.withAlpha((255 * 0.08).round())
+            : Colors.white.withAlpha((255 * 0.15).round());
     final Color hintAndIconColor =
         isDarkMode
             ? Colors.white.withAlpha((255 * 0.65).round())
@@ -398,8 +406,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : Colors.black.withAlpha((255 * 0.85).round());
     
     final BorderSide inputEnabledBorderSide = BorderSide(
-        color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
-        width: 0.5,
+        color: isDarkMode ? Colors.white.withAlpha((255 * 0.2).round()) : Colors.white.withAlpha((255 * 0.3).round()),
+        width: 1.0,
     );
 
     return Column(
@@ -528,8 +536,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildForgotPasswordForm(BuildContext context, bool isDarkMode) {
     final Color fieldFillColor =
         isDarkMode
-            ? Colors.white.withAlpha(10)
-            : Colors.white.withAlpha(20);
+            ? Colors.white.withAlpha((255 * 0.08).round())
+            : Colors.white.withAlpha((255 * 0.15).round());
     final Color hintAndIconColor =
         isDarkMode
             ? Colors.white.withAlpha((255 * 0.65).round())
@@ -540,8 +548,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             : Colors.black.withAlpha((255 * 0.85).round());
 
     final BorderSide inputEnabledBorderSide = BorderSide(
-      color: isDarkMode ? Colors.white.withAlpha(15) : Colors.white.withAlpha(26),
-      width: 0.5,
+      color: isDarkMode ? Colors.white.withAlpha((255 * 0.2).round()) : Colors.white.withAlpha((255 * 0.3).round()),
+      width: 1.0,
     );
 
     return Column(
