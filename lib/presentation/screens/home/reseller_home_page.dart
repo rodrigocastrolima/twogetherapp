@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import 'dart:ui';
@@ -37,6 +38,21 @@ const double _iconSize = 22.0; // From _buildCircleIconButton
 const double _iconPadding = 10.0; // From _buildCircleIconButton
 const double _totalIconSpace = (_iconPadding * 2) + _iconSize;
 const double _topRightPadding = 20.0; // Horizontal padding from header
+
+// Data class for status items
+class _StatusData {
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+
+  const _StatusData({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.icon,
+  });
+}
 
 // Place this at the top-level, outside of _ResellerHomePageState
 class _QuickActionCard extends StatelessWidget {
@@ -114,7 +130,7 @@ class ResellerHomePage extends ConsumerStatefulWidget {
 // Add SingleTickerProviderStateMixin for AnimationController
 class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  bool _isEarningsVisible = true;
+  bool _isEarningsVisible = false;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
@@ -544,7 +560,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                           ScaleTransition(
                             scale: _helpIconAnimation,
                             child: _buildMaterialIconButton(
-                              icon: CupertinoIcons.lightbulb,
+                              icon: CupertinoIcons.question_circle,
                               onTap: () => _handleHelpIconTap(
                                 context,
                                 _isAppActive && ref.watch(authNotifierProvider).isFirstLogin && !_hasSeenHintLocally,
@@ -574,47 +590,42 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   ),
                 ),
               if (!isMobile) const SizedBox(height: 12),
-              // Unified Dashboard Card (Commission + Status)
+              // Welcome Section
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 0),
+                child: ref.watch(authStateChangesProvider).when(
+                  data: (user) => _buildWelcomeSection(context, user?.displayName),
+                  loading: () => _buildWelcomeSectionPlaceholder(context),
+                  error: (_, __) => _buildWelcomeSection(context, null),
+                ),
+              ),
+              SizedBox(height: _isMobileScreen(context) ? 24 : 32),
+              // Status Cards Section
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Consumer(
                   builder: (context, ref, _) {
-                    final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
                     final opportunitiesAsync = ref.watch(resellerOpportunitiesProvider);
-                    return dashboardStatsAsync.when(
-                      data: (stats) {
-                        return opportunitiesAsync.when(
-                          data: (opps) {
-                            final statusCounts = _calculateStatusCounts(opps);
-                            return _buildDashboardCard(stats.totalCommission, statusCounts);
-                          },
-                          loading: () => _buildDashboardCard(
-                            stats.totalCommission, 
-                            {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
-                            isLoading: true,
-                          ),
-                          error: (e, _) => _buildDashboardCard(
-                            stats.totalCommission, 
-                            {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
-                            isError: true,
-                          ),
-                        );
+                    return opportunitiesAsync.when(
+                      data: (opps) {
+                        final statusCounts = _calculateStatusCounts(opps);
+                        return _buildStatusGrid(statusCounts, _isMobileScreen(context), _getResponsiveSpacing(context));
                       },
-                      loading: () => _buildDashboardCard(
-                        null, 
+                      loading: () => _buildStatusGrid(
                         {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
-                        isLoading: true,
+                        _isMobileScreen(context),
+                        _getResponsiveSpacing(context),
                       ),
-                      error: (e, _) => _buildDashboardCard(
-                        null, 
+                      error: (e, _) => _buildStatusGrid(
                         {'active': 0, 'actionNeeded': 0, 'pending': 0, 'rejected': 0},
-                        isError: true,
+                        _isMobileScreen(context),
+                        _getResponsiveSpacing(context),
                       ),
                     );
                   },
                 ),
               ),
-              SizedBox(height: _isMobileScreen(context) ? 24 : 40),
+              SizedBox(height: _isMobileScreen(context) ? 16 : 40),
               // Quick Actions
               Padding(
                 padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
@@ -629,7 +640,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
               ),
               SizedBox(height: _getResponsiveSpacing(context) + 4),
               _buildQuickActionsResponsive(),
-              SizedBox(height: _isMobileScreen(context) ? 24 : 40),
+              SizedBox(height: _isMobileScreen(context) ? 32 : 40),
               // Notifications
               Padding(
                 padding: const EdgeInsets.fromLTRB(24.0, 0, 24.0, 0),
@@ -683,27 +694,23 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
   }) {
     final theme = Theme.of(context);
     
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      color: isHighlighted 
-          ? theme.colorScheme.primary.withAlpha((255 * 0.9).round())
-          : theme.colorScheme.surface,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          width: 44,
-          height: 44,
-          padding: const EdgeInsets.all(8),
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: isHighlighted ? BoxDecoration(
+          color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+          shape: BoxShape.circle,
+        ) : null,
+        child: Center(
           child: child ?? Icon(
             icon,
-            size: 20,
+            size: 24,
             color: isHighlighted 
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.primary,
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface,
           ),
         ),
       ),
@@ -756,6 +763,177 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
         },
       );
     }
+  }
+
+  // --- Helper for Welcome + Commission Section ---
+  Widget _buildWelcomeSection(BuildContext context, String? displayName) {
+    final theme = Theme.of(context);
+    final isMobile = _isMobileScreen(context);
+    
+    // Extract name from display name
+    String userName = 'Utilizador';
+    if (displayName != null && displayName.isNotEmpty) {
+      userName = displayName;
+    }
+    
+    return Consumer(
+      builder: (context, ref, _) {
+        final dashboardStatsAsync = ref.watch(dashboardStatsProvider);
+        return dashboardStatsAsync.when(
+          data: (stats) => _buildWelcomeWithCommission(context, userName, stats.totalCommission),
+          loading: () => _buildWelcomeWithCommission(context, userName, null, isLoading: true),
+          error: (e, _) => _buildWelcomeWithCommission(context, userName, null, isError: true),
+        );
+      },
+    );
+  }
+
+  Widget _buildWelcomeWithCommission(BuildContext context, String userName, double? commissionValue, {bool isLoading = false, bool isError = false}) {
+    final theme = Theme.of(context);
+    final isMobile = _isMobileScreen(context);
+    
+    String displayValue;
+    if (isLoading) {
+      displayValue = '...';
+    } else if (isError) {
+      displayValue = 'Erro';
+    } else {
+      displayValue = commissionValue != null ? '€ ${commissionValue.toStringAsFixed(2)}' : '€ 0.00';
+    }
+    
+    return Center(
+      child: Column(
+        children: [
+          // Profile circle icon (bigger)
+          Container(
+            width: isMobile ? 80 : 90,
+            height: isMobile ? 80 : 90,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+              border: Border.all(
+                color: theme.colorScheme.primary.withAlpha((255 * 0.2).round()),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              CupertinoIcons.person_fill,
+              size: isMobile ? 40 : 45,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          // User name (no "Bem vindo")
+          Text(
+            userName,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+              fontSize: isMobile ? 24 : 28,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: isMobile ? 24 : 32),
+          // Commission section
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isEarningsVisible = !_isEarningsVisible;
+              });
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Comissão Total',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: _getResponsiveFontSize(context, 24),
+                  ),
+                ),
+                // Commission value with blur effect and eye icon
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text(
+                          _isEarningsVisible ? displayValue : '••••••',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: _isEarningsVisible ? theme.colorScheme.onSurface : theme.colorScheme.onSurfaceVariant,
+                            fontSize: isMobile ? 24 : 28,
+                            letterSpacing: _isEarningsVisible ? 0 : 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: 12),
+                    Icon(
+                      _isEarningsVisible ? Icons.visibility : Icons.visibility_off, 
+                      color: theme.colorScheme.onSurfaceVariant,
+                      size: isMobile ? 20 : 22,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Helper for Welcome Section Placeholder ---
+  Widget _buildWelcomeSectionPlaceholder(BuildContext context) {
+    final theme = Theme.of(context);
+    final isMobile = _isMobileScreen(context);
+    
+    return Center(
+      child: Column(
+        children: [
+          // Profile circle icon placeholder
+          Container(
+            width: isMobile ? 60 : 70,
+            height: isMobile ? 60 : 70,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.surfaceContainerHighest,
+            ),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
+          // Welcome text placeholder
+          Container(
+            width: 200,
+            height: 24,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          SizedBox(height: 8),
+          Container(
+            width: 250,
+            height: 16,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -851,6 +1029,12 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     // Navigate based on notification type and metadata
     switch (notification.type) {
       case NotificationType.statusChange:
+        // Check if this is an opportunity approval notification
+        if (notification.title == 'Oportunidade Aceite') {
+          // Navigate to the opportunity list page
+          context.go('/clients');
+          return;
+        }
         // Check if this is a contract insertion, proposal expired, or document review notification
         final processType = notification.metadata['processType'] as String?;
         if (processType == 'contract_insertion' || processType == 'proposal_expired' || processType == 'document_review') {
@@ -934,120 +1118,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     }
   }
 
-    // --- Unified Dashboard Card combining Commission + Status ---
-  Widget _buildDashboardCard(double? commissionValue, Map<String, int> statusCounts, {bool isLoading = false, bool isError = false}) {
-    final theme = Theme.of(context);
-    final isMobile = _isMobileScreen(context);
-    final spacing = _getResponsiveSpacing(context);
-    
-    String displayValue;
-    if (isLoading) {
-      displayValue = '...';
-    } else if (isError) {
-      displayValue = 'Erro';
-    } else {
-      // Always show the real value, we'll handle hiding with visual effects
-      displayValue = commissionValue != null ? '€ ${commissionValue.toStringAsFixed(2)}' : '€ 0.00';
-    }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: AppStyles.standardBlur,
-        child: Container(
-          width: double.infinity,
-          decoration: AppStyles.glassCard(context),
-          padding: EdgeInsets.symmetric(vertical: isMobile ? 20 : 28, horizontal: 24),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Commission Section (Left Side)
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Comissão Total',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                        fontSize: _getResponsiveFontSize(context, 14),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: spacing / 2),
-                    // Commission value with blur effect
-                    Stack(
-                      children: [
-                        Text(
-                          displayValue,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                            fontSize: _getResponsiveFontSize(context, 24),
-                          ),
-                        ),
-                        if (!_isEarningsVisible)
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.surface.withAlpha((255 * 0.6).round()),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    IconButton(
-                      icon: Icon(
-                        _isEarningsVisible ? Icons.visibility : Icons.visibility_off, 
-                        color: theme.colorScheme.onSurfaceVariant,
-                        size: isMobile ? 18 : 20,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isEarningsVisible = !_isEarningsVisible;
-                        });
-                      },
-                      tooltip: _isEarningsVisible ? 'Ocultar comissão' : 'Mostrar comissão',
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: spacing),
-              // Status Section (Right Side - 2x2 Grid)
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    Text(
-                      'Estado dos Clientes',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
-                        fontSize: _getResponsiveFontSize(context, 14),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: spacing / 2),
-                    _buildStatus2x2Grid(statusCounts, isMobile, spacing),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // --- Status Grid for Dashboard Card (2x2 Layout) ---
   Widget _buildStatus2x2Grid(Map<String, int> statusCounts, bool isMobile, double spacing) {
@@ -1105,49 +1176,61 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     );
   }
 
-  // --- Status Grid for Dashboard Card (Old 1x4 Layout - kept for compatibility) ---
+  // --- Status Grid for Dashboard Card (1x4 Layout with animations) ---
   Widget _buildStatusGrid(Map<String, int> statusCounts, bool isMobile, double spacing) {
-    final theme = Theme.of(context);
-    
-    final List<Widget> statusItems = [
-      _buildCompactStatusItem(
+    final statusItems = [
+      _StatusData(
         label: 'Ativos',
         count: statusCounts['active'] ?? 0,
-        color: Colors.green,
-        icon: CupertinoIcons.checkmark_seal_fill,
-        isMobile: isMobile,
+        color: Colors.green[700]!,
+        icon: Icons.check_circle,
       ),
-      _buildCompactStatusItem(
+      _StatusData(
         label: 'Ação Necessária',
         count: statusCounts['actionNeeded'] ?? 0,
-        color: Colors.blue,
-        icon: CupertinoIcons.exclamationmark_circle_fill,
-        isMobile: isMobile,
+        color: Colors.blue[700]!,
+        icon: Icons.pending_actions,
       ),
-      _buildCompactStatusItem(
+      _StatusData(
         label: 'Pendentes',
         count: statusCounts['pending'] ?? 0,
-        color: Colors.orange,
-        icon: CupertinoIcons.clock_fill,
-        isMobile: isMobile,
+        color: Colors.orange[700]!,
+        icon: Icons.schedule,
       ),
-      _buildCompactStatusItem(
+      _StatusData(
         label: 'Rejeitados',
         count: statusCounts['rejected'] ?? 0,
-        color: Colors.red,
-        icon: CupertinoIcons.xmark_seal_fill,
-        isMobile: isMobile,
+        color: Colors.red[700]!,
+        icon: Icons.cancel,
       ),
     ];
 
-    // Always show all 4 in one row
-    return Row(
-      children: [
-        for (int i = 0; i < statusItems.length; i++) ...[
-          Expanded(child: statusItems[i]),
-          if (i < statusItems.length - 1) SizedBox(width: spacing / 2), // Smaller spacing between cards
+    return AnimationLimiter(
+      child: Row(
+        children: [
+          for (int i = 0; i < statusItems.length; i++) ...[
+            Expanded(
+              child: AnimationConfiguration.staggeredList(
+                position: i,
+                duration: const Duration(milliseconds: 375),
+                child: SlideAnimation(
+                  verticalOffset: 30.0,
+                  child: FadeInAnimation(
+                    child: _buildCompactStatusItem(
+                      label: statusItems[i].label,
+                      count: statusItems[i].count,
+                      color: statusItems[i].color,
+                      icon: statusItems[i].icon,
+                      isMobile: isMobile,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (i < statusItems.length - 1) SizedBox(width: spacing / 2),
+          ],
         ],
-      ],
+      ),
     );
   }
 

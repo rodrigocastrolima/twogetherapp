@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/theme/theme.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../presentation/widgets/logo.dart';
+import '../../../../presentation/widgets/standard_app_bar.dart';
+import '../../../../presentation/widgets/app_input_field.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -88,6 +90,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -95,26 +103,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0.0,
-        leading: IconButton(
-          icon: Icon(
-            CupertinoIcons.chevron_left,
-            color: theme.colorScheme.onSurface,
-          ),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            }
-          },
-        ),
-        title: LogoWidget(
-          height: 60,
-          darkMode: isDark,
-        ),
-        centerTitle: true,
+      appBar: const StandardAppBar(
+        showBackButton: true,
+        showLogo: true,
       ),
       body: Center(
         child: ConstrainedBox(
@@ -122,18 +113,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
+              // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Text(
                   'Perfil',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: _getResponsiveFontSize(context, 24),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              // Responsive spacing after title - 16px for mobile, 24px for desktop
+              SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -210,23 +204,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildActionButton(
-                context,
-                icon: Icons.monetization_on_outlined,
-                label: 'Comissões',
-                route: '/dashboard',
+          // Single centered action button with padding to match card content alignment
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0), // Match card internal padding
+            child: Center(
+              child: SizedBox(
+                width: 200, // Fixed width for proper button sizing
+                child: _buildActionButton(
+                  context,
+                  icon: Icons.lock_outline,
+                  label: 'Alterar Senha',
+                  route: '/change-password',
+                ),
               ),
-              const SizedBox(width: 16),
-              _buildActionButton(
-                context,
-                icon: Icons.lock_outline,
-                label: 'Alterar Senha',
-                route: '/change-password',
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -269,45 +260,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             _infoItem('Nome do Colaborador', getField('displayName')),
             _infoItem('Email Principal', getField('email')),
             _infoItem('Telefone Principal', getField('phoneNumber', getField('mobilePhone'))),
-            _infoItem('Email Secundário', getField('emailSecondary')),
           ],
           [
             _infoItem('Data de Nascimento', formatDate(additional['birthDate'])),
             _infoItem('Nome do Revendedor', getField('resellerName', getField('revendedorRetail'))),
             _infoItem('Data de Registo', formatDate(additional['joinedDate'])),
-            _infoItem('Telefone Secundário', getField('phoneSecondary')),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Legal Info
-        _buildTwoColumnSection(
-          theme,
-          'Informação Legal',
-          [
-            _infoItem('NIF (Pessoal)', getField('collaboratorNif')),
-            _infoItem('CC', getField('ccNumber')),
-            _infoItem('SS', getField('ssNumber')),
-          ],
-          [
-            _infoItem('NIF (Empresa)', getField('companyNif')),
-            _infoItem('Código Comercial', getField('commercialCode')),
-            _infoItem('IBAN', getField('iban')),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // Location Info
-        _buildTwoColumnSection(
-          theme,
-          'Localização',
-          [
-            _infoItem('Morada', getField('address')),
-            _infoItem('Código Postal', getField('postalCode')),
-            _infoItem('Localidade', getField('city')),
-          ],
-          [
-            _infoItem('Distrito', getField('district')),
-            _infoItem('Tipologia', getField('tipologia')),
-            _infoItem('Atividade Comercial', getField('atividadeComercial')),
           ],
         ),
       ],
@@ -315,28 +272,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Widget _infoItem(String label, String value) {
+    final controller = TextEditingController(text: value.isNotEmpty ? value : 'Não informado');
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 180,
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              textAlign: TextAlign.left,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value.isNotEmpty ? value : 'N/D',
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-              textAlign: TextAlign.left,
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: AppInputField(
+        controller: controller,
+        label: label,
+        readOnly: true,
+        labelStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[600],
+        ),
       ),
     );
   }

@@ -7,7 +7,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:mime/mime.dart';
-import '../../widgets/logo.dart'; // Import LogoWidget
+import '../../widgets/standard_app_bar.dart'; // Import StandardAppBar
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/notifications/data/repositories/notification_repository.dart';
 import 'package:flutter/foundation.dart';
@@ -408,19 +408,8 @@ class _SubmitProposalDocumentsPageState
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       // Conditionally show AppBar
-      appBar: _isLoading ? null : AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            CupertinoIcons.chevron_left,
-            color: theme.colorScheme.onSurface,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: LogoWidget(height: 60, darkMode: isDark),
-        centerTitle: true,
+      appBar: _isLoading ? null : const StandardAppBar(
+        showBackButton: true,
       ),
       body: Stack(
         children: [
@@ -430,32 +419,23 @@ class _SubmitProposalDocumentsPageState
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1200),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Page Title Section
                       Padding(
-                        padding: const EdgeInsets.only(top: 16, bottom: 24),
+                        padding: const EdgeInsets.only(top: 16, bottom: 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Title on the left
-                            Text(
-                              'Aceitar Proposta',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            // Proposal name centered
+                            // Title - centered
                             Center(
                               child: Text(
                                 widget.proposalName,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w500,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -473,10 +453,7 @@ class _SubmitProposalDocumentsPageState
                               if (!_isDigitallySigned) ...[
                                 Text(
                                   'Contratos Assinados',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
+                                  style: theme.textTheme.headlineSmall,
                                 ),
                                 const SizedBox(height: 12),
                                 ...widget.cpeList.map((cpe) {
@@ -496,36 +473,19 @@ class _SubmitProposalDocumentsPageState
 
                               // Digital signature section (no card container) - moved here
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 32),
+                                padding: const EdgeInsets.only(bottom: 24),
                                 child: Row(
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: _isDigitallySigned
-                                            ? theme.colorScheme.primary.withAlpha((255 * 0.1).round())
-                                            : theme.colorScheme.surfaceVariant,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Icon(
-                                        _isDigitallySigned 
-                                            ? Icons.description_outlined 
-                                            : Icons.description,
-                                        color: _isDigitallySigned 
-                                            ? theme.colorScheme.primary 
-                                            : theme.colorScheme.onSurfaceVariant,
-                                        size: 20,
+                                    Expanded(
+                                      child: Text(
+                                        'Contratos assinados digitalmente',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                          color: theme.colorScheme.onSurface,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Contratos assinados digitalmente',
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.w500,
-                                        color: theme.colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const Spacer(),
+                                    const SizedBox(width: 8),
                                     Switch.adaptive(
                                       value: _isDigitallySigned,
                                       onChanged: (bool value) {
@@ -552,10 +512,7 @@ class _SubmitProposalDocumentsPageState
                               // Required documents section
                               Text(
                                 'Documentos Obrigatórios',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                ),
+                                style: theme.textTheme.headlineSmall,
                               ),
                               const SizedBox(height: 12),
                               
@@ -586,33 +543,31 @@ class _SubmitProposalDocumentsPageState
                                 _crcDocumentFile,
                               ),
 
-                              const SizedBox(height: 40),
+                              const SizedBox(height: 32),
 
                               // Submit button
-                              Center(
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading || !allDocumentsReady 
-                                        ? null 
-                                        : _submitDocuments,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: theme.colorScheme.primary,
-                                      foregroundColor: theme.colorScheme.onPrimary,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12.0),
-                                      ),
-                                      minimumSize: const Size(double.infinity, 50),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading || !allDocumentsReady 
+                                      ? null 
+                                      : _submitDocuments,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: theme.colorScheme.primary,
+                                    foregroundColor: theme.colorScheme.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
                                     ),
-                                    child: Text(
-                                      'Submeter Documentos',
-                                      style: theme.textTheme.labelLarge?.copyWith(
-                                        color: theme.colorScheme.onPrimary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    minimumSize: const Size(double.infinity, 50),
+                                  ),
+                                  child: Text(
+                                    'Submeter Documentos',
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      color: theme.colorScheme.onPrimary,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -668,27 +623,27 @@ class _SubmitProposalDocumentsPageState
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               // Icon container
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: isFilePicked
                       ? Colors.green.withAlpha((255 * 0.1).round())
                       : theme.colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  isFilePicked ? Icons.check_circle : icon,
-                  color: isFilePicked
-                      ? Colors.green
-                      : theme.colorScheme.onSurfaceVariant,
-                  size: 24,
-                ),
+                                  child: Icon(
+                    isFilePicked ? Icons.check_circle : icon,
+                    color: isFilePicked
+                        ? Colors.green
+                        : theme.colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               
               // Content (always shows original title/subtitle)
               Expanded(
@@ -708,6 +663,7 @@ class _SubmitProposalDocumentsPageState
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
                   ],

@@ -207,7 +207,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
                     const SizedBox(width: 8),
                     _buildSolidIconButton(
                       context,
-                      icon: CupertinoIcons.lightbulb, // Changed from question_circle
+                      icon: CupertinoIcons.question_circle,
                       onTap: () => _handleHelpIconTap(
                         context,
                         false,
@@ -702,7 +702,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with TickerProviderStat
 
 
 
-// Helper method to build solid icon button with consistent sizing and tap effect
+// Helper method to build clean icon button without material outlines
 Widget _buildSolidIconButton(
   BuildContext context, {
   IconData? icon,
@@ -711,43 +711,24 @@ Widget _buildSolidIconButton(
   bool isHighlighted = false,
 }) {
   final theme = Theme.of(context);
-  final isDark = theme.brightness == Brightness.dark;
   
-  return Container(
-    width: 40,  // Consistent size for all buttons
-    height: 40, // Consistent size for all buttons
-    decoration: BoxDecoration(
-      color: isHighlighted 
-          ? theme.colorScheme.primary
-          : theme.colorScheme.surface,
-      shape: BoxShape.circle,
-      border: Border.all(
-        color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
-        width: 0.5,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: isDark 
-              ? Colors.black.withAlpha((255 * 0.3).round())
-              : Colors.black.withAlpha((255 * 0.1).round()),
-          blurRadius: 2,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Center(
-          child: child ?? Icon(
-            icon,
-            size: 20,
-            color: isHighlighted 
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.onSurface,
-          ),
+  return InkWell(
+    borderRadius: BorderRadius.circular(20),
+    onTap: onTap,
+    child: Container(
+      width: 40,  // Consistent size for all buttons
+      height: 40, // Consistent size for all buttons
+      decoration: isHighlighted ? BoxDecoration(
+        color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+        shape: BoxShape.circle,
+      ) : null,
+      child: Center(
+        child: child ?? Icon(
+          icon,
+          size: 24,
+          color: isHighlighted 
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurface,
         ),
       ),
     ),

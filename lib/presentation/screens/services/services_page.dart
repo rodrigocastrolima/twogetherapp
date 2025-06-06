@@ -31,7 +31,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   service_types.Provider? _selectedProvider;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _showingMessageFor;
 
   // Form controllers
   late final TextEditingController _companyNameController;
@@ -47,12 +46,19 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   // Form validation state
   bool get _isFormValid {
     final hasFile = ref.read(serviceSubmissionProvider).selectedFiles.isNotEmpty;
-    return _companyNameController.text.trim().isNotEmpty &&
-           _responsibleNameController.text.trim().isNotEmpty &&
-           _nifController.text.trim().isNotEmpty &&
-           _emailController.text.trim().isNotEmpty &&
-           _phoneController.text.trim().isNotEmpty &&
-           hasFile;
+    
+    bool baseValid = _responsibleNameController.text.trim().isNotEmpty &&
+                     _nifController.text.trim().isNotEmpty &&
+                     _emailController.text.trim().isNotEmpty &&
+                     _phoneController.text.trim().isNotEmpty &&
+                     hasFile;
+    
+    // Only require company name for commercial clients
+    if (_selectedClientType == ClientType.commercial) {
+      baseValid = baseValid && _companyNameController.text.trim().isNotEmpty;
+    }
+    
+    return baseValid;
   }
 
   @override
@@ -150,20 +156,7 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     return screenWidth < 600 ? 0 : 24;
   }
 
-  void _showFeatureComingSoonDialog(BuildContext context, String categoryName) {
-    setState(() {
-      _showingMessageFor = categoryName;
-    });
-    
-    // Hide the message after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _showingMessageFor = null;
-        });
-      }
-    });
-  }
+
 
   @override
   void dispose() {
@@ -237,6 +230,8 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     formNotifier.updateFormFields({
       'clientType': type.name,
       'provider': _selectedProvider!.name,
+      // Clear company name for residential clients
+      'companyName': type == ClientType.residential ? null : '',
     });
   }
 
@@ -482,24 +477,37 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               SafeArea(
                 child: SizedBox(height: _getResponsiveSpacing()),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Text(
-                  _getPageTitle(),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
+              // Show title only on step 0, otherwise show step indicator in same position
+              if (widget.quickAction == null && currentStep == 0) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    _getPageTitle(),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              // Step indicator (show from step 1 onwards, not on quick actions)
-              if (widget.quickAction == null && currentStep > 0) ...[
+                const SizedBox(height: 16),
+              ] else if (widget.quickAction == null && currentStep > 0) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
                   child: _buildStepIndicator(),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+              ] else if (widget.quickAction != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    _getPageTitle(),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
               Expanded(
                 child: _buildCurrentStep(),
@@ -631,48 +639,19 @@ class ServicesPageState extends ConsumerState<ServicesPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final (i, category) in ServiceCategory.values.indexed) ...[
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  ServiceCategoryCard(
-                    title: category.displayName,
-                    icon: _getCategoryIcon(category),
-                    enabled: category.isAvailable,
-                    onTap: category.isAvailable 
-                        ? () => _handleCategorySelection(category)
-                        : () => _showFeatureComingSoonDialog(context, category.displayName),
-                    trailing: category.isAvailable
-                        ? Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20)
-                        : null,
-                  ),
-                  if (_showingMessageFor == category.displayName)
-                    Positioned(
-                      top: -40,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.inverseSurface,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha((255 * 0.2).round()),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'Funcionalidade em desenvolvimento',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onInverseSurface,
-                          ),
+              ServiceCategoryCard(
+                title: category.displayName,
+                icon: _getCategoryIcon(category),
+                enabled: category.isAvailable,
+                onTap: category.isAvailable ? () => _handleCategorySelection(category) : null,
+                trailing: category.isAvailable
+                    ? Icon(CupertinoIcons.chevron_right, color: theme.colorScheme.onSurfaceVariant, size: 20)
+                    : Text(
+                        'Em breve',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withAlpha((255 * 0.6).round()),
                         ),
                       ),
-                    ),
-                ],
               ),
               if (i != ServiceCategory.values.length - 1)
                 const SizedBox(height: 16),
@@ -764,24 +743,30 @@ class ServicesPageState extends ConsumerState<ServicesPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Dados da Empresa', style: textTheme.headlineSmall),
-            const SizedBox(height: AppConstants.spacing24),
-            AppInputField(
-              controller: _companyNameController,
-              label: 'Nome da Empresa',
-              hint: 'Introduza o nome da empresa',
-              onChanged: (value) {
-                ref.read(serviceSubmissionProvider.notifier).updateFormFields({
-                  'companyName': value,
-                });
-                setState(() {}); // Trigger rebuild for validation
-              },
+            Text(
+              _selectedClientType == ClientType.commercial ? 'Dados da Empresa' : 'Dados do Cliente',
+              style: textTheme.headlineSmall,
             ),
-            const SizedBox(height: AppConstants.spacing16),
+            const SizedBox(height: AppConstants.spacing24),
+            // Only show company name field for commercial clients
+            if (_selectedClientType == ClientType.commercial) ...[
+              AppInputField(
+                controller: _companyNameController,
+                label: 'Nome da Empresa',
+                hint: 'Introduza o nome da empresa',
+                onChanged: (value) {
+                  ref.read(serviceSubmissionProvider.notifier).updateFormFields({
+                    'companyName': value,
+                  });
+                  setState(() {}); // Trigger rebuild for validation
+                },
+              ),
+              const SizedBox(height: AppConstants.spacing16),
+            ],
             AppInputField(
               controller: _responsibleNameController,
-              label: 'Nome do Responsável',
-              hint: 'Introduza o nome do responsável',
+              label: _selectedClientType == ClientType.commercial ? 'Nome do Responsável' : 'Nome Completo',
+              hint: _selectedClientType == ClientType.commercial ? 'Introduza o nome do responsável' : 'Introduza o seu nome completo',
               onChanged: (value) {
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'responsibleName': value,
@@ -829,8 +814,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
               },
             ),
             const SizedBox(height: AppConstants.spacing24),
-            Text('Anexar Documento', style: textTheme.headlineSmall),
-            const SizedBox(height: AppConstants.spacing16),
             const FileUploadWidget(),
             const SizedBox(height: AppConstants.spacing32),
             if (_errorMessage != null) ...[

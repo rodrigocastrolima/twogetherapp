@@ -269,7 +269,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     if (_fileBytes == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No file available to share.')),
+        const SnackBar(content: Text('Nenhum ficheiro disponível para partilhar.')),
       );
       return;
     }
@@ -311,7 +311,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       
       // Create XFile and share
       final xfile = XFile(tempFile.path);
-      await Share.shareXFiles([xfile], text: 'Sharing ${widget.title}');
+      await Share.shareXFiles([xfile], text: 'A partilhar ${widget.title}');
       
       // Clean up temp file after a delay (give time for sharing to complete)
       Future.delayed(const Duration(seconds: 30), () {
@@ -328,7 +328,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       logger.e('Error sharing file', error: e);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sharing file: $e')),
+        SnackBar(content: Text('Erro ao partilhar ficheiro: $e')),
       );
     }
   }
@@ -337,7 +337,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     if (_fileBytes == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No file data to download.')),
+        const SnackBar(content: Text('Nenhuns dados de ficheiro para transferir.')),
       );
       return;
     }
@@ -394,13 +394,16 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
       logger.e('Error downloading file', error: e);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading file: $e')),
+        SnackBar(content: Text('Erro ao transferir ficheiro: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     if (kDebugMode) {
       logger.d(
         'SecureFileViewer BUILD: isLoading=$_isLoading, error=$_error, localPath=$_localTempFilePath',
@@ -408,12 +411,26 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
     }
 
     return CupertinoPageScaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.title, overflow: TextOverflow.ellipsis),
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface,
+        middle: Text(
+          widget.title, 
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () => Navigator.of(context).pop(),
-          child: const Icon(CupertinoIcons.clear, size: 28),
+          child: Icon(
+            CupertinoIcons.clear, 
+            size: 28,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -427,14 +444,22 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
               onPressed: _isLoading || (_localTempFilePath == null && _fileBytes == null)
                     ? null
                     : () => _onShare(context),
-              child: const Icon(CupertinoIcons.share, size: 24),
+              child: Icon(
+                CupertinoIcons.share, 
+                size: 24,
+                color: theme.colorScheme.onSurface,
+              ),
           ),
             CupertinoButton(
               padding: const EdgeInsets.all(8.0),
               onPressed: _isLoading || _fileBytes == null
                     ? null
                     : () => _onDownload(context),
-              child: const Icon(CupertinoIcons.cloud_download, size: 24),
+              child: Icon(
+                CupertinoIcons.cloud_download, 
+                size: 24,
+                color: theme.colorScheme.onSurface,
+              ),
           ),
         ],
       ),
@@ -456,7 +481,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
           child: Text(
             _error!,
             style: TextStyle(
-              color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context),
+              color: Theme.of(context).colorScheme.error,
             ),
             textAlign: TextAlign.center,
           ),
@@ -500,13 +525,18 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
             Navigator.of(context).pop();
           }
         });
-        return const Center(
+        return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CupertinoActivityIndicator(),
-              SizedBox(height: 16),
-              Text('Opening PDF in new tab...'),
+              const CupertinoActivityIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'A abrir PDF numa nova aba...',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
             ],
           ),
         );
@@ -563,8 +593,8 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
               );
               return Center(
                 child: Text(
-                  'Could not display image.',
-                  style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.destructiveRed, context)),
+                  'Não foi possível mostrar a imagem.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               );
             },
@@ -583,14 +613,14 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
             Icon(
               CupertinoIcons.doc_text_fill, // Using a Cupertino icon
               size: 60,
-              color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           const SizedBox(height: 16),
           Text(
             // Show extension if available, otherwise content type
-            'Cannot display file type: ${_fileExtension ?? _contentType ?? 'Unknown'}',
+            'Não é possível mostrar o tipo de ficheiro: ${_fileExtension ?? _contentType ?? 'Desconhecido'}',
               textAlign: TextAlign.center,
-              style: TextStyle(color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context)),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
             const SizedBox(height: 24),
             CupertinoButton.filled(
@@ -602,7 +632,7 @@ class _SecureFileViewerState extends ConsumerState<SecureFileViewer> {
                 children: [
                   Icon(CupertinoIcons.cloud_download_fill),
                   SizedBox(width: 8),
-                  Text('Download File'),
+                  Text('Transferir Ficheiro'),
                 ],
               ),
           ),

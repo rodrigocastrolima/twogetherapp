@@ -813,13 +813,25 @@ class OpportunityService {
       final HttpsCallable callable = _functions.httpsCallable(
         'downloadFileForReseller', // The name of the Cloud Function for resellers
       );
-      final result = await callable.call<Map<String, dynamic>>({
+      final result = await callable.call({
         'contentVersionId': contentVersionId,
       });
 
-      final Map<String, dynamic>? data =
-          result.data['data'] as Map<String, dynamic>?;
-      final bool success = result.data['success'] as bool? ?? false;
+      // Safely cast the result data
+      final resultData = result.data as Map<Object?, Object?>?;
+      if (resultData == null) {
+        return (
+          fileData: null,
+          contentType: null,
+          fileExtension: null,
+          error: 'No data received from cloud function',
+          sessionExpired: false,
+        );
+      }
+
+      final Map<String, dynamic>? data = 
+          (resultData['data'] as Map<Object?, Object?>?)?.cast<String, dynamic>();
+      final bool success = resultData['success'] as bool? ?? false;
 
       if (success && data != null) {
         // Decode the base64 file data
@@ -842,7 +854,7 @@ class OpportunityService {
       }
 
       // Handle unsuccessful response
-      final String errorMsg = result.data['error'] as String? ?? 'Unknown error from downloadFileForReseller';
+      final String errorMsg = resultData['error'] as String? ?? 'Unknown error from downloadFileForReseller';
       if (kDebugMode) {
         print('[OpportunityService] downloadFileForReseller error: $errorMsg');
       }

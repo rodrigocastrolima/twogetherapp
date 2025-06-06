@@ -35,6 +35,7 @@ class AppInputField extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isLightMode = theme.brightness == Brightness.light;
 
     InputDecoration inputDecoration() {
       return InputDecoration(
@@ -50,11 +51,20 @@ class AppInputField extends StatelessWidget {
         ),
         filled: true,
         fillColor: readOnly
-            ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
-            : colorScheme.surfaceContainerHighest,
+            ? (isLightMode 
+                ? colorScheme.surface.withAlpha((255 * 0.5).round())
+                : colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()))
+            : (isLightMode 
+                ? colorScheme.surface
+                : colorScheme.surfaceContainerHighest),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
+          borderSide: BorderSide(
+            color: isLightMode 
+                ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                : colorScheme.outline.withAlpha((255 * 0.2).round()),
+            width: isLightMode ? 1.5 : 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -62,7 +72,11 @@ class AppInputField extends StatelessWidget {
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
+          borderSide: BorderSide(
+            color: isLightMode 
+                ? colorScheme.outline.withAlpha((255 * 0.3).round())
+                : colorScheme.outline.withAlpha((255 * 0.08).round()),
+          ),
         ),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -119,6 +133,7 @@ class AppDateInputField extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isLightMode = theme.brightness == Brightness.light;
     final controller = TextEditingController(
       text: value != null ?
         DateFormat('dd/MM/yyyy', 'pt_PT').format(value!) : '',
@@ -315,11 +330,20 @@ class AppDateInputField extends StatelessWidget {
               ),
               filled: true,
               fillColor: readOnly
-                  ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
-                  : colorScheme.surfaceContainerHighest,
+                  ? (isLightMode 
+                      ? colorScheme.surface.withAlpha((255 * 0.5).round())
+                      : colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()))
+                  : (isLightMode 
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerHighest),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
+                borderSide: BorderSide(
+                  color: isLightMode 
+                      ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                      : colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  width: isLightMode ? 1.5 : 1,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -327,7 +351,11 @@ class AppDateInputField extends StatelessWidget {
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
+                borderSide: BorderSide(
+                  color: isLightMode 
+                      ? colorScheme.outline.withAlpha((255 * 0.3).round())
+                      : colorScheme.outline.withAlpha((255 * 0.08).round()),
+                ),
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -374,6 +402,7 @@ class AppDropdownField<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isLightMode = theme.brightness == Brightness.light;
 
     return SizedBox(
       height: 48,
@@ -410,11 +439,20 @@ class AppDropdownField<T> extends StatelessWidget {
               ),
               filled: true,
               fillColor: readOnly
-                  ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round())
-                  : colorScheme.surfaceContainerHighest,
+                  ? (isLightMode 
+                      ? colorScheme.surface.withAlpha((255 * 0.5).round())
+                      : colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()))
+                  : (isLightMode 
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerHighest),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
+                borderSide: BorderSide(
+                  color: isLightMode 
+                      ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                      : colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  width: isLightMode ? 1.5 : 1,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -422,7 +460,11 @@ class AppDropdownField<T> extends StatelessWidget {
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.08).round())),
+                borderSide: BorderSide(
+                  color: isLightMode 
+                      ? colorScheme.outline.withAlpha((255 * 0.3).round())
+                      : colorScheme.outline.withAlpha((255 * 0.08).round()),
+                ),
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -430,7 +472,9 @@ class AppDropdownField<T> extends StatelessWidget {
             ),
             style: textTheme.bodySmall,
             icon: const Icon(Icons.arrow_drop_down),
-            dropdownColor: colorScheme.surfaceContainerHighest,
+            dropdownColor: isLightMode 
+                ? colorScheme.surface
+                : colorScheme.surfaceContainerHighest,
           ),
         ],
       ),

@@ -771,6 +771,28 @@ class _OpportunityDetailFormViewState
             });
         // --- END RE-ENABLE --- //
 
+        // --- Optional: Create Notification for Reseller ---
+        try {
+          final resellerId = widget.submission?.resellerId ?? '';
+          if (kDebugMode) {
+            print("Creating approval notification for resellerId: $resellerId");
+            print("Current user ID: ${FirebaseAuth.instance.currentUser?.uid}");
+            print("Submission ID: ${widget.submission?.id}");
+          }
+          await _createApprovalNotification(
+            resellerId,
+            widget.submission?.id ?? '',
+            result.opportunityId,
+            result.accountId,
+            _nameController.text,
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print("Error creating approval notification: $e");
+          }
+          // Non-critical, don't fail the whole approval
+        }
+
         // --- MODIFICATION START: Show Dialog or Fallback ---
         if (!mounted) return;
 
@@ -1576,7 +1598,7 @@ class _OpportunityDetailFormViewState
         id: '', // Will be set by Firestore
         userId: resellerId, // Target the reseller
         title: 'Oportunidade Rejeitada', // Opportunity Rejected
-        message: 'A proposta para o cliente $entityName foi rejeitada.', // The proposal for client [Entity] was rejected.
+        message: 'A oportunidade para o cliente $entityName foi rejeitada.', // The proposal for client [Entity] was rejected.
         type: NotificationType.rejection,
         createdAt: DateTime.now(),
         isRead: false,
@@ -1603,6 +1625,84 @@ class _OpportunityDetailFormViewState
         print('Error creating rejection notification: $e');
       }
       // Log or handle error, but don't block the main rejection flow
+      rethrow; // Re-throw if needed for upstream handling
+    }
+  }
+
+  // --- ADDED: Create Approval Notification ---
+  Future<void> _createApprovalNotification(
+    String resellerId,
+    String submissionId,
+    String? salesforceOpportunityId,
+    String? salesforceAccountId,
+    String opportunityName,
+  ) async {
+    try {
+      final notificationRef =
+          FirebaseFirestore.instance
+              .collection('notifications')
+              .doc(); // Auto-generate ID
+
+      // Determine the correct entity name based on client type
+      String entityName = '';
+      if (widget.submission?.clientType == ClientType.commercial) {
+        // For commercial clients, prefer company name, fallback to responsible name
+        entityName = widget.submission?.companyName?.isNotEmpty == true 
+            ? widget.submission!.companyName!
+            : widget.submission?.responsibleName ?? '';
+      } else {
+        // For residential clients, use responsible name
+        entityName = widget.submission?.responsibleName ?? '';
+      }
+      
+      // Fallback if still empty
+      if (entityName.isEmpty) {
+        entityName = 'Cliente Desconhecido';
+      }
+
+      // Create notification using the UserNotification model for consistency
+      final notification = UserNotification(
+        id: '', // Will be set by Firestore
+        userId: resellerId, // Target the reseller
+        title: 'Oportunidade Aceite', // Opportunity Accepted
+        message: 'A oportunidade para o cliente $entityName foi aceite.', // The opportunity for client [Entity] was accepted.
+        type: NotificationType.statusChange,
+        createdAt: DateTime.now(),
+        isRead: false,
+        metadata: {
+          'submissionId': submissionId,
+          'salesforceOpportunityId': salesforceOpportunityId,
+          'salesforceAccountId': salesforceAccountId,
+          'opportunityName': opportunityName,
+          'clientName': entityName,
+          'clientType': widget.submission?.clientType?.name,
+          'companyName': widget.submission?.companyName,
+          'responsibleName': widget.submission?.responsibleName,
+          'nif': _nifController.text,
+          'segment': _selectedSegmentoCliente,
+          'solution': _selectedSolucao,
+        },
+      );
+
+      await notificationRef.set(notification.toFirestore());
+      // Use kDebugMode check for print
+      if (kDebugMode) {
+        print(
+          'Approval notification created successfully:',
+        );
+        print('  - Notification ID: ${notificationRef.id}');
+        print('  - Target resellerId: $resellerId');
+        print('  - Submission ID: $submissionId');
+        print('  - Title: ${notification.title}');
+        print('  - Message: ${notification.message}');
+        print('  - Entity Name: $entityName');
+      }
+    } catch (e) {
+      // Use kDebugMode check for print
+      if (kDebugMode) {
+        print('Error creating approval notification: $e');
+      }
+      // Log or handle error, but don't block the main approval flow
       rethrow; // Re-throw if needed for upstream handling
     }
   }

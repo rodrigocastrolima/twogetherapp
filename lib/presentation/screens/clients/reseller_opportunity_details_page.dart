@@ -16,6 +16,7 @@ import '../../../features/notifications/data/repositories/notification_repositor
 import './submit_proposal_documents_page.dart';
 import '../../widgets/secure_file_viewer.dart';
 import '../../widgets/success_dialog.dart';
+import '../../../core/services/file_icon_service.dart';
 
 // Helper function to determine color based on customer segment
 Color _getSegmentColor(String? segment, ThemeData theme, bool isDark) {
@@ -120,6 +121,35 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
   String? _selectedProposalId;
   String? _selectedProposalName;
 
+  String _getDisplayDate() {
+    // Try multiple date sources in order of preference
+    String? dateToUse;
+    
+    // 1. Try createdDate first
+    if (widget.opportunity.createdDate != null && widget.opportunity.createdDate!.isNotEmpty) {
+      dateToUse = widget.opportunity.createdDate;
+    }
+    // 2. Fallback to first proposal's creation date if available
+    else if (widget.opportunity.propostasR?.records.isNotEmpty == true) {
+      final firstProposal = widget.opportunity.propostasR!.records.first;
+      if (firstProposal.dataDeCriacaoDaPropostaC != null && firstProposal.dataDeCriacaoDaPropostaC!.isNotEmpty) {
+        dateToUse = firstProposal.dataDeCriacaoDaPropostaC;
+      }
+    }
+    
+    if (dateToUse != null) {
+      try {
+        final parsedDate = DateTime.parse(dateToUse);
+        return DateFormat('dd/MM/yyyy').format(parsedDate);
+      } catch (e) {
+        // If parsing fails, return the original string
+        return dateToUse;
+      }
+    }
+    
+    return 'N/A';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -196,9 +226,7 @@ class _OpportunityDetailsPageState extends ConsumerState<OpportunityDetailsPage>
                                 Text('Data de Início:', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w500)),
                                 const SizedBox(width: 6),
                                 Text(
-                                  widget.opportunity.createdDate != null
-                                      ? DateFormat('dd/MM/yyyy').format(DateTime.parse(widget.opportunity.createdDate!))
-                                      : 'N/A',
+                                  _getDisplayDate(),
                                   style: theme.textTheme.bodyMedium,
                                 ),
                               ],
@@ -510,70 +538,96 @@ class _InlineProposalDetails extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  cpe.cpeC != null && cpe.cpeC!.isNotEmpty
-                                      ? cpe.cpeC!
-                                      : cpe.id.substring(cpe.id.length - 6),
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onSurface,
-                                    fontSize: fontSize,
+                                // Centered CPE title
+                                Center(
+                                  child: Text(
+                                    cpe.cpeC != null && cpe.cpeC!.isNotEmpty
+                                        ? cpe.cpeC!
+                                        : cpe.id.substring(cpe.id.length - 6),
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: fontSize,
+                                    ),
                                   ),
                                 ),
-                                SizedBox(height: 6),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        width: 80,
-                                        child: Text(
-                                          'Comissão:',
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: theme.colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: fontSize,
-          ),
-        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          _formatCurrency(cpe.commissionRetail),
-                                          style: theme.textTheme.titleSmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.primary,
-                                            fontSize: fontSize,
+                                SizedBox(height: 8),
+                                // Main content row with details on left and files on right
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Left side - Details
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                SizedBox(
+                                                  width: 80,
+                                                  child: Text(
+                                                    'Comissão:',
+                                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                                      color: theme.colorScheme.onSurfaceVariant,
+                                                      fontWeight: FontWeight.w500,
+                                                      fontSize: fontSize,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    _formatCurrency(cpe.commissionRetail),
+                                                    style: theme.textTheme.titleSmall?.copyWith(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: theme.colorScheme.primary,
+                                                      fontSize: fontSize,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ),
+                                          _buildDetailRow(
+                                            context,
+                                            'Potência',
+                                            cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
+                                            fontSize,
+                                          ),
+                                          _buildDetailRow(
+                                            context,
+                                            'Fidelização',
+                                            _formatYears(cpe.loyaltyYears),
+                                            fontSize,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                                                         // Right side - File previews
+                                     if (cpe.attachedFiles.isNotEmpty) ...[
+                                       const SizedBox(width: 16),
+                                       Container(
+                                         width: 60,
+                                         child: Column(
+                                           mainAxisAlignment: MainAxisAlignment.center,
+                                           children: [
+                                             Wrap(
+                                               spacing: 8.0,
+                                               runSpacing: 8.0,
+                                               alignment: WrapAlignment.center,
+                                               children: cpe.attachedFiles.map((fileInfo) {
+                                                 return _buildFilePreview(context, fileInfo, iconSize: 40);
+                                               }).toList(),
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                     ],
+                                  ],
                                 ),
-                                _buildDetailRow(
-                                  context,
-                                  'Potência',
-                                  cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
-                                  fontSize,
-                                ),
-                                _buildDetailRow(
-                                  context,
-                                  'Fidelização',
-                                  _formatYears(cpe.loyaltyYears),
-                                  fontSize,
-                                ),
-                                // Add file previews if files exist
-                                if (cpe.attachedFiles.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 8.0,
-                                    children: cpe.attachedFiles.map((fileInfo) {
-                                      return _buildFilePreview(context, fileInfo, iconSize: 32);
-                                    }).toList(),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
@@ -601,70 +655,96 @@ class _InlineProposalDetails extends ConsumerWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        cpe.cpeC != null && cpe.cpeC!.isNotEmpty
-                                            ? cpe.cpeC!
-                                            : cpe.id.substring(cpe.id.length - 6),
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurface,
-                                          fontSize: fontSize,
+                                      // Centered CPE title
+                                      Center(
+                                        child: Text(
+                                          cpe.cpeC != null && cpe.cpeC!.isNotEmpty
+                                              ? cpe.cpeC!
+                                              : cpe.id.substring(cpe.id.length - 6),
+                                          style: theme.textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: theme.colorScheme.onSurface,
+                                            fontSize: fontSize,
+                                          ),
                                         ),
                                       ),
-                                      SizedBox(height: 6),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            SizedBox(
-                                              width: 80,
-                                              child: Text(
-                                                'Comissão:',
-                                                style: theme.textTheme.bodyMedium?.copyWith(
-                                                  color: theme.colorScheme.onSurfaceVariant,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: fontSize,
+                                      SizedBox(height: 8),
+                                      // Main content row with details on left and files on right
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Left side - Details
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                                  child: Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      SizedBox(
+                                                        width: 80,
+                                                        child: Text(
+                                                          'Comissão:',
+                                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                                            color: theme.colorScheme.onSurfaceVariant,
+                                                            fontWeight: FontWeight.w500,
+                                                            fontSize: fontSize,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Expanded(
+                                                        child: Text(
+                                                          _formatCurrency(cpe.commissionRetail),
+                                                          style: theme.textTheme.titleSmall?.copyWith(
+                                                            fontWeight: FontWeight.bold,
+                                                            color: theme.colorScheme.primary,
+                                                            fontSize: fontSize,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
+                                                _buildDetailRow(
+                                                  context,
+                                                  'Potência',
+                                                  cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
+                                                  fontSize,
+                                                ),
+                                                _buildDetailRow(
+                                                  context,
+                                                  'Fidelização',
+                                                  _formatYears(cpe.loyaltyYears),
+                                                  fontSize,
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                _formatCurrency(cpe.commissionRetail),
-                                                style: theme.textTheme.titleSmall?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: theme.colorScheme.primary,
-                                                  fontSize: fontSize,
-                                                ),
+                                          ),
+                                          // Right side - File previews
+                                          if (cpe.attachedFiles.isNotEmpty) ...[
+                                            const SizedBox(width: 12),
+                                            Container(
+                                              width: 50,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Wrap(
+                                                    spacing: 6.0,
+                                                    runSpacing: 6.0,
+                                                    alignment: WrapAlignment.center,
+                                                    children: cpe.attachedFiles.map((fileInfo) {
+                                                      return _buildFilePreview(context, fileInfo, iconSize: 32);
+                                                    }).toList(),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
-                                        ),
+                                        ],
                                       ),
-                                      _buildDetailRow(
-                                        context,
-                                        'Potência',
-                                        cpe.consumptionOrPower?.toStringAsFixed(2) ?? 'N/A',
-                                        fontSize,
-                                      ),
-                                      _buildDetailRow(
-                                        context,
-                                        'Fidelização',
-                                        _formatYears(cpe.loyaltyYears),
-                                        fontSize,
-                                      ),
-                                      // Add file previews if files exist
-                                      if (cpe.attachedFiles.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Wrap(
-                                          spacing: 8.0,
-                                          runSpacing: 8.0,
-                                          children: cpe.attachedFiles.map((fileInfo) {
-                                            return _buildFilePreview(context, fileInfo, iconSize: 32);
-                                          }).toList(),
-                                        ),
-                                      ],
                                     ],
                                   ),
                                 ),
@@ -891,38 +971,48 @@ class _InlineProposalDetails extends ConsumerWidget {
 
   Widget _buildFilePreview(BuildContext context, SalesforceFileInfo fileInfo, {double iconSize = 20}) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     
-    // Determine file type from title extension
+    // Get file extension from title
     final fileName = fileInfo.title.toLowerCase();
-    Widget iconWidget;
-    
-    if (fileName.endsWith('.pdf')) {
-      iconWidget = Icon(Icons.picture_as_pdf, color: colorScheme.error, size: iconSize);
-    } else if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
-               fileName.endsWith('.png') || fileName.endsWith('.gif') ||
-               fileName.endsWith('.webp') || fileName.endsWith('.bmp')) {
-      iconWidget = Icon(Icons.image_outlined, color: colorScheme.primary, size: iconSize);
-    } else {
-      iconWidget = Icon(Icons.insert_drive_file, color: colorScheme.onSurfaceVariant, size: iconSize);
+    String fileExtension = '';
+    if (fileName.contains('.')) {
+      fileExtension = fileName.split('.').last;
     }
+    
+    // Get custom icon asset path
+    final iconAsset = FileIconService.getIconAssetPath(fileExtension);
 
     return GestureDetector(
       onTap: () => _viewFile(context, fileInfo),
       child: Tooltip(
         message: fileInfo.title,
         child: Container(
-          width: iconSize + 12,
-          height: iconSize + 12,
+          width: iconSize + 16,
+          height: iconSize + 16,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
-            borderRadius: BorderRadius.circular(6.0),
+            color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.8).round()),
+            borderRadius: BorderRadius.circular(8.0),
             border: Border.all(
-              color: Colors.black.withAlpha((255 * 0.1).round()),
-              width: 0.5,
+              color: theme.colorScheme.outline.withAlpha((255 * 0.3).round()),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha((255 * 0.1).round()),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Image.asset(
+              iconAsset,
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.contain,
             ),
           ),
-          child: Center(child: iconWidget),
         ),
       ),
     );

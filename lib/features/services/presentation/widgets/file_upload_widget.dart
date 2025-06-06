@@ -11,6 +11,7 @@ import '../providers/service_submission_provider.dart';
 import 'package:file_picker/file_picker.dart'; // Ensure PlatformFile is available
 import '../../../../core/services/file_icon_service.dart'; // Import FileIconService
 import 'package:path/path.dart' as p; // For file extension handling
+import '../../../../core/theme/app_colors.dart';
 
 // Define callback types
 typedef OnFilePickedCallback = void Function(dynamic fileData, String fileName);
@@ -28,101 +29,14 @@ class FileUploadWidget extends ConsumerWidget {
   // --- Method to trigger file picking logic (handles platform differences) ---
   void _triggerFilePick(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(serviceSubmissionProvider.notifier);
-    if (kIsWeb) {
-      notifier.pickInvoiceFile();
-    } else {
-      // Use platform-specific picker options for mobile
-      if (Platform.isIOS || Platform.isAndroid) {
-        // Be explicit about mobile
-        _showMobilePickerOptions(context, ref);
-      } else {
-        // Fallback for other non-web platforms if needed
-        notifier.pickInvoiceFile();
-      }
-    }
+    // On web, always pick from files. On mobile, PopupMenuButton handles the options
+    notifier.pickInvoiceFile();
   }
 
-  // --- Method to show mobile picker options (using CupertinoActionSheet) ---
+  // --- Method to show mobile picker options (using PopupMenuButton style like chat) ---
   void _showMobilePickerOptions(BuildContext context, WidgetRef ref) {
-    // final l10n = AppLocalizations.of(context)!; // Remove l10n init
-    final notifier = ref.read(serviceSubmissionProvider.notifier);
-
-    // Use CupertinoActionSheet for iOS look and feel
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (BuildContext modalContext) {
-        final cupertinoTheme = CupertinoTheme.of(modalContext);
-        return CupertinoActionSheet(
-          // title: Text(l10n.fileUploadSelectSourceTitle), // Optional title
-          // message: Text(l10n.fileUploadSelectSourceMessage), // Optional message
-          actions: <CupertinoActionSheetAction>[
-            CupertinoActionSheetAction(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.photo_on_rectangle,
-                    size: 22,
-                    color: cupertinoTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Galeria', // Replaced l10n.fileUploadOptionGallery
-                    style: cupertinoTheme.textTheme.actionTextStyle,
-                  ),
-                ],
-              ),
-              onPressed: () {
-                Navigator.pop(modalContext);
-                notifier.pickInvoiceFile();
-              },
-            ),
-            CupertinoActionSheetAction(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.camera,
-                    size: 22,
-                    color: cupertinoTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Câmera', // Replaced l10n.fileUploadOptionCamera
-                    style: cupertinoTheme.textTheme.actionTextStyle,
-                  ),
-                ],
-              ),
-              onPressed: () {
-                Navigator.pop(modalContext);
-                notifier.pickInvoiceFileFromCamera();
-              },
-            ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            child: Text(
-              'Cancelar', // Replaced l10n.fileUploadOptionCancel
-              style: cupertinoTheme.textTheme.actionTextStyle.copyWith(
-                color: CupertinoColors.systemRed,
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(modalContext);
-            },
-          ),
-        );
-      },
-    );
-
-    /* // Original showModalBottomSheet code - removed
-    showModalBottomSheet(
-      context: context,
-      // ... (styling) ...
-      builder: (BuildContext bc) {
-        // ... (ListTiles) ...
-      },
-    );
-    */
+    // This method is now replaced by the PopupMenuButton in the build method
+    // We'll keep it for backwards compatibility but it won't be used
   }
 
   @override
@@ -131,6 +45,7 @@ class FileUploadWidget extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final isLightMode = theme.brightness == Brightness.light;
 
     // Read the list of selected files from the provider
     final files = ref.watch(serviceSubmissionProvider).selectedFiles;
@@ -157,20 +72,82 @@ class FileUploadWidget extends ConsumerWidget {
                   color: colorScheme.onSurface,
                 ),
               ),
-              // Add IconButton here
-              IconButton(
-                icon: Icon(
-                  CupertinoIcons.add_circled,
-                  color: colorScheme.primary,
+              // Add PopupMenuButton here (like chat page)
+              if (kIsWeb) ...[
+                // On web, use simple IconButton
+                IconButton(
+                  icon: Icon(
+                    CupertinoIcons.add_circled,
+                    color: colorScheme.primary,
+                  ),
+                  padding: EdgeInsets.zero, // Remove default padding
+                  constraints:
+                      const BoxConstraints(), // Remove default constraints
+                  visualDensity: VisualDensity.compact, // Make it smaller
+                  tooltip:
+                      'Carregar Fatura', // Replaced l10n.fileUploadButtonLabel
+                  onPressed: () => _triggerFilePick(context, ref),
                 ),
-                padding: EdgeInsets.zero, // Remove default padding
-                constraints:
-                    const BoxConstraints(), // Remove default constraints
-                visualDensity: VisualDensity.compact, // Make it smaller
-                tooltip:
-                    'Carregar Fatura', // Replaced l10n.fileUploadButtonLabel
-                onPressed: () => _triggerFilePick(context, ref),
-              ),
+              ] else ...[
+                // On mobile, use PopupMenuButton like chat page
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    splashFactory: NoSplash.splashFactory,
+                    highlightColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                  ),
+                  child: PopupMenuButton<String>(
+                    offset: const Offset(0, -110), // Position above the button
+                    elevation: 8,
+                    color: isLightMode ? Colors.white : const Color(0xFF3A3A3A),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Icon(
+                      CupertinoIcons.add_circled,
+                      color: colorScheme.primary,
+                      size: 24,
+                    ),
+                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                      PopupMenuItem<String>(
+                        value: 'camera',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.camera, size: 18, color: AppColors.foreground(isLightMode ? Brightness.light : Brightness.dark)),
+                              const SizedBox(width: 12),
+                              Text('Câmera', style: TextStyle(color: AppColors.foreground(isLightMode ? Brightness.light : Brightness.dark))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem<String>(
+                        value: 'gallery',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(CupertinoIcons.photo, size: 18, color: AppColors.foreground(isLightMode ? Brightness.light : Brightness.dark)),
+                              const SizedBox(width: 12),
+                              Text('Galeria', style: TextStyle(color: AppColors.foreground(isLightMode ? Brightness.light : Brightness.dark))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    onSelected: (String value) {
+                      final notifier = ref.read(serviceSubmissionProvider.notifier);
+                      switch (value) {
+                        case 'camera':
+                          notifier.pickInvoiceFileFromCamera();
+                          break;
+                        case 'gallery':
+                          notifier.pickInvoiceFile();
+                          break;
+                      }
+                    },
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -184,11 +161,16 @@ class FileUploadWidget extends ConsumerWidget {
               minHeight: 150,
             ), // Ensure minimum height
             decoration: BoxDecoration(
-              border: Border.all(color: theme.dividerColor.withAlpha((255 * 0.5).round())),
+              border: Border.all(
+                color: isLightMode 
+                    ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                    : theme.dividerColor.withAlpha((255 * 0.5).round()),
+                width: isLightMode ? 1.5 : 1,
+              ),
               borderRadius: BorderRadius.circular(12),
-              color:
-                  colorScheme
-                      .surfaceContainerHighest, // Use a subtle background
+              color: isLightMode 
+                  ? colorScheme.surface
+                  : colorScheme.surfaceContainerHighest,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min, // Allow column to shrink

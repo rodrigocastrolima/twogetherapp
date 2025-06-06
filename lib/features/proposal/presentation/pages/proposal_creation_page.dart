@@ -435,6 +435,7 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
+    final isLightMode = theme.brightness == Brightness.light;
     final activationCyclesAsync = ref.watch(
       activationCyclesProvider,
     ); // Watch provider
@@ -602,11 +603,15 @@ class _ProposalCreationPageState extends ConsumerState<ProposalCreationPage> {
                     height: 70,
                     clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.7).round()),
+                      color: isLightMode 
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8.0),
                       border: Border.all(
-                        color: colorScheme.outline.withAlpha((255 * 0.1).round()),
-                        width: 0.5,
+                        color: isLightMode 
+                            ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                            : colorScheme.outline.withAlpha((255 * 0.1).round()),
+                        width: isLightMode ? 1.5 : 0.5,
                       ),
                     ),
                     child: Stack(

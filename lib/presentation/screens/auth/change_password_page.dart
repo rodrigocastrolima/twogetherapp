@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../features/chat/data/repositories/chat_repository.dart';
 import '../../widgets/success_dialog.dart';
 import '../../widgets/logo.dart';
+import '../../widgets/standard_app_bar.dart';
 
 
 class ChangePasswordPage extends ConsumerStatefulWidget {
@@ -336,6 +337,12 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     super.dispose();
   }
 
+  // Helper method for responsive font sizing
+  double _getResponsiveFontSize(BuildContext context, double baseFontSize) {
+    final width = MediaQuery.of(context).size.width;
+    return width < 600 ? baseFontSize - 2 : baseFontSize;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -349,21 +356,25 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 32),
+            // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
             Padding(
-              padding: const EdgeInsets.only(top: 24, left: 24, right: 24, bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
                 'Alterar Palavra-passe',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.onSurface,
+                  fontSize: _getResponsiveFontSize(context, 24),
                 ),
                 textAlign: TextAlign.left,
               ),
             ),
+            // Responsive spacing after title - 16px for mobile, 24px for desktop
+            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -451,21 +462,10 @@ class _ChangePasswordPageState extends ConsumerState<ChangePasswordPage> {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.chevron_back),
-          color: colorScheme.onSurface,
-          onPressed: () => context.pop(),
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-        ),
-        title: LogoWidget(height: 60, darkMode: isDark),
-        centerTitle: true,
+      appBar: const StandardAppBar(
+        showBackButton: true,
+        showLogo: true,
       ),
-      extendBodyBehindAppBar: true,
       backgroundColor: theme.scaffoldBackgroundColor,
       body: pageContent,
     );

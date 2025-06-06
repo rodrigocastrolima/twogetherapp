@@ -935,7 +935,7 @@ class ChatPageState extends ConsumerState<ChatPage> {
                     splashColor: Colors.transparent,
                   ),
                   child: PopupMenuButton<String>(
-                    offset: const Offset(-8, -160), // Position above the button
+                    offset: const Offset(0, -160), // Position above the button, aligned with chat container
                     enabled: !_isImageLoading,
                     elevation: 8,
                     color: isDark ? const Color(0xFF3A3A3A) : Colors.white,

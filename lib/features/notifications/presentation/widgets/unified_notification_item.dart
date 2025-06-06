@@ -59,8 +59,13 @@ class UnifiedNotificationItem extends StatelessWidget {
       // Fallback to previous logic for other types
       switch (notification.type) {
         case NotificationType.statusChange:
-          // Check if this is a contract insertion notification
-          if (processType == 'contract_insertion') {
+          // Check if this is an opportunity approval notification
+          if (notification.title == 'Oportunidade Aceite') {
+            itemIcon = CupertinoIcons.checkmark_circle_fill;
+            iconColor = const Color(0xFF10B981); // Green color for approval
+            iconBgColor = const Color(0x1A10B981);
+          } else if (processType == 'contract_insertion') {
+            // Check if this is a contract insertion notification
             itemIcon = CupertinoIcons.checkmark_circle_fill;
             iconColor = const Color(0xFF10B981); // Green color for completion
             iconBgColor = const Color(0x1A10B981);
