@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/theme/theme.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../presentation/widgets/logo.dart';
 import '../../../../presentation/widgets/standard_app_bar.dart';
 import '../../../../presentation/widgets/app_input_field.dart';
 

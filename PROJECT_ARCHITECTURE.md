@@ -15,10 +15,30 @@
 *   **One-sentence purpose:** Manages connection, authentication (OAuth), and data exchange with the Salesforce API, primarily for retrieving user information and other Salesforce records, and syncing relevant data to Firebase.
 *   **Key external services used:** Salesforce REST API (v58.0), uses an underlying OAuth service for authentication.
 
+### Proposal Management (CPE)
+*   **Directory / main file(s):** `lib/features/proposal/`, `lib/features/proposal/presentation/pages/admin_salesforce_proposal_detail_page.dart`, `lib/features/proposal/presentation/pages/proposal_creation_page.dart`, `lib/features/proposal/presentation/pages/admin_cpe_proposta_detail_page.dart`
+*   **One-sentence purpose:** Manages Customer Premises Equipment (CPE) proposals with complex approval workflows, document management, and integration with Salesforce SObjects for proposal lifecycle management from creation to acceptance with automated document uploads.
+*   **Key external services used:** Firebase Cloud Functions, Salesforce REST API (Proposta_CPE__c SObject), Firebase Storage (for proposal documents), Cloud Firestore (for proposal state management).
+
+### Provider/Partner Management
+*   **Directory / main file(s):** `lib/features/providers/`, `lib/features/providers/presentation/pages/admin_provider_list_page.dart`, `lib/features/providers/presentation/pages/reseller_provider_list_page.dart`, `lib/features/providers/presentation/pages/create_provider_page.dart`, `lib/features/providers/presentation/pages/admin_provider_files_page.dart`
+*   **One-sentence purpose:** Enables management of energy provider partnerships with role-based access allowing administrators to create and manage providers while resellers can view provider information and access shared files and documentation.
+*   **Key external services used:** Cloud Firestore (for provider data and file metadata), Firebase Storage (for provider documents and files), Firebase Authentication (for role-based access control).
+
 ### Service Submissions
 *   **Directory / main file(s):** `lib/features/services/`, `lib/features/services/data/repositories/service_submission_repository.dart`
 *   **One-sentence purpose:** Enables users (resellers) to submit service requests/proposals, including metadata and file attachments, which are stored in Firestore and Firebase Storage respectively.
 *   **Key external services used:** Cloud Firestore (for submission metadata), Firebase Storage (for attachments).
+
+### Notification System
+*   **Directory / main file(s):** `lib/features/notifications/`, `lib/features/notifications/data/repositories/notification_repository.dart`, `lib/features/notifications/presentation/providers/notification_provider.dart`, `lib/features/notifications/presentation/widgets/notification_overlay_manager.dart`, `functions/src/notifications.ts`
+*   **One-sentence purpose:** Provides comprehensive push notification system with Firebase Cloud Messaging integration, real-time notification overlay management, user-specific unread tracking, and automated notifications for proposal status changes and chat messages.
+*   **Key external services used:** Firebase Cloud Messaging (for push notifications), Cloud Firestore (for notification persistence), Firebase Cloud Functions (for automated notification triggers), Flutter Local Notifications (for foreground display).
+
+### Commission & Revenue Analytics
+*   **Directory / main file(s):** `functions/src/commissionFunctions.ts`, `functions/src/getResellerDashboardStats.ts`, `lib/features/profile/presentation/controllers/profile_controller.dart`
+*   **One-sentence purpose:** Calculates and tracks reseller commissions and revenue with real-time dashboard analytics, integrating Salesforce opportunity data with Firebase for performance metrics and financial reporting.
+*   **Key external services used:** Firebase Cloud Functions (for commission calculations), Salesforce REST API (for opportunity and revenue data), Cloud Firestore (for analytics storage and caching).
 
 ### Settings & Profile
 *   **Directory / main file(s):** `lib/features/settings/presentation/pages/settings_page.dart`, `lib/features/settings/presentation/pages/profile_page.dart`
@@ -45,30 +65,36 @@
 *   **One-sentence purpose:** Enables real-time text-based communication primarily between administrators and resellers, storing conversation history and state in Firestore.
 *   **Key external services used:** Cloud Firestore (for conversations and messages), Firebase Authentication (for user identification).
 
-### File Viewing & Handling
-*   **Directory / main file(s):** `lib/features/opportunity/presentation/widgets/proposal_file_viewer.dart` (example UI), `functions/src/downloadFileForReseller.ts` (backend), `flutter_pdfview` (package)
-*   **One-sentence purpose:** Allows users to view files (especially PDFs) sourced from Salesforce or uploaded by users, with backend functions to retrieve file data and frontend widgets to display it.
-*   **Key external services used:** Salesforce API (for file retrieval via Cloud Functions), Firebase Cloud Functions, Firebase Storage (potentially for user-uploaded files not directly tied to Salesforce).
+### Advanced File Management System
+*   **Directory / main file(s):** `lib/features/opportunity/presentation/widgets/proposal_file_viewer.dart`, `functions/src/downloadFileForReseller.ts`, `functions/src/salesforceFileManagement.ts`, `functions/src/downloadSalesforceFile.ts`, `flutter_pdfview` (package)
+*   **One-sentence purpose:** Provides comprehensive file handling across platforms including PDF viewing, file type detection with MIME support, secure Salesforce file retrieval via Cloud Functions, cross-platform file operations (open/save), and role-based file access control.
+*   **Key external services used:** Salesforce API (for file retrieval via Cloud Functions), Firebase Cloud Functions, Firebase Storage (for user-uploaded files), MIME type detection service, platform-specific file system APIs.
+
+### Database Migration & Maintenance
+*   **Directory / main file(s):** `functions/src/migrations.ts`, `functions/src/messageCleanup.ts`, `functions/src/createMissingConversations.ts`, `functions/src/removeRememberMeField.ts`
+*   **One-sentence purpose:** Handles database schema migrations, data integrity maintenance, conversation management for chat system, and cleanup operations to ensure consistent data state across Firebase and Salesforce integrations.
+*   **Key external services used:** Firebase Cloud Functions (for automated maintenance), Cloud Firestore (for data migration and cleanup), Firebase Authentication (for user data consistency).
 
 <End of step 1>
 
 ## STEP 2 — Technical Stack & Implementation Details
 
 ### Core Technologies
-* **Framework:** Flutter (Dart)
+* **Framework:** Flutter (Dart) - SDK constraint ^3.7.0
 * **State Management:** Flutter Riverpod
 * **Navigation:** Go Router
 * **Backend Services:** Firebase (Authentication, Firestore, Storage, Cloud Functions)
 * **External Integration:** Salesforce REST API (v58.0)
+* **Backend Runtime:** Node.js 22 (Cloud Functions)
 
 ### Key Dependencies
 * **Firebase:**
-  * `firebase_core: ^2.25.4`
-  * `firebase_auth: ^4.17.4`
-  * `cloud_firestore: ^4.15.4`
-  * `firebase_storage: ^11.6.5`
-  * `cloud_functions: ^4.7.6`
-  * `firebase_messaging: ^14.7.15`
+  * `firebase_core: ^3.13.0`
+  * `firebase_auth: ^5.5.2`
+  * `cloud_firestore: ^5.6.6`
+  * `firebase_storage: ^12.4.5`
+  * `cloud_functions: ^5.4.0`
+  * `firebase_messaging: ^15.2.5`
 
 * **UI & Design:**
   * `google_fonts: ^6.1.0`
@@ -77,23 +103,44 @@
   * `cached_network_image: ^3.3.1`
   * `carousel_slider: ^5.0.0`
   * `flutter_staggered_animations: ^1.1.1`
+  * `font_awesome_flutter: ^10.7.0`
 
 * **State & Data:**
   * `flutter_riverpod: ^2.5.1`
   * `equatable: ^2.0.5`
   * `dio: ^5.4.1`
   * `shared_preferences: ^2.5.3`
+  * `rxdart: ^0.28.0`
 
 * **Authentication & Security:**
   * `flutter_web_auth_2`
   * `flutter_secure_storage: ^10.0.0-beta.4`
   * `dart_jsonwebtoken: ^3.2.0`
+  * `crypto: ^3.0.3`
 
 * **File Handling:**
   * `file_picker: ^10.1.2`
   * `file_selector: ^1.0.1`
   * `path_provider: ^2.1.3`
   * `open_file: ^3.3.2`
+  * `file_saver: ^0.2.14`
+  * `mime: ^1.0.5`
+  * `flutter_pdfview: ^1.4.0`
+
+* **Notifications & Messaging:**
+  * `flutter_local_notifications: ^19.1.0`
+  * `share_plus: ^11.0.0`
+
+* **Onboarding & UX:**
+  * `introduction_screen: ^3.1.14`
+
+* **Cloud Functions Dependencies (Node.js):**
+  * `firebase-admin: ^12.6.0`
+  * `firebase-functions: ^6.0.1`
+  * `jsforce: ^3.7.0`
+  * `jsonwebtoken: 9.0.2`
+  * `axios: ^1.8.4`
+  * `cors: ^2.8.5`
 
 ### Architecture Patterns
 1. **Repository Pattern:**
@@ -115,28 +162,50 @@
    * Follows clean architecture principles
    * Structure: `lib/features/<feature_name>/`
 
+5. **Domain-Driven Design:**
+   * Clear separation of data, domain, and presentation layers
+   * Entity and model separation for complex business logic
+   * Use case implementations for business operations
+
 ### Security & Authentication
 1. **Firebase Authentication:**
    * Email/password authentication
    * Session management
-   * Role-based access control
+   * Role-based access control with custom claims
 
 2. **Salesforce Integration:**
-   * OAuth 2.0 authentication
-   * PKCE (Proof Key for Code Exchange) for web
-   * Secure token storage
+   * Dual authentication model: OAuth 2.0 and JWT Bearer Flow
+   * PKCE (Proof Key for Code Exchange) for web OAuth
+   * Secure token storage with platform-specific implementations
 
 3. **Data Security:**
-   * Firestore security rules
-   * Secure storage for sensitive data
-   * Token-based API authentication
+   * Comprehensive Firestore security rules with role-based access
+   * Secure storage for sensitive data (FlutterSecureStorage/SharedPreferences)
+   * Token-based API authentication with automatic refresh
+
+4. **File Security:**
+   * Role-based file access control
+   * Secure file retrieval via Cloud Functions
+   * MIME type validation and security checks
 
 ### Cross-Platform Support
-* **Platforms:** Android, iOS, Web, macOS
+* **Platforms:** Android, iOS, Web, macOS, Windows, Linux
 * **Platform-Specific Code:**
-  * Conditional imports for web/native
-  * Platform-specific configurations
-  * Responsive design for web
+  * Conditional imports for web/native implementations
+  * Platform-specific configurations for file operations
+  * Responsive design patterns for web deployment
+  * Hash-based routing for web OAuth callbacks
+
+### Push Notification Architecture
+* **Firebase Cloud Messaging Integration:**
+  * Cross-platform push notification support
+  * Automatic FCM token management and refresh
+  * Background message handling with custom handlers
+
+* **Local Notification System:**
+  * Foreground notification display
+  * Notification overlay management system
+  * User-specific notification preferences
 
 ### Development Tools & Scripts
 * **Utility Scripts:**
@@ -147,6 +216,12 @@
 * **Testing:**
   * Firebase integration testing
   * Platform-specific test configurations
+  * PowerShell scripts for API testing
+
+* **Migration Tools:**
+  * Database migration scripts in Cloud Functions
+  * Data integrity validation tools
+  * Automated cleanup and maintenance scripts
 
 ### Build & Deployment
 * **Android:**
@@ -160,9 +235,14 @@
   * Background modes configuration
 
 * **Web:**
-  * Firebase web configuration
-  * URL strategy configuration
+  * Firebase web configuration with hosting
+  * URL strategy configuration for hash routing
   * Progressive Web App support
+
+* **Cloud Functions:**
+  * Node.js 22 runtime
+  * Environment variable management
+  * Regional deployment (us-central1)
 
 <End of step 2>
 
@@ -245,60 +325,127 @@
    * **Firebase → Salesforce:**
      * User data synchronization
      * Opportunity management
+     * Proposal lifecycle management
      * File attachment handling
    
    * **Salesforce → Firebase:**
      * User profile updates
      * Revenue data synchronization
      * Status updates
+     * Commission calculations
+
+### Proposal Management Data Flow
+The proposal system implements a sophisticated workflow for Customer Premises Equipment (CPE) proposals:
+
+1. **Proposal Creation Flow:**
+   * Admin creates proposal via `proposal_creation_page.dart`
+   * Data validation and business logic via Riverpod providers
+   * Firebase Cloud Function `createSalesforceProposal.ts` handles Salesforce SObject creation
+   * Real-time status updates via Firestore streams
+
+2. **Proposal Approval Workflow:**
+   * Multi-stage approval process with status tracking
+   * Document management with Firebase Storage integration
+   * Automated notifications via `notifications.ts` Cloud Function
+   * Integration with `acceptProposalAndUploadDocs.ts` for final processing
+
+3. **CPE Integration:**
+   * Complex SObject relationships in Salesforce
+   * Automated equipment configuration via `createCpeForProposal.ts`
+   * Integration with provider systems for equipment provisioning
+
+### Notification System Data Flow
+The notification system provides comprehensive real-time communication:
+
+1. **Push Notification Flow:**
+   * **Trigger Events:** New chat messages, proposal status changes, system alerts
+   * **Cloud Function Processing:** `notifications.ts` handles FCM token management and message sending
+   * **Multi-Platform Delivery:** iOS, Android, and Web push notifications
+   * **Fallback Handling:** Local notifications for foreground app states
+
+2. **Notification Persistence:**
+   * **Firestore Storage:** All notifications stored in `notifications` collection
+   * **User-Specific Querying:** Optimized with composite indexes for userId + timestamp
+   * **Read State Management:** Real-time unread count tracking
+   * **Cleanup Operations:** Automated cleanup via `messageCleanup.ts`
+
+3. **Real-Time Updates:**
+   * **Firestore Streams:** Real-time notification delivery via Riverpod providers
+   * **Overlay Management:** `NotificationOverlayManager` for in-app notification display
+   * **Cross-Feature Integration:** Notifications integrated with chat, proposals, and user management
+
+### Commission & Analytics Data Flow
+The revenue tracking system provides real-time financial analytics:
+
+1. **Commission Calculation:**
+   * **Data Sources:** Salesforce Opportunity data, proposal acceptance events
+   * **Processing:** `commissionFunctions.ts` calculates commissions based on business rules
+   * **Storage:** Results cached in Firestore for performance
+   * **Real-Time Updates:** Dashboard updates via Firestore streams
+
+2. **Dashboard Analytics:**
+   * **Data Aggregation:** `getResellerDashboardStats.ts` provides comprehensive metrics
+   * **Performance Tracking:** Revenue trends, conversion rates, proposal success metrics
+   * **Role-Based Views:** Different analytics for admin vs reseller roles
 
 ### Error Handling & Recovery
 1. **Network Errors:**
-   * Offline mode handling
-   * Retry mechanisms
-   * Error state management
+   * Offline mode handling with Firestore persistence
+   * Retry mechanisms with exponential backoff
+   * Error state management via Riverpod providers
 
 2. **Authentication Errors:**
-   * Token refresh handling
-   * Session recovery
-   * Re-authentication flows
+   * Automatic token refresh handling
+   * Session recovery with secure storage fallback
+   * Re-authentication flows with user notification
 
 3. **Data Sync Errors:**
-   * Conflict resolution
-   * Data validation
-   * Recovery procedures
+   * Conflict resolution strategies for Salesforce/Firebase sync
+   * Data validation with business rule enforcement
+   * Recovery procedures with manual override capabilities
+
+4. **File Operation Errors:**
+   * Cross-platform error handling for file operations
+   * Retry mechanisms for file uploads/downloads
+   * MIME type validation and security error handling
 
 ### Performance Optimization
 1. **Data Loading:**
-   * Pagination implementation
-   * Lazy loading
-   * Caching strategies
+   * Pagination implementation for large datasets
+   * Lazy loading with infinite scroll patterns
+   * Caching strategies with Firestore offline persistence
 
 2. **File Operations:**
-   * Chunked uploads
-   * Compression
-   * Progress tracking
+   * Chunked uploads for large files
+   * Compression algorithms for optimization
+   * Progress tracking with cancellation support
 
 3. **State Management:**
-   * Efficient provider usage
-   * State persistence
-   * Memory management
+   * Efficient Riverpod provider usage with proper disposal
+   * State persistence across app lifecycle
+   * Memory management with stream subscription cleanup
+
+4. **Real-Time Updates:**
+   * Optimized Firestore listeners with proper scoping
+   * Debounced updates to prevent excessive rebuilds
+   * Efficient stream composition with RxDart
 
 ### Security Implementation
 1. **Data Protection:**
-   * End-to-end encryption
-   * Secure storage
-   * Data sanitization
+   * End-to-end encryption for sensitive operations
+   * Secure storage with platform-specific implementations
+   * Data sanitization and validation
 
 2. **Access Control:**
-   * Role-based permissions
-   * Feature flags
-   * Audit logging
+   * Role-based permissions with custom Firebase claims
+   * Feature flags for gradual rollout
+   * Comprehensive audit logging
 
 3. **API Security:**
-   * Rate limiting
-   * Request validation
-   * Token management
+   * Rate limiting via Firebase security rules
+   * Request validation and sanitization
+   * Token management with automatic refresh
+   * CORS configuration for web security
 
 ### Chat Feature Data Model (Firestore)
 The live chat feature uses two main collections in Firestore:
@@ -330,12 +477,44 @@ The live chat feature uses two main collections in Firestore:
         *   `timestamp` (timestamp): Server timestamp when the message was sent.
         *   `isAdmin` (boolean): True if the sender is an admin.
         *   `isRead` (boolean): Indicates if the message has been read (likely by the recipient).
-        *   `type` (string): Type of message, e.g., "text", "image". (Enum `MessageType` in Dart)
+        *   `type` (string): Type of message, e.g., "text", "image", "file". (Enum `MessageType` in Dart)
         *   `isDefault` (boolean): True if this is an automated message (e.g., a welcome message).
+        *   `fileName` (string, nullable): Original filename for file messages.
+        *   `fileType` (string, nullable): MIME type of attached files.
+        *   `fileSize` (int, nullable): Size in bytes for file messages.
+
+### Provider Management Data Model (Firestore)
+The provider system manages energy provider partnerships:
+
+1. **`providers` Collection:**
+   * **Document Structure:** Each provider has metadata, contact information, and service offerings
+   * **Role-Based Access:** Admins can create/edit, resellers have read-only access
+   * **File Management:** Nested `files` subcollection for provider documents
+
+2. **Provider File Management:**
+   * **Secure Access:** Files stored in Firebase Storage with role-based access rules
+   * **File Metadata:** Stored in Firestore for efficient querying and permission checking
+   * **Cross-Platform Support:** File viewing and download across all supported platforms
+
+### Database Migration & Maintenance Patterns
+The maintenance system ensures data integrity and system evolution:
+
+1. **Migration Framework:**
+   * **Version Control:** Database schema versioning with migration scripts
+   * **Rollback Support:** Ability to reverse migrations if issues arise
+   * **Data Integrity:** Validation and consistency checks during migrations
+
+2. **Automated Maintenance:**
+   * **Scheduled Cleanup:** Regular cleanup of old messages, notifications, and temporary data
+   * **Consistency Checks:** Automated validation of data relationships across Firebase and Salesforce
+   * **Performance Optimization:** Index optimization and query performance monitoring
 
 ### Other Client-Side Integrations
 *   **Sharing:** The `share_plus` package is used to integrate with native platform sharing capabilities (e.g., share content via other apps).
 *   **Local Notifications:** The `flutter_local_notifications` package is used to display local notifications on the device, often in conjunction with Firebase Messaging for foreground message handling.
+*   **Onboarding:** The `introduction_screen` package provides guided onboarding for new users with feature highlights and tutorials.
+*   **File Operations:** Cross-platform file operations with `open_file` for viewing and `file_saver` for downloading files to device storage.
+*   **MIME Detection:** Advanced file type detection using the `mime` package for proper file handling and security validation.
 
 <End of step 3>
 

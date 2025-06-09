@@ -13,7 +13,6 @@ import '../providers/chat_provider.dart';
 import '../../../../core/theme/ui_styles.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:async';
-import '../../../../core/theme/theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../presentation/widgets/secure_file_viewer.dart';
 import 'package:file_picker/file_picker.dart';
