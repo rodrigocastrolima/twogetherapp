@@ -43,10 +43,104 @@ class ServicesPageState extends ConsumerState<ServicesPage>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  // Form validation state
+  // Validation error states
+  String? _companyNameError;
+  String? _responsibleNameError;
+  String? _nifError;
+  String? _emailError;
+  String? _phoneError;
+
+  // Track if fields have been touched/altered
+  bool _companyNameTouched = false;
+  bool _responsibleNameTouched = false;
+  bool _nifTouched = false;
+  bool _emailTouched = false;
+  bool _phoneTouched = false;
+  bool _submitAttempted = false;
+
+  // Validation functions
+  String? _validateFullName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return 'Nome é obrigatório';
+    if (trimmed.length < 2) return 'Nome deve ter pelo menos 2 caracteres';
+    if (trimmed.length > 100) return 'Nome deve ter no máximo 100 caracteres';
+    
+    // Only alphabetic characters (including accents) and spaces
+    final nameRegex = RegExp(r'^[a-zA-ZÀ-ÿĀ-žÀ-ú\s]+$');
+    if (!nameRegex.hasMatch(trimmed)) {
+      return 'Nome deve conter apenas letras e espaços';
+    }
+    
+    return null;
+  }
+
+  String? _validateCompanyName(String value) {
+    final trimmed = value.trim();
+    if (_selectedClientType == ClientType.commercial && trimmed.isEmpty) {
+      return 'Nome da empresa é obrigatório';
+    }
+    if (trimmed.isNotEmpty && trimmed.length < 2) {
+      return 'Nome da empresa deve ter pelo menos 2 caracteres';
+    }
+    if (trimmed.length > 100) {
+      return 'Nome da empresa deve ter no máximo 100 caracteres';
+    }
+    
+    return null;
+  }
+
+  String? _validateNIF(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return 'NIF é obrigatório';
+    
+    // Must be exactly 9 digits
+    final nifRegex = RegExp(r'^[0-9]{9}$');
+    if (!nifRegex.hasMatch(trimmed)) {
+      return 'NIF deve ter exatamente 9 dígitos numéricos';
+    }
+    
+    return null;
+  }
+
+  String? _validateEmail(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return 'E-mail é obrigatório';
+    if (trimmed.length > 254) return 'E-mail deve ter no máximo 254 caracteres';
+    
+    // Standard email format
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegex.hasMatch(trimmed)) {
+      return 'Formato de e-mail inválido';
+    }
+    
+    return null;
+  }
+
+  String? _validatePhone(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return 'Telefone é obrigatório';
+    
+    // Must be exactly 9 digits for Portuguese mobile numbers
+    final phoneRegex = RegExp(r'^[0-9]{9}$');
+    if (!phoneRegex.hasMatch(trimmed)) {
+      return 'Telefone deve ter exatamente 9 dígitos numéricos';
+    }
+    
+    // Optional: Check valid mobile operator codes
+    final firstTwoDigits = trimmed.substring(0, 2);
+    final validPrefixes = ['91', '92', '93', '96'];
+    if (!validPrefixes.contains(firstTwoDigits)) {
+      return 'Telefone deve começar com 91, 92, 93 ou 96';
+    }
+    
+    return null;
+  }
+
+  // Form validation state - only check if fields have content
   bool get _isFormValid {
     final hasFile = ref.read(serviceSubmissionProvider).selectedFiles.isNotEmpty;
     
+    // Check if all fields have content (not empty)
     bool baseValid = _responsibleNameController.text.trim().isNotEmpty &&
                      _nifController.text.trim().isNotEmpty &&
                      _emailController.text.trim().isNotEmpty &&
@@ -242,6 +336,20 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     _nifController.clear();
     _emailController.clear();
     _phoneController.clear();
+    
+    // Clear validation errors and touched states
+    _companyNameError = null;
+    _responsibleNameError = null;
+    _nifError = null;
+    _emailError = null;
+    _phoneError = null;
+    
+    _companyNameTouched = false;
+    _responsibleNameTouched = false;
+    _nifTouched = false;
+    _emailTouched = false;
+    _phoneTouched = false;
+    _submitAttempted = false;
     // Note: This does NOT clear the provider's formData map,
     // only the local controllers. Provider state is managed via updateFormFields.
   }
@@ -300,7 +408,33 @@ class ServicesPageState extends ConsumerState<ServicesPage>
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
+      _submitAttempted = true;
+      
+      // Validate all fields on submit attempt
+      _companyNameError = _validateCompanyName(_companyNameController.text);
+      _responsibleNameError = _validateFullName(_responsibleNameController.text);
+      _nifError = _validateNIF(_nifController.text);
+      _emailError = _validateEmail(_emailController.text);
+      _phoneError = _validatePhone(_phoneController.text);
     });
+
+    // Check if any validation errors exist
+    bool hasValidationErrors = _responsibleNameError != null ||
+                              _nifError != null ||
+                              _emailError != null ||
+                              _phoneError != null;
+    
+    if (_selectedClientType == ClientType.commercial) {
+      hasValidationErrors = hasValidationErrors || _companyNameError != null;
+    }
+
+    // If there are validation errors, stop submission and show errors
+    if (hasValidationErrors) {
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
 
     try {
       final formNotifier = ref.read(serviceSubmissionProvider.notifier);
@@ -309,14 +443,6 @@ class ServicesPageState extends ConsumerState<ServicesPage>
 
       if (userData == null) {
         throw Exception('Erro de autenticação do utilizador.');
-      }
-
-      // Validate form before submission
-      if (!_isFormValid) {
-        setState(() {
-          _errorMessage = 'Por favor, preencha todos os campos obrigatórios e anexe um documento.';
-        });
-        return;
       }
 
       final success = await formNotifier.submitServiceRequest(
@@ -750,67 +876,92 @@ class ServicesPageState extends ConsumerState<ServicesPage>
             const SizedBox(height: AppConstants.spacing24),
             // Only show company name field for commercial clients
             if (_selectedClientType == ClientType.commercial) ...[
-              AppInputField(
+              _ValidatedInputField(
                 controller: _companyNameController,
                 label: 'Nome da Empresa',
                 hint: 'Introduza o nome da empresa',
+                error: _companyNameError,
+                showError: _submitAttempted,
                 onChanged: (value) {
+                  setState(() {
+                    _companyNameTouched = true;
+                    _companyNameError = _validateCompanyName(value);
+                  });
                   ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                     'companyName': value,
                   });
-                  setState(() {}); // Trigger rebuild for validation
                 },
               ),
               const SizedBox(height: AppConstants.spacing16),
             ],
-            AppInputField(
+            _ValidatedInputField(
               controller: _responsibleNameController,
-              label: _selectedClientType == ClientType.commercial ? 'Nome do Responsável' : 'Nome Completo',
-              hint: _selectedClientType == ClientType.commercial ? 'Introduza o nome do responsável' : 'Introduza o seu nome completo',
+              label: _selectedClientType == ClientType.commercial ? 'Nome do Responsável' : 'Nome do Cliente',
+              hint: _selectedClientType == ClientType.commercial ? 'Introduza o nome do responsável' : 'Introduza o nome do Cliente',
+              error: _responsibleNameError,
+              showError: _submitAttempted,
               onChanged: (value) {
+                setState(() {
+                  _responsibleNameTouched = true;
+                  _responsibleNameError = _validateFullName(value);
+                });
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'responsibleName': value,
                 });
-                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
-            AppInputField(
+            _ValidatedInputField(
               controller: _nifController,
               label: 'NIF',
               hint: 'Introduza o NIF da empresa',
               keyboardType: TextInputType.number,
+              error: _nifError,
+              showError: _submitAttempted,
               onChanged: (value) {
+                setState(() {
+                  _nifTouched = true;
+                  _nifError = _validateNIF(value);
+                });
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'nif': value,
                 });
-                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
-            AppInputField(
+            _ValidatedInputField(
               controller: _emailController,
               label: 'E-mail',
               hint: 'Introduza o e-mail',
               keyboardType: TextInputType.emailAddress,
+              error: _emailError,
+              showError: _submitAttempted,
               onChanged: (value) {
+                setState(() {
+                  _emailTouched = true;
+                  _emailError = _validateEmail(value);
+                });
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'email': value,
                 });
-                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing16),
-            AppInputField(
+            _ValidatedInputField(
               controller: _phoneController,
               label: 'Telefone',
               hint: 'Introduza o número de telefone',
               keyboardType: TextInputType.phone,
+              error: _phoneError,
+              showError: _submitAttempted,
               onChanged: (value) {
+                setState(() {
+                  _phoneTouched = true;
+                  _phoneError = _validatePhone(value);
+                });
                 ref.read(serviceSubmissionProvider.notifier).updateFormFields({
                   'phone': value,
                 });
-                setState(() {}); // Trigger rebuild for validation
               },
             ),
             const SizedBox(height: AppConstants.spacing24),
@@ -1126,6 +1277,109 @@ class _ClientTypeCardState extends State<_ClientTypeCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// Validated input field with custom error styling
+class _ValidatedInputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String? hint;
+  final TextInputType? keyboardType;
+  final String? error;
+  final bool showError;
+  final ValueChanged<String>? onChanged;
+
+  const _ValidatedInputField({
+    required this.controller,
+    required this.label,
+    this.hint,
+    this.keyboardType,
+    this.error,
+    this.showError = false,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isLightMode = theme.brightness == Brightness.light;
+    final hasError = error != null && showError;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 56,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            onChanged: onChanged,
+            style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: textTheme.bodySmall?.copyWith(
+                color: hasError ? colorScheme.error : colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+              hintText: hint,
+              hintStyle: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
+              ),
+              filled: true,
+              fillColor: isLightMode 
+                  ? colorScheme.surface
+                  : colorScheme.surfaceContainerHighest,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: hasError 
+                      ? colorScheme.error
+                      : (isLightMode 
+                          ? colorScheme.outline.withAlpha((255 * 0.6).round())
+                          : colorScheme.outline.withAlpha((255 * 0.2).round())),
+                  width: hasError ? 2 : (isLightMode ? 1.5 : 1),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: hasError ? colorScheme.error : colorScheme.primary, 
+                  width: 2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.error, width: 2),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.error, width: 2),
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+            ),
+          ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 0),
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0),
+            child: Text(
+              error!,
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.error,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
