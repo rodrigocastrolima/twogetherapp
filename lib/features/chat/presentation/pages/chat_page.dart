@@ -505,6 +505,8 @@ class ChatPageState extends ConsumerState<ChatPage> {
             ),
             // Input area - always visible, outside the chat container
             _buildMessageInput(),
+            // Add spacing to prevent touching navigation bar/bottom
+            const SizedBox(height: 24),
           ],
         ),
       ),

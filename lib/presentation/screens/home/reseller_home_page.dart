@@ -28,6 +28,7 @@ import '../../../features/opportunity/presentation/providers/opportunity_provide
 import '../../../features/salesforce/presentation/providers/salesforce_providers.dart';
 
 import 'five_card_carousel.dart';
+import '../../widgets/notification_dropdown.dart';
 
 // Constants for the highlight area (adjust as needed)
 const double _highlightPadding = 8.0;
@@ -548,13 +549,11 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         children: [
                           Consumer(
                             builder: (context, ref, _) {
-                              final notificationsEnabled = ref.watch(pushNotificationSettingsProvider);
-                              final notificationSettings = ref.read(pushNotificationSettingsProvider.notifier);
-                              return _buildMaterialIconButton(
-                                icon: notificationsEnabled ? CupertinoIcons.bell_fill : CupertinoIcons.bell_slash_fill,
-                                onTap: () async {
-                                  await notificationSettings.toggle();
-                                },
+                              final unreadCount = ref.watch(unreadNotificationsCountProvider);
+                              
+                              return _buildNotificationBell(
+                                context,
+                                unreadCount: unreadCount.value ?? 0,
                               );
                             },
                           ),
@@ -592,6 +591,8 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                   ),
                 ),
               if (!isMobile) const SizedBox(height: 12),
+              // Add small top padding for mobile to prevent touching app bar
+              if (isMobile) const SizedBox(height: 8),
               // Welcome Section
               ref.watch(authStateChangesProvider).when(
                   data: (user) => _buildWelcomeSection(context, user?.displayName),
@@ -1180,6 +1181,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         color: statusItems[0].color,
                         icon: statusItems[0].icon,
                       isMobile: isMobile,
+                      statusKey: 'active',
                     ),
                   ),
                 ),
@@ -1199,6 +1201,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         color: statusItems[1].color,
                         icon: statusItems[1].icon,
                         isMobile: isMobile,
+                        statusKey: 'actionNeeded',
                       ),
                     ),
                   ),
@@ -1223,6 +1226,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         color: statusItems[2].color,
                         icon: statusItems[2].icon,
                         isMobile: isMobile,
+                        statusKey: 'pending',
                       ),
                     ),
                   ),
@@ -1242,6 +1246,7 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
                         color: statusItems[3].color,
                         icon: statusItems[3].icon,
                         isMobile: isMobile,
+                        statusKey: 'rejected',
                       ),
                     ),
                   ),
@@ -1261,64 +1266,67 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
     required Color color,
     required IconData icon,
     required bool isMobile,
+    String? statusKey,
   }) {
     final theme = Theme.of(context);
     
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 12 : 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withAlpha((255 * 0.1).round()),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha((255 * 0.05).round()),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-          Container(
-            width: isMobile ? 32 : 36,
-            height: isMobile ? 32 : 36,
-            decoration: BoxDecoration(
-              color: color.withAlpha((255 * 0.1).round()),
-              borderRadius: BorderRadius.circular(8),
+        onTap: () => _navigateToOpportunityPageWithFilter(statusKey),
+        child: Container(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outline.withAlpha((255 * 0.1).round()),
+              width: 1,
             ),
-            child: Icon(
-          icon,
-          color: color,
-              size: isMobile ? 16 : 18,
-            ),
-        ),
-        SizedBox(height: isMobile ? 6 : 8),
-        Text(
-          count.toString(),
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-            fontSize: isMobile ? 16 : 18,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha((255 * 0.05).round()),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: isMobile ? 20 : 24,
+              ),
+              SizedBox(width: isMobile ? 8 : 12),
+              Text(
+                count.toString(),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                  fontSize: isMobile ? 16 : 18,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: isMobile ? 11 : 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
         ),
-          SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontSize: isMobile ? 10 : 11,
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-      ],
       ),
     );
   }
@@ -1386,6 +1394,118 @@ class _ResellerHomePageState extends ConsumerState<ResellerHomePage>
       'pending': pending,
       'rejected': rejected,
     };
+  }
+
+  // Navigation helper method
+  void _navigateToOpportunityPageWithFilter(String? statusKey) {
+    if (statusKey == null) return;
+    
+    // Map status keys to the filter values expected by the opportunity page
+    String filterValue;
+    switch (statusKey) {
+      case 'active':
+        filterValue = 'ativos';
+        break;
+      case 'actionNeeded':
+        filterValue = 'acaoNecessaria';
+        break;
+      case 'pending':
+        filterValue = 'pendentes';
+        break;
+      case 'rejected':
+        filterValue = 'rejeitados';
+        break;
+      default:
+        filterValue = 'todos';
+    }
+    
+    context.go('/clients?filter=$filterValue');
+  }
+
+  // --- Helper for Notification Bell with Dropdown ---
+  Widget _buildNotificationBell(BuildContext context, {required int unreadCount}) {
+    return _buildMaterialIconButton(
+      icon: CupertinoIcons.bell_fill,
+      onTap: () => _showNotificationDropdown(context),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            CupertinoIcons.bell_fill,
+            size: 24,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          if (unreadCount > 0)
+            Positioned(
+              top: -5,
+              right: -8,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFBE45),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // --- Show Notification Dropdown ---
+  void _showNotificationDropdown(BuildContext context) {
+    // Calculate dropdown position relative to screen, not the render box
+    final screenSize = MediaQuery.of(context).size;
+    
+    // Calculate dropdown position
+    final dropdownWidth = 350.0;
+    final dropdownMaxHeight = 400.0;
+    
+    // Position dropdown at top right, closer to bell icon
+    final right = 24.0; // Same padding as AppBar actions
+    final top = 50.0; // AppBar height (56) + 4px spacing - closer to bell
+    
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Stack(
+          children: [
+            // Transparent barrier that closes dropdown when tapped
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(dialogContext).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            // Dropdown positioned
+            Positioned(
+              top: top,
+              right: right,
+              child: Material(
+                color: Colors.transparent,
+                child: NotificationDropdown(
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                  width: dropdownWidth,
+                  maxHeight: dropdownMaxHeight,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

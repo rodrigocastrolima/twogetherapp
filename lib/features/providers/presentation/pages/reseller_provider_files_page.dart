@@ -69,51 +69,56 @@ class _ResellerProviderFilesPageState extends ConsumerState<ResellerProviderFile
       body: SafeArea(
         bottom: false,
         top: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
-            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                widget.providerName,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                  fontSize: _getResponsiveFontSize(context, 24),
-                ),
-              ),
-            ),
-            // Responsive spacing after title - 16px for mobile, 24px for desktop
-            SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
-            Expanded(
-              child: filesAsyncValue.when(
-        data: (files) {
-          if (files.isEmpty) {
-            return const Center(
-                        child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-            itemCount: files.length,
-            itemBuilder: (context, index) {
-              final file = files[index];
-                        return _buildFileListItem(context, file, theme);
-            },
-          );
-        },
-        loading: () => const Center(child: CupertinoActivityIndicator()),
-                  error: (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                      child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Responsive spacing after SafeArea - no spacing for mobile, 24px for desktop
+                SizedBox(height: MediaQuery.of(context).size.width < 600 ? 0 : 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    widget.providerName,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                      fontSize: _getResponsiveFontSize(context, 24),
                     ),
                   ),
-              ),
+                ),
+                // Responsive spacing after title - 16px for mobile, 24px for desktop
+                SizedBox(height: MediaQuery.of(context).size.width < 600 ? 16 : 24),
+                Expanded(
+                  child: filesAsyncValue.when(
+            data: (files) {
+              if (files.isEmpty) {
+                return const Center(
+                            child: Text('Nenhuns ficheiros disponíveis para este fornecedor.'),
+                );
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                itemCount: files.length,
+                itemBuilder: (context, index) {
+                  final file = files[index];
+                            return _buildFileListItem(context, file, theme);
+                },
+              );
+            },
+            loading: () => const Center(child: CupertinoActivityIndicator()),
+                      error: (error, stack) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                          child: Text('Erro ao carregar ficheiros: $error', textAlign: TextAlign.center),
+                        ),
+                      ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

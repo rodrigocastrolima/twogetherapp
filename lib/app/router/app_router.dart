@@ -802,7 +802,10 @@ class AppRouter {
           ),
           GoRoute(
             path: '/clients',
-            pageBuilder: (context, state) => NoTransitionPage(child: reseller_clients.ClientsPage()),
+            pageBuilder: (context, state) {
+              final filter = state.uri.queryParameters['filter'];
+              return NoTransitionPage(child: reseller_clients.ClientsPage(initialFilter: filter));
+            },
           ),
           GoRoute(
             path: '/messages',

@@ -88,7 +88,7 @@ class AppStyles {
 
   // Badge styles
   static BoxDecoration get notificationBadge =>
-      const BoxDecoration(color: Colors.red, shape: BoxShape.circle);
+      const BoxDecoration(color: Color(0xFFFFBE45), shape: BoxShape.circle);
 
   static BoxDecoration primaryBadge(BuildContext context) {
     final brightness = Theme.of(context).brightness;

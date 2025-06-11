@@ -36,7 +36,9 @@ enum OpportunityFilterStatus {
 }
 
 class ClientsPage extends ConsumerStatefulWidget {
-  const ClientsPage({super.key});
+  final String? initialFilter;
+  
+  const ClientsPage({super.key, this.initialFilter});
 
   @override
   ConsumerState<ClientsPage> createState() => _ClientsPageState();
@@ -55,6 +57,27 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         _searchQuery = _searchController.text.toLowerCase();
       });
     });
+    
+    // Set initial filter if provided
+    if (widget.initialFilter != null) {
+      _selectedFilter = _parseFilterString(widget.initialFilter!);
+    }
+  }
+  
+  // Helper method to parse filter string to enum
+  OpportunityFilterStatus _parseFilterString(String filterString) {
+    switch (filterString) {
+      case 'ativos':
+        return OpportunityFilterStatus.ativos;
+      case 'acaoNecessaria':
+        return OpportunityFilterStatus.acaoNecessaria;
+      case 'pendentes':
+        return OpportunityFilterStatus.pendentes;
+      case 'rejeitados':
+        return OpportunityFilterStatus.rejeitados;
+      default:
+        return OpportunityFilterStatus.todos;
+    }
   }
 
   @override
@@ -283,31 +306,31 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: isSmallScreen
-                  ? Row(
-                      children: [
-                        Expanded(child: _buildSearchBar(context)),
-                        const SizedBox(width: 12),
-                        _buildFilterIconButton(context),
-                      ],
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: _buildSearchBar(context),
-                        ),
-                        const SizedBox(width: 16),
-                        SizedBox(
-                          width: 200.0,
-                          child: _buildFilterDropdown(context),
-                        ),
-                      ],
-                    ),
-            ),
+                          const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: isSmallScreen
+                    ? Row(
+                        children: [
+                          Expanded(child: _buildSearchBar(context)),
+                          const SizedBox(width: 12),
+                          _buildFilterIconButton(context),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: _buildSearchBar(context),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 200.0,
+                            child: _buildFilterDropdown(context),
+                          ),
+                        ],
+                      ),
+              ),
             
             Expanded(
               child: opportunitiesAsync.when(
@@ -427,7 +450,7 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(context, isDark),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -576,6 +599,8 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
 
   Widget _buildFilterIconButton(BuildContext context) {
     final theme = Theme.of(context);
+    final isFilterActive = _selectedFilter != OpportunityFilterStatus.todos;
+    final isDark = theme.brightness == Brightness.dark;
     
     return SizedBox(
       width: 40,
@@ -586,17 +611,41 @@ class _ClientsPageState extends ConsumerState<ClientsPage> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+            color: isFilterActive && isDark
+                ? theme.colorScheme.primary.withAlpha((255 * 0.1).round())
+                : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: theme.colorScheme.outline,
-              width: 1,
+              color: isFilterActive ? theme.colorScheme.primary : theme.colorScheme.outline,
+              width: isFilterActive ? 2 : 1,
             ),
           ),
-          child: Icon(
-            Icons.filter_list,
-            size: 20,
-            color: theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Center(
+                child: Icon(
+                  Icons.filter_list,
+                  size: 20,
+                  color: isFilterActive 
+                      ? theme.colorScheme.primary 
+                      : theme.colorScheme.onSurface.withAlpha((255 * 0.7).round()),
+                ),
+              ),
+              if (isFilterActive)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         offset: const Offset(0, 45),

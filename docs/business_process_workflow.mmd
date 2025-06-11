@@ -1,0 +1,49 @@
+graph TD
+    A[Reseller identifies customer opportunity] --> B[Reseller submits service request via app]
+    B --> C[Service request stored in system]
+    C --> D[Backoffice receives notification]
+    
+    D --> E[Backoffice reviews submission]
+    E --> F{Service request approved?}
+    
+    F -->|No| G[Backoffice rejects request]
+    G --> H[Reseller receives rejection notification]
+    H --> I[Process ends]
+    
+    F -->|Yes| J[Backoffice creates CPE proposal]
+    J --> K[Proposal enters approval workflow]
+    K --> L[Documents uploaded to proposal]
+    
+    L --> M{Proposal approved by management?}
+    M -->|No| N[Proposal rejected]
+    N --> O[Reseller notified of rejection]
+    O --> I
+    
+    M -->|Yes| P[Proposal accepted]
+    P --> Q[Customer contract processed]
+    Q --> R[Provider integration activated]
+    R --> S[Equipment/Service provisioned]
+    
+    S --> T[Revenue recorded in Salesforce]
+    T --> U[Commission calculated]
+    U --> V[Commission added to reseller account]
+    
+    V --> W[Dashboard updated with analytics]
+    W --> X[Process complete]
+    
+    %% Communication flow
+    B -.-> Y[Chat communication available]
+    E -.-> Y
+    J -.-> Y
+    P -.-> Y
+    Y -.-> Z[Real-time notifications sent]
+    
+    %% Provider management
+    R --> AA[Access provider files and documentation]
+    AA --> AB[Provider partnership management]
+    
+    style A fill:#e1f5fe
+    style X fill:#e8f5e8
+    style I fill:#ffebee
+    style Y fill:#fff3e0
+    style Z fill:#fff3e0 

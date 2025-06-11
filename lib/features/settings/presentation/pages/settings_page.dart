@@ -113,27 +113,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 _buildSettingsTile(
                   icon: Icons.gavel_rounded,
                   title: 'Termos e Condições',
-                  subtitle: 'Ver termos e condições',
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
-                  ),
-                  onTap: () => context.push('/legal/terms'),
+                  subtitle: 'Em breve',
                   theme: theme,
-                  iconColor: theme.colorScheme.primary,
+                  iconColor: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
                 ),
                 const SizedBox(height: 12),
                 _buildSettingsTile(
                   icon: Icons.privacy_tip_rounded,
                   title: 'Política de Privacidade',
-                  subtitle: 'Ver política de privacidade',
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
-                  ),
-                  onTap: () => context.push('/legal/privacy'),
+                  subtitle: 'Em breve',
                   theme: theme,
-                  iconColor: theme.colorScheme.primary,
+                  iconColor: theme.colorScheme.onSurface.withAlpha((255 * 0.5).round()),
                 ),
                 const SizedBox(height: 24),
                 _buildSettingsTile(
