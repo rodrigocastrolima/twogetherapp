@@ -10,22 +10,44 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
 });
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.light) {
+  ThemeNotifier() : super(ThemeMode.system) {
     _loadTheme();
   }
 
   // Load saved theme preference
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDarkMode = prefs.getBool(AppConstants.themePreferenceKey) ?? false;
-    state = isDarkMode ? ThemeMode.dark : ThemeMode.light;
+    final themeIndex = prefs.getInt(AppConstants.themePreferenceKey) ?? 0;
+    // 0 = system, 1 = light, 2 = dark
+    switch (themeIndex) {
+      case 1:
+        state = ThemeMode.light;
+        break;
+      case 2:
+        state = ThemeMode.dark;
+        break;
+      default:
+        state = ThemeMode.system;
+    }
   }
 
-  // Toggle between light and dark themes
+  // Cycle through theme modes: system -> light -> dark -> system
   Future<void> toggleTheme() async {
     final oldState = state;
-    final newState =
-        state == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    late ThemeMode newState;
+    
+    switch (state) {
+      case ThemeMode.system:
+        newState = ThemeMode.light;
+        break;
+      case ThemeMode.light:
+        newState = ThemeMode.dark;
+        break;
+      case ThemeMode.dark:
+        newState = ThemeMode.system;
+        break;
+    }
+    
     if (kDebugMode) {
       print('[ThemeNotifier] Toggling theme from $oldState to $newState');
     }
@@ -33,14 +55,21 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(
-        AppConstants.themePreferenceKey,
-        newState == ThemeMode.dark,
-      );
+      int themeIndex;
+      switch (newState) {
+        case ThemeMode.light:
+          themeIndex = 1;
+          break;
+        case ThemeMode.dark:
+          themeIndex = 2;
+          break;
+        default:
+          themeIndex = 0; // system
+      }
+      
+      await prefs.setInt(AppConstants.themePreferenceKey, themeIndex);
       if (kDebugMode) {
-        print(
-          '[ThemeNotifier] Saved theme preference: ${newState == ThemeMode.dark}',
-        );
+        print('[ThemeNotifier] Saved theme preference: $themeIndex');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -59,14 +88,21 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(
-        AppConstants.themePreferenceKey,
-        themeMode == ThemeMode.dark,
-      );
+      int themeIndex;
+      switch (themeMode) {
+        case ThemeMode.light:
+          themeIndex = 1;
+          break;
+        case ThemeMode.dark:
+          themeIndex = 2;
+          break;
+        default:
+          themeIndex = 0; // system
+      }
+      
+      await prefs.setInt(AppConstants.themePreferenceKey, themeIndex);
       if (kDebugMode) {
-        print(
-          '[ThemeNotifier] Saved theme preference: ${themeMode == ThemeMode.dark}',
-        );
+        print('[ThemeNotifier] Saved theme preference: $themeIndex');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -80,6 +116,13 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
   // Get theme name for display
   String getThemeName() {
-    return isDarkMode ? 'Dark' : 'Light';
+    switch (state) {
+      case ThemeMode.light:
+        return 'Claro';
+      case ThemeMode.dark:
+        return 'Escuro';
+      case ThemeMode.system:
+        return 'Sistema';
+    }
   }
 }

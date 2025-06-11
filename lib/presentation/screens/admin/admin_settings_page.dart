@@ -81,18 +81,28 @@ class _AdminSettingsPageState extends ConsumerState<AdminSettingsPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       leading: Icon(isDarkMode ? Icons.dark_mode : Icons.wb_sunny, color: theme.colorScheme.primary, size: 24),
                       title: Text('Tema', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
-                      subtitle: Text(isDarkMode ? 'Escuro' : 'Claro', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
-                      trailing: Switch(
-                        value: isDarkMode,
-                        activeColor: theme.colorScheme.primary,
-                        inactiveThumbColor: theme.colorScheme.outline,
-                        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.selected)) {
-                            return theme.colorScheme.primary;
-                          }
-                          return theme.colorScheme.outline.withAlpha((255 * 0.5).round());
-                        }),
-                        onChanged: (value) => ref.read(themeProvider.notifier).toggleTheme(),
+                      subtitle: Text(ref.read(themeProvider.notifier).getThemeName(), style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
+                      trailing: GestureDetector(
+                        onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: theme.colorScheme.primary.withAlpha((255 * 0.3).round()),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            ref.read(themeProvider.notifier).getThemeName(),
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

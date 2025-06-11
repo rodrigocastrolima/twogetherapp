@@ -87,11 +87,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         leading: Icon(Icons.dark_mode, color: theme.colorScheme.primary, size: 24),
                         title: Text('Tema', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                         subtitle: Text(getThemeName(), style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
-                        trailing: Switch(
-                          value: currentTheme == ThemeMode.dark,
-                          onChanged: (bool value) {
-                            themeNotifier.setTheme(value ? ThemeMode.dark : ThemeMode.light);
-                          },
+                        trailing: GestureDetector(
+                          onTap: () => themeNotifier.toggleTheme(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: theme.colorScheme.primary.withAlpha((255 * 0.3).round()),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              getThemeName(),
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       ListTile(
@@ -213,14 +229,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   String getThemeName() {
     final currentTheme = ref.watch(themeProvider);
-    switch (currentTheme) {
-      case ThemeMode.light:
-        return 'Claro';
-      case ThemeMode.dark:
-        return 'Escuro';
-      case ThemeMode.system:
-        return 'Sistema';
-    }
+    final themeNotifier = ref.read(themeProvider.notifier);
+    return themeNotifier.getThemeName();
   }
 
   Widget _buildSettingsTile({
